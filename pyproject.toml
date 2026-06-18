@@ -1,6 +1,6 @@
 [project]
 name = "promptrig"
-version = "0.1.0"
+version = "0.1.1"
 description = "Prompt operations framework for prompt architecture, audits, rewrites, and evals."
 readme = "README.md"
 requires-python = ">=3.10"
