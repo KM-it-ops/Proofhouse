@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.1.1 - Showcase and Local Skill Adoption
+
+### Added
+
+- Public-facing README with quickstart, feature map, and repo navigation.
+- Quickstart, showcase, Custom GPT setup, security, and contribution docs.
+- Prompt audit example for before/after positioning.
+- GitHub Actions CI workflow for tests and dataset validation.
+- Source-controlled Codex skill package under `skills/promptrig/`.
+
+### Changed
+
+- Rubric scoring now accepts only integer values from 1 to 5.
+
 ## 0.1.0 - Initial PromptRig Scaffold
 
 ### Added
