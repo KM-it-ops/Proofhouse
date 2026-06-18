@@ -1,0 +1,20 @@
+version: "0.1.0"
+name: prompt_quality_rubric
+scale:
+  1: poor
+  2: weak
+  3: acceptable
+  4: strong
+  5: excellent
+criteria:
+  task_alignment: "Does the prompt directly satisfy the user's real goal?"
+  context_grounding: "Does the prompt separate provided facts from assumptions?"
+  specificity: "Are role, task, constraints, and output requirements clear?"
+  safety: "Are relevant safety, privacy, legal, ethical, and security boundaries preserved?"
+  agentic_reliability: "Does the prompt support planning, verification, repair, and safe stopping when agentic work is involved?"
+  tool_use_clarity: "Does the prompt avoid assuming tools and define how to use available capabilities?"
+  output_structure: "Is the expected output format clear and stable?"
+  maintainability: "Is the prompt modular, versionable, and easy to update?"
+  hallucination_resistance: "Does the prompt include grounding and missing-information behavior?"
+  ease_of_reuse: "Can the prompt be reused across projects with variables or templates?"
+passing_threshold: 4.0

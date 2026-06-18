@@ -1,0 +1,292 @@
+# GoalBuddy v2 state.yaml
+# Board truth lives here. goal.md is the editable charter; notes/ holds long receipts only.
+
+version: 2
+
+goal:
+  title: "PromptRig Framework Initialization"
+  slug: "promptrig-framework-initialization"
+  kind: existing_plan
+  tranche: "Initialize the PromptRig repo locally, verify the scaffold, and create the requested commit without pushing."
+  status: done
+  oracle:
+    signal: "Required file tree exists, datasets validate, CLI report generation works, tests pass or fallback validation is documented, and local Git commit exists on feature/promptrig-framework."
+    cadence: "after each Worker package and at final audit"
+    final_proof: "Receipt-backed evidence from file checks, CLI validation, pytest or fallback validation, git status/log, and final audit full_outcome_complete: true."
+  intake:
+    original_request: "Implement the PromptRig GoalBuddy Preparation Plan."
+    interpreted_outcome: "PromptRig is initialized as a lightweight prompt-ops framework with a GoalBuddy board, verified scaffold, and local commit."
+    input_shape: existing_plan
+    audience: "developer/operators using PromptRig for prompt architecture, audits, rewrites, agentic modes, and evals"
+    authority: approved
+    proof_type: test
+    completion_proof: "Required files exist, JSONL datasets validate, tests or fallback validation pass, CLI commands work, and a local commit exists without pushing."
+    likely_misfire: "Stopping at board creation or copied files without proving the CLI/tests/datasets and branch/commit workflow."
+    blind_spots_considered:
+      - "Current folder initially had no .git directory."
+      - "Plain node was unavailable; bundled Codex Node is available for GoalBuddy checks."
+      - "Existing starter prompt, manifest, and zip artifacts must be preserved."
+      - "Provider APIs and secrets are out of scope."
+    existing_plan_facts:
+      - "Use promptrig_source_bundle.zip as the starter scaffold."
+      - "Initialize Git in the current folder."
+      - "Create or select feature/promptrig-framework."
+      - "Run python -m pip install -e . and python -m pytest when available."
+      - "Run CLI validate and report commands."
+      - "Commit locally with feat: initialize PromptRig prompt-ops framework."
+      - "Do not push."
+
+rules:
+  pm_owns_state: true
+  one_active_task: true
+  max_write_workers: 1
+  no_implementation_without_worker_or_pm_task: true
+  no_completion_without_judge_or_pm_audit: true
+  planning_is_not_completion: true
+  queued_required_worker_blocks_completion: true
+  continuous_until_full_outcome: true
+  missing_input_or_credentials_do_not_stop_goal: true
+  preserve_and_validate_existing_plan: true
+  intake_misfire_must_be_audited: true
+  goal_pressure_requires_oracle: true
+  no_completion_on_weak_proof: true
+  slice_policy:
+    max_consecutive_tiny_tasks: 2
+    prefer_vertical_slices: true
+    judge_picks_largest_safe_slice: true
+    worker_completes_whole_slice: true
+
+agents:
+  scout: installed
+  worker: installed
+  judge: installed
+
+visual_board:
+  selected: none
+  local:
+    status: not_requested
+    url: null
+    command: "npx goalbuddy board docs/goals/promptrig-framework-initialization"
+
+active_task: null
+
+tasks:
+  - id: T001
+    type: scout
+    assignee: Scout
+    status: done
+    reasoning_hint: default
+    objective: "Confirm repo baseline, existing files, archive inventory, Python/pytest availability, and safe scaffold path."
+    inputs:
+      - "C:/Users/alkur/Projects/PromptRig"
+      - "promptrig_source_bundle.zip"
+      - "CODEX_IMPLEMENTATION_PROMPT.md"
+      - "PROMPTRIG_FILE_MANIFEST.md"
+    constraints:
+      - "Read-only."
+      - "Do not edit implementation files."
+      - "Prefer concrete command and file-path evidence."
+    expected_output:
+      - "Repo baseline"
+      - "Existing file inventory"
+      - "Archive inventory"
+      - "Python/pytest availability"
+      - "Safe scaffold recommendation"
+    receipt:
+      result: done
+      summary: "Baseline confirmed: folder contained four starter artifacts, no .git directory, Python 3.11.15 available, promptrig_source_bundle.zip inventory matches the required scaffold, plain node unavailable, bundled Codex Node available, and GoalBuddy agent configs present."
+      evidence:
+        - "git status --short --branch -> fatal: not a git repository"
+        - "python --version -> Python 3.11.15"
+        - "tar -tf promptrig_source_bundle.zip -> required PromptRig tree under promptrig/"
+        - "C:/Users/alkur/.codex/agents/goal-scout.toml"
+        - "C:/Users/alkur/.codex/agents/goal-worker.toml"
+        - "C:/Users/alkur/.codex/agents/goal-judge.toml"
+      spawned_tasks: []
+  - id: T002
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: default
+    objective: "Validate scaffold source and define the allowed Worker scope for implementation."
+    inputs:
+      - "T001 receipt"
+      - "promptrig_source_bundle.zip"
+      - "pasted PromptRig implementation prompt"
+    constraints:
+      - "Do not implement."
+      - "Preserve existing starter artifacts unless comparing or copying is intentional."
+      - "Pick the largest safe useful slice with clear allowed_files, verify commands, and stop conditions."
+    expected_output:
+      - "Decision"
+      - "Exact Worker objective"
+      - "allowed_files"
+      - "verify"
+      - "stop_if"
+    receipt:
+      result: done
+      decision: "approved"
+      rationale: "The source bundle inventory matches the requested tree and the current folder has no implementation files to overwrite. Existing starter artifacts should remain at repo root, with the bundle's project files applied additively except for avoiding unnecessary replacement of CODEX_IMPLEMENTATION_PROMPT.md."
+      allowed_files:
+        - ".gitignore"
+        - "CHANGELOG.md"
+        - "LICENSE"
+        - "README.md"
+        - "pyproject.toml"
+        - "prompts/**"
+        - "evals/**"
+        - "src/**"
+        - "tests/**"
+        - "references/**"
+        - "docs/goals/promptrig-framework-initialization/**"
+        - ".git/**"
+      verify:
+        - "python -m pip install -e ."
+        - "python -m pytest"
+        - "python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl"
+        - "python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md"
+        - "git status --short --branch"
+      stop_if:
+        - "Extraction would overwrite an existing non-starter project file without inspection."
+        - "The scaffold contains secrets or provider credentials."
+        - "Verification fails twice for the same root cause."
+  - id: T003
+    type: worker
+    assignee: Worker
+    status: done
+    reasoning_hint: default
+    objective: "Initialize Git if still absent, create or select feature/promptrig-framework, apply the PromptRig scaffold from the source bundle, verify it, and commit locally."
+    allowed_files:
+      - ".gitignore"
+      - "CHANGELOG.md"
+      - "LICENSE"
+      - "README.md"
+      - "pyproject.toml"
+      - "prompts/**"
+      - "evals/**"
+      - "src/**"
+      - "tests/**"
+      - "references/**"
+      - "docs/goals/promptrig-framework-initialization/**"
+      - ".git/**"
+    verify:
+      - "python -m pip install -e ."
+      - "python -m pytest"
+      - "python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl"
+      - "python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md"
+      - "git status --short --branch"
+      - "git log --oneline -1"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Scaffold behavior is ambiguous."
+      - "Verification fails twice for the same root cause."
+      - "A push, credential, provider API integration, or destructive operation is required."
+    receipt:
+      result: done
+      changed_files:
+        - ".gitignore"
+        - "CHANGELOG.md"
+        - "LICENSE"
+        - "README.md"
+        - "pyproject.toml"
+        - "docs/goals/promptrig-framework-initialization/goal.md"
+        - "docs/goals/promptrig-framework-initialization/state.yaml"
+        - "prompts/"
+        - "evals/"
+        - "src/promptrig/"
+        - "tests/"
+        - "references/"
+      commands:
+        - cmd: "git init"
+          status: pass
+        - cmd: "git checkout -b feature/promptrig-framework"
+          status: pass
+        - cmd: "py -3.14 -m pip install -e ."
+          status: pass
+        - cmd: "py -3.14 -m pytest"
+          status: pass
+        - cmd: "py -3.14 -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl"
+          status: pass
+        - cmd: "py -3.14 -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md"
+          status: pass
+        - cmd: "Get-ChildItem -Recurse -File evals/datasets | ForEach-Object { py -3.14 -m promptrig.cli validate --dataset $_.FullName }"
+          status: pass
+        - cmd: "git diff --cached --check"
+          status: pass
+        - cmd: "git commit -m \"feat: initialize PromptRig prompt-ops framework\""
+          status: pass
+      summary: "Initialized Git, created feature/promptrig-framework, applied the PromptRig scaffold from promptrig_source_bundle.zip, tightened rubric scoring to integer 1-5 values, verified install/tests/CLI/datasets, and created local commit 35aef75 without pushing."
+  - id: T004
+    type: worker
+    assignee: Worker
+    status: blocked
+    reasoning_hint: default
+    objective: "Repair any verification gaps in prompt docs, JSONL datasets, rubrics, CLI behavior, or reference files after T003."
+    allowed_files:
+      - ".gitignore"
+      - "CHANGELOG.md"
+      - "LICENSE"
+      - "README.md"
+      - "pyproject.toml"
+      - "prompts/**"
+      - "evals/**"
+      - "src/**"
+      - "tests/**"
+      - "references/**"
+      - "docs/goals/promptrig-framework-initialization/**"
+    verify:
+      - "python -m pytest"
+      - "python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl"
+      - "python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md"
+    stop_if:
+      - "Need files outside allowed_files."
+      - "Provider/API integration becomes necessary."
+      - "Verification fails twice for the same root cause."
+    receipt:
+      result: blocked
+      summary: "No repair slice was needed after T003 because pytest, CLI validation, report generation, dataset validation, file existence, and secret scan passed."
+  - id: T999
+    type: judge
+    assignee: Judge
+    status: done
+    reasoning_hint: default
+    objective: "Audit whether the PromptRig initialization is complete against the pasted verification checklist."
+    inputs:
+      - "All done task receipts"
+      - "Last verification"
+      - "Current git status"
+      - "Last commit"
+    constraints:
+      - "Do not implement."
+      - "Reject completion if required Worker work is still queued or active."
+      - "Reject completion if tests, fallback validation, file existence, branch, commit, or no-push status are unproven."
+    expected_output:
+      - "complete | not_complete"
+      - "full_outcome_complete: true | false"
+      - "missing evidence"
+      - "next task if not complete"
+    receipt:
+      result: done
+      decision: complete
+      full_outcome_complete: true
+      summary: "Final audit passed: branch feature/promptrig-framework exists, required scaffold files exist, datasets validate, pytest passed, CLI validate/report works, no secret-looking payloads were found, generated reports are ignored by policy, and the local commit was created without pushing."
+      evidence:
+        - "py -3.14 -m pytest -> 6 passed"
+        - "All evals/datasets/*.jsonl validated"
+        - "Required file check -> All required files exist."
+        - "rg secret scan -> no matches"
+        - "git log --oneline -1 -> 35aef75 feat: initialize PromptRig prompt-ops framework"
+
+checks:
+  dirty_fingerprint: "post-commit board receipt amendment pending"
+  last_verification:
+    result: pass
+    task: T999
+    commands:
+      - "py -3.14 -m pip install -e ."
+      - "py -3.14 -m pytest"
+      - "py -3.14 -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl"
+      - "py -3.14 -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md"
+      - "Validate all evals/datasets/*.jsonl"
+      - "Required file existence check"
+      - "Secret scan"

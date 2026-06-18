@@ -1,0 +1,15 @@
+[project]
+name = "promptrig"
+version = "0.1.0"
+description = "Prompt operations framework for prompt architecture, audits, rewrites, and evals."
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [{ name = "PromptRig Maintainers" }]
+license = { text = "MIT" }
+
+[project.scripts]
+promptrig = "promptrig.cli:main"
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
