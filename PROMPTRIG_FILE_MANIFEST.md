@@ -37,6 +37,9 @@ This bundle contains a starter PromptRig repository scaffold and a Codex impleme
 - `prompts/modules/missing_context_register.md`
 - `prompts/modules/rewrite_engine.md`
 - `prompts/modules/safety_boundary_checker.md`
+- `prompts/templates/prompt_architect/manifest.json`
+- `prompts/templates/prompt_architect/v1.0/compact.md`
+- `prompts/templates/prompt_architect/v1.0/system.md`
 - `pyproject.toml`
 - `references/current_sources.md`
 - `references/legacy_uploaded_sources.md`
@@ -45,6 +48,8 @@ This bundle contains a starter PromptRig repository scaffold and a Codex impleme
 - `src/promptrig/runner.py`
 - `src/promptrig/schemas.py`
 - `src/promptrig/scoring.py`
+- `src/promptrig/templates.py`
 - `tests/test_eval_dataset_integrity.py`
+- `tests/test_prompt_architect_templates.py`
 - `tests/test_rubric_scoring.py`
 - `tests/test_schema_validation.py`

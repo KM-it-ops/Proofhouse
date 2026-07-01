@@ -1,0 +1,128 @@
+[
+  {
+    "id": "ghost-architect",
+    "name": "Ghost Architect",
+    "role": "Prompt system auditor",
+    "tagline": "Silently maps messy prompt terrain into clean modular architecture.",
+    "rank": "Legendary",
+    "target_surfaces": ["ChatGPT", "Custom GPT", "Claude", "Gemini"],
+    "primary": "prompts/core/promptrig_core.md",
+    "mode": "prompts/modes/audit_mode.md",
+    "modules": [
+      "prompts/modules/context_auditor.md",
+      "prompts/modules/missing_context_register.md",
+      "prompts/modules/changelog_builder.md"
+    ],
+    "eval_packs": ["evals/datasets/prompt_audit_cases.jsonl"],
+    "rubrics": ["evals/rubrics/prompt_quality_rubric.yaml"],
+    "full_blitz": [
+      "Inventory prompt surface and source files",
+      "Separate confirmed facts from missing context",
+      "Recommend a modular prompt architecture",
+      "Generate audit notes, changelog entries, and regression checks"
+    ],
+    "exports": ["audit brief", "module map", "rewrite plan", "eval checklist"]
+  },
+  {
+    "id": "gunsmith-rewriter",
+    "name": "Gunsmith Rewriter",
+    "role": "Prompt transformation bench",
+    "tagline": "Tunes rough instructions into sharp, portable, surface-aware prompts.",
+    "rank": "Legendary",
+    "target_surfaces": ["Custom GPT", "Codex", "Cursor", "Claude Code"],
+    "primary": "prompts/core/promptrig_core.md",
+    "mode": "prompts/modes/meta_prompting_mode.md",
+    "modules": [
+      "prompts/modules/rewrite_engine.md",
+      "prompts/modules/safety_boundary_checker.md",
+      "prompts/modules/missing_context_register.md"
+    ],
+    "eval_packs": ["evals/datasets/meta_prompting_cases.jsonl"],
+    "rubrics": ["evals/rubrics/prompt_quality_rubric.yaml"],
+    "full_blitz": [
+      "Extract preserved constraints and target surface",
+      "Rewrite with missing-context behavior intact",
+      "Compress without weakening safety or verification",
+      "Produce before/after rationale and regression checks"
+    ],
+    "exports": ["system prompt", "Custom GPT instructions", "Codex skill", "diff brief"]
+  },
+  {
+    "id": "firing-range-evaluator",
+    "name": "Firing Range Evaluator",
+    "role": "Offline prompt eval operator",
+    "tagline": "Turns prompt quality into testable cases, rubrics, and reports.",
+    "rank": "Legendary",
+    "target_surfaces": ["API agents", "local LLMs", "benchmarks", "regression suites"],
+    "primary": "prompts/core/promptrig_core.md",
+    "mode": "prompts/modes/evaluator_mode.md",
+    "modules": [
+      "prompts/modules/evaluation_builder.md",
+      "prompts/modules/context_auditor.md",
+      "prompts/modules/changelog_builder.md"
+    ],
+    "eval_packs": [
+      "evals/datasets/prompt_audit_cases.jsonl",
+      "evals/datasets/adversarial_cases.jsonl"
+    ],
+    "rubrics": [
+      "evals/rubrics/prompt_quality_rubric.yaml",
+      "evals/rubrics/agentic_reliability_rubric.yaml"
+    ],
+    "full_blitz": [
+      "Generate normal, edge, missing-context, adversarial, and regression cases",
+      "Attach 1-5 rubric scoring criteria",
+      "Validate JSONL schema",
+      "Create a report skeleton for trial results"
+    ],
+    "exports": ["JSONL eval pack", "YAML rubric", "markdown report", "score summary"]
+  },
+  {
+    "id": "overwatch-agent",
+    "name": "Overwatch Agent",
+    "role": "Agentic workflow commander",
+    "tagline": "Designs autonomous workflows with tools, permissions, loops, and stop rules.",
+    "rank": "Legendary",
+    "target_surfaces": ["Codex", "terminal agents", "browser agents", "multi-agent systems"],
+    "primary": "prompts/core/promptrig_core.md",
+    "mode": "prompts/modes/agentic_mode.md",
+    "modules": [
+      "prompts/modules/context_auditor.md",
+      "prompts/modules/safety_boundary_checker.md",
+      "prompts/modules/evaluation_builder.md"
+    ],
+    "eval_packs": ["evals/datasets/agentic_mode_cases.jsonl"],
+    "rubrics": ["evals/rubrics/agentic_reliability_rubric.yaml"],
+    "full_blitz": [
+      "Map tools, permissions, filesystem boundaries, and escalation points",
+      "Define stop conditions and human checkpoints",
+      "Add verification loops and failure recovery",
+      "Export agent-ready operating instructions"
+    ],
+    "exports": ["AGENTS.md section", "agent system prompt", "tool policy", "verification loop"]
+  },
+  {
+    "id": "blackbox-sentinel",
+    "name": "Blackbox Sentinel",
+    "role": "Safety and boundary hardener",
+    "tagline": "Pressure-tests sensitive prompt workflows before they reach production.",
+    "rank": "Legendary",
+    "target_surfaces": ["cybersecurity", "automation", "scraping", "sensitive-data workflows"],
+    "primary": "prompts/core/promptrig_core.md",
+    "mode": "prompts/modes/audit_mode.md",
+    "modules": [
+      "prompts/modules/safety_boundary_checker.md",
+      "prompts/modules/context_auditor.md",
+      "prompts/modules/evaluation_builder.md"
+    ],
+    "eval_packs": ["evals/datasets/adversarial_cases.jsonl"],
+    "rubrics": ["evals/rubrics/prompt_quality_rubric.yaml"],
+    "full_blitz": [
+      "Classify sensitive domains and authorization assumptions",
+      "Harden safety, privacy, legal, and security boundaries",
+      "Generate adversarial failure signals",
+      "Export a defensive compliance-oriented prompt package"
+    ],
+    "exports": ["safety audit", "boundary policy", "adversarial cases", "hardened prompt"]
+  }
+]

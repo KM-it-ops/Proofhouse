@@ -6,6 +6,11 @@ venv/
 dist/
 build/
 *.egg-info/
+node_modules/
+.npm-cache/
+*.tsbuildinfo
+.vite-*.log
+.test-output/
 evals/reports/*.json
 evals/reports/*.md
 !evals/reports/.gitkeep

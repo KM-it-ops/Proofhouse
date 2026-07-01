@@ -1,0 +1,25 @@
+{
+  "id": "prompt-architect",
+  "name": "Agentic Prompt Architect",
+  "default_version": "1.0",
+  "versions": {
+    "1.0": {
+      "system": "v1.0/system.md",
+      "compact": "v1.0/compact.md",
+      "source_documents": [
+        {
+          "title": "prompt-architect-system.md",
+          "url": "https://docs.google.com/document/d/1qOgQ7DLVhhWMzTXZFr_w4vC956Y3u7hQ1iiAEqnu9Js",
+          "created_at": "2026-06-03T03:52:12.345Z",
+          "updated_at": "2026-06-03T03:52:22.064Z"
+        },
+        {
+          "title": "prompt-architect-compact.md",
+          "url": "https://docs.google.com/document/d/1kUVBvBg5VkZ6WlSL7RCs-SlJ7QklX0Bklh0UrrRz9n4",
+          "created_at": "2026-06-03T03:51:43.530Z",
+          "updated_at": "2026-06-03T03:52:06.355Z"
+        }
+      ]
+    }
+  }
+}
