@@ -46,6 +46,7 @@ prompts/
   core/             Universal PromptRig prompt, safety, reference, and context policies
   modes/            Default, Audit, Meta-Prompting, Agentic, and Evaluator modes
   modules/          Reusable audit, rewrite, safety, eval, and changelog modules
+  templates/        Versioned renderable prompt templates
 evals/
   datasets/         JSONL prompt evaluation cases
   rubrics/          Human-readable YAML rubrics
@@ -69,6 +70,12 @@ Generate a markdown report skeleton:
 
 ```bash
 python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+```
+
+Render both Agentic Prompt Architect prompt variants from versioned templates:
+
+```bash
+python -m promptrig.cli generate --template prompt-architect --project-name "Incident Desk" --project-description "Build an internal incident review assistant." --platform web --stack "Next.js, Supabase" --scale M --out-dir exports/incident-desk
 ```
 
 ## Design Rules
