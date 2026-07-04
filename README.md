@@ -20,7 +20,7 @@ PromptRig treats prompts like production infrastructure: modular, versioned, tes
 | Agentic mode design | Permission maps, tool boundaries, verification loops, and stop conditions. |
 | Prompt evals | JSONL datasets, YAML rubrics, schema validation, scoring helpers, and report skeletons. |
 | Custom GPT packaging | A ready instruction set for **PromptOps Architect powered by PromptRig**. |
-| Codex adoption | A source-controlled local skill in `skills/promptrig/` for fresh Codex sessions. |
+| Codex / Cursor / Claude adoption | PromptRig v1.2 skill bundle in `skills/promptrig/` plus portable framework spec at the repo root. |
 
 ## Quick Start
 
@@ -54,7 +54,9 @@ evals/
 src/promptrig/      Standard-library eval harness and CLI
 tests/              Pytest coverage for schemas, scoring, and bundled datasets
 docs/               GitHub-facing quickstart, showcase, and Custom GPT setup
-skills/promptrig/   Source copy of the local Codex skill
+skills/promptrig/   PromptRig v1.2 skill bundle (.skill, references, artifact JSX)
+apps/               Standalone interactive PromptRig artifact (`promptrig.jsx`)
+promptrig-framework.*  Portable human/JSON spec for the v1.2 meta-optimizer flow
 references/         Current and legacy source policy notes
 ```
 

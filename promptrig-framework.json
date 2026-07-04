@@ -1,0 +1,95 @@
+{
+  "name": "PromptRig",
+  "version": "1.2",
+  "description": "A meta prompt-optimizer: natural language in, a model-specific optimized prompt out, with branching upfront clarification, a self-heal refinement loop, built-in token discipline, auto-research/indexing of unfamiliar models, and optional loop-engineering structure for recurring tasks.",
+  "flow": ["input", "clarify", "compile", "self_heal_loop"],
+  "tokenDiscipline": {
+    "universalDirective": "Apply strict token discipline, in your own output and in the prompt you produce: eliminate redundant framing, merge overlapping constraints into single directives, never restate information already established, and default to the shortest phrasing that fully preserves meaning. Where the target model supports prompt caching (e.g., Claude models via cache_control), structure the compiled prompt so stable/reusable instructions are clearly separated from per-call variable content, and say so explicitly in settings. Do not pad with filler transitions, meta-commentary about your own process, hedging, or restated instructions.",
+    "efficiencyPresets": {
+      "efficient": { "label": "Efficient", "questionCount": "6-10", "promptWordCap": 250, "note": "tightest possible prompt, minimum viable questions" },
+      "balanced": { "label": "Balanced", "questionCount": "10-16", "promptWordCap": 500, "note": "standard coverage" },
+      "thorough": { "label": "Thorough", "questionCount": "14-22", "promptWordCap": 800, "note": "maximum coverage, more explicit guardrails" }
+    },
+    "tokenEstimateFormula": "Math.ceil(text.length / 4) -- computed locally, no extra API call",
+    "selfHealCategory": "token bloat / too verbose is a named diagnosis category alongside scope mismatch, wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, other"
+  },
+  "modelResearchAndIndexing": {
+    "purpose": "Handle target models/providers not in the built-in modelNotes without falling back to generic guidance.",
+    "flow": [
+      "Check persistent storage for a cached entry at key model-notes:{lowercased_name} (shared=true)",
+      "If absent, call the Messages API with tools: [{type: 'web_search_20250305', name: 'web_search'}] to research the model's real prompting behavior",
+      "Condense the result into one dense paragraph matching the style of the built-in modelNotes entries",
+      "Write it back to persistent storage at the same key so future sessions/users reuse it instantly",
+      "On research failure, fall back to the generic 'Other' notes and say so explicitly rather than inventing specifics"
+    ],
+    "sourceLabels": ["builtin", "cached", "researched", "fallback"],
+    "researchPromptTemplate": "Research the AI model/provider \"{{name}}\". Find its known prompting best practices, behavioral quirks, context window, and anything a prompt engineer should know to optimize prompts for it specifically. Write ONE dense paragraph under 120 words, in this style: \"Fast, capable default model for most tasks. Responds well to concise, direct instructions and doesn't need heavy scaffolding.\" Return ONLY that paragraph -- no preamble, no markdown, no citations, no \"based on my research.\""
+  },
+  "loopEngineering": {
+    "trigger": "user-toggled boolean (loopMode), not auto-detected",
+    "directive": "This is a recurring or autonomous loop task, not a one-shot request. Structure the compiled prompt with an explicit loop shape: (1) Trigger/cadence -- what starts each iteration (schedule, event, or manual invocation), (2) Loop body -- plan, act, verify each iteration against evidence rather than assuming success, (3) Exit/stop condition -- what ends the loop entirely, distinct from what ends one iteration, (4) Checkpoint/escalation -- what's severe or ambiguous enough to interrupt the loop and involve the human. Include a compounding-memory mechanism (a running notes file: one lesson per entry, corrections and confirmed approaches alike, update rather than duplicate) so later iterations benefit from earlier ones. Label this section \"Loop Structure\" in the compiled prompt.",
+    "effectOnClarify": "Adds a 'Loop & Recurrence' question group covering trigger type, interval/condition, stop condition, and completion criteria.",
+    "effectOnCompile": "Compiled prompt includes a labeled 'Loop Structure' section alongside (or instead of) the one-shot instructions."
+  },
+  "modelNotes": {
+    "Claude Fable 5": "Mythos-tier, built for long autonomous self-verifying runs, not rapid back-and-forth. State goals/success criteria, not steps -- over-specifying degrades it. Default effort: high (xhigh for the hardest work). Delegates to subagents on its own. Benefits from a persistent lessons file across sessions. Runs safety classifiers on offensive-cybersecurity and bio/life-science content that can flag legitimate defensive/detection work -- frame technique descriptions defensively. Never ask it to echo/explain its internal reasoning as response text (risks refusal fallback to Opus 4.8). Define explicit pause-vs-continue checkpoints for long tasks.",
+    "Claude Mythos 5": "Same model as Fable 5, without the added cyber/bio safety layer, restricted to trusted orgs. Same prompting patterns as Fable 5.",
+    "Claude Opus 4.8": "Strong general reasoning. Benefits from clear step structure, explicit success criteria, worked examples for style-sensitive tasks. Less suited to fully autonomous multi-hour runs than Fable 5.",
+    "Claude Sonnet 5": "Fast, capable default. Concise, direct instructions; doesn't need heavy scaffolding. Good for genuine iteration.",
+    "Claude Haiku 4.5": "Optimized for speed/cost. Keep prompts narrow; break multi-stage work into smaller discrete requests.",
+    "GPT-5.5": "General best practice: explicit system/developer instructions, clear output format, few-shot examples for style-sensitive output. Vendor specifics may have shifted -- verify against current OpenAI docs for anything critical.",
+    "Gemini": "General best practice: explicit structure, clear formatting instructions, grounding context up front. Verify against current Google docs for anything critical.",
+    "Other": "General best practice: explicit goal, constraints, format, audience. Note in rationale that this is generic guidance."
+  },
+  "systemPrompts": {
+    "generateQuestions": {
+      "template": "You are an expert prompt engineer. You generate a single batch of clarifying questions that will let you fully optimize a prompt for a specific target model, given a user's raw natural-language request.\n\nTarget model: {{resolvedModel}}\nKnown behavior of this target: {{modelNotes}}\n\n{{TOKEN_DISCIPLINE}}\n\nBecause this target is not always well suited to rapid back-and-forth (especially long-horizon models), ask everything you'll need in ONE batch rather than iteratively. Group questions into 3-5 categories relevant to the request (choose from: Scope & Goal, Constraints & Format, Tone & Audience, Autonomy & Iteration Cadence, Security & Reliability, Technical Environment -- only include categories relevant to this specific request). Within groups, include conditional follow-up questions that only make sense given a particular answer (a domino-effect branch), marked with dependsOn.\n\nUser's efficiency preference: {{preset.label}} ({{preset.note}}). Keep every question under 15 words and every option under 5 words. Produce {{preset.questionCount}} total questions including branches -- ask only what materially changes the compiled prompt, skip anything you can reasonably default.\n\nReturn ONLY valid JSON (no markdown fences, no prose) matching exactly this schema:\n[{\"group\":\"string\",\"questions\":[{\"id\":\"short_snake_case\",\"text\":\"string\",\"type\":\"single_select|multi_select|text\",\"options\":[\"...\"],\"dependsOn\":null}]}]\n\nFor conditional questions, dependsOn must be {\"questionId\":\"parent_id\",\"values\":[\"option\",\"that\",\"triggers\",\"it\"]} -- otherwise null. For type \"text\", options must be an empty array.",
+      "userTemplate": "Raw request: \"{{rawRequest}}\"\n\nGenerate the question batch now.",
+      "placeholders": ["resolvedModel", "modelNotes", "rawRequest", "TOKEN_DISCIPLINE", "preset.label", "preset.note", "preset.questionCount"]
+    },
+    "compilePrompt": {
+      "template": "You are an expert prompt engineer. Synthesize a fully optimized prompt for the target model below, using the user's raw request and their clarifying answers.\n\nTarget model: {{resolvedModel}}\nKnown behavior of this target: {{modelNotes}}\n\n{{TOKEN_DISCIPLINE}}\n\nOptimize for: user satisfaction, feasibility, usability, and top-tier performance on this specific model. If the request involves building software, systems, or handling sensitive data, include a short \"Security & Reliability\" section in the prompt capturing relevant constraints -- omit it entirely if not applicable.\n\nUser's efficiency preference: {{preset.label}} ({{preset.note}}). Keep the compiled prompt itself under {{preset.promptWordCap}} words -- trim aggressively rather than covering every edge case when the mode is efficient. Keep your whole response (including rationale) under 550 words total.\n\nReturn ONLY valid JSON (no markdown fences, no prose) matching exactly this schema:\n{\"prompt\":\"the full optimized prompt text, ready to paste as-is\",\"rationale\":\"2-4 sentences on key choices made for this model\",\"settings\":\"one line of suggested settings for this model (effort level, temperature, etc.) or empty string if not applicable\",\"efficiency\":\"one sentence naming the concrete token-saving choices made in this specific prompt\"}",
+      "userTemplateFirstPass": "Raw request: \"{{rawRequest}}\"\n\nClarifying answers:\n{{answeredEntries}}\n\nCompile the optimized prompt now.",
+      "userTemplateSelfHeal": "Original request: \"{{rawRequest}}\"\n\nPrevious optimized prompt (~{{tokenEstimate}} tokens):\n{{previousPrompt}}\n\nUser feedback on that version: \"{{feedback}}\"\n\nDiagnose what's wrong (scope mismatch, wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, token bloat/too verbose, or other) and produce a revised version that fixes it. Reflect the diagnosis briefly in the rationale.",
+      "placeholders": ["resolvedModel", "modelNotes", "rawRequest", "answeredEntries", "previousPrompt", "feedback", "TOKEN_DISCIPLINE", "preset.label", "preset.note", "preset.promptWordCap", "tokenEstimate"]
+    }
+  },
+  "schemas": {
+    "questionBatch": {
+      "type": "array",
+      "items": {
+        "group": "string",
+        "questions": {
+          "type": "array",
+          "items": {
+            "id": "short_snake_case string, unique",
+            "text": "string, under 15 words",
+            "type": "single_select | multi_select | text",
+            "options": "array of strings, under 5 words each; empty array for type=text",
+            "dependsOn": "null, or {questionId: string, values: array of strings}"
+          }
+        }
+      }
+    },
+    "compiledPrompt": {
+      "type": "object",
+      "properties": {
+        "prompt": "string -- the full optimized prompt, ready to paste as-is",
+        "rationale": "string -- 2-4 sentences on key choices made for this model",
+        "settings": "string -- one line of suggested settings, or empty string",
+        "efficiency": "string -- one sentence naming the concrete token-saving choices made in this specific prompt"
+      }
+    }
+  },
+  "apiConfig": {
+    "endpoint": "https://api.anthropic.com/v1/messages",
+    "model": "claude-sonnet-4-6",
+    "max_tokens": 1000,
+    "note": "Used internally by the PromptRig artifact to run both stages. No API key required inside a Claude artifact."
+  },
+  "reuse": {
+    "interactive": "Use promptrig.jsx as-is (calls the Claude API directly, no backend needed).",
+    "manual": "Paste the system/user prompts above into any conversation, filling in the {{placeholders}} by hand.",
+    "portable": "This file holds the same content as structured data for scripting or dropping into other tools/projects."
+  }
+}

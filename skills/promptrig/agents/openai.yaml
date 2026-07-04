@@ -1,4 +1,0 @@
-interface:
-  display_name: "PromptRig"
-  short_description: "Prompt architecture, audits, rewrites, and evals"
-  default_prompt: "Use $promptrig to audit and improve this prompt system."
