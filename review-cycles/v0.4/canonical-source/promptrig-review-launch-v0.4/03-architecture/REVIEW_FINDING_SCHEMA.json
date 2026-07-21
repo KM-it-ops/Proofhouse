@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/schemas/review-finding-0.3.json",
+  "title": "PromptRig Review Finding",
+  "type": "object",
+  "required": ["id","severity","title","affected_sources","finding","failure_scenario","recommendation","validation","confidence"],
+  "properties": {
+    "id":{"type":"string","pattern":"^REV-[A-Z0-9-]+$"},
+    "severity":{"enum":["critical","high","medium","low"]},
+    "title":{"type":"string","minLength":5},
+    "affected_sources":{"type":"array","items":{"type":"string"},"minItems":1},
+    "finding":{"type":"string"},
+    "evidence":{"type":"array","items":{"type":"string"}},
+    "failure_scenario":{"type":"string"},
+    "recommendation":{"type":"string"},
+    "validation":{"type":"string"},
+    "confidence":{"type":"number","minimum":0,"maximum":1},
+    "disposition":{"enum":["unreviewed","accepted","modified","deferred","rejected","superseded"]}
+  },
+  "additionalProperties": false
+}

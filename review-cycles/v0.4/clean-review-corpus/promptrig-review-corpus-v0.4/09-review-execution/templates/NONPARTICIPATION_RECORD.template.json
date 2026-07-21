@@ -1,0 +1,8 @@
+{
+  "reviewer_id": "",
+  "recorded_at_utc": "",
+  "reason": "unavailable|access_failure|declined|other",
+  "attempts": [],
+  "impact_on_review_coverage": "",
+  "replacement_reviewer": ""
+}

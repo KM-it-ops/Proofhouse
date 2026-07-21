@@ -1,0 +1,314 @@
+[
+  {
+    "id": "REV-CLAUDE-HIGH-001",
+    "severity": "high",
+    "title": "Repair-limit bounds contradict across IR, request, result, and accepted decision D-008, with dual state ownership",
+    "affected_sources": [
+      "schemas/PROMPTRIG_IR.schema.json",
+      "schemas/COMPILATION_REQUEST.schema.json",
+      "schemas/EVALUATION_RESULT.schema.json",
+      "00-governance/LEGACY_DECISION_LOG.md",
+      "04-specification/ACCEPTANCE_CRITERIA.md",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md"
+    ],
+    "finding": "The canonical IR permits evaluation.repair_limit 0-5 while CompilationRequest.repair_limit permits 0-2 (default 1), EvaluationResult.repair_pass caps at 2, and accepted decision D-008, the acceptance criteria ('configure zero to two repair passes'), and the master scope all specify 0-2. The same budget is also owned in two places (semantic IR and per-request parameter) with no precedence rule.",
+    "evidence": [
+      "schemas/PROMPTRIG_IR.schema.json lines 162-166 (\"repair_limit\": minimum 0, maximum 5)",
+      "schemas/COMPILATION_REQUEST.schema.json lines 36-41 (minimum 0, maximum 2, default 1)",
+      "schemas/EVALUATION_RESULT.schema.json lines 62-66 (repair_pass maximum 2)",
+      "00-governance/LEGACY_DECISION_LOG.md D-008 (\"default one pass, configurable zero to two\")",
+      "04-specification/ACCEPTANCE_CRITERIA.md, Required Developer Mode capabilities (\"configure zero to two repair passes\")"
+    ],
+    "failure_scenario": "A schema-valid IR with repair_limit=5 is accepted by the canonical validator, then either silently clamped (violating the no-silent-weakening invariant in RFC-001) or executed for 5 passes (violating D-008 and cost bounds). Two benchmark competitors implement opposite resolutions and both claim conformance.",
+    "recommendation": "Make the compilation request the single owner of the runtime repair budget; align all bounds to 0-2; remove repair_limit from the IR or mark it advisory with an explicit precedence rule (effective = min(ir, request)); record the resolution as an amendment to ADR-006.",
+    "validation": "A CI cross-schema consistency check asserting identical repair bounds across the three schemas, plus a compiler test that an IR with repair_limit above the request bound produces an explicit diagnostic rather than silent clamping.",
+    "confidence": 0.97,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-HIGH-002",
+    "severity": "high",
+    "title": "Provenance and trace contracts cannot reconstruct a compilation run",
+    "affected_sources": [
+      "schemas/COMPILATION_RESULT.schema.json",
+      "schemas/TRACE_EVENT.schema.json",
+      "schemas/ARTIFACT_MANIFEST.schema.json",
+      "03-architecture/rfcs/RFC-001-COMPILER-PIPELINE.md",
+      "04-specification/DATABASE_MODEL.md"
+    ],
+    "finding": "CompilationResult.provenance is a $ref to a single TraceEvent although the pipeline has eleven stages; TraceEvent has no compilation/run correlation key or parent linkage (trace_id is a per-event uuid); RFC-001's invariant that every artifact traces to IR fields and compiler version has no schema carrier (ArtifactManifest records only generated_from_version). The database model lists execution_traces and compilation_runs with no defined linkage.",
+    "evidence": [
+      "schemas/COMPILATION_RESULT.schema.json lines 55-57 (\"provenance\": {\"$ref\": \"TRACE_EVENT.schema.json\"})",
+      "schemas/TRACE_EVENT.schema.json lines 11-17 and full property list (no compilation_id, run_id, or parent_id)",
+      "03-architecture/rfcs/RFC-001-COMPILER-PIPELINE.md, Invariants (\"Every artifact traces back to IR fields and compiler version\")",
+      "schemas/ARTIFACT_MANIFEST.schema.json lines 38-41 (only generated_from_version)"
+    ],
+    "failure_scenario": "During benchmark evidence audit, trace events from concurrent compilations cannot be attributed to their runs; a disputed marketing claim cannot be backed by a reconstructible provider-call chain, violating the marketing claims policy and charter principle 2 (claims require evidence and provenance).",
+    "recommendation": "Add a required correlation key (compilation_id or run_id) and optional parent_id to TraceEvent; change CompilationResult.provenance to an array of TraceEvents or a trace-stream reference plus compiler_version; add optional ir_refs and compiler_version to ArtifactManifest; define the compilation_runs-to-execution_traces relationship in the database model.",
+    "validation": "Integration test using the deterministic fake provider: run two concurrent compilations, then reconstruct each run's complete ordered stage chain and resolve every artifact to IR references and compiler version purely from stored trace/manifest records.",
+    "confidence": 0.95,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-HIGH-003",
+    "severity": "high",
+    "title": "Synchronous-first execution posture contradicts the job-based API contract; no owner for durable job state",
+    "affected_sources": [
+      "03-architecture/BASELINE_ARCHITECTURE.md",
+      "04-specification/API_CONTRACTS.md",
+      "04-specification/UX_SPEC.md",
+      "04-specification/DATABASE_MODEL.md",
+      "00-governance/OPEN_QUESTIONS.md",
+      "07-verification/SECURITY_THREAT_MODEL.md"
+    ],
+    "finding": "The baseline architecture defers background jobs ('introduced only when synchronous execution becomes inadequate') while the API contract already mandates job identifiers and resumable status for long-running operations, CompilationResult and the UX spec require queued/running/canceled states, and the threat model requires cancellation. A compile spanning provider calls, evaluation, and bounded repair across multiple target providers is long-running at MVP by definition. No database entity owns job state.",
+    "evidence": [
+      "03-architecture/BASELINE_ARCHITECTURE.md line 44 (\"Background jobs introduced only when synchronous execution becomes inadequate\")",
+      "04-specification/API_CONTRACTS.md, Contract rules (\"Long-running operations return a job identifier and resumable status\")",
+      "schemas/COMPILATION_RESULT.schema.json lines 19-28 (status enum includes queued, running, canceled)",
+      "04-specification/UX_SPEC.md, State requirements (queued/running/completed/failed/canceled for every asynchronous operation)",
+      "00-governance/OPEN_QUESTIONS.md item 6"
+    ],
+    "failure_scenario": "A benchmark competitor implements /compile as a synchronous FastAPI call to satisfy the minimal-architecture guidance; hidden tests exercise resumable status, cancellation, and idempotent retry (explicitly permitted by HIDDEN_TEST_INTERFACE.md) and the submission fails, or the competitor bolts on ad-hoc job handling mid-run, producing the major rework the freeze is meant to prevent.",
+    "recommendation": "Record an ADR committing the MVP to job semantics implemented on a Postgres-backed job table inside the existing service (no external queue or new infrastructure); add the job entity to DATABASE_MODEL.md; close Open Question 6 as decided-by-contract rather than threshold-based.",
+    "validation": "Kill-and-restart test: terminate the compiler service mid-compilation; on restart the operation resumes or fails cleanly with resumable status via GET /v1/compilations/{id}; cancellation and duplicate idempotency-key submission behave per contract.",
+    "confidence": 0.92,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-HIGH-004",
+    "severity": "high",
+    "title": "Tenant-isolation enforcement point ambiguous between Supabase RLS and the FastAPI compiler service",
+    "affected_sources": [
+      "04-specification/DATABASE_MODEL.md",
+      "07-verification/SECURITY_THREAT_MODEL.md",
+      "03-architecture/adrs/ADR-003-SUPABASE-MVP.md",
+      "04-specification/API_CONTRACTS.md",
+      "00-governance/RISK_REGISTER.md"
+    ],
+    "finding": "The database model mandates tested row-level access rules on every tenant-owned table and the threat model requires enforcement server-side plus RLS, but no document specifies how services/compiler-api connects to Postgres. The standard Supabase backend pattern uses a service-role credential that bypasses RLS entirely, which would make the RLS test gate false assurance for the primary compute plane. Trust boundaries 2 and 3 also imply two independent write paths (browser-to-Supabase and web-to-compiler-api-to-Postgres) with different authorization regimes and no stated single enforcement owner.",
+    "evidence": [
+      "04-specification/DATABASE_MODEL.md, Invariants (\"Row-level access rules are tested for every tenant-owned table\")",
+      "07-verification/SECURITY_THREAT_MODEL.md, Trust boundaries 2-3 and Cross-tenant access control (\"server-side and through database row-level policies\")",
+      "00-governance/RISK_REGISTER.md R-06 (cross-tenant data leak, Critical, mitigation \"RLS, server authorization, adversarial tests\")",
+      "03-architecture/BASELINE_ARCHITECTURE.md, System Shape (separate services/compiler-api with unspecified data access mode)"
+    ],
+    "failure_scenario": "The compiler API uses a service-role connection; RLS tests pass green in CI; a missing project-ownership check in one compiler-api endpoint allows tenant A to compile or read tenant B's project via a direct object reference, precisely the R-06 critical scenario, while acceptance gates 14-15 report success.",
+    "recommendation": "Add an ADR that names the tenant-isolation enforcement point per table class and pins the compiler-api database access mode; if service-role access is chosen, mandate application-layer authorization checks plus adversarial tests exercised through the compiler-api path specifically, not only through Supabase client paths.",
+    "validation": "Cross-tenant direct-object-reference attack tests executed through both write paths (Supabase client and compiler-api endpoints) using tenant A credentials against tenant B resources; all must fail closed; the test suite must fail if it cannot determine which enforcement layer rejected the request.",
+    "confidence": 0.85,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-HIGH-005",
+    "severity": "high",
+    "title": "Canonical IR is untyped in exactly the regions the higher compilation levels depend on, making the schema-validation hard gate vacuous",
+    "affected_sources": [
+      "schemas/PROMPTRIG_IR.schema.json",
+      "03-architecture/adrs/ADR-001-PROMPTRIG-IR.md",
+      "04-specification/ACCEPTANCE_CRITERIA.md",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md"
+    ],
+    "finding": "In the canonical IR schema, knowledge, memory, workflow, autonomy, security, privacy, provider_requirements, and deployment are bare objects, and tools, input_contracts, and output_contracts items are untyped. Acceptance hard gates 6 and 10 (IR validates against canonical schema; static validation catches malformed IR) are trivially satisfiable over these regions. The agent_blueprint and application_specification compilation levels depend precisely on the untyped fields, so independent benchmark competitors will produce mutually incompatible IR dialects, undermining ADR-001's portability rationale and benchmark comparability.",
+    "evidence": [
+      "schemas/PROMPTRIG_IR.schema.json lines 82-93 (input/output_contracts items: bare object), lines 121-147 (knowledge, memory, tools, workflow, autonomy, security, privacy, provider_requirements: bare objects), lines 179-181 (deployment: bare object)",
+      "04-specification/ACCEPTANCE_CRITERIA.md, Hard gates 6 and 10",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md, Compilation levels 3-4"
+    ],
+    "failure_scenario": "Two Stage 1 submissions both pass gate 6 with structurally incompatible tools and workflow encodings; Stage 2 extensibility and Stage 3 product-scenario scoring compare incomparable semantics; a Simple Mode project exported from one implementation cannot be imported or reproduced by another, falsifying the portability claim at the center of the product thesis.",
+    "recommendation": "Before freeze, type tools and output_contracts (the fields Benchmark 1 levels actually consume); explicitly mark remaining open sections as experimental and excluded from conformance; cut application_specification from Benchmark 1 scope and defer agent_blueprint unless its IR dependencies are typed.",
+    "validation": "Adversarial IR fixture test: instances with garbage payloads in tools and output_contracts must be rejected by the canonical schema (today they validate); cross-implementation round-trip test in the conformance suite for the typed regions.",
+    "confidence": 0.9,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-MEDIUM-006",
+    "severity": "medium",
+    "title": "Idempotency mandated by API contract but optional or absent in schemas; repair is not an addressable resource",
+    "affected_sources": [
+      "04-specification/API_CONTRACTS.md",
+      "schemas/COMPILATION_REQUEST.schema.json"
+    ],
+    "finding": "API_CONTRACTS.md requires idempotency keys for compile, evaluate, repair, and export creation, but COMPILATION_REQUEST.schema.json does not list idempotency_key as required, no request schemas exist for evaluate, repair, or export, and repair does not appear in the core resource list at all despite having idempotency requirements.",
+    "evidence": [
+      "04-specification/API_CONTRACTS.md, Contract rules (\"Idempotency keys are required for compile, evaluate, repair, and export creation\") and Core resources list (no repair resource)",
+      "schemas/COMPILATION_REQUEST.schema.json lines 6-11 (required array omits idempotency_key)"
+    ],
+    "failure_scenario": "A client retries a compile after a network timeout without a key (schema-valid), producing duplicate billed compilations; hidden tests probing idempotency (permitted by HIDDEN_TEST_INTERFACE.md) fail submissions that faithfully implemented the schema rather than the prose.",
+    "recommendation": "Add idempotency_key to the required list in COMPILATION_REQUEST; author minimal request schemas for evaluate and export; either add a repair resource to the API contract or state that repair is an internal compilation sub-stage with no separate creation semantics.",
+    "validation": "Contract test: POST /compile without idempotency_key returns the canonical error schema; duplicate key returns the original resource; schema-lint asserting every mutating resource in API_CONTRACTS.md has a corresponding request schema.",
+    "confidence": 0.95,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-MEDIUM-007",
+    "severity": "medium",
+    "title": "Provider capability manifest lacks a controlled capability vocabulary, making capability negotiation untestable",
+    "affected_sources": [
+      "schemas/PROVIDER_MANIFEST.schema.json",
+      "03-architecture/rfcs/RFC-002-PROVIDER-ADAPTER-CONTRACT.md"
+    ],
+    "finding": "PROVIDER_MANIFEST capabilities is a free-form map (additionalProperties of boolean/string/number/null) and fallbacks is an untyped object. RFC-002 requires capability negotiation and shared conformance tests, but with uncontrolled keys each adapter can invent its own capability names, so conformance tests cannot assert shared semantics and pipeline stage 5 (policy and capability resolution) cannot be implemented provider-neutrally.",
+    "evidence": [
+      "schemas/PROVIDER_MANIFEST.schema.json lines 102-112 (capabilities: additionalProperties scalar map) and lines 119-121 (fallbacks: bare object)",
+      "03-architecture/rfcs/RFC-002-PROVIDER-ADAPTER-CONTRACT.md, Required behavior (capability negotiation, shared conformance tests)"
+    ],
+    "failure_scenario": "The OpenAI adapter declares structured_outputs:true while the Anthropic adapter declares json_mode:\"native\" for the equivalent feature; the capability resolver cannot compare them; unsupported-feature diagnostics and fallbacks silently diverge across providers, reproducing exactly the lowest-common-denominator collapse charter principle 3 forbids.",
+    "recommendation": "Define a versioned capability key registry (enumerated keys with typed value semantics and fallback classes) in packages/provider-sdk; amend the manifest schema so capabilities keys must come from the registry, with an explicit x- extension namespace for provider-specific extras.",
+    "validation": "Conformance test that loads all four provider manifests and asserts every capability key resolves in the registry; a resolver unit test proving identical IR input yields comparable capability-resolution diagnostics across providers.",
+    "confidence": 0.88,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-MEDIUM-008",
+    "severity": "medium",
+    "title": "Multi-provider compilation partial failure is unrepresentable in CompilationResult",
+    "affected_sources": [
+      "schemas/COMPILATION_REQUEST.schema.json",
+      "schemas/COMPILATION_RESULT.schema.json"
+    ],
+    "finding": "CompilationRequest.target_providers accepts multiple providers, but CompilationResult carries a single status and a single nullable result_version_id, and evaluation_summary is an untyped object. Per-provider success, failure, cost, and diagnostics have no defined representation, so failure containment across providers is unspecified.",
+    "evidence": [
+      "schemas/COMPILATION_REQUEST.schema.json lines 28-35 (target_providers: array, minItems 1)",
+      "schemas/COMPILATION_RESULT.schema.json lines 14-47 (single status, single result_version_id, untyped evaluation_summary)"
+    ],
+    "failure_scenario": "A compile targeting two providers succeeds for one and fails for the other; the implementation must choose between reporting failed (hiding a usable result), completed_with_warnings (hiding a provider failure inside untyped fields), or inventing a nonstandard per-provider structure that other components cannot consume.",
+    "recommendation": "Either restrict a compilation to exactly one target provider (simplest; multi-provider becomes N compilations under one user action) or add a typed per-provider results array with status, artifacts, diagnostics, and cost per provider. Prefer the first for MVP.",
+    "validation": "Fake-provider test where one target succeeds and one fails: assert the API response distinguishes per-provider outcomes and the succeeding provider's artifacts remain exportable.",
+    "confidence": 0.9,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-MEDIUM-009",
+    "severity": "medium",
+    "title": "Mode is owned twice (IR and compilation request) with no precedence, conflicting with the no-configuration-outside-IR rule",
+    "affected_sources": [
+      "schemas/PROMPTRIG_IR.schema.json",
+      "schemas/COMPILATION_REQUEST.schema.json",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md"
+    ],
+    "finding": "project.mode (balanced/creative/enterprise) exists optionally in the IR while mode is required on every CompilationRequest. No rule states which wins on disagreement. The master scope's non-negotiable rule that no configuration outside the IR or versioned runtime metadata may alter behavior is violated by a required request-level parameter that changes compilation behavior.",
+    "evidence": [
+      "schemas/PROMPTRIG_IR.schema.json lines 31-37 (project.mode enum, optional)",
+      "schemas/COMPILATION_REQUEST.schema.json lines 6-27 (mode in required list)",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md, Non-negotiable rules (\"No hidden UI configuration may alter behavior outside the IR or versioned runtime metadata\")"
+    ],
+    "failure_scenario": "An IR authored in enterprise mode is compiled with a request specifying creative; artifacts diverge from the reviewed IR semantics; reproducing a compilation from the stored project version alone yields different output because behavior-affecting state lived outside the version.",
+    "recommendation": "Make the IR the single owner of mode; remove mode from CompilationRequest or redefine it as a validation echo that must match the source version's IR value.",
+    "validation": "Contract test: a compile request whose mode differs from the source version's IR mode is rejected with the canonical error schema; reproducibility test that replaying a stored version alone reproduces identical artifacts under the fake provider.",
+    "confidence": 0.85,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-MEDIUM-010",
+    "severity": "medium",
+    "title": "Benchmark bookkeeping entities are coupled into the product database model, conflicting with benchmark isolation and inflating competitor scope",
+    "affected_sources": [
+      "04-specification/DATABASE_MODEL.md",
+      "05-benchmark/ENVIRONMENT.md",
+      "07-verification/SECURITY_THREAT_MODEL.md",
+      "04-specification/API_CONTRACTS.md"
+    ],
+    "finding": "benchmark_runs and benchmark_submissions are listed as required entities of the product database, and API_CONTRACTS includes a benchmark-mode recording rule, while the benchmark environment mandates separate database/storage/trace namespaces per competitor and the threat model treats hidden tests and sealed submissions as assets isolated from competitor workspaces. Harness bookkeeping inside the tenant SaaS schema is a coupling with no stated product purpose and adds mandatory scope to every Stage 1 build.",
+    "evidence": [
+      "04-specification/DATABASE_MODEL.md, Required entities (benchmark_runs, benchmark_submissions)",
+      "05-benchmark/ENVIRONMENT.md, Workspace isolation (separate database, storage, trace namespaces)",
+      "04-specification/API_CONTRACTS.md, Contract rules (\"Benchmark mode records immutable environment and harness metadata\")"
+    ],
+    "failure_scenario": "Every competitor spends autonomous-run budget building benchmark tables that the benchmark runner is supposed to own, and the presence of submission records inside the product database creates an avoidable contamination and access-control surface between competitor workspaces and sealed evidence.",
+    "recommendation": "Move benchmark_runs/benchmark_submissions to the benchmark runner's own store; reduce the product's obligation to emitting immutable trace/manifest exports that the runner ingests; delete the benchmark entities from the product data model.",
+    "validation": "Scope diff of DATABASE_MODEL.md after amendment; benchmark-runner design showing ingestion of product-emitted manifests without shared database state.",
+    "confidence": 0.8,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-MEDIUM-011",
+    "severity": "medium",
+    "title": "IR spec_version is a pinned const with no migration policy; schemas have not evolved since the v0.2 pack",
+    "affected_sources": [
+      "schemas/PROMPTRIG_IR.schema.json",
+      "03-architecture/rfcs/RFC-001-COMPILER-PIPELINE.md",
+      "03-architecture/ARCHITECTURE_FREEZE_CHECKLIST.md",
+      "archive/v0.2/schemas/PROMPTRIG_IR.schema.json"
+    ],
+    "finding": "spec_version is const \"0.2.0\", so any IR change orphans every stored immutable project version absent a migration mechanism, which does not exist: RFC-001 lists minimum viable migration policy as an open question, and the freeze checklist requires accepted IR versioning and migration rules. The entire schemas/ directory is byte-identical to archive/v0.2/schemas/ (verified by recursive diff), confirming no schema-evolution exercise has ever been performed.",
+    "evidence": [
+      "schemas/PROMPTRIG_IR.schema.json lines 15-17 (spec_version const \"0.2.0\")",
+      "03-architecture/rfcs/RFC-001-COMPILER-PIPELINE.md, Open review questions (migration policy)",
+      "03-architecture/ARCHITECTURE_FREEZE_CHECKLIST.md, Architecture (\"IR ownership, versioning, and migration rules are accepted\")",
+      "Recursive diff: schemas/ vs archive/v0.2/schemas/ identical (reviewer-executed, exit 0, no differences)"
+    ],
+    "failure_scenario": "REV-CLAUDE-HIGH-005 remediation bumps the IR to 0.3.0 during or after Benchmark 1; every stored project version and every frozen benchmark fixture validating against const 0.2.0 becomes invalid simultaneously, with no defined upgrade path, forcing either data invalidation or an unversioned compatibility hack.",
+    "recommendation": "Before freeze, adopt a minimal migration policy: spec_version as semver range acceptance, one worked 0.2-to-0.3 migration example, and a stated compatibility window; treat the freeze-checklist item as unmet until this exists.",
+    "validation": "A migration unit test upgrading a stored 0.2.0 IR fixture to the next version and revalidating; freeze checklist sign-off references the accepted policy document.",
+    "confidence": 0.9,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-MEDIUM-012",
+    "severity": "medium",
+    "title": "Compiler-core location drifts across baseline architecture, scaffold, and master scope; README misidentifies release and omits documents from precedence",
+    "affected_sources": [
+      "03-architecture/BASELINE_ARCHITECTURE.md",
+      "06-implementation/REPOSITORY_SCAFFOLD.md",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md",
+      "README.md"
+    ],
+    "finding": "BASELINE_ARCHITECTURE's system shape has no shared compiler library (logic implicitly inside services/compiler-api), REPOSITORY_SCAFFOLD introduces a root promptrig_core/ Python library, and the master scope's locked decisions say the local CLI and hosted API share the same Python compiler core. Three documents imply three different homes for the system's most important code. Root README.md also titles itself the v0.3 edition inside the v0.4 corpus, and its source-of-truth precedence list omits 00-governance/STATUS_AND_DECISIONS.md and the 09-review-execution tree entirely.",
+    "evidence": [
+      "03-architecture/BASELINE_ARCHITECTURE.md, System Shape (no core library entry)",
+      "06-implementation/REPOSITORY_SCAFFOLD.md (promptrig_core/ at repo root)",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md, Locked architecture decisions (\"local CLI and hosted API share the same Python compiler core\")",
+      "README.md line 1 (\"Design Review & Research Edition v0.3\") and Source-of-truth precedence list"
+    ],
+    "failure_scenario": "A benchmark agent following the precedence rules places compiler logic inside services/compiler-api per the baseline architecture, then discovers the hidden-test CLI probes require the shared core, forcing a mid-run restructuring; conflicting precedence guidance also makes the conflict-resolution rule itself ambiguous.",
+    "recommendation": "Amend BASELINE_ARCHITECTURE to name promptrig_core as the shared compiler library consumed by both services/compiler-api and cli; update README to v0.4 and add STATUS_AND_DECISIONS and 09-review-execution to the precedence list.",
+    "validation": "Documentation consistency check: the three documents name the same compiler-core path; README release identifier matches PACK_MANIFEST_v0.4.json.",
+    "confidence": 0.9,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-LOW-013",
+    "severity": "low",
+    "title": "Baseline required unconditionally in EvaluationResult despite 'where applicable' semantics; evaluation category vocabulary drifts across documents",
+    "affected_sources": [
+      "schemas/EVALUATION_RESULT.schema.json",
+      "04-specification/PRD.md",
+      "schemas/PROMPTRIG_IR.schema.json",
+      "schemas/EVALUATION_CASE.schema.json"
+    ],
+    "finding": "EvaluationResult requires a baseline object on every result while the PRD says baseline comparison applies where applicable and the IR provides baseline_required as a boolean; a first-ever compilation has no baseline. Separately, EVALUATION_CASE's category enum uses 'format' while the PRD says 'formatting', and IR evaluation.test_categories is an unconstrained string array unbound to the enum, so required category coverage cannot be traced from IR to executed cases.",
+    "evidence": [
+      "schemas/EVALUATION_RESULT.schema.json lines 5-13 (baseline in required list)",
+      "04-specification/PRD.md, Evaluation (\"Compare against a baseline where applicable\")",
+      "schemas/EVALUATION_CASE.schema.json lines 15-26 (category enum incl. 'format')",
+      "schemas/PROMPTRIG_IR.schema.json lines 170-176 (test_categories: free strings)"
+    ],
+    "failure_scenario": "Implementations fabricate empty baseline objects to satisfy the schema, polluting comparison logic; an IR requesting the 'formatting' category silently matches no evaluation case category and coverage gaps go undetected.",
+    "recommendation": "Allow baseline to be null (or omit) when no baseline exists; bind IR test_categories to the EVALUATION_CASE category enum; normalize the vocabulary to one spelling across PRD, IR, and case schema.",
+    "validation": "Schema test: first-run EvaluationResult without a baseline validates; lint asserting IR test_categories values are members of the case-category enum.",
+    "confidence": 0.9,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CLAUDE-LOW-014",
+    "severity": "low",
+    "title": "Review validation tooling enforces neither the finding-ID convention nor the run-manifest structure",
+    "affected_sources": [
+      "09-review-execution/scripts/validate_review.py",
+      "03-architecture/REVIEW_FINDING_SCHEMA.json",
+      "09-review-execution/REVIEW_OUTPUT_CONTRACT.md"
+    ],
+    "finding": "The output contract mandates IDs of the form REV-<REVIEWER>-<SEVERITY>-NNN, but the finding schema pattern accepts any ^REV-[A-Z0-9-]+$ string, and validate_review.py checks the manifest only for top-level key presence rather than validating it against the template structure, so malformed manifests and nonconforming IDs pass the gate that decides docket admission.",
+    "evidence": [
+      "03-architecture/REVIEW_FINDING_SCHEMA.json line 8 (id pattern ^REV-[A-Z0-9-]+$)",
+      "09-review-execution/scripts/validate_review.py lines 34-36 (manifest checked for six key names only)",
+      "09-review-execution/REVIEW_OUTPUT_CONTRACT.md, Findings JSON (ID convention)"
+    ],
+    "failure_scenario": "A reviewer emits IDs without severity tokens or a manifest with empty execution metadata; validation prints VALID REVIEW; the Round 1 exit checklist item 'All findings pass JSON validation' is satisfied while the evidence trail the checklist exists to protect is incomplete.",
+    "recommendation": "Tighten the id pattern to ^REV-[A-Z0-9]+(-[A-Z0-9]+)*-(CRITICAL|HIGH|MEDIUM|LOW)-[0-9]{3}$ or validate severity-token/severity-field agreement in the script; add a JSON Schema for the run manifest and validate against it.",
+    "validation": "Negative tests: a finding with a conventionless ID and a manifest with a missing execution subfield must both fail validate_review.py.",
+    "confidence": 0.85,
+    "disposition": "unreviewed"
+  }
+]

@@ -1,0 +1,268 @@
+[
+  {
+    "id": "REV-CODEX-CRITICAL-001",
+    "severity": "critical",
+    "title": "Benchmark launch controls are unresolved and therefore non-comparable",
+    "affected_sources": [
+      "00-governance/STATUS_AND_DECISIONS.md § Provisional—must be confirmed during review",
+      "00-governance/OPEN_QUESTIONS.md items 1-3",
+      "05-benchmark/ENVIRONMENT.md § Fairness requirements, § Network modes, § Repetition",
+      "05-benchmark/SOURCE_MANIFEST.md § Required source families",
+      "06-implementation/IMPLEMENTATION_ENTRY_CRITERIA.md items 3-9"
+    ],
+    "finding": "The corpus requires identical adapters, resource limits, network policy, source snapshot, secrets policy, environment, and repetition, but does not select the two Benchmark 1 adapters, set cost or wall-clock budgets, choose Frozen-mode connectivity semantics, pin a container/database seed, provide the frozen documentation snapshot, or define the final run count. These are benchmark variables, not implementation details.",
+    "evidence": [
+      "STATUS_AND_DECISIONS marks the first two mandatory adapters and exact benchmark resource limits/run count as provisional.",
+      "OPEN_QUESTIONS asks which adapters, budgets, and internet policy apply.",
+      "ENVIRONMENT requires identical pinned conditions and at least three attempts unless a final budget says otherwise.",
+      "SOURCE_MANIFEST contains required source families but no captured documents, URLs, versions, or retrieval hashes.",
+      "IMPLEMENTATION_ENTRY_CRITERIA forbids production build launch until the starter scope, environment versions, network policy, telemetry, and rerun procedures are fixed."
+    ],
+    "failure_scenario": "Independent agents choose different providers, internet modes, dependency versions, execution budgets, or run counts. Completion rate, cost, and scores then measure different tasks, making autonomous comparisons and marketing claims invalid.",
+    "recommendation": "Before freeze, accept one benchmark-configuration record that names the two adapters, exact container and database seed digests, CPU/memory/disk/time/cost/tool-call limits, Frozen-mode allowlist semantics, secrets policy, retry/repetition policy, incident rules, and captured source-snapshot hashes. Seal an executable starter commit against that record.",
+    "validation": "Run a clean-room preflight that launches the same benchmark fixture twice from the sealed commit, rejects any undeclared network/tool/environment variance, and emits identical configuration manifests except for permitted run IDs and timestamps.",
+    "confidence": 0.99,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-CRITICAL-002",
+    "severity": "critical",
+    "title": "Canonical IR schema cannot enforce the canonical semantics",
+    "affected_sources": [
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md § Compiler pipeline, § MVP inclusions, § Non-negotiable rules",
+      "03-architecture/adrs/ADR-001-PROMPTRIG-IR.md § Decision, § Consequences",
+      "03-architecture/rfcs/RFC-001-COMPILER-PIPELINE.md § Invariants",
+      "04-specification/PRD.md § Requirements compiler, § Compilation, § Evaluation",
+      "04-specification/ACCEPTANCE_CRITERIA.md § Hard gates for Benchmark 1 items 6, 9, 10, 12",
+      "schemas/PROMPTRIG_IR.schema.json JSON pointers /properties/input_contracts, /properties/tools, /properties/autonomy, /properties/security, /properties/privacy, /properties/provider_requirements, /properties/evaluation/properties/repair_limit"
+    ],
+    "finding": "The IR is declared the semantic source of truth, but core domains are unconstrained object placeholders and several important fields are optional. The schema also permits repair_limit up to 5 while the canonical MVP and Developer Mode require 0-2. A read-only validation probe accepted an IR with empty instructions and repair_limit 5.",
+    "evidence": [
+      "PROMPTRIG_MASTER_SCOPE requires the IR to carry tools, policy, privacy, cost, approval, evaluation, provenance, and unresolved-failure semantics.",
+      "PROMPTRIG_IR.schema.json types knowledge, memory, workflow, autonomy, security, privacy, provider_requirements, and deployment only as object; tool and contract entries are untyped objects.",
+      "PROMPTRIG_IR.schema.json allows repair_limit maximum 5; PROMPTRIG_MASTER_SCOPE § MVP inclusions and ACCEPTANCE_CRITERIA § Required Developer Mode capabilities specify zero through two.",
+      "Observed probe: Draft 2020-12 validation accepted empty behavior.instructions and evaluation.repair_limit=5."
+    ],
+    "failure_scenario": "Each competitor invents incompatible meanings for autonomy, tools, approvals, privacy, provider requirements, and contracts while still producing schema-valid IR. Provider lowering, UI parity, migrations, and hidden tests cannot distinguish correct semantics from structurally empty objects.",
+    "recommendation": "Complete the P0 IR with typed, closed definitions for every MVP semantic domain; require the fields needed by each compilation level; constrain nonempty behavior; set repair_limit to 0-2; define version migration and semantic compatibility rules; and move non-MVP Application Specification fields behind an explicit versioned extension.",
+    "validation": "Add positive and negative schema fixtures for every P0 IR domain, including an empty-instructions rejection, repair_limit=3 rejection, unknown-property rejection, tool approval policy, privacy policy, and round-trip generated Python/TypeScript contract tests.",
+    "confidence": 0.99,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-HIGH-001",
+    "severity": "high",
+    "title": "Requirements do not trace to architecture and executable tests",
+    "affected_sources": [
+      "04-specification/PRD.md § MVP Functional Requirements, § Nonfunctional Requirements",
+      "04-specification/ACCEPTANCE_CRITERIA.md § Hard gates for Benchmark 1",
+      "07-verification/VALIDATION_MATRIX.md",
+      "03-architecture/ARCHITECTURE_FREEZE_CHECKLIST.md § Scope and value",
+      "05-benchmark/MASTER_BUILD_PROMPT.md § Required method item 2"
+    ],
+    "finding": "The corpus has no stable requirement IDs, no defined P0 set, and no canonical requirement-to-component-to-contract-to-public-test-to-hidden-test mapping. The validation matrix names only ten broad areas and cannot demonstrate coverage of the PRD, 18 Benchmark 1 gates, API behavior, state transitions, data lifecycle, or failure modes.",
+    "evidence": [
+      "IMPLEMENTATION_ENTRY_CRITERIA refers to P0 contracts, but no P0 classification is defined in the corpus.",
+      "ARCHITECTURE_FREEZE_CHECKLIST leaves the mapping of every P0 requirement to architecture and acceptance tests unchecked.",
+      "VALIDATION_MATRIX contains area-level yes/no cells rather than test IDs, fixtures, expected assertions, owners, or evidence paths.",
+      "MASTER_BUILD_PROMPT delegates creation of IMPLEMENTATION_PLAN.md to each competitor, allowing each competitor to define its own trace interpretation."
+    ],
+    "failure_scenario": "A submission can pass the tests it chose to write while silently omitting archive/duplicate/delete behavior, cancellation, authorization on one resource class, recovery states, or a Simple Mode step; evaluators cannot prove the omission from a canonical coverage record.",
+    "recommendation": "Assign stable IDs and priority to normative requirements and publish a machine-readable traceability matrix mapping each ID to architecture owner, schema/API contract, public test, hidden-test category, evidence type, and release gate.",
+    "validation": "CI must fail when a P0 requirement lacks an accepted architecture link and at least one executable test or explicitly approved human-review procedure; mutation-check one mapping to prove the gate fails.",
+    "confidence": 0.98,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-HIGH-002",
+    "severity": "high",
+    "title": "Evaluation results and weighted scoring lack executable decision semantics",
+    "affected_sources": [
+      "03-architecture/rfcs/RFC-003-EVALUATION-ENGINE.md",
+      "04-specification/ACCEPTANCE_CRITERIA.md § Evaluation acceptance",
+      "05-benchmark/SCORING_RUBRIC.md § Weighted score, § Scoring sources, § Reporting",
+      "schemas/EVALUATION_CASE.schema.json",
+      "schemas/EVALUATION_RESULT.schema.json"
+    ],
+    "finding": "The rubric supplies weights but no per-dimension scale, normalization, aggregation, missing-data rule, tie rule, human-review protocol, configured weighted threshold, or variance decision rule. Evaluation schemas leave expected values, check configuration, baseline, candidate, and case results effectively untyped and do not require evaluator identity, rubric version, confidence, or complete cost fields.",
+    "evidence": [
+      "ACCEPTANCE_CRITERIA requires a configured weighted threshold but no document defines its value or computation.",
+      "RFC-003 requires evaluator identity, rubric version, inputs, outputs, cost, latency, and confidence; EVALUATION_RESULT does not model most of them.",
+      "EVALUATION_CASE permits unconstrained input and expected values and generic check config objects.",
+      "Observed probe: Draft 2020-12 validation accepted a passed result with empty baseline, candidate, and cost objects."
+    ],
+    "failure_scenario": "Two evaluators assign different scales or treatments of failures and both claim rubric compliance; a candidate is labeled improved even though its passed result contains no case evidence or cost and cannot be replayed.",
+    "recommendation": "Accept RFC-003 only after defining typed case/result contracts, evaluator-failure semantics, baseline comparability rules, hard-gate precedence, dimension scales, weighted aggregation, threshold/tie/missing-run handling, blinded human-review procedure, and repeated-run statistics.",
+    "validation": "Publish golden scoring fixtures covering pass, regression, evaluator error, infrastructure failure, missing run, tie, and human disagreement; require independent implementations to produce identical classifications and numeric scores.",
+    "confidence": 0.99,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-HIGH-003",
+    "severity": "high",
+    "title": "Asynchronous API and job lifecycle are not contractually executable",
+    "affected_sources": [
+      "04-specification/API_CONTRACTS.md § Core resources, § Contract rules",
+      "04-specification/UX_SPEC.md § State requirements",
+      "04-specification/ACCEPTANCE_CRITERIA.md § Hard gates for Benchmark 1 item 12",
+      "07-verification/SECURITY_THREAT_MODEL.md § Unbounded execution and cost",
+      "05-benchmark/HIDDEN_TEST_INTERFACE.md § Required service probes"
+    ],
+    "finding": "The API overview says long-running operations return resumable job identifiers and requires idempotency for compile, evaluate, repair, and export, but it defines no job resource, repair route, cancellation route, polling/event contract, retry semantics, idempotency replay behavior, or terminal-state error model. UX and security documents nevertheless require canceled state, cancellation, limits, and recovery.",
+    "evidence": [
+      "API_CONTRACTS lists compile and evaluate routes but no repair, jobs, or cancel route.",
+      "API_CONTRACTS requires resumable job status without defining a job representation.",
+      "UX_SPEC requires queued, running, completed, warning, failed, and canceled states.",
+      "HIDDEN_TEST_INTERFACE says hidden tests may exercise idempotency, retries, and cancellation without specifying the observable contract."
+    ],
+    "failure_scenario": "Competitors implement incompatible polling and cancellation semantics; a canceled provider call continues spending, an idempotent retry creates duplicate versions, or hidden tests encode behavior not inferable from the public corpus.",
+    "recommendation": "Add an accepted job-lifecycle RFC and OpenAPI contract defining create/status/cancel/retry behavior, state transitions, idempotency replay/conflict rules, budget enforcement, partial artifacts, version preservation, authorization, and error codes for compile/evaluate/repair/export.",
+    "validation": "Run contract tests for duplicate idempotency keys, concurrent cancellation, timeout, provider failure, retry after partial completion, unauthorized status access, and exactly-once version/artifact creation.",
+    "confidence": 0.98,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-HIGH-004",
+    "severity": "high",
+    "title": "Provider adapter contract is prose-only and conformance cannot be shared",
+    "affected_sources": [
+      "03-architecture/rfcs/RFC-002-PROVIDER-ADAPTER-CONTRACT.md § Required behavior",
+      "04-specification/ACCEPTANCE_CRITERIA.md § Hard gates for Benchmark 1 item 7",
+      "05-benchmark/HIDDEN_TEST_INTERFACE.md § Required fixtures",
+      "06-implementation/IMPLEMENTATION_ENTRY_CRITERIA.md items 2 and 4",
+      "schemas/PROVIDER_MANIFEST.schema.json"
+    ],
+    "finding": "RFC-002 names adapter behaviors but defines no callable interface, typed inputs/outputs/errors, capability vocabulary, fallback decision rules, fake-provider protocol, or conformance fixture semantics. PROVIDER_MANIFEST accepts empty surfaces, models, capabilities, and fallbacks, so schema validity does not establish adapter usefulness.",
+    "evidence": [
+      "RFC-002 remains Status: Review and contains only a behavioral list.",
+      "IMPLEMENTATION_ENTRY_CRITERIA requires a specified deterministic fake provider before implementation.",
+      "PROVIDER_MANIFEST uses an open primitive map for capabilities and an unconstrained object for fallbacks.",
+      "Observed probe: Draft 2020-12 validation accepted a provider manifest with no surfaces, models, capabilities, or fallbacks."
+    ],
+    "failure_scenario": "Each competitor invents different capability names and fallback semantics, so shared conformance tests either cannot run or reward adapter-specific shortcuts rather than portable lowering.",
+    "recommendation": "Define and accept a versioned adapter protocol with typed capability identifiers, lowering request/result/diagnostic contracts, error taxonomy, fallback and approval semantics, deterministic fake-provider behavior, and provider-independent conformance vectors.",
+    "validation": "Execute the same conformance suite against the fake provider and both frozen mandatory adapters, including unsupported capability, structured output, tool approval, token overflow, provider error, and provenance cases.",
+    "confidence": 0.98,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-HIGH-005",
+    "severity": "high",
+    "title": "Benchmark and review provenance manifests do not seal the claimed evidence",
+    "affected_sources": [
+      "PACK_MANIFEST.json",
+      "PACK_MANIFEST_v0.4.json",
+      "09-review-execution/evidence/CORPUS_SHA256.txt",
+      "05-benchmark/SOURCE_MANIFEST.md",
+      "05-benchmark/ENVIRONMENT.md § Required recorded metadata",
+      "schemas/SUBMISSION_MANIFEST.schema.json"
+    ],
+    "finding": "The v0.4 manifest records only one archive hash, while the supplied corpus contains no archive to recompute it from and no v0.4 per-file manifest. The retained v0.3 detailed manifest omits all v0.4 execution files and its hashes disagree with the current README.md and STATUS_AND_DECISIONS.md. The benchmark submission schema also leaves environment unconstrained and allows empty evidence and artifact hashes.",
+    "evidence": [
+      "Observed integrity check: PACK_MANIFEST.json has 100 entries, zero v0.4 execution entries, and two hash mismatches: README.md and 00-governance/STATUS_AND_DECISIONS.md.",
+      "PACK_MANIFEST_v0.4.json and CORPUS_SHA256.txt repeat a0bd3c1a6d91bb2330cd41d8933a723d94fc01ea40cfe824aca707a4666902e2, but promptrig-review-corpus-v0.4.zip is not present in the supplied extracted corpus.",
+      "SOURCE_MANIFEST lists source families but not captured URLs, versions, files, or hashes.",
+      "Observed probe: SUBMISSION_MANIFEST validated with empty environment, evidence, and artifact_hashes."
+    ],
+    "failure_scenario": "A modified corpus or incomplete submission still passes structural validation; reviewers and benchmark consumers cannot prove which exact files, sources, environment, tests, or artifacts produced a claim.",
+    "recommendation": "Generate one canonical v0.4 per-file manifest from the exact archive, include all normative and execution files, eliminate or label stale manifests, and tighten SUBMISSION_MANIFEST with required typed environment, telemetry, intervention, incident, evidence, and nonempty artifact-hash fields.",
+    "validation": "Rebuild the archive deterministically, verify every file hash and the archive hash, reject one-byte mutation and omitted-file fixtures, and reject submission manifests with empty environment/evidence/artifacts.",
+    "confidence": 0.99,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-HIGH-006",
+    "severity": "high",
+    "title": "Benchmark 1 scope and milestone sequencing invite silent feature triage",
+    "affected_sources": [
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md § Compilation levels, § Benchmark stages, § MVP inclusions, § Production sequence",
+      "04-specification/PRD.md § Compilation, § Authentication and storage",
+      "08-release/MILESTONES.md § M2 — Headless Compiler, § M3 — Vertical Slice, § M4 — Benchmark 1",
+      "05-benchmark/MASTER_BUILD_PROMPT.md § Required method",
+      "00-governance/RISK_REGISTER.md R-01"
+    ],
+    "finding": "Benchmark 1 is described as a functional end-to-end MVP spanning compiler, two UIs, evaluation/repair, two live adapters, multi-tenant persistence, authentication, export, security, and evidence. The corpus does not define scored intermediate checkpoints or a freeze-safe cut line. It also requires selection of Application Specification in the PRD while MVP inclusions enumerate only Prompt, Prompt System, and Agent Blueprint.",
+    "evidence": [
+      "RISK_REGISTER already rates scope exceeding agent run capacity as High.",
+      "PROMPTRIG_MASTER_SCOPE § Benchmark stages assigns the functional MVP to Stage 1.",
+      "MILESTONES separates headless compiler and vertical slice before Benchmark 1, but the actual starter artifacts and gate-specific deliverables do not yet exist.",
+      "PRD § Compilation includes Application Specification; PROMPTRIG_MASTER_SCOPE § MVP inclusions omits it."
+    ],
+    "failure_scenario": "Under a fixed budget, agents silently defer different subsystems or build shallow stubs to satisfy breadth. Scores then reflect arbitrary triage and framework setup capacity more than the architecture hypotheses the staged benchmark intends to measure.",
+    "recommendation": "Freeze Benchmark 1 as explicit dependency-ordered, sealed checkpoints with independent completion evidence. Resolve whether Application Specification and hosted managed-credit foundations are in Benchmark 1; if not, mark them deferred. Require the verified headless compiler and one vertical slice before hosted breadth.",
+    "validation": "Dry-run the master prompt under the proposed budget with the fake provider; require every checkpoint to have bounded commands, artifacts, and stop criteria, and verify that an incomplete later checkpoint preserves valid earlier scores without being labeled complete.",
+    "confidence": 0.96,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-HIGH-007",
+    "severity": "high",
+    "title": "Tenant, credential, deletion, and storage boundaries are not implementation contracts",
+    "affected_sources": [
+      "04-specification/ACCEPTANCE_CRITERIA.md § Hard gates for Benchmark 1 items 14-17, § Security acceptance",
+      "04-specification/DATABASE_MODEL.md § Required entities, § Invariants, § Hosted MVP",
+      "04-specification/API_CONTRACTS.md § Contract rules",
+      "07-verification/SECURITY_THREAT_MODEL.md § Cross-tenant access, § Credential theft, § Malicious artifacts",
+      "03-architecture/ARCHITECTURE_FREEZE_CHECKLIST.md § Architecture, § Security and privacy"
+    ],
+    "finding": "Security gates are strong in intent but the corpus does not define tenant ownership keys, organization/project role semantics, authorization decisions per route/resource, credential-store boundary, storage path policy, deletion/tombstone/retention behavior, audit event minimums, or job-worker access. DATABASE_MODEL explicitly leaves deletion as an undocumented choice.",
+    "evidence": [
+      "DATABASE_MODEL lists entity names without columns, relationships, states, or policy definitions and says deletion follows a documented cascade or tombstone policy without selecting one.",
+      "API_CONTRACTS states authorization is server-side but does not define principals, roles, resource actions, or error behavior.",
+      "ARCHITECTURE_FREEZE_CHECKLIST leaves data, job, authentication, storage, secret, recovery, retention, and deletion boundaries unchecked.",
+      "ACCEPTANCE_CRITERIA requires authorization on every project resource class and fail-closed cross-tenant tests."
+    ],
+    "failure_scenario": "Competitors create different ownership models and RLS policies; one path such as exports, traces, storage objects, background jobs, or credential metadata lacks tenant filtering but broad happy-path tests still pass.",
+    "recommendation": "Accept a security/data-boundary ADR with a resource-action authorization matrix, tenant key propagation, RLS and server-check responsibilities, credential indirection/encryption boundary, storage namespace rules, retention/deletion state machine, worker identity, and audit requirements.",
+    "validation": "Generate adversarial tests from the authorization matrix for every tenant-owned table, API resource, storage object, trace/export path, and worker action; include cross-tenant UUID guessing, role changes, deletion, credential readback, and stale-job access.",
+    "confidence": 0.97,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-MEDIUM-001",
+    "severity": "medium",
+    "title": "Accepted and provisional architecture status conflicts across authoritative documents",
+    "affected_sources": [
+      "00-governance/STATUS_AND_DECISIONS.md § Accepted, § Provisional—must be confirmed during review",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md § Locked architecture decisions",
+      "03-architecture/adrs/ADR-003-SUPABASE-MVP.md",
+      "README.md § Source-of-truth precedence"
+    ],
+    "finding": "PROMPTRIG_MASTER_SCOPE calls Supabase a locked architecture decision, STATUS_AND_DECISIONS calls it provisional, and ADR-003 is Provisional. README precedence places the locked master scope above ADRs, so an agent following precedence cannot know whether it may revisit the platform.",
+    "evidence": [
+      "PROMPTRIG_MASTER_SCOPE § Locked architecture decisions includes Supabase Postgres, Auth, and Storage.",
+      "STATUS_AND_DECISIONS describes Supabase as provisional and asks for confirmation against a Postgres-first alternative.",
+      "ADR-003 status is Provisional.",
+      "README instructs agents to stop and resolve conflicts rather than choose a convenient interpretation."
+    ],
+    "failure_scenario": "One competitor deeply couples to Supabase because the higher-precedence scope says locked; another implements portability or a different service because governance says provisional, producing incomparable effort and architecture.",
+    "recommendation": "Resolve the status in one decision record and update the master scope and status document atomically; state exactly which Supabase services are mandatory for Benchmark 1 and which portability seam is tested.",
+    "validation": "A source-precedence lint or manual audit must find one consistent status and one testable platform boundary across the master scope, status register, ADR, database model, and benchmark configuration.",
+    "confidence": 0.99,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-CODEX-MEDIUM-002",
+    "severity": "medium",
+    "title": "Round 1 validator does not validate manifest shape or evidence sufficiency",
+    "affected_sources": [
+      "09-review-execution/REVIEW_OUTPUT_CONTRACT.md § Findings JSON, § Run manifest",
+      "09-review-execution/EXECUTION_RUNBOOK.md § Launch sequence items 8-9, § Invalid-review conditions",
+      "09-review-execution/scripts/validate_review.py",
+      "09-review-execution/templates/REVIEW_RUN_MANIFEST.template.json",
+      "03-architecture/REVIEW_FINDING_SCHEMA.json"
+    ],
+    "finding": "The validator applies JSON Schema only to findings and checks only six top-level manifest keys. There is no run-manifest schema, checksum validation, timestamp/order validation, model/surface check, or output-file existence check. The finding schema also makes evidence optional even though the protocol and output contract require exact evidence for material findings.",
+    "evidence": [
+      "validate_review.py validates findings with Draft202012Validator but checks the manifest only for review_id, reviewer_id, corpus, execution, outputs, and reviewer_declaration.",
+      "REVIEW_RUN_MANIFEST.template.json is an example object, not a JSON Schema.",
+      "REVIEW_FINDING_SCHEMA.json requires affected_sources but not evidence.",
+      "EXECUTION_RUNBOOK says invalid reviews include missing evidence locations and unidentified product/harness/model surface."
+    ],
+    "failure_scenario": "A review with empty execution metadata, false checksum fields, missing result files, or findings without inspectable evidence prints VALID REVIEW and enters the resolution docket.",
+    "recommendation": "Create a strict Draft 2020-12 run-manifest schema, require evidence for findings, and extend validation to checksum format/matches, output existence, UTC timestamps, completion after start, model verification limitation, intervention records, and declaration values.",
+    "validation": "Add validator tests with malformed manifests, missing evidence, duplicate IDs, wrong hashes, absent files, reversed timestamps, and unknown observed model; only an explicitly marked unknown value with a limitation should pass.",
+    "confidence": 0.99,
+    "disposition": "unreviewed"
+  }
+]

@@ -1,0 +1,3 @@
+# Preserve the byte-for-byte integrity recorded in audit/SHA256SUMS.txt.
+* -text
+**/* -text

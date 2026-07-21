@@ -1,0 +1,9 @@
+reviewer_id,status,started_at_utc,completed_at_utc,product_surface,requested_model,observed_model,valid_findings,critical,high,medium,low,interventions,notes
+openai-codex,not_started,,,,,,,,,,,,
+anthropic-claude-code,not_started,,,,,,,,,,,,
+google-gemini,not_started,,,,,,,,,,,,
+kimi-code,not_started,,,,,,,,,,,,
+mistral,not_started,,,,,,,,,,,,
+deepseek,not_started,,,,,,,,,,,,
+qwen,not_started,,,,,,,,,,,,
+human-product,not_started,,,,,,,,,,,,

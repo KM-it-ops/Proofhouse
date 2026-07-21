@@ -1,0 +1,44 @@
+{
+  "schema_version": "0.1.0",
+  "review_id": "promptrig-v0.4-openai-codex-20260720T024932Z",
+  "reviewer_id": "openai-codex",
+  "specialist_mandate": "Benchmark validity, autonomous executability, repository operability, contract and test completeness, scope sequencing, silent ambiguity, and requirement-to-architecture-to-test traceability.",
+  "corpus": {
+    "version": "v0.4",
+    "archive_sha256": "a0bd3c1a6d91bb2330cd41d8933a723d94fc01ea40cfe824aca707a4666902e2"
+  },
+  "execution": {
+    "started_at_utc": "2026-07-20T02:49:32.9391993Z",
+    "completed_at_utc": "2026-07-20T02:59:10.4770740Z",
+    "product_surface": "OpenAI Codex desktop",
+    "harness_version": "unknown",
+    "requested_model_label": "unknown",
+    "observed_model_identifier": "unknown",
+    "account_tier": "unknown",
+    "network_access": "enabled_by_environment_not_used",
+    "tools_enabled": [
+      "local_read_only_filesystem",
+      "PowerShell",
+      "Python_3.14",
+      "git_read_only_probe"
+    ],
+    "memory_or_project_context": "canonical_corpus_only; prior conversation and memory not used"
+  },
+  "human_interventions": [],
+  "outputs": {
+    "report_path": "inline://EXECUTIVE_REPORT.md",
+    "findings_path": "inline://FINDINGS.json",
+    "transcript_path": "unknown",
+    "checksums": {
+      "EXECUTIVE_REPORT.md": "21691a6c0e23a486f925750b06f03095597d57c4de653923b093621d55d31492",
+      "FINDINGS.json": "3ad46caf63e9acbb286909aa2bcb139af33d277c635122999f626b69cca55227",
+      "RUN_MANIFEST.json": "unknown_until_saved_and_sealed"
+    }
+  },
+  "reviewer_declaration": {
+    "independent_review": true,
+    "saw_other_reviews": false,
+    "modified_corpus": false
+  },
+  "notes": "Observed model identifier, selected model label, harness version, account tier, transcript export path, and final artifact checksums were not exposed or sealable in-session and are reported as unknown rather than inferred. The supplied extracted corpus did not contain the referenced ZIP, so the stated archive checksum was observed in PACK_MANIFEST_v0.4.json and CORPUS_SHA256.txt but could not be recomputed from the archive. Review checks were non-mutating against the corpus; temporary validation files were outside it."
+}

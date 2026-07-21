@@ -1,0 +1,9 @@
+{
+  "release": "v0.4",
+  "name": "PromptRig Review Launch Release",
+  "created": "2026-07-19",
+  "architecture_frozen": false,
+  "review_corpus": "promptrig-review-corpus-v0.4.zip",
+  "review_corpus_sha256": "a0bd3c1a6d91bb2330cd41d8933a723d94fc01ea40cfe824aca707a4666902e2",
+  "next_gate": "Round 1 independent review completion"
+}
