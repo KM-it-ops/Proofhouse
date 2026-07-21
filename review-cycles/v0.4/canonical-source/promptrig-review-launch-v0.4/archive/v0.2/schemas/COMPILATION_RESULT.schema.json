@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "CompilationResult",
+  "type": "object",
+  "required": [
+    "compilation_id",
+    "status",
+    "source_version_id",
+    "result_version_id",
+    "artifacts",
+    "evaluation_summary",
+    "provenance"
+  ],
+  "properties": {
+    "compilation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "enum": [
+        "queued",
+        "running",
+        "completed",
+        "completed_with_warnings",
+        "failed",
+        "canceled"
+      ]
+    },
+    "source_version_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "result_version_id": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "format": "uuid"
+    },
+    "artifacts": {
+      "type": "array",
+      "items": {
+        "$ref": "ARTIFACT_MANIFEST.schema.json"
+      }
+    },
+    "evaluation_summary": {
+      "type": "object"
+    },
+    "unresolved_defects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "provenance": {
+      "$ref": "TRACE_EVENT.schema.json"
+    }
+  },
+  "additionalProperties": false
+}

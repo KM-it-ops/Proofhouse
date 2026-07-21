@@ -1,0 +1,521 @@
+{
+  "schema_note": "SNAPSHOT_MANIFEST.json documents a differential working-folder snapshot: only files unique to or modified within the reviewer working folder were copied into review-working-snapshots/. Unchanged baseline files were omitted to avoid duplicating the unmodified corpus, and are listed here by relative path with their baseline SHA-256 so the omission is fully auditable and reversible (the same bytes are already preserved verbatim under canonical-source/).",
+  "reviewer": "claude-code-fable-5-high",
+  "baseline_reference": "canonical-source/promptrig-review-launch-v0.4 (as seeded in PromptRig-Central; originally C:\\AI\\promptrig-part1-consolidation-handoff-v1.0\\canonical-source\\promptrig-review-launch-v0.4)",
+  "baseline_methodology_note": "Baseline for this snapshot diff is the promptrig-review-launch-v0.4 pack (what the reviewer actually received to work from), not promptrig-review-corpus-v0.4. The two packs differ only by scaffold-level items present identically in every reviewer copy (archive/v0.2/, an empty 09-review-execution/evidence/ dir, PACK_MANIFEST_v0.4.json) -- diffing against corpus-v0.4 would have misreported those as reviewer-added in every folder. This choice is documented in audit/CONSOLIDATION_REPORT.md.",
+  "baseline_total_files": 123,
+  "reviewer_total_files": 126,
+  "omitted_unchanged_count": 123,
+  "unique_or_modified_count": 3,
+  "unique_or_modified_files": {
+    "09-review-execution/evidence/claude-code/EXECUTIVE_REPORT.md": {
+      "sha256": "767d76ff49be13876223272645221f1c2bbdeac48301de313374cf79e1ee38c4",
+      "size": 15981,
+      "status": "added"
+    },
+    "09-review-execution/evidence/claude-code/FINDINGS.json": {
+      "sha256": "306d092b621b63976107de0f10a9a7a00c39af5ddff48e83b261c306ebd8d9e9",
+      "size": 30908,
+      "status": "added"
+    },
+    "09-review-execution/evidence/claude-code/RUN_MANIFEST.json": {
+      "sha256": "66e7283d78db8714fc57f459ad30095357642bc21784faba8d7647298d18387e",
+      "size": 2957,
+      "status": "added"
+    }
+  },
+  "omitted_unchanged_files": {
+    "PACK_MANIFEST.json": {
+      "sha256": "e7ea4f8d234ad309b3f44320a6ba39b59bf1130e8a6ae0d3f5f8d965efd4afe0",
+      "size": 17288
+    },
+    "PACK_MANIFEST_v0.4.json": {
+      "sha256": "a99b4fb873cffeb6a8f378b8412441bbea39a58b3a5e3a34860ab0a692717495",
+      "size": 332
+    },
+    "README.md": {
+      "sha256": "e9c2f28448193293d8a83cf039df67280e29d02c5aa91e3ab83878aa32f17196",
+      "size": 1519
+    },
+    "00-governance/CHANGE_CONTROL.md": {
+      "sha256": "33a11f4260d64a4750c55bffc18ed84678bacd4ed12b0ae472417e0546d6b647",
+      "size": 785
+    },
+    "00-governance/LEGACY_DECISION_LOG.md": {
+      "sha256": "2383c70f061758eec808f81c895d38b848d6a253c84c820f6ad392d0c6c65c30",
+      "size": 1322
+    },
+    "00-governance/OPEN_QUESTIONS.md": {
+      "sha256": "e4fffd496884bc67048accc56f4a5ce96a71c4b54a8c03845ded9fb1465da863",
+      "size": 467
+    },
+    "00-governance/PROJECT_CHARTER.md": {
+      "sha256": "489a17e3075ef4edd3926d93706dfa2670d06c1d35d3be29c63a66ea4db86882",
+      "size": 1521
+    },
+    "00-governance/REVIEW_DOCKET.md": {
+      "sha256": "399268f03f9dc63b6f928c2f70786eac6e5165bd94564b35ca64bbbcd105684e",
+      "size": 340
+    },
+    "00-governance/RISK_REGISTER.md": {
+      "sha256": "f58a107a78d8cc6f0baf5b2a31deb587df8b0923f2d68b20fc04c714c71e983c",
+      "size": 1385
+    },
+    "00-governance/STATUS_AND_DECISIONS.md": {
+      "sha256": "db21ce98bbde90992ba10430d944f289843cff33b94d72b68b73a571630a8ad2",
+      "size": 1603
+    },
+    "01-vision/PRODUCT_CONSTITUTION.md": {
+      "sha256": "20202be75b0683621cd7864bae565f0d0bcdbf1445142f4b2e565aa1bdcdd523",
+      "size": 1238
+    },
+    "01-vision/PROMPTRIG_MASTER_SCOPE.md": {
+      "sha256": "b59ecd51ab9025b441c01e4ac44a09cd8dce16c5beba1520e9531ca953732ed0",
+      "size": 5848
+    },
+    "02-research/LANDSCAPE_AND_PRIOR_ART.md": {
+      "sha256": "89f17720f8189a77f9130b10f563b5bb69f15d0345032e29b310dca783c9c2e8",
+      "size": 1425
+    },
+    "02-research/RESEARCH_PROTOCOL.md": {
+      "sha256": "bb92f400653f647f66a5db027ea4ec35a806b5b4e94e9ea2a4f27fe2e5b21570",
+      "size": 1340
+    },
+    "02-research/SOURCE_REGISTER.md": {
+      "sha256": "5c7a4464ed90fe943851a1117fd312b4f693e48f0778f7163b335e58aff1c682",
+      "size": 1358
+    },
+    "03-architecture/ARCHITECTURE_FREEZE_CHECKLIST.md": {
+      "sha256": "7f79b7f9ff54e02cee6f0e039719c89c61b16d30c5f9635773df8efd0d711531",
+      "size": 1772
+    },
+    "03-architecture/ARCHITECTURE_REVIEW_PLAN.md": {
+      "sha256": "85a49d9d632cdd126cf2d50843ddbc47f362140047a4957643273e0d9b3af947",
+      "size": 1483
+    },
+    "03-architecture/BASELINE_ARCHITECTURE.md": {
+      "sha256": "a66d14efac916c02c1b780e1174e27fb4043e214c8a9b53418f4e1c3526458d7",
+      "size": 1601
+    },
+    "03-architecture/REVIEW_FINDING_SCHEMA.json": {
+      "sha256": "8998830419b5426080f7153c3a891646d93ea19a58aaba4222390dab8847cb60",
+      "size": 988
+    },
+    "03-architecture/adrs/ADR-001-PROMPTRIG-IR.md": {
+      "sha256": "728e8e819bad3c3291985cd80a647d8dc94c87a0a8df754d0cdbbb313ac0cb3a",
+      "size": 642
+    },
+    "03-architecture/adrs/ADR-002-MONOREPO-NEXTJS-FASTAPI.md": {
+      "sha256": "bc20e64b5f471fb605828abc91c48fcde265c1dced379123da16e551d38ba625",
+      "size": 610
+    },
+    "03-architecture/adrs/ADR-003-SUPABASE-MVP.md": {
+      "sha256": "8acffd9c69b925ef5947ed024499403ca00519fca9e5b37ed98905b0fe3778a8",
+      "size": 572
+    },
+    "03-architecture/adrs/ADR-004-BENCHMARK-WHOLE-SYSTEM.md": {
+      "sha256": "f37fe311b96fd1a212c9dd6e1fc0bbaf7bc1e90c51debcbddae050527128820f",
+      "size": 568
+    },
+    "03-architecture/adrs/ADR-005-STAGED-BUILDOFF.md": {
+      "sha256": "05cd7b9c6b24e1e4359b46606b1f71f8b10c9be230fe9697e57e7edda68b313e",
+      "size": 507
+    },
+    "03-architecture/adrs/ADR-006-BOUNDED-REPAIR.md": {
+      "sha256": "187a5f6ac1829162d15749b10ffd692d804a5ced431f2b004a155f201cbcc1ff",
+      "size": 547
+    },
+    "03-architecture/rfcs/RFC-001-COMPILER-PIPELINE.md": {
+      "sha256": "07162fdbc1929b01264f29caeb31e1a250e2d45afdffacfdb8513147160a104b",
+      "size": 1061
+    },
+    "03-architecture/rfcs/RFC-002-PROVIDER-ADAPTER-CONTRACT.md": {
+      "sha256": "532fbc2bad521b754b36d2188f9a84c9aa49c086e910d4dfcce62b10c67e140d",
+      "size": 746
+    },
+    "03-architecture/rfcs/RFC-003-EVALUATION-ENGINE.md": {
+      "sha256": "f6690c2562ea77129b2f3a3fdfe187a6faee0ed2161f35ba1b5c0312d11a72f3",
+      "size": 676
+    },
+    "04-specification/ACCEPTANCE_CRITERIA.md": {
+      "sha256": "62421e4a5267593468b6d37b42f7ba3fac7ae38d7393278edbb7efd6e32f0fa4",
+      "size": 3966
+    },
+    "04-specification/API_CONTRACTS.md": {
+      "sha256": "6cc51ee9f48ea22134d4058ad56387399ab00d2a4a052a8f701b44c919c60214",
+      "size": 1069
+    },
+    "04-specification/DATABASE_MODEL.md": {
+      "sha256": "8892d51c4f960d573f3ac0ac74c5ab822d95af5446518f9b04dbb63938bf657d",
+      "size": 1068
+    },
+    "04-specification/PRD.md": {
+      "sha256": "3485c6d4509deb3c9c1df001ae3ca5b25e2aff0d7f54c7ee8433eb23bb263bd4",
+      "size": 3759
+    },
+    "04-specification/UX_SPEC.md": {
+      "sha256": "a76e19e45d2dd6d33543a17b9472e0d59660c9ab568706052cffaf197124daa7",
+      "size": 2588
+    },
+    "05-benchmark/BENCHMARK_RULES.md": {
+      "sha256": "f8856755b09119c1c932b728b955fcf108f02adfa07900d577c48d2fc267d854",
+      "size": 1350
+    },
+    "05-benchmark/ENVIRONMENT.md": {
+      "sha256": "e82cc9289b6a6292901e6234e31c0093ddfe2f95a74b464545a6cf39da886595",
+      "size": 1415
+    },
+    "05-benchmark/HIDDEN_TEST_INTERFACE.md": {
+      "sha256": "1cebf1d39da63cddb923fc11c23d343b536318ace7c7d3e0e9e67258d39a4078",
+      "size": 980
+    },
+    "05-benchmark/MARKETING_CLAIMS_POLICY.md": {
+      "sha256": "b5efe9d6ac4d54b9fdbc039f66245b4b19a7105630ec7391a27af64c8523afdd",
+      "size": 713
+    },
+    "05-benchmark/MASTER_BUILD_PROMPT.md": {
+      "sha256": "a64f0e4846af2672e43c12fc7c0344e2e5e6656ceaa5fb8d37ea63f18d344056",
+      "size": 2326
+    },
+    "05-benchmark/SCORING_RUBRIC.md": {
+      "sha256": "d0c29b76ef8c8dc90f516818061fb4a3a533f4cae6877e2072a313198b632721",
+      "size": 1093
+    },
+    "05-benchmark/SOURCE_MANIFEST.md": {
+      "sha256": "3448e84bf7688fc65a5335c874e91a76a8a6fa24bf3d2748df1f4e00e319d4cd",
+      "size": 1030
+    },
+    "06-implementation/IMPLEMENTATION_ENTRY_CRITERIA.md": {
+      "sha256": "232230ba18f0223fac47f8dd8a459f6315d269034a656a32a9bb461bd0e21410",
+      "size": 733
+    },
+    "06-implementation/REPOSITORY_SCAFFOLD.md": {
+      "sha256": "7a97e7a6c82c8ebe6379fd20eb6eddd67d320564abff90ea0d526121396a1dc6",
+      "size": 1000
+    },
+    "07-verification/SECURITY_THREAT_MODEL.md": {
+      "sha256": "b7859d8b72e7f495493cb3ca9445ecd303f27b366f69cf0f530bee6638cf8c12",
+      "size": 2598
+    },
+    "07-verification/VALIDATION_MATRIX.md": {
+      "sha256": "c9c52f17099e5f1ff2d9dbbffdfe7982a439d5909c1cf17f178b62c0fb36f24a",
+      "size": 697
+    },
+    "08-release/MILESTONES.md": {
+      "sha256": "91ef968dd6875116ba3c9c3a902b0d0532955a06bf7a72aa1b9d9f662ebfb387",
+      "size": 1343
+    },
+    "08-release/RELEASE_NOTES_v0.3.md": {
+      "sha256": "56f113181a88f192155e735e30747450a342d8cef4dcfa988abf213547d8fa38",
+      "size": 813
+    },
+    "08-release/RELEASE_NOTES_v0.4.md": {
+      "sha256": "597122b8ee3dc66833c855d218d463c8066a04d64ffaf76044a470b7121a8aa7",
+      "size": 413
+    },
+    "08-release/ROADMAP.md": {
+      "sha256": "f99bf98197358608a8ca640fac3d116ad20cf6ec004db22a2eaf9cb91fe0784c",
+      "size": 1143
+    },
+    "09-review-execution/EXECUTION_RUNBOOK.md": {
+      "sha256": "b646da85a63de064cd641d2461df173cfcd13e3c73018c785d851eeb5c707db4",
+      "size": 1788
+    },
+    "09-review-execution/INTAKE_TRACKER.csv": {
+      "sha256": "e5ddd70bff08494057b4d77ccb899ade32f6eb60ac20a33f2bdf942e73d5abe7",
+      "size": 445
+    },
+    "09-review-execution/README.md": {
+      "sha256": "7472ab0c76ac855f45f86deb3b49952b58d64a8987e3b4cc468e3bf4e578c1fe",
+      "size": 1143
+    },
+    "09-review-execution/REVIEWER_REGISTRY.md": {
+      "sha256": "a986b056bd7e1c7776d329166618f33d7e874b68990d350193c2d7dcc701c6d8",
+      "size": 1686
+    },
+    "09-review-execution/REVIEW_OUTPUT_CONTRACT.md": {
+      "sha256": "ebd2860c72513fffefad2851268a1ef23c46a93274a23be9b8024bd8049f41e4",
+      "size": 1032
+    },
+    "09-review-execution/ROUND1_EXIT_CHECKLIST.md": {
+      "sha256": "560ea7b1be378d16ef86617a6d306f2f2f1f003bbd48a13f862019c095448d02",
+      "size": 691
+    },
+    "09-review-execution/evidence/CORPUS_SHA256.txt": {
+      "sha256": "5bfea5e33867a0910210e1c755608c8de55a155e3bf4411adc9bf883832e7f63",
+      "size": 99
+    },
+    "09-review-execution/prompts/CLAUDE_CODE_LAUNCH.md": {
+      "sha256": "ef3b20d6de6728e2dc8dac07e9c35a99d7534070193d6284d0746e2a9536e634",
+      "size": 805
+    },
+    "09-review-execution/prompts/DEEPSEEK_LAUNCH.md": {
+      "sha256": "17b9dda305e4925070048012a2ab74b2af78b9730785413137fd5163c2e8aa2c",
+      "size": 376
+    },
+    "09-review-execution/prompts/GEMINI_LAUNCH.md": {
+      "sha256": "5a710fdce35faf0dfd79a0b770d41d1a10294e44dfab6ed5d32b055643d507fe",
+      "size": 788
+    },
+    "09-review-execution/prompts/HUMAN_PRODUCT_LAUNCH.md": {
+      "sha256": "6be70f26dcca7e76cfecd08bc578d1e5b77cdb01f9a7bf8c3dad509ff8ac0dfb",
+      "size": 411
+    },
+    "09-review-execution/prompts/KIMI_CODE_LAUNCH.md": {
+      "sha256": "aef0f129e565f19cf8ae53f58655614a9b73331d695604b026b68bc143628717",
+      "size": 763
+    },
+    "09-review-execution/prompts/MISTRAL_LAUNCH.md": {
+      "sha256": "532a4b3c354aa2c8ffff530f535fae1ba6fb9a4c2c37b77ffe921b869b912348",
+      "size": 418
+    },
+    "09-review-execution/prompts/OPENAI_CODEX_LAUNCH.md": {
+      "sha256": "39b3c6fd23fc6972506e139df8a3c2eee049d82f7e663d9abbb4bcc3f6703a2a",
+      "size": 1139
+    },
+    "09-review-execution/prompts/QWEN_LAUNCH.md": {
+      "sha256": "b00c0742ef8f986663ddee36360ba8a41d990fbc349ef8dd3bb2233b2220cd5a",
+      "size": 397
+    },
+    "09-review-execution/scripts/checksum_corpus.py": {
+      "sha256": "496da2f2bc47c5d35cfb09e1be1ce499d2c1976e5329af11ea04f34e074d48f4",
+      "size": 221
+    },
+    "09-review-execution/scripts/validate_review.py": {
+      "sha256": "ffafca9ba76e89e27f96cb1920d90f3460eaa7a88a25dab3c30e3af5101d51d6",
+      "size": 1700
+    },
+    "09-review-execution/templates/NONPARTICIPATION_RECORD.template.json": {
+      "sha256": "8abc88c2d5753893070e20c8ae2d12c037470751ecec557603717dcfaa2512c1",
+      "size": 188
+    },
+    "09-review-execution/templates/RESOLUTION_RECORD.template.json": {
+      "sha256": "9fa8fbe6b7c646717b5aaff9249e87d943a0ef5dd5450344a8e3219a2fe2eabd",
+      "size": 276
+    },
+    "09-review-execution/templates/REVIEW_RUN_MANIFEST.template.json": {
+      "sha256": "9f15233b16f9cbd5cc2440adad809e136158f3d7af059c5f8468c1c5cd86bd80",
+      "size": 809
+    },
+    "archive/v0.2/ACCEPTANCE_CRITERIA.md": {
+      "sha256": "62421e4a5267593468b6d37b42f7ba3fac7ae38d7393278edbb7efd6e32f0fa4",
+      "size": 3966
+    },
+    "archive/v0.2/API_CONTRACTS.md": {
+      "sha256": "6cc51ee9f48ea22134d4058ad56387399ab00d2a4a052a8f701b44c919c60214",
+      "size": 1069
+    },
+    "archive/v0.2/ARCHITECTURE.md": {
+      "sha256": "a66d14efac916c02c1b780e1174e27fb4043e214c8a9b53418f4e1c3526458d7",
+      "size": 1601
+    },
+    "archive/v0.2/CHANGE_CONTROL.md": {
+      "sha256": "33a11f4260d64a4750c55bffc18ed84678bacd4ed12b0ae472417e0546d6b647",
+      "size": 785
+    },
+    "archive/v0.2/DATABASE_MODEL.md": {
+      "sha256": "8892d51c4f960d573f3ac0ac74c5ab822d95af5446518f9b04dbb63938bf657d",
+      "size": 1068
+    },
+    "archive/v0.2/DECISION_LOG.md": {
+      "sha256": "2383c70f061758eec808f81c895d38b848d6a253c84c820f6ad392d0c6c65c30",
+      "size": 1322
+    },
+    "archive/v0.2/MILESTONES.md": {
+      "sha256": "91ef968dd6875116ba3c9c3a902b0d0532955a06bf7a72aa1b9d9f662ebfb387",
+      "size": 1343
+    },
+    "archive/v0.2/OPEN_QUESTIONS.md": {
+      "sha256": "e4fffd496884bc67048accc56f4a5ce96a71c4b54a8c03845ded9fb1465da863",
+      "size": 467
+    },
+    "archive/v0.2/PACK_MANIFEST.json": {
+      "sha256": "ada23ca39fbd3057749bf9c884eb415b66bb253a6117aa2666f4a4e329bdd0ab",
+      "size": 5510
+    },
+    "archive/v0.2/PRD.md": {
+      "sha256": "3485c6d4509deb3c9c1df001ae3ca5b25e2aff0d7f54c7ee8433eb23bb263bd4",
+      "size": 3759
+    },
+    "archive/v0.2/PRODUCT_CONSTITUTION.md": {
+      "sha256": "20202be75b0683621cd7864bae565f0d0bcdbf1445142f4b2e565aa1bdcdd523",
+      "size": 1238
+    },
+    "archive/v0.2/PROMPTRIG_MASTER_SCOPE.md": {
+      "sha256": "b59ecd51ab9025b441c01e4ac44a09cd8dce16c5beba1520e9531ca953732ed0",
+      "size": 5848
+    },
+    "archive/v0.2/README.md": {
+      "sha256": "fd4f11002ba41781d2055f0bf6f520bbc10109430584e3257f8d18fc1ddeb465",
+      "size": 2032
+    },
+    "archive/v0.2/REPOSITORY_SCAFFOLD.md": {
+      "sha256": "7a97e7a6c82c8ebe6379fd20eb6eddd67d320564abff90ea0d526121396a1dc6",
+      "size": 1000
+    },
+    "archive/v0.2/RISK_REGISTER.md": {
+      "sha256": "f58a107a78d8cc6f0baf5b2a31deb587df8b0923f2d68b20fc04c714c71e983c",
+      "size": 1385
+    },
+    "archive/v0.2/SECURITY_THREAT_MODEL.md": {
+      "sha256": "b7859d8b72e7f495493cb3ca9445ecd303f27b366f69cf0f530bee6638cf8c12",
+      "size": 2598
+    },
+    "archive/v0.2/UX_SPEC.md": {
+      "sha256": "a76e19e45d2dd6d33543a17b9472e0d59660c9ab568706052cffaf197124daa7",
+      "size": 2588
+    },
+    "archive/v0.2/VALIDATION_MATRIX.md": {
+      "sha256": "c9c52f17099e5f1ff2d9dbbffdfe7982a439d5909c1cf17f178b62c0fb36f24a",
+      "size": 697
+    },
+    "archive/v0.2/benchmark/BENCHMARK_RULES.md": {
+      "sha256": "f8856755b09119c1c932b728b955fcf108f02adfa07900d577c48d2fc267d854",
+      "size": 1350
+    },
+    "archive/v0.2/benchmark/ENVIRONMENT.md": {
+      "sha256": "e82cc9289b6a6292901e6234e31c0093ddfe2f95a74b464545a6cf39da886595",
+      "size": 1415
+    },
+    "archive/v0.2/benchmark/HIDDEN_TEST_INTERFACE.md": {
+      "sha256": "1cebf1d39da63cddb923fc11c23d343b536318ace7c7d3e0e9e67258d39a4078",
+      "size": 980
+    },
+    "archive/v0.2/benchmark/MARKETING_CLAIMS_POLICY.md": {
+      "sha256": "b5efe9d6ac4d54b9fdbc039f66245b4b19a7105630ec7391a27af64c8523afdd",
+      "size": 713
+    },
+    "archive/v0.2/benchmark/MASTER_BUILD_PROMPT.md": {
+      "sha256": "a64f0e4846af2672e43c12fc7c0344e2e5e6656ceaa5fb8d37ea63f18d344056",
+      "size": 2326
+    },
+    "archive/v0.2/benchmark/SCORING_RUBRIC.md": {
+      "sha256": "d0c29b76ef8c8dc90f516818061fb4a3a533f4cae6877e2072a313198b632721",
+      "size": 1093
+    },
+    "archive/v0.2/benchmark/SOURCE_MANIFEST.md": {
+      "sha256": "3448e84bf7688fc65a5335c874e91a76a8a6fa24bf3d2748df1f4e00e319d4cd",
+      "size": 1030
+    },
+    "archive/v0.2/schemas/API_ERROR.schema.json": {
+      "sha256": "762a47ca81a928fc5341b276566b93d2b90d9df04ffa73ce1d0bd47514a0f291",
+      "size": 465
+    },
+    "archive/v0.2/schemas/ARTIFACT_MANIFEST.schema.json": {
+      "sha256": "7c169cc286477607bb35486b25604a043578f6c2f324d68be04c18f96abd84ce",
+      "size": 989
+    },
+    "archive/v0.2/schemas/COMPILATION_REQUEST.schema.json": {
+      "sha256": "dd9671c470ffc70db7c938c11423635e778c8e142290f20ef934b43c707dadde",
+      "size": 1340
+    },
+    "archive/v0.2/schemas/COMPILATION_RESULT.schema.json": {
+      "sha256": "77e6c2c7233152d0aef2335da7e04cf3ab3a72962eedbf6122ac423aafc12f4f",
+      "size": 1144
+    },
+    "archive/v0.2/schemas/EVALUATION_CASE.schema.json": {
+      "sha256": "feb7490d8e29055b09cf6a0073c9a885f3cdeefbefa60a239af054e98f22387e",
+      "size": 1312
+    },
+    "archive/v0.2/schemas/EVALUATION_RESULT.schema.json": {
+      "sha256": "922ec7ec81f83b0ea655544136be3f50bdedfdfc1eb348c32ce73c58f57051e7",
+      "size": 1224
+    },
+    "archive/v0.2/schemas/PROMPTRIG_IR.schema.json": {
+      "sha256": "f01460753aa130e8c298b18a2d35e8289b6e63608dc20238b3b1fbed4928c1b4",
+      "size": 3849
+    },
+    "archive/v0.2/schemas/PROVIDER_MANIFEST.schema.json": {
+      "sha256": "3b3a6a1a76ab2df903fd8addd10feb96dca3b795a80ba1d429b572b890bb3cb3",
+      "size": 2414
+    },
+    "archive/v0.2/schemas/SUBMISSION_MANIFEST.schema.json": {
+      "sha256": "7990a31d56a718c53b4725945b21e5cbb3496f18eaf742f7ad84aeae62c45555",
+      "size": 1739
+    },
+    "archive/v0.2/schemas/TRACE_EVENT.schema.json": {
+      "sha256": "497c9dc06a4343722b42a0d40b2a7a8dba218bcd3d36142f9112d7265df62dac",
+      "size": 1417
+    },
+    "review-kits/CLAUDE_CODE_FABLE_REVIEW.md": {
+      "sha256": "91514a6e3ebcb53a88b7c3a814f212f397ec62dbf05ff372ba615eb84eb88928",
+      "size": 391
+    },
+    "review-kits/DEEPSEEK_REVIEW.md": {
+      "sha256": "ec68e57c9050893592acb536ee0dce1128137f29f5ac795950e3319ea7068aae",
+      "size": 370
+    },
+    "review-kits/GEMINI_REVIEW.md": {
+      "sha256": "9295f6f56b2c2479870f02d72e3457149cbc527d2f69e2bfa955902e2a433917",
+      "size": 392
+    },
+    "review-kits/HUMAN_PRODUCT_REVIEW.md": {
+      "sha256": "0d1fb710d63734352a17d971c6747576509b58250a8ede3c6264097e5bad14fb",
+      "size": 407
+    },
+    "review-kits/KIMI_CODE_K3_REVIEW.md": {
+      "sha256": "ebf549ee458c2ae9857de4952213fa15489d502c295ae926cbf8c136e0bddac8",
+      "size": 398
+    },
+    "review-kits/MISTRAL_REVIEW.md": {
+      "sha256": "f8b26e1060622a946a0f2c85636db23d613a3df722b9f5d052c9b92dd9226ff8",
+      "size": 373
+    },
+    "review-kits/OPENAI_CODEX_SOL_REVIEW.md": {
+      "sha256": "24ae3c503276f4f113ab8923cd1e4757298a176425e23bd10969376c3f27aad1",
+      "size": 407
+    },
+    "review-kits/QWEN_REVIEW.md": {
+      "sha256": "05f847792746887e1cf8e7f79305c94d6989536870e5422a10b23adf8f29e11a",
+      "size": 368
+    },
+    "review-kits/SYNTHESIS_PROMPT.md": {
+      "sha256": "74e7b7c80ce745101abdbc7bbdbdb3331c8ffa8bb55ad4562fbd36ab6b89a5b9",
+      "size": 619
+    },
+    "review-kits/UNIVERSAL_REVIEW_PROTOCOL.md": {
+      "sha256": "a9a3f236dfafd681a019c34738637924aa87362a0d2bc523e410a4d3cd1d6aa5",
+      "size": 1080
+    },
+    "schemas/API_ERROR.schema.json": {
+      "sha256": "762a47ca81a928fc5341b276566b93d2b90d9df04ffa73ce1d0bd47514a0f291",
+      "size": 465
+    },
+    "schemas/ARTIFACT_MANIFEST.schema.json": {
+      "sha256": "7c169cc286477607bb35486b25604a043578f6c2f324d68be04c18f96abd84ce",
+      "size": 989
+    },
+    "schemas/COMPILATION_REQUEST.schema.json": {
+      "sha256": "dd9671c470ffc70db7c938c11423635e778c8e142290f20ef934b43c707dadde",
+      "size": 1340
+    },
+    "schemas/COMPILATION_RESULT.schema.json": {
+      "sha256": "77e6c2c7233152d0aef2335da7e04cf3ab3a72962eedbf6122ac423aafc12f4f",
+      "size": 1144
+    },
+    "schemas/EVALUATION_CASE.schema.json": {
+      "sha256": "feb7490d8e29055b09cf6a0073c9a885f3cdeefbefa60a239af054e98f22387e",
+      "size": 1312
+    },
+    "schemas/EVALUATION_RESULT.schema.json": {
+      "sha256": "922ec7ec81f83b0ea655544136be3f50bdedfdfc1eb348c32ce73c58f57051e7",
+      "size": 1224
+    },
+    "schemas/PROMPTRIG_IR.schema.json": {
+      "sha256": "f01460753aa130e8c298b18a2d35e8289b6e63608dc20238b3b1fbed4928c1b4",
+      "size": 3849
+    },
+    "schemas/PROVIDER_MANIFEST.schema.json": {
+      "sha256": "3b3a6a1a76ab2df903fd8addd10feb96dca3b795a80ba1d429b572b890bb3cb3",
+      "size": 2414
+    },
+    "schemas/SUBMISSION_MANIFEST.schema.json": {
+      "sha256": "7990a31d56a718c53b4725945b21e5cbb3496f18eaf742f7ad84aeae62c45555",
+      "size": 1739
+    },
+    "schemas/TRACE_EVENT.schema.json": {
+      "sha256": "497c9dc06a4343722b42a0d40b2a7a8dba218bcd3d36142f9112d7265df62dac",
+      "size": 1417
+    }
+  }
+}

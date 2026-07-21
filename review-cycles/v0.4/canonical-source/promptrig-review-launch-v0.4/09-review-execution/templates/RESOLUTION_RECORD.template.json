@@ -1,0 +1,12 @@
+{
+  "finding_id": "",
+  "disposition": "accept|accept_with_modification|defer|reject|superseded",
+  "rationale": "",
+  "owner": "",
+  "target_release": "",
+  "affected_files": [],
+  "required_changes": [],
+  "validation_tests": [],
+  "residual_risk": "",
+  "approved_by": []
+}

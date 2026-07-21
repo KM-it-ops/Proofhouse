@@ -1,0 +1,95 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "BenchmarkSubmissionManifest",
+  "type": "object",
+  "required": [
+    "benchmark_version",
+    "submission_id",
+    "commit_sha",
+    "harness",
+    "requested_model",
+    "environment",
+    "run_type",
+    "evidence",
+    "artifact_hashes"
+  ],
+  "properties": {
+    "benchmark_version": {
+      "type": "string"
+    },
+    "submission_id": {
+      "type": "string"
+    },
+    "commit_sha": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{40}$"
+    },
+    "harness": {
+      "type": "object",
+      "required": [
+        "name",
+        "version"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string"
+        }
+      }
+    },
+    "requested_model": {
+      "type": "string"
+    },
+    "observed_models": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "environment": {
+      "type": "object"
+    },
+    "run_type": {
+      "enum": [
+        "autonomous",
+        "steered"
+      ]
+    },
+    "interventions": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "evidence": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "artifact_hashes": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^[a-f0-9]{64}$"
+      }
+    },
+    "cost_usd": {
+      "type": "number",
+      "minimum": 0
+    },
+    "duration_seconds": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "unresolved_defects": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    }
+  },
+  "additionalProperties": false
+}

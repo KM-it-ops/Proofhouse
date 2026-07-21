@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/schemas/compilation-request-0.2.json",
+  "title": "CompilationRequest",
+  "type": "object",
+  "required": [
+    "project_id",
+    "source_version_id",
+    "mode",
+    "target_providers"
+  ],
+  "properties": {
+    "project_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "source_version_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "mode": {
+      "enum": [
+        "balanced",
+        "creative",
+        "enterprise"
+      ]
+    },
+    "target_providers": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string"
+      }
+    },
+    "repair_limit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2,
+      "default": 1
+    },
+    "budget": {
+      "type": "object",
+      "properties": {
+        "max_cost_usd": {
+          "type": "number",
+          "minimum": 0
+        },
+        "max_duration_seconds": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "max_provider_calls": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "idempotency_key": {
+      "type": "string",
+      "minLength": 8
+    }
+  },
+  "additionalProperties": false
+}

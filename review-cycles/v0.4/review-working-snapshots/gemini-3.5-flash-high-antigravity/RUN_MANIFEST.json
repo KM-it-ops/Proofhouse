@@ -1,0 +1,44 @@
+{
+  "schema_version": "0.1.0",
+  "review_id": "REV-GEMINI-20260719",
+  "reviewer_id": "google-gemini",
+  "specialist_mandate": "UX, accessibility, product comprehension, progressive disclosure, error recovery, user consent, confidence communication, and Simple Mode vs. Developer Mode integrity",
+  "corpus": {
+    "version": "v0.4",
+    "archive_sha256": "a0bd3c1a6d91bb2330cd41d8933a723d94fc01ea40cfe824aca707a4666902e2"
+  },
+  "execution": {
+    "started_at_utc": "2026-07-20T02:11:35Z",
+    "completed_at_utc": "2026-07-20T02:22:00Z",
+    "product_surface": "PromptRig Specification v0.4 Canonical Corpus",
+    "harness_version": "Antigravity Review Harness v0.4",
+    "requested_model_label": "Gemini 3.5 Flash (High)",
+    "observed_model_identifier": "gemini-3.5-flash",
+    "account_tier": "enterprise",
+    "network_access": "disabled_or_local",
+    "tools_enabled": [
+      "view_file",
+      "list_dir",
+      "grep_search",
+      "write_to_file",
+      "run_command"
+    ],
+    "memory_or_project_context": "disabled"
+  },
+  "human_interventions": [],
+  "outputs": {
+    "report_path": "EXECUTIVE_REPORT.md",
+    "findings_path": "FINDINGS.json",
+    "transcript_path": "transcript.jsonl",
+    "checksums": {
+      "EXECUTIVE_REPORT.md": "bee49be64d2feaf911e4acc8524c87865bcd0d93fe772c612aaef7d32291e943",
+      "FINDINGS.json": "acba5d6017ae1106f793b5675e8008f4742d8f70b422210944504cb80ba4f281"
+    }
+  },
+  "reviewer_declaration": {
+    "independent_review": true,
+    "saw_other_reviews": false,
+    "modified_corpus": false
+  },
+  "notes": "Independent Gemini product and UX architecture review performed in accordance with UNIVERSAL_REVIEW_PROTOCOL.md and GEMINI_REVIEW.md."
+}

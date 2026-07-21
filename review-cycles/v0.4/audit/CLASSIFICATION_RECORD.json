@@ -1,0 +1,134 @@
+{
+  "schema_note": "Machine-readable record of every candidate folder examined for this consolidation, the classification decision, confidence, and the evidence used to reach it.",
+  "generated_by": "Claude Code Sonnet 5, PromptRig Part 1 consolidation run",
+  "parent_directory_scanned": "C:\\AI",
+  "candidates": [
+    {
+      "source_path": "C:\\AI\\claude promptrig-review-launch-v0.4",
+      "classification": "reviewer_working_folder",
+      "reviewer": "claude-code-fable-5-high",
+      "confidence": "high",
+      "evidence": [
+        "Contains full promptrig-review-launch-v0.4 pack matching PACK_MANIFEST.json / PACK_MANIFEST_v0.4.json of the canonical launch source.",
+        "RUN_MANIFEST.json at 09-review-execution/evidence/claude-code/RUN_MANIFEST.json declares reviewer_id=\"anthropic-claude-code\", requested_model_label=\"Claude Fable 5\", review_id=\"promptrig-v0.4-round1-claude-code-architecture-001\".",
+        "EXECUTIVE_REPORT.md, FINDINGS.json, RUN_MANIFEST.json all present and valid JSON where applicable.",
+        "SHA-256 diff against the pristine launch-v0.4 baseline: 123/123 baseline files unchanged, 0 modified, 0 deleted, exactly 3 files added (the three standard artifacts)."
+      ],
+      "standard_artifacts_found": ["EXECUTIVE_REPORT.md", "FINDINGS.json", "RUN_MANIFEST.json"],
+      "standard_artifacts_location": "09-review-execution/evidence/claude-code/ (non-default location; reviewer added a new evidence subdirectory at operator request per RUN_MANIFEST.json human_interventions)",
+      "supplemental_artifacts_found": [],
+      "corpus_files_changed_from_baseline": [],
+      "likely_caches_or_excluded_material": [],
+      "likely_secrets_detected": []
+    },
+    {
+      "source_path": "C:\\AI\\gemini promptrig-review-launch-v0.4",
+      "classification": "reviewer_working_folder",
+      "reviewer": "gemini-3.5-flash-high-antigravity",
+      "confidence": "high",
+      "evidence": [
+        "Contains full promptrig-review-launch-v0.4 pack matching the canonical launch source.",
+        "RUN_MANIFEST.json at root declares reviewer_id=\"google-gemini\", requested_model_label=\"Gemini 3.5 Flash (High)\", harness_version=\"Antigravity Review Harness v0.4\", review_id=\"REV-GEMINI-20260719\".",
+        "EXECUTIVE_REPORT.md, FINDINGS.json, RUN_MANIFEST.json all present at folder root and valid JSON where applicable.",
+        "SHA-256 diff against the pristine launch-v0.4 baseline: 123/123 baseline files unchanged, 0 modified, 0 deleted, exactly 3 files added (the three standard artifacts)."
+      ],
+      "standard_artifacts_found": ["EXECUTIVE_REPORT.md", "FINDINGS.json", "RUN_MANIFEST.json"],
+      "standard_artifacts_location": "folder root (non-default location vs. the evidence/ convention used by other reviewers, but unambiguous)",
+      "supplemental_artifacts_found": [],
+      "corpus_files_changed_from_baseline": [],
+      "likely_caches_or_excluded_material": [],
+      "likely_secrets_detected": [],
+      "validation_note": "RUN_MANIFEST.json references outputs.transcript_path = \"transcript.jsonl\" but no such file exists anywhere in the working folder. Reported in VALIDATION_REPORT.md as a manifest/reality mismatch; not treated as evidence of tampering."
+    },
+    {
+      "source_path": "C:\\AI\\Codex\\codex promptrig v0.4 audit\\promptrig-review-launch-v0.4",
+      "classification": "reviewer_working_folder",
+      "reviewer": "codex-sol-high",
+      "confidence": "high",
+      "evidence": [
+        "Contains full promptrig-review-launch-v0.4 pack matching the canonical launch source.",
+        "promptrig_codex_RUN_MANIFEST.json under 09-review-execution/ declares reviewer_id=\"openai-codex\", product_surface=\"OpenAI Codex desktop\", review_id starting \"promptrig-v0.4-openai-codex-...\".",
+        "promptrig_codex_EXECUTIVE_REPORT.md, promptrig_codex_FINDINGS.json, promptrig_codex_RUN_MANIFEST.json all present under 09-review-execution/ and valid JSON where applicable.",
+        "SHA-256 diff against the pristine launch-v0.4 baseline: 123/123 baseline files unchanged, 0 modified, 0 deleted, exactly 3 files added (the three standard artifacts, non-standard prefixed filenames)."
+      ],
+      "standard_artifacts_found": ["promptrig_codex_EXECUTIVE_REPORT.md (= EXECUTIVE_REPORT role)", "promptrig_codex_FINDINGS.json (= FINDINGS role)", "promptrig_codex_RUN_MANIFEST.json (= RUN_MANIFEST role)"],
+      "standard_artifacts_location": "09-review-execution/ (non-default location, non-standard prefixed filenames)",
+      "supplemental_artifacts_found": [],
+      "corpus_files_changed_from_baseline": [],
+      "likely_caches_or_excluded_material": [
+        "promptrig-review-launch-v0.4/.git (present but empty -- no commits), excluded as disposable VCS metadata",
+        "promptrig-review-launch-v0.4/.agents (present but empty), excluded as disposable tool-state directory"
+      ],
+      "likely_secrets_detected": []
+    },
+    {
+      "source_path": "C:\\AI\\kimi k3 promptrig audit\\promptrig-review-launch-v0.4",
+      "classification": "reviewer_working_folder_no_output",
+      "reviewer": "kimi-k3-high",
+      "confidence": "high (folder identity) / deficiency confirmed (no review deliverables)",
+      "evidence": [
+        "Contains full promptrig-review-launch-v0.4 pack matching the canonical launch source, including review-kits/KIMI_CODE_K3_REVIEW.md and 09-review-execution/prompts/KIMI_CODE_LAUNCH.md -- consistent with a Kimi K3 review being staged.",
+        "SHA-256 diff against the pristine launch-v0.4 baseline: 123/123 files unchanged, 0 modified, 0 added, 0 deleted -- the folder is byte-for-byte identical to an unused launch pack.",
+        "No EXECUTIVE_REPORT.md, FINDINGS.json, or RUN_MANIFEST.json found anywhere in the tree (recursive search)."
+      ],
+      "standard_artifacts_found": [],
+      "standard_artifacts_location": null,
+      "supplemental_artifacts_found": [],
+      "corpus_files_changed_from_baseline": [],
+      "likely_caches_or_excluded_material": [],
+      "likely_secrets_detected": [],
+      "deficiency": "No reviewer output was ever produced or saved in this working folder. Documented in review-results/round-1/kimi-k3-high/NO_REVIEWER_OUTPUT_FOUND.md and flagged READY_WITH_WARNINGS in CONSOLIDATION_REPORT.md."
+    },
+    {
+      "source_path": "C:\\AI\\CodexHome",
+      "classification": "excluded_not_a_review_folder",
+      "reviewer": null,
+      "confidence": "high",
+      "evidence": [
+        "This is the OpenAI Codex CLI application's home/state directory (config.toml, sessions/, sqlite databases, plugins/, .sandbox/, auth.json, .credentials.json).",
+        "No PromptRig corpus markers (00-governance/PROJECT_CHARTER.md, 03-architecture/REVIEW_FINDING_SCHEMA.json, 09-review-execution/, PACK_MANIFEST.json) present anywhere in it.",
+        "Contains what appear to be live application credentials/auth state (auth.json, .credentials.json) -- explicitly out of scope and not touched or copied per safety rule 8."
+      ],
+      "standard_artifacts_found": [],
+      "likely_secrets_detected": ["auth.json and .credentials.json observed by filename only -- not opened, not copied, not hashed, not included in this consolidation in any way"]
+    },
+    {
+      "source_path": "C:\\AI\\Gemini",
+      "classification": "excluded_not_a_review_folder",
+      "reviewer": null,
+      "confidence": "high",
+      "evidence": [
+        "Contains unrelated Gemini-branded project notes: 'Master Adversarial Encyclopedia & Librarian Development Plan.md', Projects/Browser Extract, Projects/Project Alexandria Wiki, Projects/Universal Web Clipper & Media Extractor, Projects/WebClipper.",
+        "No PromptRig corpus markers present anywhere in it."
+      ],
+      "standard_artifacts_found": []
+    },
+    {
+      "source_path": "C:\\AI\\Codex\\1st",
+      "classification": "excluded_empty_directory",
+      "reviewer": null,
+      "confidence": "high",
+      "evidence": ["Directory exists but is completely empty (no files, no subdirectories)."],
+      "standard_artifacts_found": []
+    },
+    {
+      "source_path": "C:\\AI\\Codex\\KM-it-ops.github.io",
+      "classification": "excluded_not_a_review_folder",
+      "reviewer": null,
+      "confidence": "high",
+      "evidence": [
+        "Personal portfolio/GitHub Pages site project (index.html, script.js, styles.css, DESIGN.md, .git/, resume/, tokens.json).",
+        "No PromptRig corpus markers present. Unrelated to the review task; happens to live as a sibling under C:\\AI\\Codex\\ but is not a reviewer working folder."
+      ],
+      "standard_artifacts_found": []
+    },
+    {
+      "source_path": "C:\\AI\\Codex\\preview-screenshots",
+      "classification": "excluded_not_a_review_folder",
+      "reviewer": null,
+      "confidence": "high",
+      "evidence": ["PNG screenshots of the KM-it-ops.github.io portfolio site (command-center-home.png, signal-atlas-*.png, etc.). Unrelated to PromptRig."],
+      "standard_artifacts_found": []
+    }
+  ]
+}

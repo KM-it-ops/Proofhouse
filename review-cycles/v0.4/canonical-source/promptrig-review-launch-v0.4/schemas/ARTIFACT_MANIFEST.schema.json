@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "ArtifactManifest",
+  "type": "object",
+  "required": [
+    "path",
+    "kind",
+    "sha256",
+    "media_type",
+    "generated_from_version"
+  ],
+  "properties": {
+    "path": {
+      "type": "string"
+    },
+    "kind": {
+      "enum": [
+        "prompt",
+        "system_instructions",
+        "user_template",
+        "agent_blueprint",
+        "tool_manifest",
+        "schema",
+        "evaluation",
+        "deployment",
+        "documentation",
+        "trace",
+        "other"
+      ]
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    },
+    "media_type": {
+      "type": "string"
+    },
+    "generated_from_version": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "provider": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  },
+  "additionalProperties": false
+}

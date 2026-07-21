@@ -1,0 +1,168 @@
+[
+  {
+    "id": "REV-GEMINI-HIGH-001",
+    "severity": "high",
+    "title": "Contradiction between UX intake mode options ('Flexible/Balanced/Strict') and canonical IR schema project.mode enum ('balanced/creative/enterprise')",
+    "affected_sources": [
+      "04-specification/UX_SPEC.md#L31",
+      "schemas/PROMPTRIG_IR.schema.json#L31-L37",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md#L54-L59"
+    ],
+    "finding": "The UX Intake specification defines precision/rigor options as 'Flexible / Balanced / Strict' (UX_SPEC.md line 31), whereas PROMPTRIG_IR.schema.json restricts project.mode enum strictly to ['balanced', 'creative', 'enterprise'], and PROMPTRIG_MASTER_SCOPE.md defines modes as 'Balanced', 'Creative', 'Enterprise'. Because Simple Mode intake maps user choices directly into canonical IR, user selection of 'Flexible' or 'Strict' in the UI will fail JSON Schema validation against the canonical IR schema.",
+    "evidence": [
+      "UX_SPEC.md line 31: 'How careful should it be? Flexible / Balanced / Strict'",
+      "PROMPTRIG_IR.schema.json lines 31-37: 'mode': {'enum': ['balanced', 'creative', 'enterprise']}",
+      "PROMPTRIG_MASTER_SCOPE.md lines 54-59: Modes listed as Balanced, Creative, Enterprise"
+    ],
+    "failure_scenario": "A nontechnical user completes intake selecting 'Strict' or 'Flexible'. The frontend intake engine serializes this selection directly into project.mode = 'strict', triggering an unhandled ValidationError during compiler backend IR validation and stranding the user at project creation.",
+    "recommendation": "Harmonize mode terminology across intake, master scope, and canonical IR schema. Either align UX intake options to 'Creative / Balanced / Enterprise' (with nontechnical tooltips explaining rigor), or update PROMPTRIG_IR.schema.json project.mode enum to include ['flexible', 'balanced', 'strict', 'creative', 'enterprise'] with explicit intake-to-IR translation rules in RFC-001.",
+    "validation": "Execute JSON Schema validation tests passing all UX intake selections ('flexible', 'strict', 'creative', 'enterprise', 'balanced') through PROMPTRIG_IR.schema.json and verify 100% roundtrip validation without schema errors.",
+    "confidence": 1.0,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-GEMINI-HIGH-002",
+    "severity": "high",
+    "title": "Absence of nontechnical data representation specification for complex JSON Schemas (input_contracts / output_contracts) in Simple Mode",
+    "affected_sources": [
+      "04-specification/UX_SPEC.md#L35-L45",
+      "04-specification/ACCEPTANCE_CRITERIA.md#L51",
+      "schemas/PROMPTRIG_IR.schema.json#L82-L93"
+    ],
+    "finding": "Acceptance criteria mandate that 'No developer terminology is required to finish [Simple Mode] flow' (ACCEPTANCE_CRITERIA.md line 51). However, UX_SPEC.md requires displaying 'What it will accept and produce' in the Compilation Summary without specifying how complex structured JSON Schemas (defined in IR input_contracts and output_contracts) are lowered into nontechnical, plain-language visual summaries.",
+    "evidence": [
+      "ACCEPTANCE_CRITERIA.md line 51: 'No developer terminology is required to finish this flow.'",
+      "UX_SPEC.md line 41: Compilation summary displays 'What it will accept and produce'",
+      "PROMPTRIG_IR.schema.json lines 82-93: input_contracts and output_contracts defined as raw JSON Schema objects"
+    ],
+    "failure_scenario": "A nontechnical user compiling an Agent Blueprint sees raw JSON schema constructs (e.g., {'type': 'object', 'properties': {'customer_id': {'type': 'string', 'pattern': '^CUST-[0-9]{5}$'}}}) in their Simple Mode compilation summary. This violates nontechnical usability principles, causes user confusion, and triggers drop-off.",
+    "recommendation": "Add a normative requirement in UX_SPEC.md for a 'Schema Humanizer' UI component in Simple Mode that converts raw JSON Schema properties, data types, constraints, and descriptions into readable bulleted descriptions (e.g., 'Customer ID: Text matching format CUST-12345').",
+    "validation": "Conduct usability and comprehension testing with nontechnical participants on projects containing complex schemas, verifying 0% raw JSON/developer terminology leakage in Simple Mode.",
+    "confidence": 0.95,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-GEMINI-HIGH-003",
+    "severity": "high",
+    "title": "Missing UI interaction contract and consent boundary for external tool actions in Interactive Sample Runner ('Try It')",
+    "affected_sources": [
+      "04-specification/UX_SPEC.md#L15",
+      "04-specification/UX_SPEC.md#L84",
+      "01-vision/PRODUCT_CONSTITUTION.md#L26",
+      "07-verification/SECURITY_THREAT_MODEL.md#L50-L54"
+    ],
+    "finding": "The Product Constitution and Security Threat Model mandate that consequential external actions (sending messages, modifying external data, executing external APIs) require explicit user approval at the action boundary. However, UX_SPEC.md Screen 9 ('Interactive sample runner / Try It') fails to specify the UX interaction contract, modal dialogs, or confirmation UI for intercepting, previewing, and approving tool executions during sample interactions.",
+    "evidence": [
+      "PRODUCT_CONSTITUTION.md line 26: Forbids 'Automatically performing consequential external actions without authorization'",
+      "SECURITY_THREAT_MODEL.md lines 50-54: 'External messages, purchases, permission changes... require explicit approval at the action boundary.'",
+      "UX_SPEC.md line 84: Includes Screen 9 'interactive sample runner', but provides no UI specification for tool approval boundary"
+    ],
+    "failure_scenario": "A user testing a generated AI assistant in 'Try It' mode triggers an agent tool call that sends an actual email or modifies database state without a confirmation prompt, causing unintended side effects. Alternatively, the runner silently blocks the tool call without explaining why, breaking the sample testing experience.",
+    "recommendation": "Update UX_SPEC.md Screen 9 specification to mandate a standard 'Action Consent Card / Modal' in Simple Mode for all side-effecting tool calls. The UI must display tool name, proposed parameters, target system, and explicit 'Approve Execution' / 'Deny Execution' controls alongside a 'Mock Execution Mode' toggle for safe testing.",
+    "validation": "Execute automated E2E tests simulating external tool calls in 'Try It' mode; verify that execution pauses and blocks until explicit approval token is passed via UI user interaction.",
+    "confidence": 0.95,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-GEMINI-HIGH-004",
+    "severity": "high",
+    "title": "Contradiction between schema constraint and specification for evaluation repair_limit maximum bounds",
+    "affected_sources": [
+      "schemas/PROMPTRIG_IR.schema.json#L162-L165",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md#L105",
+      "04-specification/ACCEPTANCE_CRITERIA.md#L60",
+      "00-governance/STATUS_AND_DECISIONS.md#L10"
+    ],
+    "finding": "PROMPTRIG_IR.schema.json sets 'maximum': 5 for evaluation.repair_limit. However, PROMPTRIG_MASTER_SCOPE.md line 105 explicitly defines repair limit as 'configurable to zero through two', and ACCEPTANCE_CRITERIA.md line 60 states 'configure zero to two repair passes'.",
+    "evidence": [
+      "PROMPTRIG_IR.schema.json lines 162-165: 'repair_limit': {'type': 'integer', 'minimum': 0, 'maximum': 5}",
+      "PROMPTRIG_MASTER_SCOPE.md line 105: 'one default bounded repair pass, configurable to zero through two'",
+      "ACCEPTANCE_CRITERIA.md line 60: 'configure zero to two repair passes'"
+    ],
+    "failure_scenario": "A developer in Developer Mode sets repair_limit to 4 via the IR editor. The IR passes JSON Schema validation, but the backend compiler or evaluation engine enforces the spec limit of 2, leading to unexpected job rejections or silent truncation of repair passes.",
+    "recommendation": "Align PROMPTRIG_IR.schema.json with the Master Scope and Acceptance Criteria by updating 'maximum': 2 in the schema (or update Master Scope and Acceptance Criteria if repair limits up to 5 are intended for advanced enterprise modes, documenting the exact policy).",
+    "validation": "Run validation tests with repair_limit values 0, 1, 2, 3, and 5 against both schema and compiler service to verify consistent validation enforcement.",
+    "confidence": 1.0,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-GEMINI-MEDIUM-005",
+    "severity": "medium",
+    "title": "Lack of nontechnical error recovery and plain-language troubleshooting guidance when bounded repair fails",
+    "affected_sources": [
+      "04-specification/UX_SPEC.md#L47-L56",
+      "04-specification/UX_SPEC.md#L91-L99",
+      "03-architecture/adrs/ADR-006-BOUNDED-REPAIR.md#L13-L16"
+    ],
+    "finding": "When evaluation fails and bounded repair reaches its attempt limit without resolving all defects, UX_SPEC.md defines human-language statuses ('Needs attention', 'Could not complete') and mandates honest reporting. However, it provides no specification for presenting nontechnical users with actionable re-prompting or intake adjustments to resolve the failure.",
+    "evidence": [
+      "UX_SPEC.md lines 47-56: Lists result statuses but no plain-language troubleshooting flow",
+      "ADR-006-BOUNDED-REPAIR.md line 15: Requires reporting unresolved failures honestly, but lacks user recovery mechanisms"
+    ],
+    "failure_scenario": "A nontechnical user's project compilation finishes with status 'Needs attention' due to a failing output format test. The user receives a raw test failure notification but has no guidance on how to rephrase their plain-language objective or constraints to fix the problem, resulting in project abandonment.",
+    "recommendation": "Specify a 'Plain-Language Diagnosis & Guidance' section in Screen 7 (Result Summary) that translates technical evaluation failures into user-actionable intake suggestions (e.g., 'The AI struggled to format dates properly. Try adding \"Format all dates as YYYY-MM-DD\" to your description.').",
+    "validation": "Conduct usability testing on failing compilations, measuring nontechnical user success rates in resolving defects via plain-language intake adjustments.",
+    "confidence": 0.90,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-GEMINI-MEDIUM-006",
+    "severity": "medium",
+    "title": "Missing screen reader live-region accessibility specifications for asynchronous compilation and evaluation progress",
+    "affected_sources": [
+      "04-specification/UX_SPEC.md#L89-L105",
+      "04-specification/ACCEPTANCE_CRITERIA.md#L75-L81"
+    ],
+    "finding": "UX_SPEC.md requires WCAG 2.2 AA compliance and defines asynchronous states ('queued', 'running', 'completed', 'completed with warnings', 'failed', 'canceled'). However, it lacks normative requirements for aria-live regions, status role announcements (role='status', role='alert'), and keyboard focus management during dynamic phase transitions (Intake -> Compilation Progress -> Result Summary).",
+    "evidence": [
+      "UX_SPEC.md lines 89-105: Details state requirements and general WCAG 2.2 AA targeting, but omits specific WAI-ARIA live region requirements for dynamic progress updates (Screen 6: Compilation Progress)",
+      "ACCEPTANCE_CRITERIA.md lines 75-81: Mandates keyboard-operable flows and accessible names, but lacks explicit live-region verification"
+    ],
+    "failure_scenario": "A visually impaired user relying on a screen reader initiates compilation. As the pipeline transitions through intake, IR generation, lowerings, and testing, the screen reader remains silent or continuously re-reads the full page, providing no accessible feedback on progress or completion.",
+    "recommendation": "Add explicit WCAG 2.2 AA WAI-ARIA guidelines to UX_SPEC.md specifying aria-live='polite' containers for non-blocking stage updates, aria-live='assertive' for critical failures/prompts, and automatic focus routing to the Result Summary heading upon compilation completion.",
+    "validation": "Perform automated and manual screen reader audits (NVDA / VoiceOver) across dynamic compilation states to verify timely, non-disruptive announcements.",
+    "confidence": 0.92,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-GEMINI-MEDIUM-007",
+    "severity": "medium",
+    "title": "Ambiguity in communicating model-graded evaluation confidence vs deterministic test pass rates in Simple Mode",
+    "affected_sources": [
+      "04-specification/UX_SPEC.md#L55",
+      "01-vision/PRODUCT_CONSTITUTION.md#L14",
+      "01-vision/PRODUCT_CONSTITUTION.md#L24",
+      "03-architecture/rfcs/RFC-003-EVALUATION-ENGINE.md#L8-L10"
+    ],
+    "finding": "PRODUCT_CONSTITUTION.md forbids 'Claiming a system is perfect or optimal without evidence' and UX_SPEC.md states 'Do not describe a model-graded result as proof of correctness.' However, UX_SPEC.md does not specify how Simple Mode visually distinguishes between 100% deterministic test passes (schema/type checks) and probabilistic model-graded evaluations (LLM judge scores), leading to potential misinterpretation of confidence.",
+    "evidence": [
+      "UX_SPEC.md line 55: Forbids describing model-graded results as proof of correctness",
+      "PRODUCT_CONSTITUTION.md line 24: 'Claiming a system is perfect or optimal without evidence' is forbidden",
+      "RFC-003-EVALUATION-ENGINE.md line 9: Model judges cannot be sole authority for schema validity or correctness"
+    ],
+    "failure_scenario": "A nontechnical user sees 'All Tests Passed - 100%' on a project where 4 out of 5 tests were subjective LLM-judge evaluations. The user assumes absolute reliability, deploys the system, and experiences unexpected hallucinated outputs in production.",
+    "recommendation": "Mandate a dual-indicator UI design in Simple Mode: 1) 'Deterministic Validation' (Pass/Fail count), and 2) 'AI Judgment Confidence' (percentage range with clear tooltip: 'Graded by AI judge; actual performance may vary').",
+    "validation": "Test user comprehension of result screens with nontechnical participants to confirm they accurately distinguish hard schema guarantees from model-graded evaluations.",
+    "confidence": 0.90,
+    "disposition": "unreviewed"
+  },
+  {
+    "id": "REV-GEMINI-LOW-008",
+    "severity": "low",
+    "title": "Undefined UI mechanism for disclosing and adjusting automatically selected Compilation Level in Simple Mode",
+    "affected_sources": [
+      "04-specification/UX_SPEC.md#L35-L45",
+      "01-vision/PROMPTRIG_MASTER_SCOPE.md#L47-L53"
+    ],
+    "finding": "PromptRig automatically selects the least-complex sufficient compilation level (Prompt, Prompt System, Agent Blueprint, Application Specification). UX_SPEC.md Compilation Summary requires presenting what PromptRig understood, but does not explicitly specify how the selected compilation level is disclosed to nontechnical users or how users can request a level override without switching to Developer Mode.",
+    "evidence": [
+      "PROMPTRIG_MASTER_SCOPE.md lines 47-53: Defines 4 compilation levels",
+      "UX_SPEC.md lines 35-45: Details Compilation Summary elements, but omits explicit compilation level disclosure or adjustment mechanism"
+    ],
+    "failure_scenario": "PromptRig auto-selects 'Prompt System' when the user intended a simple single 'Prompt'. The nontechnical user is unable to adjust the compilation level in Simple Mode because no level selector or explanation is exposed.",
+    "recommendation": "Add a plain-language 'System Complexity' badge to the Compilation Summary (e.g. 'Simple Prompt', 'Multi-Step Assistant', 'Agent with Tools') with an inline 'Change Complexity' modal in Simple Mode.",
+    "validation": "Verify that nontechnical users can view and adjust system complexity in Simple Mode without needing developer terms.",
+    "confidence": 0.85,
+    "disposition": "unreviewed"
+  }
+]

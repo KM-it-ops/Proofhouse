@@ -1,0 +1,44 @@
+{
+  "schema_version": "0.1.0",
+  "review_id": "promptrig-v0.4-round1-claude-code-architecture-001",
+  "reviewer_id": "anthropic-claude-code",
+  "specialist_mandate": "Architecture coherence, long-horizon maintainability, system boundaries, coupling, state ownership, evolvability, failure containment, contract consistency, provider/product-change survival (CLAUDE_CODE_FABLE_REVIEW.md; REVIEWER_REGISTRY.md row anthropic-claude-code)",
+  "corpus": {
+    "version": "v0.4",
+    "archive_sha256": "a0bd3c1a6d91bb2330cd41d8933a723d94fc01ea40cfe824aca707a4666902e2"
+  },
+  "execution": {
+    "started_at_utc": "2026-07-20T02:10:00Z",
+    "completed_at_utc": "2026-07-20T02:31:00Z",
+    "product_surface": "Claude Code (Claude Agent SDK, non-interactive session, Windows 11)",
+    "harness_version": "unknown",
+    "requested_model_label": "Claude Fable 5",
+    "observed_model_identifier": "claude-fable-5",
+    "account_tier": "unknown",
+    "network_access": "tools_available_but_unused_for_review",
+    "tools_enabled": ["Read", "Grep", "Glob", "Bash", "PowerShell"],
+    "memory_or_project_context": "prior project memory not used per launch prompt; user-level global instructions were present in the session context"
+  },
+  "human_interventions": [
+    {
+      "timestamp_utc": "2026-07-20T02:32:00Z",
+      "instruction": "go ahead and return those 3 as files for me in the repo",
+      "effect": "Artifacts originally returned inline were additionally written to 09-review-execution/evidence/claude-code/. No finding content was changed; manifest outputs section updated with file paths and checksums."
+    }
+  ],
+  "outputs": {
+    "report_path": "09-review-execution/evidence/claude-code/EXECUTIVE_REPORT.md",
+    "findings_path": "09-review-execution/evidence/claude-code/FINDINGS.json",
+    "transcript_path": "",
+    "checksums": {
+      "EXECUTIVE_REPORT.md": "767d76ff49be13876223272645221f1c2bbdeac48301de313374cf79e1ee38c4",
+      "FINDINGS.json": "306d092b621b63976107de0f10a9a7a00c39af5ddff48e83b261c306ebd8d9e9"
+    }
+  },
+  "reviewer_declaration": {
+    "independent_review": true,
+    "saw_other_reviews": false,
+    "modified_corpus": false
+  },
+  "notes": "Review performed on the extracted corpus directory, not the zip archive; archive_sha256 is transcribed from PACK_MANIFEST_v0.4.json and 09-review-execution/evidence/CORPUS_SHA256.txt rather than independently recomputed from the zip. started_at_utc is approximate (single measured clock reading at completion: 2026-07-20T02:30:54Z). No supplied source files were modified; artifact files were added under a new evidence subdirectory (09-review-execution/evidence/claude-code/) at operator request. RUN_MANIFEST.json cannot contain its own hash; operator should compute it at sealing per EXECUTION_RUNBOOK.md step 8. One reviewer-executed verification command beyond reading: recursive diff of schemas/ against archive/v0.2/schemas/ (identical), cited in REV-CLAUDE-MEDIUM-011."
+}

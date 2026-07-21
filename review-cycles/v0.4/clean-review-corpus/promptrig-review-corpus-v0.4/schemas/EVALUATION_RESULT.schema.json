@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "EvaluationResult",
+  "type": "object",
+  "required": [
+    "evaluation_id",
+    "status",
+    "baseline",
+    "candidate",
+    "regressions",
+    "cost",
+    "duration_ms"
+  ],
+  "properties": {
+    "evaluation_id": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "status": {
+      "enum": [
+        "passed",
+        "passed_with_warnings",
+        "failed",
+        "evaluator_error",
+        "canceled"
+      ]
+    },
+    "baseline": {
+      "type": "object"
+    },
+    "candidate": {
+      "type": "object"
+    },
+    "regressions": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "case_results": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      }
+    },
+    "cost": {
+      "type": "object",
+      "properties": {
+        "currency": {
+          "const": "USD"
+        },
+        "amount": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "repair_pass": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+    }
+  },
+  "additionalProperties": false
+}

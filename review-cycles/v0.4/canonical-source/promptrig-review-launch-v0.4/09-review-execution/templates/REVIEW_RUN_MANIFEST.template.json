@@ -1,0 +1,35 @@
+{
+  "schema_version": "0.1.0",
+  "review_id": "",
+  "reviewer_id": "",
+  "specialist_mandate": "",
+  "corpus": {
+    "version": "v0.4",
+    "archive_sha256": ""
+  },
+  "execution": {
+    "started_at_utc": "",
+    "completed_at_utc": "",
+    "product_surface": "",
+    "harness_version": "unknown",
+    "requested_model_label": "",
+    "observed_model_identifier": "unknown",
+    "account_tier": "unknown",
+    "network_access": "unknown",
+    "tools_enabled": [],
+    "memory_or_project_context": "disabled_or_unknown"
+  },
+  "human_interventions": [],
+  "outputs": {
+    "report_path": "",
+    "findings_path": "",
+    "transcript_path": "",
+    "checksums": {}
+  },
+  "reviewer_declaration": {
+    "independent_review": true,
+    "saw_other_reviews": false,
+    "modified_corpus": false
+  },
+  "notes": ""
+}
