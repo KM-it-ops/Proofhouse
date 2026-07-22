@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/schemas/diagnostic/0.1.0",
+  "title": "PromptRig Diagnostic Contract 0.1.0",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "id", "code", "severity", "phase", "message", "source", "fingerprint"],
+  "properties": {
+    "contract_version": { "const": "0.1.0" },
+    "id": { "type": "string", "pattern": "^diag_[a-f0-9]{16,64}$" },
+    "code": { "type": "string", "pattern": "^PRG-[A-Z]+-[0-9]{4}$" },
+    "severity": { "enum": ["info", "warning", "error"] },
+    "phase": { "enum": ["normalization", "validation", "optimization", "capability_resolution", "safety", "adapter_lowering", "cli", "environment"] },
+    "message": { "type": "string", "minLength": 1 },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["document", "json_pointer"],
+      "properties": {
+        "document": { "type": "string", "minLength": 1 },
+        "json_pointer": { "type": "string", "pattern": "^(?:/(?:[^~/]|~0|~1)*)*$" },
+        "line": { "type": "integer", "minimum": 1 },
+        "column": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "related": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["document", "json_pointer"],
+        "properties": {
+          "document": { "type": "string", "minLength": 1 },
+          "json_pointer": { "type": "string", "pattern": "^(?:/(?:[^~/]|~0|~1)*)*$" }
+        }
+      }
+    },
+    "hint": { "type": "string", "minLength": 1 },
+    "details": { "type": "object" },
+    "fingerprint": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+    "caused_by": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^diag_[a-f0-9]{16,64}$" }
+    }
+  }
+}
