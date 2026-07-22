@@ -1,6 +1,6 @@
 # ADR-006 — Reasoning/thinking configuration surface missing from PromptRig IR v0.1
 
-**Status:** Proposed / Candidate — not yet accepted, no schema change authorized by this document.
+**Status:** Accepted — the architectural gap is confirmed by three independent findings (MISSION-003, MISSION-004, MISSION-005); no specific schema-change shape is authorized by this acceptance, only the existence and reality of the gap.
 **Date:** 2026-07-22
 **Raised by:** Architect review, following independent findings in MISSION-003 and MISSION-004.
 
