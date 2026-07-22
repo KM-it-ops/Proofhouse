@@ -1,0 +1,50 @@
+{
+  "matrix_version": "0.5.0",
+  "evidence": {
+    "review_cycle": "review-cycles/v0.4/review-results/round-1",
+    "reviewers": { "claude": 14, "codex": 11, "gemini": 8, "kimi_saved_outputs": 0 },
+    "total_findings": 33
+  },
+  "status_definitions": {
+    "candidate_addressed": "The v0.5 candidate provides a contract response; implementation tests and owner acceptance remain required.",
+    "deferred": "Explicitly outside Compiler Core v0.1 and still blocks its affected product surface.",
+    "open": "Requires a further owner or architecture decision before freeze."
+  },
+  "findings": [
+    { "id": "REV-CLAUDE-HIGH-001", "severity": "high", "theme": "repair_bounds", "status": "candidate_addressed", "target": "IR schema fixes 0-2 and removes duplicate ownership" },
+    { "id": "REV-CLAUDE-HIGH-002", "severity": "high", "theme": "provenance", "status": "candidate_addressed", "target": "compile result, pass digests, source paths, and adapter provenance" },
+    { "id": "REV-CLAUDE-HIGH-003", "severity": "high", "theme": "hosted_jobs", "status": "deferred", "target": "hosted execution/job lifecycle contract" },
+    { "id": "REV-CLAUDE-HIGH-004", "severity": "high", "theme": "tenant_isolation", "status": "deferred", "target": "hosted authorization and storage ADR" },
+    { "id": "REV-CLAUDE-HIGH-005", "severity": "high", "theme": "ir_semantics", "status": "candidate_addressed", "target": "strict typed IR schema" },
+    { "id": "REV-CLAUDE-MEDIUM-006", "severity": "medium", "theme": "idempotency_repair", "status": "deferred", "target": "hosted orchestration and repair resource contracts" },
+    { "id": "REV-CLAUDE-MEDIUM-007", "severity": "medium", "theme": "capabilities", "status": "candidate_addressed", "target": "namespaced versioned capability vocabulary" },
+    { "id": "REV-CLAUDE-MEDIUM-008", "severity": "medium", "theme": "partial_failure", "status": "candidate_addressed", "target": "adapter result explicitly distinguishes partial artifacts from success" },
+    { "id": "REV-CLAUDE-MEDIUM-009", "severity": "medium", "theme": "mode_ownership", "status": "candidate_addressed", "target": "mode exists only in IR" },
+    { "id": "REV-CLAUDE-MEDIUM-010", "severity": "medium", "theme": "benchmark_coupling", "status": "deferred", "target": "benchmark domain separation" },
+    { "id": "REV-CLAUDE-MEDIUM-011", "severity": "medium", "theme": "ir_versioning", "status": "open", "target": "owner decision on new 0.1.0 versus successor numbering" },
+    { "id": "REV-CLAUDE-MEDIUM-012", "severity": "medium", "theme": "core_location", "status": "candidate_addressed", "target": "Python library is authoritative; generated contracts are boundaries" },
+    { "id": "REV-CLAUDE-LOW-013", "severity": "low", "theme": "evaluation_semantics", "status": "deferred", "target": "evaluation result contract after Compiler Core" },
+    { "id": "REV-CLAUDE-LOW-014", "severity": "low", "theme": "review_validation", "status": "deferred", "target": "review-pipeline schema hardening" },
+
+    { "id": "REV-CODEX-CRITICAL-001", "severity": "critical", "theme": "benchmark_controls", "status": "deferred", "target": "benchmark configuration ADR; blocks benchmark launch" },
+    { "id": "REV-CODEX-CRITICAL-002", "severity": "critical", "theme": "ir_semantics", "status": "candidate_addressed", "target": "strict typed IR schema and adversarial fixtures" },
+    { "id": "REV-CODEX-HIGH-001", "severity": "high", "theme": "traceability", "status": "candidate_addressed", "target": "requirements IDs, acceptance arrays, source paths, and parity cases" },
+    { "id": "REV-CODEX-HIGH-002", "severity": "high", "theme": "evaluation_scoring", "status": "deferred", "target": "evaluation and scoring contract" },
+    { "id": "REV-CODEX-HIGH-003", "severity": "high", "theme": "hosted_jobs", "status": "deferred", "target": "durable job state contract" },
+    { "id": "REV-CODEX-HIGH-004", "severity": "high", "theme": "provider_contract", "status": "candidate_addressed", "target": "shared offline adapter interface and conformance suite" },
+    { "id": "REV-CODEX-HIGH-005", "severity": "high", "theme": "provenance", "status": "candidate_addressed", "target": "digest-sealed inputs, passes, manifests, and artifacts" },
+    { "id": "REV-CODEX-HIGH-006", "severity": "high", "theme": "scope_sequence", "status": "candidate_addressed", "target": "narrow vertical slice and explicit exclusions" },
+    { "id": "REV-CODEX-HIGH-007", "severity": "high", "theme": "hosted_security", "status": "deferred", "target": "tenant, credentials, deletion, and storage contracts" },
+    { "id": "REV-CODEX-MEDIUM-001", "severity": "medium", "theme": "decision_status", "status": "candidate_addressed", "target": "candidate decisions and broader freeze limitations labeled explicitly" },
+    { "id": "REV-CODEX-MEDIUM-002", "severity": "medium", "theme": "review_validation", "status": "deferred", "target": "strict review manifest and evidence validator" },
+
+    { "id": "REV-GEMINI-HIGH-001", "severity": "high", "theme": "mode_vocabulary", "status": "candidate_addressed", "target": "IR freezes creative, balanced, enterprise; UI mapping remains deferred" },
+    { "id": "REV-GEMINI-HIGH-002", "severity": "high", "theme": "simple_mode_contracts", "status": "deferred", "target": "nontechnical schema authoring UX contract" },
+    { "id": "REV-GEMINI-HIGH-003", "severity": "high", "theme": "tool_consent", "status": "deferred", "target": "interactive runner consent and side-effect UX" },
+    { "id": "REV-GEMINI-HIGH-004", "severity": "high", "theme": "repair_bounds", "status": "candidate_addressed", "target": "IR schema fixes repair limit to 0-2" },
+    { "id": "REV-GEMINI-MEDIUM-005", "severity": "medium", "theme": "repair_ux", "status": "deferred", "target": "plain-language repair failure UX" },
+    { "id": "REV-GEMINI-MEDIUM-006", "severity": "medium", "theme": "accessibility", "status": "deferred", "target": "async progress live-region UX contract" },
+    { "id": "REV-GEMINI-MEDIUM-007", "severity": "medium", "theme": "evaluation_confidence", "status": "deferred", "target": "model-grade versus deterministic-result presentation" },
+    { "id": "REV-GEMINI-LOW-008", "severity": "low", "theme": "compilation_level_ux", "status": "deferred", "target": "Simple Mode disclosure and adjustment contract" }
+  ]
+}
