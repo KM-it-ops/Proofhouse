@@ -46,4 +46,10 @@ class DirectorySink:
 
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_bytes(artifact.data)
-        return Artifact(name=artifact.name, media_type=artifact.media_type, sha256=artifact.sha256, path=str(target))
+        return Artifact(
+            name=artifact.name,
+            media_type=artifact.media_type,
+            sha256=artifact.sha256,
+            path=str(target),
+            provenance=artifact.provenance,
+        )
