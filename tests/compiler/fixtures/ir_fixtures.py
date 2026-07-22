@@ -176,3 +176,73 @@ def ir_with_anthropic_thinking(*, required: bool = False, optional: bool = False
         required=["reasoning.extended_thinking@1"] if required else None,
         optional=["reasoning.extended_thinking@1"] if optional else None,
     )
+
+
+def gemini_supported_but_loosely_typed_schema() -> dict[str, Any]:
+    """A JSON Schema NOT expressible in OpenAI's/Anthropic's strict subset
+    (missing additionalProperties: false, an optional property omitted from
+    required) but fully expressible in Gemini's documented subset, which --
+    confirmed across multiple independent sources -- does not require
+    either convention. Demonstrates the genuine, source-confirmed schema-
+    subset divergence between Gemini and the two prior adapters."""
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "confidence": {"type": "number"},
+        },
+        "required": ["answer"],
+    }
+
+
+def gemini_unsupported_schema() -> dict[str, Any]:
+    """A JSON Schema NOT expressible in Gemini's documented subset: an
+    array schema declaring no `items`, which every prior adapter's checker
+    (and Gemini's, per the OpenAPI 3.0 Schema Object shape responseSchema
+    is documented to be a subset of) treats as a genuine violation."""
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+            "tags": {"type": "array"},
+        },
+        "required": ["tags"],
+    }
+
+
+def ir_with_gemini_structured_output(*, compliant: bool = True) -> dict[str, Any]:
+    doc = ir_with_capabilities(required=["output.structured_json@1"])
+    schema = gemini_supported_but_loosely_typed_schema() if compliant else gemini_unsupported_schema()
+    doc["output_contracts"] = [
+        {"id": "answer_contract", "name": "Answer Contract", "required": True, "schema": schema}
+    ]
+    return doc
+
+
+def ir_with_gemini_function_tool(*, compliant: bool = True) -> dict[str, Any]:
+    doc = ir_with_capabilities(required=["tools.function_calling@1"])
+    schema = gemini_supported_but_loosely_typed_schema() if compliant else gemini_unsupported_schema()
+    doc["tools"] = [
+        {
+            "id": "lookup_answer",
+            "description": "Look up an answer.",
+            "input_schema": schema,
+            "side_effecting": False,
+            "approval": "never",
+        }
+    ]
+    return doc
+
+
+def ir_with_gemini_built_in_tool(*, required: bool) -> dict[str, Any]:
+    if required:
+        return ir_with_capabilities(required=["tools.server_executed@1"])
+    return ir_with_capabilities(optional=["tools.server_executed@1"])
+
+
+def ir_with_gemini_thinking(*, required: bool = False, optional: bool = False) -> dict[str, Any]:
+    return ir_with_capabilities(
+        required=["reasoning.thinking_level@1"] if required else None,
+        optional=["reasoning.thinking_level@1"] if optional else None,
+    )
