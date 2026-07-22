@@ -1,87 +1,96 @@
 # MISSION-006 Report — Compiler Contract Recovery and Re-Certification v0.1
 
-## 1. Starting state and isolation
+## Status
 
-- **Repository:** `KM-it-ops/PromptRig`
-- **Required integration commit:** `65cd2d216a8a0a29030ee159d47a155344abf4a5`
-- **Recovery branch:** `fix/compiler-contract-recovery-v0.1`
-- **Isolated clean clone:** `C:\Users\alkur\Projects\PromptRig-mission-006`
-- **Original owner checkout:** `C:\Users\alkur\Projects\PromptRig` was not modified.
+PR #11 remains the existing recovery vehicle: **draft, open, unmerged, and
+without auto-merge**. This correction does not move tags, change the frozen IR
+schema, alter the owner checkout, or accept ADR-007.
 
-The original local checkout was stale. The clean clone verified `origin/feature/promptrig-framework` at the required commit. The annotated tag object is `c6006c42639cbe33755999fb66e49f29bb849fef`; its required peeled commit, checked with `git rev-parse "refs/tags/v0.5-architecture-freeze^{}"`, is `7948c9a419dc02ea43ca994f0334733ea4b08855`.
+- Repository: `KM-it-ops/PromptRig`
+- Base / head: `feature/promptrig-framework` ← `fix/compiler-contract-recovery-v0.1`
+- Isolated worktree: `C:\Users\alkur\Projects\PromptRig-mission-006`
+- Owner checkout left untouched: `C:\Users\alkur\Projects\PromptRig`
+- Frozen tag peeled commit: `7948c9a419dc02ea43ca994f0334733ea4b08855`
 
-## 2. Commits and pull request
+## Independent review correction
+
+The independent review requested changes for six defects. Their resolutions
+are deliberately behavioral, not source-identity claims:
+
+1. **RFC 8785 numbers:** `rfc8785==0.1.4` replaces the hand-rolled Python
+   float serializer. Every finite Appendix B vector is decoded from its
+   IEEE-754 hexadecimal representation and asserted; NaN and both infinities
+   are hard failures. The dependency review is
+   `architecture/dependency-reviews/RFC8785_0_1_4.md`.
+2. **Semantic fidelity:** every successful artifact retains exact canonical IR
+   values in `promptrig_semantic_context.ir` and records one per-leaf
+   `retained` disposition pointing to that artifact path. A digest or an
+   all-pointer list is no longer called semantic coverage.
+3. **Metamorphic proof:** generated regression cases mutate each frozen
+   semantic family (including schemas, booleans, limits, arrays, capability
+   requirements, and provenance) and require a different deployable artifact
+   SHA-256.
+4. **Output contracts:** all adapters and the compiler reject any
+   `output_contracts` length above one. No required/optional ordering can
+   select index zero.
+5. **Omissions/deployability:** unsupported or conditional optional
+   capabilities create machine-readable omissions with source path, semantic
+   identifier, resolution, reason, and nondeployable effect. Artifact and
+   envelope deployability agree.
+6. **Evidence:** the semantic and safety matrices now describe actual
+   retention, rejection, and omission paths. ADR-007 remains Proposed.
+
+## Preserved and appended commits
+
+The original five PR commits were preserved exactly. The correction commits
+are appended; no commit was amended or rewritten.
 
 1. `11a9a3d58ca65b813f4aff848a09b3fd66018658` — `test: add failing frozen-contract recovery cases`
 2. `54927001f6d7abb4d537c9a99ad6a2d03e60400a` — `fix(compiler): fail closed on contract recovery gaps`
 3. `0de31938d46518f402ead439f20deb7fbfcffb4c` — `docs(governance): recover contract evidence`
+4. `6fb79b2673d7e4531127630b4815f972bccfcb0a` — `docs: add mission 006 recovery report`
+5. `fc1088ced555cd956b9389c446643acd29628998` — `docs: record recovery pull request state`
+6. `9ffe74a0beaadfc0a92e1c96bf80e0351482530b` — `test: expose remaining contract recovery defects`
+7. `e2d569c45904d442ed5256894de6b9239aacad66` — `fix(canonical): use verified RFC 8785 serialization`
+8. `e9517cf4ec715e08b4acf7449b13a9fa725c592a` — `fix(compiler): preserve or reject every IR semantic disposition`
+9. `a99625ef5874a0bdc34d877b04b9e32d2ed9d8b4` — `docs(governance): correct semantic coverage evidence`
 
-The recovery-test commit was run before production fixes: **14 failed, 2 passed**, exercising the intended defects.
+Before implementation, the independent-audit regression suite produced
+**10 failed, 59 passed**. After the corrections it produced **69 passed**.
 
-- **Draft PR:** https://github.com/KM-it-ops/PromptRig/pull/11
-- **Base / head:** `feature/promptrig-framework` ← `fix/compiler-contract-recovery-v0.1`
-- **Merge state at report update:** `UNSTABLE`; CI is in progress. Some initial Ubuntu/macOS matrix jobs and TypeScript drift completed successfully; no merge or auto-merge was requested.
-
-## 3. Frozen-contract corrections
-
-- Canonicalization rejects unsafe integers, NaN, Infinity, and normalizes the tested ECMAScript/JCS exponent boundaries.
-- Semantic sections and `output.structured_json@1` / `tools.function_calling@1` declarations must agree; contradictions fail with an existing validation diagnostic.
-- Multiple required output contracts fail explicitly instead of lowering index zero.
-- Required conditional capabilities fail; optional unresolved capabilities are warnings/recorded omissions.
-- Partial lowering quarantines artifacts and cannot become deployable success.
-- Public API and CLI require an exact adapter version; unavailable or missing versions fail at the public boundary.
-- Every successful artifact receives immutable, machine-readable provenance: IR paths/digest, compiler/adapter identities, complete manifest digest/version, decisions, and deployability.
-- Capability-manifest digests cover identity, version, supported/conditional capabilities, and limits.
-- Compiler-state and capability-manifest nested JSON structures are recursively immutable.
-- RFC 6901 escaping is used for schema and validation pointers; normalization produces an identity source map.
-- Safety rejects side-effecting/no-approval conflicts, read-only autonomy conflicts, and free-text security/privacy policies that cannot be machine enforced by frozen IR v0.1.
-
-## 4. Semantic and safety coverage
-
-`architecture/compiler-contract-freeze-v0.5/SEMANTIC_COVERAGE_MATRIX.md` classifies every frozen v0.1 path. Provider-request fields lower where representable; all successful artifacts retain source-path and canonical-IR traceability. Free-text security and privacy rules fail closed rather than being treated as enforceable.
-
-`architecture/compiler-contract-freeze-v0.5/SAFETY_COVERAGE_MATRIX.md` records the exact implemented controls and explicitly identifies execution as out of scope.
-
-## 5. Governance and historical evidence
-
-- ADR-006 is internally consistent with its Accepted status and no longer claims that the OpenAI artifact has an unfillable reasoning field.
-- ADR-007 remains Proposed. Its evidence now records Anthropic, OpenAI, and Gemini continuation-state evidence; `architecture/adr/OWNER_DECISION_REQUEST_ADR_007.md` asks the owner whether that evidence warrants acceptance.
-- MISSION-003, -004, and -005 original files were recovered from retained downloads and committed under `architecture/historical-missions/`.
-- SHA-256 source/copy pairs matched exactly:
-  - MISSION-003: `2abf2239fb84d563296c7b10821e98285488f00291fe01abefde905498044669`
-  - MISSION-004: `256b4b5206197217d47c318219aa88e93e6bad9d168b23d5c9879eab90687e42`
-  - MISSION-005: `48b9ee9741a40e50a281df91eb39df84e4dd632ddc1787f34acb9eba3f3ab6f6`
-- Provider evidence was refreshed from primary provider documentation only, without provider API execution or credentials.
-
-## 6. Validation evidence
+## Validation evidence
 
 | Check | Result |
 |---|---|
-| Untouched baseline | 236 passed (Python 3.14.6) |
-| Pre-fix recovery suite | 14 failed, 2 passed as expected |
-| Final full pytest suite | 252 passed in 5.77s (Python 3.14.6, Windows) |
-| Focused recovery suite | 16 passed |
-| Determinism/no-network | covered by passing compiler suite; no provider APIs were called |
-| TypeScript drift | generator run; no content diff |
-| Package build | sdist and wheel built successfully |
-| Clean wheel install | successful in isolated venv |
-| Installed console script | `doctor --json` and `adapters --json` successful |
-| Module entry point | `python -m promptrig.compiler.cli_compiler` doctor/adapters successful |
-| Historical review artifacts | 242 SHA-256 entries verified |
+| Complete local pytest | 321 passed (Windows, Python 3.14.6) |
+| RFC 8785 Appendix B / non-finite suite | 27 passed |
+| Semantic metamorphic, output-contract, omission checks | 42 passed |
+| Repeated determinism / no-network | covered by the passing compiler suite; no provider API was called |
+| Legacy dataset validation | all four datasets passed |
+| TypeScript drift | generator ran; no content diff |
+| sdist and wheel | built successfully |
+| Clean wheel install | successful in an isolated temporary venv |
+| Installed CLI and module smoke tests | `doctor --json` and `adapters --json` passed for both entry points |
+| Whitespace | `git diff --check` passed |
+| Historical artifacts | MISSION-003/004/005 SHA-256 values matched recorded evidence |
 | Frozen tag | peeled commit exactly `7948c9a419dc02ea43ca994f0334733ea4b08855` |
-| CI (Windows/Linux/macOS, Python 3.11/3.12) | pending PR CI; not represented as locally complete |
+| GitHub CI | [run #36](https://github.com/KM-it-ops/PromptRig/actions/runs/29964838939) completed successfully |
 
-The packaging tool emitted an existing setuptools deprecation warning for the table-form `project.license`; it did not fail the build and is unrelated to this mission's frozen contracts.
+CI run #36 completed all seven jobs successfully:
 
-## 7. Deviations and remaining decisions
+- `typescript-drift`
+- Ubuntu, Windows, and macOS on Python 3.11
+- Ubuntu, Windows, and macOS on Python 3.12
 
-- No frozen IR schema, tag, diagnostic registry, review-cycle artifact, credential, or provider-execution path was changed.
-- Provider documentation is evidence only; no live API behavior was tested.
-- Cross-platform/Python-3.11/3.12 validation is delegated to the repository's existing PR CI matrix and remains pending until CI completes.
-- The frozen IR does not supply a machine-readable security/privacy policy language. MISSION-006 fails such populated policy sections closed. A future owner/architect decision is needed to authorize any policy-language design.
-- ADR-007 acceptance and any future multi-turn/session schema remain owner/architect decisions.
-- No merge recommendation is made. Independent architect review and explicit owner authorization remain required.
+The package build retains the pre-existing setuptools deprecation warning for
+the table-form `project.license`; it is unrelated to this correction.
 
-## 8. Stop conditions
+## Remaining limitations and owner decisions
 
-No binding mission stop condition was triggered after the clean-clone preconditions passed. The stale original clone and annotated-tag-object versus peeled-tag distinction were recorded as precondition evidence, not treated as contract defects.
+- The semantic context is a deterministic PromptRig sidecar, not a claim that
+  every provider natively executes every IR field.
+- The frozen IR still has no machine-readable security/privacy policy grammar;
+  populated free-text policy blocks fail closed.
+- No provider API behavior or credentials were used.
+- ADR-007 remains Proposed, and multi-turn/session or composite output-contract
+  lowering requires separate owner/architect authorization.
