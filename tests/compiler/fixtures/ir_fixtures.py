@@ -139,3 +139,40 @@ def ir_with_openai_tool(*, compliant: bool = True) -> dict[str, Any]:
         }
     ]
     return doc
+
+
+def ir_with_anthropic_structured_output(*, compliant: bool = True) -> dict[str, Any]:
+    doc = ir_with_capabilities(required=["output.structured_json@1"])
+    schema = strict_compliant_schema() if compliant else strict_noncompliant_schema()
+    doc["output_contracts"] = [
+        {"id": "answer_contract", "name": "Answer Contract", "required": True, "schema": schema}
+    ]
+    return doc
+
+
+def ir_with_anthropic_client_tool(*, compliant: bool = True) -> dict[str, Any]:
+    doc = ir_with_capabilities(required=["tools.function_calling@1"])
+    schema = strict_compliant_schema() if compliant else strict_noncompliant_schema()
+    doc["tools"] = [
+        {
+            "id": "lookup_answer",
+            "description": "Look up an answer.",
+            "input_schema": schema,
+            "side_effecting": False,
+            "approval": "never",
+        }
+    ]
+    return doc
+
+
+def ir_with_anthropic_server_tool(*, required: bool) -> dict[str, Any]:
+    if required:
+        return ir_with_capabilities(required=["tools.server_executed@1"])
+    return ir_with_capabilities(optional=["tools.server_executed@1"])
+
+
+def ir_with_anthropic_thinking(*, required: bool = False, optional: bool = False) -> dict[str, Any]:
+    return ir_with_capabilities(
+        required=["reasoning.extended_thinking@1"] if required else None,
+        optional=["reasoning.extended_thinking@1"] if optional else None,
+    )
