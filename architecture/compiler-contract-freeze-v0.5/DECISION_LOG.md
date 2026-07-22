@@ -10,5 +10,6 @@
 | D-050-006 | Make OpenAI the first live adapter target, Anthropic the second conformance target, Gemini the third. | Accepted | Provider matrix and strategic validation breadth; OAR-001 |
 | D-050-007 | CLI wraps the same public library and returns stable JSON envelopes and exit codes. | Accepted | Mission requirement; parity contract; OAR-001 |
 | D-050-008 | Preserve historical review artifacts byte-for-byte. | Accepted | Architect Mode law and mission policy |
+| D-050-009 | Ship Compiler Core v0.1 CLI as its own `promptrig-compiler` binary, not merged into the legacy `promptrig` binary, to resolve the `validate` command-name collision. | Accepted | ADR-005; MISSION_002_REPORT.md Deviations item 1; owner ratification during MISSION-002 review |
 
 OAR-001 is the owner acceptance record. The accepted decisions are binding for Compiler Core v0.1; deferred product-surface questions remain outside this freeze.
