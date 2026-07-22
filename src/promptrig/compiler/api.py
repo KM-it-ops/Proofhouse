@@ -24,7 +24,7 @@ from .contracts import (
     SourceLocation,
     status_from_diagnostics,
 )
-from .diagnostics import DiagnosticFactory, DiagnosticRegistry, DiagnosticRegistryError
+from .diagnostics import DiagnosticFactory, DiagnosticRegistry, DiagnosticRegistryError, compute_fingerprint
 from .ir import IRParseError, iter_schema_errors, parse_ir
 from .passes import (
     AdapterLoweringPass,
@@ -221,7 +221,7 @@ def doctor() -> ResultEnvelope:
     registry_detail = "loaded"
     try:
         DiagnosticRegistry(paths.DIAGNOSTIC_REGISTRY_PATH)
-    except DiagnosticRegistryError as exc:
+    except Exception as exc:  # noqa: BLE001 -- any load failure is an environment problem
         registry_ok = False
         registry_detail = str(exc)
     checks.append(DoctorCheck(name="diagnostic_registry", ok=registry_ok, detail=registry_detail))
@@ -238,19 +238,33 @@ def doctor() -> ResultEnvelope:
     checks.append(DoctorCheck(name="offline_mode", ok=True, detail="no network access is performed"))
 
     all_ok = all(c.ok for c in checks)
-    factory = _diagnostic_factory()
     diagnostics: tuple[Diagnostic, ...] = ()
     if not all_ok:
         failing = next(c for c in checks if not c.ok)
-        diagnostics = (
-            factory.emit(
-                code="PRG-ENVIRONMENT-0001",
-                phase="environment",
-                message=f"Required offline environment configuration unavailable: {failing.name} -- {failing.detail}",
-                document="<environment>",
-                json_pointer="",
-            ),
-        )
+        message = f"Required offline environment configuration unavailable: {failing.name} -- {failing.detail}"
+        try:
+            diagnostics = (
+                _diagnostic_factory().emit(
+                    code="PRG-ENVIRONMENT-0001",
+                    phase="environment",
+                    message=message,
+                    document="<environment>",
+                    json_pointer="",
+                ),
+            )
+        except Exception:  # noqa: BLE001 -- the registry/schema themselves may be what's broken
+            fingerprint = compute_fingerprint("PRG-ENVIRONMENT-0001", "environment", "<environment>", "")
+            diagnostics = (
+                Diagnostic(
+                    id="diag_" + fingerprint[:32],
+                    code="PRG-ENVIRONMENT-0001",
+                    severity="error",
+                    phase="environment",
+                    message=message,
+                    source=SourceLocation(document="<environment>", json_pointer=""),
+                    fingerprint=fingerprint,
+                ),
+            )
 
     data = {"checks": [{"name": c.name, "ok": c.ok, "detail": c.detail} for c in checks]}
     status = "success" if all_ok else "error"
