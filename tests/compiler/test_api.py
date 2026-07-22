@@ -4,7 +4,7 @@ import json
 
 from promptrig.compiler import api
 from promptrig.compiler.contracts import CompileOptions
-from promptrig.compiler.sink import InMemorySink
+from promptrig.compiler.sink import DirectorySink, InMemorySink
 
 from .fixtures.ir_fixtures import (
     ir_with_anthropic_structured_output,
@@ -154,6 +154,20 @@ def test_doctor_healthy_environment():
 def test_compile_offline_option_defaults_true():
     options = CompileOptions()
     assert options.offline is True
+
+
+def test_directory_sink_preserves_artifact_provenance_and_deployability(tmp_path):
+    env = api.compile(
+        _raw(minimal_valid_ir()),
+        adapter_id="fake",
+        adapter_version="0.1.0",
+        sink=DirectorySink(tmp_path),
+    )
+
+    assert env.status == "success"
+    assert env.data["deployable"] is True
+    assert env.data["artifacts"][0]["path"]
+    assert env.data["artifacts"][0]["provenance"]["deployable"] is True
 
 
 def test_envelope_round_trips_through_json():
