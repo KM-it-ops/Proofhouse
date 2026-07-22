@@ -2,13 +2,13 @@
 
 ## Executive summary
 
-MISSION-001 is complete. PromptRig now has an Architect Mode v1.2.0 canonical installation and repository snapshot, current governance ADRs, deferred PRS documentation, production repository standards, and a review-derived Compiler Core v0.1 contract-freeze candidate. No Compiler Core implementation was started.
+MISSION-001A closes the owner-ratification phase. PromptRig now has an Architect Mode v1.2.0 canonical installation and repository snapshot, current governance ADRs, deferred PRS documentation, production repository standards, and an owner-ratified Compiler Core v0.1 contract baseline. No Compiler Core implementation was started.
 
-The work is published on an unmerged pull request. The freeze candidate is internally validated, but owner acceptance of the language, provider order, IR version numbering, canonicalization profile, and diagnostic registry remains required before implementation freeze.
+The owner acceptance record is binding for Compiler Core v0.1. Hosted jobs, benchmark launch controls, tenant boundaries, live-provider execution, and deferred UX/PRS/MissionRig surfaces remain outside this freeze.
 
 ## Mission status
 
-**COMPLETE — freeze candidate prepared; owner decision gates remain explicit.**
+**COMPLETE — owner-ratified Compiler Core v0.1 baseline; deferred product-surface gates remain explicit.**
 
 ## Environment discovered
 
@@ -57,6 +57,8 @@ The merged repository contains the canonical v0.4 source, clean review corpus, C
 - Merge performed: no
 - Force push/history rewrite: none
 
+MISSION-001A closeout commit and merge/tag SHAs are recorded in the closeout section below after the authorized merge.
+
 The report-delivery commit is the branch HEAD after this file is added; a self-referential commit hash is intentionally not embedded in its own contents.
 
 ## Files added and modified
@@ -76,6 +78,8 @@ Major additions:
 - 18-file compiler contract-freeze package
 - `.editorconfig`, CODEOWNERS, two issue templates, and a pull-request template
 - architecture index and this mission report
+- `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-001.md`
+- `architecture/diagnostics/DIAGNOSTIC_CODE_REGISTRY.json`
 
 ## Contract-freeze outputs
 
@@ -111,26 +115,27 @@ The package freezes a candidate Compiler Core boundary only. It does not claim t
 | Git whitespace check | PASS |
 | GitHub CI | PASS — workflow run 29880807397, job 88801050468 |
 | Secret scan hook | PASS — 0 findings at/above high on both PromptRig commits |
+| Owner acceptance record | PASS — OAR-001 binds all five Compiler Core v0.1 decisions |
 
 ## Quality-gate result
 
 Repository integrity, dual Architect Mode placement, private repository creation, ADR/PRS cross-references, schema validity, documentation completeness, repository standards, tests, CI, non-destructive Git policy, and historical-evidence preservation all pass.
 
-The broader architecture-freeze gate remains intentionally open because the package records owner decisions and deferred product-surface contracts that are outside MISSION-001.
+The Compiler Core v0.1 architecture-freeze gate is closed by OAR-001 and the standard merge/tag. Deferred product-surface gates remain intentionally open.
 
 ## Decisions made autonomously
 
 - Used an isolated worktree to protect the original checkout.
 - Treated root `architecture/adr/` as the current governance namespace while preserving identically numbered historical v0.4 ADRs in place.
-- Chose Python 3.11+ as the recommended authoritative v0.1 compiler/CLI runtime, with generated TypeScript boundary contracts.
-- Recommended fake adapter → OpenAI → Anthropic → Gemini implementation order.
+- Recorded the owner binding acceptance of Python 3.11+ as the authoritative v0.1 compiler/CLI runtime, with generated TypeScript boundary contracts.
+- Recorded the owner binding adapter order: fake adapter → OpenAI → Anthropic → Gemini.
 - Limited v0.1 to deterministic offline compiler behavior; live provider execution, evaluation, and repair are deferred.
 - Preserved the existing PromptRig MIT license; used the supplied Apache-2.0 license for the separate Architect Mode repository.
 - Left ambiguous duplicate/superseded historical material in place instead of guessing.
 
 ## Risks and technical debt
 
-- The candidate names new IR `0.1.0` while historical prototype material names `0.2.0`; the owner must accept numbering before freeze.
+- Historical prototype material names `0.2.0`; OAR-001 establishes `0.1.0` as the first frozen public contract and preserves 0.2.0 as noncanonical history.
 - Hosted job lifecycle, tenant isolation, credential storage, retention/deletion, and benchmark controls remain unresolved for their product surfaces.
 - UI mode mapping, tool consent, accessibility, and model-grade confidence presentation remain deferred.
 - The remote default branch is named `feature/promptrig-framework`, which is operationally unusual and should be reviewed separately.
@@ -147,7 +152,7 @@ The broader architecture-freeze gate remains intentionally open because the pack
 
 ## Actions skipped
 
-- No PR merge, tag, release, or Compiler Core implementation.
+- No Compiler Core implementation or release was performed; the authorized standard merge and architecture-freeze tag are performed by MISSION-001A.
 - No live provider calls, credentials, model downloads, or network-dependent compiler validation.
 - No GitHub Discussions, Projects, labels, or milestones were enabled because they were not required for the repository contract and no policy justified administrative expansion.
 - No files were deleted or archived; ambiguous candidates were documented instead.
@@ -155,10 +160,10 @@ The broader architecture-freeze gate remains intentionally open because the pack
 
 ## Remaining blockers
 
-Owner decisions listed in `architecture/compiler-contract-freeze-v0.5/OPEN_QUESTIONS.md` must be resolved or explicitly deferred before Compiler Core v0.1 implementation freeze. The most immediate are language acceptance, provider order, IR version numbering, canonical JSON/Unicode hashing profile, and diagnostic-code governance.
+The five Compiler Core v0.1 questions are resolved by OAR-001. Remaining deferred questions in `OPEN_QUESTIONS.md` block their respective hosted, benchmark, UI, PRS, and MissionRig surfaces.
 
 ## Recommended next mission
 
 **MISSION-002 — Compiler Core Scaffold**
 
-After owner acceptance of the five blocking decisions, create the Python 3.11+ package boundary, immutable contract types, fixture corpus, canonical hashing, pass protocol, diagnostic registry, and deterministic fake adapter. Keep the first mission implementation offline and require library/CLI parity before any OpenAI adapter work.
+After owner ratification, MISSION-002 should create the Python 3.11+ package boundary, immutable contract types, JCS-compatible canonical hashing, fixture corpus, pass protocol, diagnostic registry integration, and deterministic fake adapter. Keep the first implementation offline and require library/CLI parity before any OpenAI adapter work.
