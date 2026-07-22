@@ -7,6 +7,7 @@ from promptrig.compiler.contracts import CompileOptions
 from promptrig.compiler.sink import InMemorySink
 
 from .fixtures.ir_fixtures import (
+    ir_with_anthropic_structured_output,
     ir_with_capabilities,
     ir_with_openai_structured_output,
     ir_with_repair_limit_above_two,
@@ -87,11 +88,19 @@ def test_compile_success_with_openai_adapter():
     assert len(env.data["artifacts"]) == 1
 
 
+def test_compile_success_with_anthropic_adapter():
+    env = api.compile(_raw(ir_with_anthropic_structured_output(compliant=True)), adapter_id="anthropic")
+    assert env.status == "success"
+    assert env.data["adapter_id"] == "anthropic"
+    assert len(env.data["artifacts"]) == 1
+
+
 def test_compile_unknown_adapter_fails_explicitly_never_substitutes():
-    # anthropic/gemini remain reserved-but-unimplemented per OAR-001-02's
-    # stated order (fake -> openai -> anthropic -> gemini); openai itself
-    # became a registered adapter in MISSION-003, see test_openai_adapter.py.
-    env = api.compile(_raw(minimal_valid_ir()), adapter_id="anthropic")
+    # gemini remains reserved-but-unimplemented per OAR-001-02's stated order
+    # (fake -> openai -> anthropic -> gemini); openai became a registered
+    # adapter in MISSION-003 (test_openai_adapter.py) and anthropic in
+    # MISSION-004 (test_anthropic_adapter.py).
+    env = api.compile(_raw(minimal_valid_ir()), adapter_id="gemini")
     assert env.status == "error"
     assert any(d.code == "PRG-ADAPTER-0002" for d in env.diagnostics)
     assert env.data == {}
@@ -120,12 +129,12 @@ def test_compile_uses_caller_supplied_sink(tmp_path):
     assert (tmp_path / "compiled_prompt").exists()
 
 
-def test_list_adapters_reports_fake_and_openai_as_registered():
+def test_list_adapters_reports_fake_openai_and_anthropic_as_registered():
     env = api.list_adapters()
     assert env.status == "success"
     ids = [a["adapter_id"] for a in env.data["adapters"]]
-    assert ids == ["fake", "openai"]
-    assert set(env.data["reserved_not_implemented"]) == {"anthropic", "gemini"}
+    assert ids == ["fake", "openai", "anthropic"]
+    assert set(env.data["reserved_not_implemented"]) == {"gemini"}
 
 
 def test_doctor_healthy_environment():
