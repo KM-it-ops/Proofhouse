@@ -57,7 +57,16 @@ The merged repository contains the canonical v0.4 source, clean review corpus, C
 - Merge performed: no
 - Force push/history rewrite: none
 
-MISSION-001A closeout commit and merge/tag SHAs are recorded in the closeout section below after the authorized merge.
+MISSION-001A closeout details are recorded below.
+
+## MISSION-001A closeout
+
+- Owner acceptance: [OAR-001](architecture/OWNER_ACCEPTANCE_RECORDS/OAR-001.md), ratified 2026-07-21
+- Diagnostic registry: [DIAGNOSTIC_CODE_REGISTRY.json](architecture/diagnostics/DIAGNOSTIC_CODE_REGISTRY.json)
+- Closeout commit: `4e0a28b6462feeefc82380a490e9e18065eed396`
+- Standard merge commit: `7948c9a419dc02ea43ca994f0334733ea4b08855`
+- Annotated tag: `v0.5-architecture-freeze` (tag object `c6006c42639cbe33755999fb66e49f29bb849fef`), pointing to the merge commit
+- Tag message: `PromptRig Compiler Contract and Architecture Freeze v0.5`
 
 The report-delivery commit is the branch HEAD after this file is added; a self-referential commit hash is intentionally not embedded in its own contents.
 
@@ -114,6 +123,7 @@ The package freezes a candidate Compiler Core boundary only. It does not claim t
 | Historical baseline evidence | 244 files; pre-change aggregate SHA-256 `04ae9c299a2d884f5ad85fc736d7ef174029a8f153eed826cea1dc6df2384195` |
 | Git whitespace check | PASS |
 | GitHub CI | PASS — workflow run 29880807397, job 88801050468 |
+| GitHub CI | PASS — closeout head run 29882226253, job 88805338144 |
 | Secret scan hook | PASS — 0 findings at/above high on both PromptRig commits |
 | Owner acceptance record | PASS — OAR-001 binds all five Compiler Core v0.1 decisions |
 
