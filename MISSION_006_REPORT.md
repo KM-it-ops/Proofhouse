@@ -16,7 +16,11 @@ The original local checkout was stale. The clean clone verified `origin/feature/
 2. `54927001f6d7abb4d537c9a99ad6a2d03e60400a` — `fix(compiler): fail closed on contract recovery gaps`
 3. `0de31938d46518f402ead439f20deb7fbfcffb4c` — `docs(governance): recover contract evidence`
 
-The recovery-test commit was run before production fixes: **14 failed, 2 passed**, exercising the intended defects. PR status is recorded after push/creation in this report's final update.
+The recovery-test commit was run before production fixes: **14 failed, 2 passed**, exercising the intended defects.
+
+- **Draft PR:** https://github.com/KM-it-ops/PromptRig/pull/11
+- **Base / head:** `feature/promptrig-framework` ← `fix/compiler-contract-recovery-v0.1`
+- **Merge state at report update:** `UNSTABLE`; CI is in progress. Some initial Ubuntu/macOS matrix jobs and TypeScript drift completed successfully; no merge or auto-merge was requested.
 
 ## 3. Frozen-contract corrections
 
