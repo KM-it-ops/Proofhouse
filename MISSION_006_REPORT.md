@@ -54,6 +54,9 @@ are appended; no commit was amended or rewritten.
 7. `e2d569c45904d442ed5256894de6b9239aacad66` — `fix(canonical): use verified RFC 8785 serialization`
 8. `e9517cf4ec715e08b4acf7449b13a9fa725c592a` — `fix(compiler): preserve or reject every IR semantic disposition`
 9. `a99625ef5874a0bdc34d877b04b9e32d2ed9d8b4` — `docs(governance): correct semantic coverage evidence`
+10. `6c27b81862ee66f254135c4a06e1f776e6cd18a6` — `docs(governance): record independent review correction evidence`
+11. `eaca67c01f9a9b2d041d4ab1b1429d67ba42783f` — `test: cover DirectorySink provenance propagation`
+12. `7f2763a00c69feb7bec6dd0856396658e75d9eac` — `fix(compiler): retain provenance through DirectorySink`
 
 Before implementation, the independent-audit regression suite produced
 **10 failed, 59 passed**. After the corrections it produced **69 passed**.
@@ -62,7 +65,7 @@ Before implementation, the independent-audit regression suite produced
 
 | Check | Result |
 |---|---|
-| Complete local pytest | 321 passed (Windows, Python 3.14.6) |
+| Complete local pytest | 322 passed (Windows, Python 3.14.6) |
 | RFC 8785 Appendix B / non-finite suite | 27 passed |
 | Semantic metamorphic, output-contract, omission checks | 42 passed |
 | Repeated determinism / no-network | covered by the passing compiler suite; no provider API was called |
@@ -74,9 +77,9 @@ Before implementation, the independent-audit regression suite produced
 | Whitespace | `git diff --check` passed |
 | Historical artifacts | MISSION-003/004/005 SHA-256 values matched recorded evidence |
 | Frozen tag | peeled commit exactly `7948c9a419dc02ea43ca994f0334733ea4b08855` |
-| GitHub CI | [run #36](https://github.com/KM-it-ops/PromptRig/actions/runs/29964838939) completed successfully |
+| GitHub CI | [run #40](https://github.com/KM-it-ops/PromptRig/actions/runs/29965354904) completed successfully |
 
-CI run #36 completed all seven jobs successfully:
+CI run #40 completed all seven jobs successfully:
 
 - `typescript-drift`
 - Ubuntu, Windows, and macOS on Python 3.11
