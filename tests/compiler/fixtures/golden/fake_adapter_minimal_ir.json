@@ -1,0 +1,8 @@
+{
+  "adapter_id": "fake",
+  "adapter_version": "0.1.0",
+  "capability_decisions": [],
+  "goal": "Answer user questions accurately and concisely.",
+  "ir_sha256": "3eead45726e0c3463de9ac786598eb3c887b1c0468c834d922ac0e89752ffe59",
+  "project_name": "demo"
+}
