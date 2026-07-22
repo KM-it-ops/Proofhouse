@@ -123,7 +123,8 @@ class ArtifactProvenance:
     capability_manifest_digest: str
     capability_decisions: tuple["CapabilityDecision", ...]
     deployable: bool
-    omissions: tuple[str, ...] = ()
+    semantic_dispositions: tuple["SemanticDisposition", ...] = ()
+    omissions: tuple["SemanticOmission", ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -138,7 +139,46 @@ class ArtifactProvenance:
             "capability_manifest_digest": self.capability_manifest_digest,
             "capability_decisions": [decision.to_dict() for decision in self.capability_decisions],
             "deployable": self.deployable,
-            "omissions": list(self.omissions),
+            "semantic_dispositions": [disposition.to_dict() for disposition in self.semantic_dispositions],
+            "omissions": [omission.to_dict() for omission in self.omissions],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticDisposition:
+    """The single truthful handling record for one populated IR semantic path."""
+
+    source_path: str
+    disposition: Literal["lowered", "enforced", "retained"]
+    artifact_paths: tuple[str, ...]
+    detail: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source_path": self.source_path,
+            "disposition": self.disposition,
+            "artifact_paths": list(self.artifact_paths),
+            "detail": self.detail,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticOmission:
+    """A declared optional semantic that the selected adapter cannot execute."""
+
+    source_path: str
+    semantic_identifier: str
+    resolution: Literal["unsupported", "conditional"]
+    reason: str
+    effect_on_deployability: Literal["nondeployable"]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source_path": self.source_path,
+            "semantic_identifier": self.semantic_identifier,
+            "resolution": self.resolution,
+            "reason": self.reason,
+            "effect_on_deployability": self.effect_on_deployability,
         }
 
 

@@ -205,16 +205,20 @@ class GeminiAdapter:
 
         subset_diagnostics: list[Diagnostic] = []
 
-        # Scope item 6 decision (see MISSION_005_REPORT.md): only
-        # output_contracts[0] is considered here, matching openai.py's and
-        # anthropic.py's carried-over behavior. Gemini's responseSchema
-        # model is, per corroborated documentation, a single schema per
-        # request -- the same one-schema-per-call shape confirmed for both
-        # prior providers -- so this is the third data point confirming,
-        # not newly forcing, this carried-over technical debt item.
+        # Gemini v0.1 has one response schema per request.  Composite lowering
+        # is an explicit future contract, never an index-zero choice.
         response_schema = None
         if wants_structured_json:
             output_contracts = validated_ir.get("output_contracts") or []
+            if len(output_contracts) > 1:
+                diagnostic = self._diagnostics.emit(
+                    code="PRG-ADAPTER-0001",
+                    phase="adapter_lowering",
+                    message="Gemini v0.1 lowering rejects multiple output contracts; composite lowering is not authorized.",
+                    document=self._source_document,
+                    json_pointer="/output_contracts",
+                )
+                return LoweringResult(artifacts=(), diagnostics=(diagnostic,), status="failure")
             if output_contracts:
                 contract = output_contracts[0]
                 schema = contract["schema"]

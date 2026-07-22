@@ -129,6 +129,15 @@ class OpenAIAdapter:
         response_format = None
         if wants_structured_json:
             output_contracts = validated_ir.get("output_contracts") or []
+            if len(output_contracts) > 1:
+                diagnostic = self._diagnostics.emit(
+                    code="PRG-ADAPTER-0001",
+                    phase="adapter_lowering",
+                    message="OpenAI v0.1 lowering rejects multiple output contracts; composite lowering is not authorized.",
+                    document=self._source_document,
+                    json_pointer="/output_contracts",
+                )
+                return LoweringResult(artifacts=(), diagnostics=(diagnostic,), status="failure")
             if output_contracts:
                 contract = output_contracts[0]
                 schema = contract["schema"]

@@ -184,16 +184,20 @@ class AnthropicAdapter:
 
         subset_diagnostics: list[Diagnostic] = []
 
-        # Scope item 5 decision (see MISSION_004_REPORT.md): only output_contracts[0]
-        # is considered here, matching openai.py's carried-over behavior. Anthropic's
-        # JSON Outputs / strict tool use model is, per corroborated documentation, a
-        # single schema per request/tool -- the same one-schema-per-call shape as
-        # OpenAI's response_format -- so this is not an Anthropic-specific gap this
-        # mission introduces or is newly forced to resolve; it remains recorded,
-        # carried-over technical debt (multi-contract lowering), not fixed here.
+        # Anthropic v0.1 has one response schema per request.  Composite
+        # lowering is an explicit future contract, never an index-zero choice.
         output_format = None
         if wants_structured_json:
             output_contracts = validated_ir.get("output_contracts") or []
+            if len(output_contracts) > 1:
+                diagnostic = self._diagnostics.emit(
+                    code="PRG-ADAPTER-0001",
+                    phase="adapter_lowering",
+                    message="Anthropic v0.1 lowering rejects multiple output contracts; composite lowering is not authorized.",
+                    document=self._source_document,
+                    json_pointer="/output_contracts",
+                )
+                return LoweringResult(artifacts=(), diagnostics=(diagnostic,), status="failure")
             if output_contracts:
                 contract = output_contracts[0]
                 schema = contract["schema"]
