@@ -9,6 +9,7 @@ from promptrig.compiler import api
 
 from .fixtures.ir_fixtures import (
     ir_with_anthropic_structured_output,
+    ir_with_gemini_structured_output,
     ir_with_openai_structured_output,
     minimal_valid_ir,
 )
@@ -53,6 +54,13 @@ def test_compile_with_openai_adapter_makes_no_network_access(forbid_network):
 def test_compile_with_anthropic_adapter_makes_no_network_access(forbid_network):
     env = api.compile(
         json.dumps(ir_with_anthropic_structured_output(compliant=True)).encode("utf-8"), adapter_id="anthropic"
+    )
+    assert env.status == "success"
+
+
+def test_compile_with_gemini_adapter_makes_no_network_access(forbid_network):
+    env = api.compile(
+        json.dumps(ir_with_gemini_structured_output(compliant=True)).encode("utf-8"), adapter_id="gemini"
     )
     assert env.status == "success"
 
