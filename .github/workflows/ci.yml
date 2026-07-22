@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: ["main", "feature/**", "docs/**"]
+    branches: ["main", "feature/**", "docs/**", "fix/**"]
   pull_request:
     branches: ["main", "feature/promptrig-framework"]
 
