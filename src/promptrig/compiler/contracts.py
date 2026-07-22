@@ -8,6 +8,7 @@ excluded from semantic/determinism comparisons.
 """
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
@@ -99,6 +100,8 @@ class Artifact:
         d: dict[str, Any] = {"name": self.name, "media_type": self.media_type, "sha256": self.sha256}
         if self.path is not None:
             d["path"] = self.path
+        else:
+            d["data_base64"] = base64.b64encode(self.data).decode("ascii")
         return d
 
 

@@ -3,13 +3,18 @@ name = "promptrig"
 version = "0.1.1"
 description = "Prompt operations framework for prompt architecture, audits, rewrites, and evals."
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.11"
 authors = [{ name = "PromptRig Maintainers" }]
 license = { text = "MIT" }
+dependencies = ["jsonschema>=4.18"]
 
 [project.scripts]
 promptrig = "promptrig.cli:main"
+promptrig-compiler = "promptrig.compiler.cli_compiler:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+
+[tool.setuptools.package-data]
+"promptrig.compiler" = ["schemas/*.json"]
