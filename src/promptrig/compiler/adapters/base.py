@@ -59,7 +59,9 @@ class Adapter(Protocol):
 class AdapterNotFoundError(LookupError):
     """Raised when the requested adapter is not registered.
 
-    Live-provider adapter ids (openai/anthropic/gemini) are recognized names
-    that are simply not implemented in v0.1 -- they are never silently
-    substituted with the fake adapter or any other provider.
+    Live-provider adapter ids (openai, anthropic, gemini) are recognized
+    names; openai and anthropic are implemented as of MISSION-003/004, and
+    gemini remains reserved but not yet implemented in v0.1 -- none of them
+    are ever silently substituted with the fake adapter or any other
+    provider.
     """

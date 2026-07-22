@@ -7,6 +7,7 @@ import pytest
 from promptrig.compiler import cli_compiler
 
 from .fixtures.ir_fixtures import (
+    ir_with_anthropic_structured_output,
     ir_with_capabilities,
     ir_with_openai_structured_output,
     ir_with_unknown_field,
@@ -64,7 +65,7 @@ def test_adapters_exit_zero(capsys):
     assert exit_code == cli_compiler.EXIT_SUCCESS
     out = json.loads(capsys.readouterr().out)
     ids = [a["adapter_id"] for a in out["data"]["adapters"]]
-    assert ids == ["fake", "openai"]
+    assert ids == ["fake", "openai", "anthropic"]
 
 
 def test_compile_with_openai_adapter_exit_zero(tmp_path, capsys):
@@ -73,6 +74,14 @@ def test_compile_with_openai_adapter_exit_zero(tmp_path, capsys):
     assert exit_code == cli_compiler.EXIT_SUCCESS
     out = json.loads(capsys.readouterr().out)
     assert out["data"]["adapter_id"] == "openai"
+
+
+def test_compile_with_anthropic_adapter_exit_zero(tmp_path, capsys):
+    input_path = _write_ir(tmp_path, ir_with_anthropic_structured_output(compliant=True))
+    exit_code = cli_compiler.main(["compile", input_path, "--adapter", "anthropic", "--json"])
+    assert exit_code == cli_compiler.EXIT_SUCCESS
+    out = json.loads(capsys.readouterr().out)
+    assert out["data"]["adapter_id"] == "anthropic"
 
 
 def test_doctor_exit_zero(capsys):
