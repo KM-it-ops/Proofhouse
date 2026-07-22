@@ -89,6 +89,10 @@ python -m promptrig.cli generate --template prompt-architect --project-name "Inc
 - Keep cybersecurity, automation, scraping, credentials, exploit research, malware analysis, and sensitive-data workflows defensive, authorized, educational, privacy-preserving, and compliance-oriented.
 - Do not expose private chain-of-thought; use concise reasoning summaries and audit rationales.
 
+## Engineering Methodology
+
+[Architect Mode v1.2.0](docs/methodology/architect-mode/README.md) is PromptRig's official architecture-first, contract-first engineering methodology. The reusable canonical copy is installed at `C:\\AI\\skills\\architect-mode`; this repository retains a versioned snapshot for reviewability. Compiler Core work remains gated by the [v0.5 contract-freeze candidate](architecture/compiler-contract-freeze-v0.5/README.md) and its explicit open questions.
+
 ## Start Here
 
 - [Quickstart](docs/quickstart.md)
@@ -96,6 +100,8 @@ python -m promptrig.cli generate --template prompt-architect --project-name "Inc
 - [Custom GPT setup](docs/custom-gpt-setup.md)
 - [Prompt audit example](examples/prompt-audit-request.md)
 - [Security policy](SECURITY.md)
+- [Architecture governance](architecture/README.md)
+- [Compiler contract freeze v0.5](architecture/compiler-contract-freeze-v0.5/README.md)
 
 ## Status
 
