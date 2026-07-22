@@ -35,3 +35,22 @@ def all_json_pointers(value: Any, base: str = "") -> tuple[str, ...]:
         for index, nested in enumerate(value):
             pointers.extend(all_json_pointers(nested, join_json_pointer(base, index)))
     return tuple(pointers)
+
+
+def semantic_leaf_pointers(value: Any, base: str = "") -> tuple[str, ...]:
+    """Return paths whose exact JSON values are semantic units.
+
+    Scalar values are leaves. Empty arrays and objects are also units because
+    their explicit presence differs semantically from an absent optional
+    section. This is intentionally separate from ``all_json_pointers``: a
+    source-identity pointer inventory must never be presented as coverage.
+    """
+    if isinstance(value, dict):
+        if not value:
+            return (base,)
+        return tuple(path for key, nested in value.items() for path in semantic_leaf_pointers(nested, join_json_pointer(base, key)))
+    if isinstance(value, list):
+        if not value:
+            return (base,)
+        return tuple(path for index, nested in enumerate(value) for path in semantic_leaf_pointers(nested, join_json_pointer(base, index)))
+    return (base,)
