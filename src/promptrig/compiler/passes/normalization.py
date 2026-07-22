@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from ..canonical import CanonicalizationError, canonical_sha256
+from ..paths import all_json_pointers
 from ..contracts import Diagnostic
 from ..diagnostics import DiagnosticFactory
 from .base import CompilationState
@@ -27,4 +28,5 @@ class NormalizationPass:
             )
             return state.with_updates(stopped=True), (diag,)
 
-        return state.with_updates(canonical_sha256=digest), ()
+        source_map = {pointer: pointer for pointer in all_json_pointers(state.ir_document)}
+        return state.with_updates(canonical_sha256=digest, source_map=source_map), ()

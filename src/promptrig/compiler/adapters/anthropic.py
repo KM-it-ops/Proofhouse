@@ -133,7 +133,7 @@ class AnthropicAdapter:
 
     def describe(self) -> AdapterDescriptor:
         manifest = self.capability_manifest()
-        digest = canonical_sha256(sorted(manifest.supported | manifest.conditional))
+        digest = manifest.digest
         return AdapterDescriptor(
             adapter_id=ADAPTER_ID,
             adapter_version=ADAPTER_VERSION,

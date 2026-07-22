@@ -101,6 +101,8 @@ def _encode(value: Any) -> str:
             raise CanonicalizationError("string contains an invalid lone surrogate code point")
         return _encode_string(value)
     if isinstance(value, int):
+        if abs(value) > 9_007_199_254_740_991:
+            raise CanonicalizationError("integer is outside the I-JSON binary64 safe-integer domain")
         return str(value)
     if isinstance(value, float):
         return _encode_number(value)
@@ -131,4 +133,23 @@ def _encode_number(value: float) -> str:
         return "0"
     if value.is_integer() and abs(value) < 1e21:
         return str(int(value))
-    return repr(value)
+    rendered = repr(value).lower()
+    magnitude = abs(value)
+    if 1e-6 <= magnitude < 1e21:
+        if "e" in rendered:
+            coefficient, exponent = rendered.split("e", 1)
+            exponent_value = int(exponent)
+            digits = coefficient.lstrip("-").replace(".", "")
+            decimal_index = 1 + exponent_value
+            if decimal_index <= 0:
+                fixed = "0." + "0" * (-decimal_index) + digits
+            elif decimal_index >= len(digits):
+                fixed = digits + "0" * (decimal_index - len(digits))
+            else:
+                fixed = digits[:decimal_index] + "." + digits[decimal_index:]
+            return ("-" if value < 0 else "") + fixed
+        return rendered
+    if "e" not in rendered:
+        return rendered
+    coefficient, exponent = rendered.split("e", 1)
+    return f"{coefficient}e{'+' if int(exponent) >= 0 else '-'}{abs(int(exponent))}"
