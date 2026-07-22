@@ -6,7 +6,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "PromptRig Maintainers" }]
 license = { text = "MIT" }
-dependencies = ["jsonschema>=4.18"]
+dependencies = ["jsonschema>=4.18", "rfc8785==0.1.4"]
 
 [project.scripts]
 promptrig = "promptrig.cli:main"
