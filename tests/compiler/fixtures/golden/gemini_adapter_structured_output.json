@@ -1,0 +1,41 @@
+{
+  "adapter_id": "gemini",
+  "adapter_version": "0.1.0",
+  "built_in_tools": [],
+  "capability_decisions": [
+    {
+      "capability": "output.structured_json@1",
+      "requirement": "required",
+      "resolution": "supported"
+    }
+  ],
+  "function_tools": [],
+  "instructions": "Answer user questions accurately and concisely.\nBe concise.\nNo profanity.",
+  "ir_sha256": "1ca888121a69b02ba43258c994edfbeba79c18ccc1eff397fa66ecbc5a4b3530",
+  "model_selection": "runtime-configured; not frozen by the compiler artifact",
+  "output_config": {
+    "response_mime_type": "application/json",
+    "response_schema": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "properties": {
+        "answer": {
+          "type": "string"
+        },
+        "confidence": {
+          "type": "number"
+        }
+      },
+      "propertyOrdering": [
+        "answer",
+        "confidence"
+      ],
+      "required": [
+        "answer"
+      ],
+      "type": "object"
+    }
+  },
+  "thinking": {
+    "requested": false
+  }
+}
