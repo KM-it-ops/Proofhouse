@@ -1,9 +1,10 @@
 """Adapter registry.
 
-v0.1 registers only the deterministic fake adapter. `openai`, `anthropic`,
-and `gemini` are recognized names reserved by OAR-001-02's adapter order,
-but are explicitly not implemented -- requesting them fails loudly via
-AdapterNotFoundError rather than silently falling back to the fake adapter.
+v0.1 registers the deterministic fake adapter and, as of MISSION-003, the
+OpenAI adapter (second conformance target per OAR-001-02). `anthropic` and
+`gemini` are recognized names reserved by OAR-001-02's adapter order, but
+are explicitly not implemented -- requesting them fails loudly via
+AdapterNotFoundError rather than silently falling back to another adapter.
 """
 from __future__ import annotations
 
@@ -11,19 +12,23 @@ from ..diagnostics import DiagnosticFactory
 from .base import Adapter, AdapterNotFoundError
 from .fake import ADAPTER_ID as FAKE_ADAPTER_ID
 from .fake import FakeAdapter
+from .openai import ADAPTER_ID as OPENAI_ADAPTER_ID
+from .openai import OpenAIAdapter
 
-RESERVED_LIVE_ADAPTER_IDS = frozenset({"openai", "anthropic", "gemini"})
-KNOWN_ADAPTER_IDS = frozenset({FAKE_ADAPTER_ID}) | RESERVED_LIVE_ADAPTER_IDS
+RESERVED_LIVE_ADAPTER_IDS = frozenset({"anthropic", "gemini"})
+KNOWN_ADAPTER_IDS = frozenset({FAKE_ADAPTER_ID, OPENAI_ADAPTER_ID}) | RESERVED_LIVE_ADAPTER_IDS
 
 
 def list_registered_adapter_ids() -> tuple[str, ...]:
-    """Adapters actually implemented in v0.1 (the fake adapter only)."""
-    return (FAKE_ADAPTER_ID,)
+    """Adapters actually implemented in v0.1 (fake and openai)."""
+    return (FAKE_ADAPTER_ID, OPENAI_ADAPTER_ID)
 
 
 def get_adapter(adapter_id: str, diagnostics: DiagnosticFactory, source_document: str = "<input>") -> Adapter:
     if adapter_id == FAKE_ADAPTER_ID:
         return FakeAdapter(diagnostics, source_document)
+    if adapter_id == OPENAI_ADAPTER_ID:
+        return OpenAIAdapter(diagnostics, source_document)
     if adapter_id in RESERVED_LIVE_ADAPTER_IDS:
         raise AdapterNotFoundError(
             f"adapter {adapter_id!r} is a reserved live-provider id not implemented in "

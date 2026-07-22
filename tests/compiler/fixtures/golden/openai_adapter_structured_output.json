@@ -1,0 +1,42 @@
+{
+  "adapter_id": "openai",
+  "adapter_version": "0.1.0",
+  "capability_decisions": [
+    {
+      "capability": "output.structured_json@1",
+      "requirement": "required",
+      "resolution": "supported"
+    }
+  ],
+  "instructions": "Answer user questions accurately and concisely.\nBe concise.\nNo profanity.",
+  "ir_sha256": "8e0134e39b09947543f6ec2960b40a5b7db05329ee0946c47a63efa9c2222dca",
+  "model_selection": "runtime-configured; not frozen by the compiler artifact",
+  "response_format": {
+    "json_schema": {
+      "name": "answer_contract",
+      "schema": {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "additionalProperties": false,
+        "properties": {
+          "answer": {
+            "type": "string"
+          },
+          "confidence": {
+            "type": [
+              "number",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "answer",
+          "confidence"
+        ],
+        "type": "object"
+      },
+      "strict": true
+    },
+    "type": "json_schema"
+  },
+  "tools": []
+}
