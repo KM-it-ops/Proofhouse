@@ -2,8 +2,10 @@
 
 Capabilities use namespaced, versioned identifiers such as
 `output.structured_json@1` (see PROVIDER_ADAPTER_CONTRACT.md). A manifest
-states `supported`, `unsupported`, or `conditional` for each capability;
-free-text capability claims are informative only and never consulted here.
+states `supported`, `unsupported`, or `conditional` for each capability,
+plus optional machine-readable limits describing documented constraints
+(e.g. a provider's supported JSON Schema subset). Free-text capability
+claims are informative only and never consulted here.
 """
 from __future__ import annotations
 
@@ -20,6 +22,7 @@ class CapabilityManifest:
     manifest_version: str
     supported: frozenset[str] = field(default_factory=frozenset)
     conditional: frozenset[str] = field(default_factory=frozenset)
+    limits: dict[str, dict] = field(default_factory=dict)  # capability -> machine-readable limit description
 
     def resolve(self, capability: str) -> Resolution:
         if capability in self.supported:
@@ -27,3 +30,6 @@ class CapabilityManifest:
         if capability in self.conditional:
             return "conditional"
         return "unsupported"
+
+    def limits_for(self, capability: str) -> dict:
+        return self.limits.get(capability, {})

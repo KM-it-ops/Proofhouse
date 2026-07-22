@@ -11,6 +11,7 @@ from promptrig.compiler import api, cli_compiler
 
 from .fixtures.ir_fixtures import (
     ir_with_capabilities,
+    ir_with_openai_structured_output,
     ir_with_repair_limit_above_two,
     minimal_valid_ir,
 )
@@ -102,6 +103,21 @@ def test_parity_008_adapters_registry(capsys):
 
     assert exit_code == 0
     assert cli_out["data"] == lib_env.data
+    ids = [a["adapter_id"] for a in cli_out["data"]["adapters"]]
+    assert ids == ["fake", "openai"]
+
+
+def test_parity_011_compile_openai_adapter_success(tmp_path, capsys):
+    doc = ir_with_openai_structured_output(compliant=True)
+    path = tmp_path / "ir.json"
+    path.write_text(json.dumps(doc), encoding="utf-8")
+
+    lib_env = api.compile(json.dumps(doc).encode("utf-8"), adapter_id="openai", source_document=str(path))
+    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter", "openai", "--json"], capsys)
+
+    assert exit_code == 0
+    assert cli_out["data"]["adapter_id"] == "openai"
+    assert _strip_volatile(cli_out["data"]) == _strip_volatile(lib_env.data)
 
 
 def test_parity_009_doctor_healthy(capsys):
