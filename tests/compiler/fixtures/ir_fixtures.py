@@ -86,3 +86,56 @@ def ir_with_capabilities(*, required: list[str] | None = None, optional: list[st
         "optional_capabilities": optional or [],
     }
     return doc
+
+
+def strict_compliant_schema() -> dict[str, Any]:
+    """A JSON Schema expressible in OpenAI's documented strict subset."""
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "answer": {"type": "string"},
+            "confidence": {"type": ["number", "null"]},
+        },
+        "required": ["answer", "confidence"],
+    }
+
+
+def strict_noncompliant_schema() -> dict[str, Any]:
+    """A JSON Schema NOT expressible in OpenAI's documented strict subset
+    (missing additionalProperties: false, and an optional property omitted
+    from required rather than expressed as a nullable union)."""
+    return {
+        "$schema": "https://json-schema.org/draft/2020-12/schema",
+        "type": "object",
+        "properties": {
+            "answer": {"type": "string"},
+            "confidence": {"type": "number"},
+        },
+        "required": ["answer"],
+    }
+
+
+def ir_with_openai_structured_output(*, compliant: bool = True) -> dict[str, Any]:
+    doc = ir_with_capabilities(required=["output.structured_json@1"])
+    schema = strict_compliant_schema() if compliant else strict_noncompliant_schema()
+    doc["output_contracts"] = [
+        {"id": "answer_contract", "name": "Answer Contract", "required": True, "schema": schema}
+    ]
+    return doc
+
+
+def ir_with_openai_tool(*, compliant: bool = True) -> dict[str, Any]:
+    doc = ir_with_capabilities(required=["tools.function_calling@1"])
+    schema = strict_compliant_schema() if compliant else strict_noncompliant_schema()
+    doc["tools"] = [
+        {
+            "id": "lookup_answer",
+            "description": "Look up an answer.",
+            "input_schema": schema,
+            "side_effecting": False,
+            "approval": "never",
+        }
+    ]
+    return doc
