@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/registries/diagnostic-codes/1.0.0",
+  "title": "PromptRig Diagnostic Code Registry",
+  "registry_version": "1.0.0",
+  "contract_version": "0.1.0",
+  "status": "immutable",
+  "policy": {
+    "assignment": "Codes are assigned by reviewed changes linked to an ADR or accepted decision.",
+    "reuse": "Codes are never reused, including retired codes.",
+    "changes": "Existing entries are append-only. Corrections create a reviewed registry revision.",
+    "stability": "A code meaning and severity are stable for the public contract lifetime."
+  },
+  "codes": [
+    { "code": "PRG-NORMALIZATION-0001", "phase": "normalization", "severity": "error", "summary": "Input cannot be canonicalized", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-VALIDATION-0001", "phase": "validation", "severity": "error", "summary": "IR schema validation failed", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-VALIDATION-0002", "phase": "validation", "severity": "error", "summary": "IR semantic invariant failed", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-VALIDATION-0003", "phase": "validation", "severity": "error", "summary": "Unknown contract version", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-VALIDATION-0004", "phase": "validation", "severity": "error", "summary": "Duplicate semantic owner detected", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-OPTIMIZATION-0001", "phase": "optimization", "severity": "error", "summary": "Optimization would change required intent", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-CAPABILITY-0001", "phase": "capability_resolution", "severity": "error", "summary": "Required provider capability unsupported", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-CAPABILITY-0002", "phase": "capability_resolution", "severity": "warning", "summary": "Optional provider capability unavailable", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-SAFETY-0001", "phase": "safety", "severity": "error", "summary": "Safety or approval policy conflict", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-ADAPTER-0001", "phase": "adapter_lowering", "severity": "error", "summary": "Provider adapter contract failed", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-ADAPTER-0002", "phase": "adapter_lowering", "severity": "error", "summary": "Provider artifact could not be produced", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-CLI-0001", "phase": "cli", "severity": "error", "summary": "CLI invocation or output contract failed", "status": "active", "introduced": "0.1.0" },
+    { "code": "PRG-ENVIRONMENT-0001", "phase": "environment", "severity": "error", "summary": "Required offline environment configuration unavailable", "status": "active", "introduced": "0.1.0" }
+  ],
+  "retired_codes": []
+}

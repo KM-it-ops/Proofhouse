@@ -1,0 +1,18 @@
+{
+  "contract_version": "0.1.0",
+  "comparison_rule": "CLI JSON data and diagnostics deep-equal the serialized library result after removal of declared transport metadata.",
+  "cases": [
+    { "id": "PARITY-001", "operation": "validate", "fixture": "valid_minimal_ir", "expected_exit": 0 },
+    { "id": "PARITY-002", "operation": "validate", "fixture": "unknown_ir_field", "expected_exit": 3 },
+    { "id": "PARITY-003", "operation": "validate", "fixture": "repair_limit_above_two", "expected_exit": 3 },
+    { "id": "PARITY-004", "operation": "compile", "fixture": "fake_adapter_success", "expected_exit": 0 },
+    { "id": "PARITY-005", "operation": "compile", "fixture": "missing_required_capability", "expected_exit": 4 },
+    { "id": "PARITY-006", "operation": "compile", "fixture": "optional_capability_warning", "expected_exit": 0 },
+    { "id": "PARITY-007", "operation": "inspect", "fixture": "compiled_manifest", "expected_exit": 0 },
+    { "id": "PARITY-008", "operation": "adapters", "fixture": "fake_adapter_registry", "expected_exit": 0 },
+    { "id": "PARITY-009", "operation": "doctor", "fixture": "healthy_offline_environment", "expected_exit": 0 },
+    { "id": "PARITY-010", "operation": "doctor", "fixture": "invalid_configuration", "expected_exit": 7 }
+  ],
+  "platforms": ["windows", "linux", "macos"],
+  "required_invocations": ["installed_script", "python_module"]
+}

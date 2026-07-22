@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Architect Mode Mission Report",
+  "type": "object",
+  "required": [
+    "version",
+    "mission_id",
+    "status",
+    "summary"
+  ],
+  "properties": {
+    "version": {
+      "type": "string"
+    },
+    "mission_id": {
+      "type": "string",
+      "pattern": "^MISSION-[0-9]{3,}$"
+    },
+    "status": {
+      "enum": [
+        "complete",
+        "complete_with_warnings",
+        "blocked",
+        "failed"
+      ]
+    },
+    "summary": {
+      "type": "string"
+    }
+  },
+  "additionalProperties": true
+}
