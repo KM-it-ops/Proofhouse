@@ -8,6 +8,48 @@ on:
 
 jobs:
   test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install package
+        run: python -m pip install -e .
+
+      - name: Install test runner
+        run: python -m pip install pytest
+
+      - name: Run tests
+        run: python -m pytest
+
+      - name: Validate datasets (legacy PromptOps CLI)
+        run: |
+          python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
+          python -m promptrig.cli validate --dataset evals/datasets/meta_prompting_cases.jsonl
+          python -m promptrig.cli validate --dataset evals/datasets/agentic_mode_cases.jsonl
+          python -m promptrig.cli validate --dataset evals/datasets/adversarial_cases.jsonl
+
+      - name: Compiler Core smoke test -- installed script
+        run: |
+          promptrig-compiler doctor --json
+          promptrig-compiler adapters --json
+
+      - name: Compiler Core smoke test -- python -m invocation
+        run: |
+          python -m promptrig.compiler.cli_compiler doctor --json
+          python -m promptrig.compiler.cli_compiler adapters --json
+
+  typescript-drift:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -21,15 +63,7 @@ jobs:
       - name: Install package
         run: python -m pip install -e .
 
-      - name: Install test runner
-        run: python -m pip install pytest
-
-      - name: Run tests
-        run: python -m pytest
-
-      - name: Validate datasets
+      - name: Regenerate TypeScript contracts and fail on drift
         run: |
-          python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
-          python -m promptrig.cli validate --dataset evals/datasets/meta_prompting_cases.jsonl
-          python -m promptrig.cli validate --dataset evals/datasets/agentic_mode_cases.jsonl
-          python -m promptrig.cli validate --dataset evals/datasets/adversarial_cases.jsonl
+          python scripts/generate_typescript_contracts.py
+          git diff --exit-code -- architecture/typescript
