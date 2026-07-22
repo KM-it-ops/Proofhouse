@@ -22,6 +22,7 @@ from .fixtures.ir_fixtures import (
     ir_with_duplicate_requirement_ids,
     ir_with_unknown_field,
     minimal_valid_ir,
+    strict_compliant_schema,
 )
 
 
@@ -114,6 +115,9 @@ def test_supported_required_capability_lowers_successfully(diagnostic_factory, i
     adapter = get_adapter("fake", diagnostic_factory, "test.json")
     passes = _build_passes(diagnostic_factory, ir_schema_path, adapter)
     ir = ir_with_capabilities(required=["output.structured_json@1"])
+    ir["output_contracts"] = [
+        {"id": "answer", "name": "Answer", "required": True, "schema": strict_compliant_schema()}
+    ]
     result = run_pipeline(_initial_state(ir), passes)
 
     assert not any(d.severity == "error" for d in result.diagnostics)

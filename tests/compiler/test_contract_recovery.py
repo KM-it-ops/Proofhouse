@@ -48,7 +48,7 @@ def test_jcs_rejects_integer_outside_the_binary64_safe_domain():
         canonicalize(9_007_199_254_740_993)
 
 
-def test_all_populated_ir_sections_are_retained_in_artifact_provenance():
+def test_all_populated_ir_sections_fail_closed_when_free_text_policy_semantics_cannot_be_enforced():
     document = minimal_valid_ir()
     document.update(
         {
@@ -61,17 +61,20 @@ def test_all_populated_ir_sections_are_retained_in_artifact_provenance():
             "autonomy": {"approval_policy": "human_approval", "max_tool_calls": 1, "stop_conditions": ["uncertain"]},
             "security": {"rules": ["no credentials"]},
             "privacy": {"rules": ["minimize data"]},
-            "provider_requirements": {"required_capabilities": [], "optional_capabilities": []},
+            "provider_requirements": {
+                "required_capabilities": ["output.structured_json@1", "tools.function_calling@1"],
+                "optional_capabilities": [],
+            },
             "deployment": {"targets": ["offline"]},
             "assumptions": ["input is English"],
             "open_questions": ["none"],
         }
     )
 
-    envelope = api.compile(_raw(document), adapter_id="fake")
-    assert envelope.status == "success"
-    coverage = envelope.data["artifacts"][0]["provenance"]["semantic_coverage"]
-    assert {"/requirements", "/tools", "/privacy", "/provenance"}.issubset(coverage)
+    envelope = api.compile(_raw(document), adapter_id="fake", adapter_version="0.1.0")
+    assert envelope.status == "error"
+    assert envelope.data["artifacts"] == []
+    assert any(d.code == "PRG-SAFETY-0001" for d in envelope.diagnostics)
 
 
 def test_multiple_required_output_contracts_fail_closed_not_index_truncated():
@@ -80,7 +83,7 @@ def test_multiple_required_output_contracts_fail_closed_not_index_truncated():
         {"id": "first", "name": "First", "required": True, "schema": strict_compliant_schema()},
         {"id": "second", "name": "Second", "required": True, "schema": strict_compliant_schema()},
     ]
-    envelope = api.compile(_raw(document), adapter_id="openai")
+    envelope = api.compile(_raw(document), adapter_id="openai", adapter_version="0.1.0")
     assert envelope.status == "error"
     assert envelope.data["artifacts"] == []
 
@@ -90,13 +93,13 @@ def test_declared_tools_without_capability_declaration_fail_closed():
     document["tools"] = [
         {"id": "lookup", "description": "Lookup", "input_schema": strict_compliant_schema(), "side_effecting": False, "approval": "always"}
     ]
-    envelope = api.compile(_raw(document), adapter_id="openai")
+    envelope = api.compile(_raw(document), adapter_id="openai", adapter_version="0.1.0")
     assert envelope.status == "error"
 
 
 def test_required_unresolved_conditional_capability_is_an_error():
     document = ir_with_capabilities(required=["reasoning.effort_control@1"])
-    envelope = api.compile(_raw(document), adapter_id="openai")
+    envelope = api.compile(_raw(document), adapter_id="openai", adapter_version="0.1.0")
     assert envelope.status == "error"
 
 
@@ -122,7 +125,7 @@ def test_public_compile_boundary_requires_an_exact_adapter_version():
 
 
 def test_each_artifact_has_complete_machine_readable_provenance():
-    envelope = api.compile(_raw(minimal_valid_ir()), adapter_id="fake")
+    envelope = api.compile(_raw(minimal_valid_ir()), adapter_id="fake", adapter_version="0.1.0")
     artifact = envelope.data["artifacts"][0]
     provenance = artifact["provenance"]
     assert set(provenance) >= {
@@ -191,5 +194,5 @@ def test_read_only_autonomy_cannot_authorize_a_side_effecting_tool():
     document["tools"] = [
         {"id": "write", "description": "Write", "input_schema": strict_compliant_schema(), "side_effecting": True, "approval": "policy"}
     ]
-    envelope = api.compile(_raw(document), adapter_id="fake")
+    envelope = api.compile(_raw(document), adapter_id="fake", adapter_version="0.1.0")
     assert envelope.status == "error"

@@ -17,6 +17,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 
 from .canonical import CanonicalizationError, canonical_sha256, parse_strict_json
+from .paths import join_json_pointer
 
 
 class IRParseError(ValueError):
@@ -65,7 +66,9 @@ def iter_schema_errors(document: dict, schema_path: Path) -> list[SchemaError]:
     result: list[SchemaError] = []
     for e in errors:
         parts = [str(p) for p in e.path]
-        pointer = "/" + "/".join(parts) if parts else ""
+        pointer = ""
+        for part in parts:
+            pointer = join_json_pointer(pointer, part)
         result.append(SchemaError(message=e.message, json_pointer=pointer))
     return result
 

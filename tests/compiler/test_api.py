@@ -60,7 +60,7 @@ def test_inspect_invalid_ir_reports_diagnostics_no_manifest():
 
 
 def test_compile_success_with_fake_adapter():
-    env = api.compile(_raw(minimal_valid_ir()), adapter_id="fake")
+    env = api.compile(_raw(minimal_valid_ir()), adapter_id="fake", adapter_version="0.1.0")
     assert env.status == "success"
     assert env.data["adapter_id"] == "fake"
     assert len(env.data["artifacts"]) == 1
@@ -69,7 +69,7 @@ def test_compile_success_with_fake_adapter():
 
 def test_compile_missing_required_capability_fails_explicitly():
     ir = ir_with_capabilities(required=["nonexistent.capability@1"])
-    env = api.compile(_raw(ir), adapter_id="fake")
+    env = api.compile(_raw(ir), adapter_id="fake", adapter_version="0.1.0")
     assert env.status == "error"
     assert any(d.code == "PRG-CAPABILITY-0001" for d in env.diagnostics)
     assert env.data["artifacts"] == []
@@ -77,27 +77,27 @@ def test_compile_missing_required_capability_fails_explicitly():
 
 def test_compile_optional_capability_gap_only_warns():
     ir = ir_with_capabilities(optional=["nonexistent.optional@1"])
-    env = api.compile(_raw(ir), adapter_id="fake")
+    env = api.compile(_raw(ir), adapter_id="fake", adapter_version="0.1.0")
     assert env.status == "warning"
     assert len(env.data["artifacts"]) == 1
 
 
 def test_compile_success_with_openai_adapter():
-    env = api.compile(_raw(ir_with_openai_structured_output(compliant=True)), adapter_id="openai")
+    env = api.compile(_raw(ir_with_openai_structured_output(compliant=True)), adapter_id="openai", adapter_version="0.1.0")
     assert env.status == "success"
     assert env.data["adapter_id"] == "openai"
     assert len(env.data["artifacts"]) == 1
 
 
 def test_compile_success_with_anthropic_adapter():
-    env = api.compile(_raw(ir_with_anthropic_structured_output(compliant=True)), adapter_id="anthropic")
+    env = api.compile(_raw(ir_with_anthropic_structured_output(compliant=True)), adapter_id="anthropic", adapter_version="0.1.0")
     assert env.status == "success"
     assert env.data["adapter_id"] == "anthropic"
     assert len(env.data["artifacts"]) == 1
 
 
 def test_compile_success_with_gemini_adapter():
-    env = api.compile(_raw(ir_with_gemini_structured_output(compliant=True)), adapter_id="gemini")
+    env = api.compile(_raw(ir_with_gemini_structured_output(compliant=True)), adapter_id="gemini", adapter_version="0.1.0")
     assert env.status == "success"
     assert env.data["adapter_id"] == "gemini"
     assert len(env.data["artifacts"]) == 1
@@ -108,7 +108,7 @@ def test_compile_unknown_adapter_fails_explicitly_never_substitutes():
     # are now registered per OAR-001-02's completed order; a genuinely
     # unknown id (never a recognized provider name) must still fail loudly
     # rather than silently substituting another adapter.
-    env = api.compile(_raw(minimal_valid_ir()), adapter_id="not-a-real-provider")
+    env = api.compile(_raw(minimal_valid_ir()), adapter_id="not-a-real-provider", adapter_version="0.1.0")
     assert env.status == "error"
     assert any(d.code == "PRG-ADAPTER-0002" for d in env.diagnostics)
     assert env.data == {}
@@ -116,8 +116,8 @@ def test_compile_unknown_adapter_fails_explicitly_never_substitutes():
 
 def test_compile_is_deterministic_across_repeated_runs():
     raw = _raw(minimal_valid_ir())
-    env1 = api.compile(raw, adapter_id="fake")
-    env2 = api.compile(raw, adapter_id="fake")
+    env1 = api.compile(raw, adapter_id="fake", adapter_version="0.1.0")
+    env2 = api.compile(raw, adapter_id="fake", adapter_version="0.1.0")
     d1 = dict(env1.data)
     d2 = dict(env2.data)
     for d in (d1, d2):
@@ -130,7 +130,7 @@ def test_compile_uses_caller_supplied_sink(tmp_path):
     from promptrig.compiler.sink import DirectorySink
 
     sink = DirectorySink(tmp_path)
-    env = api.compile(_raw(minimal_valid_ir()), adapter_id="fake", sink=sink)
+    env = api.compile(_raw(minimal_valid_ir()), adapter_id="fake", adapter_version="0.1.0", sink=sink)
     assert env.status == "success"
     artifact = env.data["artifacts"][0]
     assert artifact["path"] is not None

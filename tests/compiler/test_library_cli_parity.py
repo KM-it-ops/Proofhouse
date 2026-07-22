@@ -60,8 +60,8 @@ def test_parity_004_compile_fake_adapter_success(tmp_path, capsys):
     path = tmp_path / "ir.json"
     path.write_text(json.dumps(doc), encoding="utf-8")
 
-    lib_env = api.compile(json.dumps(doc).encode("utf-8"), adapter_id="fake", source_document=str(path))
-    exit_code, cli_out = _run_cli(["compile", str(path), "--json"], capsys)
+    lib_env = api.compile(json.dumps(doc).encode("utf-8"), adapter_id="fake", adapter_version="0.1.0", source_document=str(path))
+    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter-version", "0.1.0", "--json"], capsys)
 
     assert exit_code == 0
     assert _strip_volatile(cli_out["data"]) == _strip_volatile(lib_env.data)
@@ -72,7 +72,7 @@ def test_parity_005_missing_required_capability(tmp_path, capsys):
     path = tmp_path / "ir.json"
     path.write_text(json.dumps(doc), encoding="utf-8")
 
-    exit_code, cli_out = _run_cli(["compile", str(path), "--json"], capsys)
+    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter-version", "0.1.0", "--json"], capsys)
     assert exit_code == 4
     assert cli_out["data"]["artifacts"] == []
 
@@ -82,7 +82,7 @@ def test_parity_006_optional_capability_warning(tmp_path, capsys):
     path = tmp_path / "ir.json"
     path.write_text(json.dumps(doc), encoding="utf-8")
 
-    exit_code, cli_out = _run_cli(["compile", str(path), "--json"], capsys)
+    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter-version", "0.1.0", "--json"], capsys)
     assert exit_code == 0  # success, including warning-only results
     assert cli_out["status"] == "warning"
 
@@ -114,8 +114,8 @@ def test_parity_011_compile_openai_adapter_success(tmp_path, capsys):
     path = tmp_path / "ir.json"
     path.write_text(json.dumps(doc), encoding="utf-8")
 
-    lib_env = api.compile(json.dumps(doc).encode("utf-8"), adapter_id="openai", source_document=str(path))
-    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter", "openai", "--json"], capsys)
+    lib_env = api.compile(json.dumps(doc).encode("utf-8"), adapter_id="openai", adapter_version="0.1.0", source_document=str(path))
+    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter", "openai", "--adapter-version", "0.1.0", "--json"], capsys)
 
     assert exit_code == 0
     assert cli_out["data"]["adapter_id"] == "openai"
@@ -127,8 +127,8 @@ def test_parity_012_compile_anthropic_adapter_success(tmp_path, capsys):
     path = tmp_path / "ir.json"
     path.write_text(json.dumps(doc), encoding="utf-8")
 
-    lib_env = api.compile(json.dumps(doc).encode("utf-8"), adapter_id="anthropic", source_document=str(path))
-    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter", "anthropic", "--json"], capsys)
+    lib_env = api.compile(json.dumps(doc).encode("utf-8"), adapter_id="anthropic", adapter_version="0.1.0", source_document=str(path))
+    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter", "anthropic", "--adapter-version", "0.1.0", "--json"], capsys)
 
     assert exit_code == 0
     assert cli_out["data"]["adapter_id"] == "anthropic"
@@ -140,8 +140,8 @@ def test_parity_013_compile_gemini_adapter_success(tmp_path, capsys):
     path = tmp_path / "ir.json"
     path.write_text(json.dumps(doc), encoding="utf-8")
 
-    lib_env = api.compile(json.dumps(doc).encode("utf-8"), adapter_id="gemini", source_document=str(path))
-    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter", "gemini", "--json"], capsys)
+    lib_env = api.compile(json.dumps(doc).encode("utf-8"), adapter_id="gemini", adapter_version="0.1.0", source_document=str(path))
+    exit_code, cli_out = _run_cli(["compile", str(path), "--adapter", "gemini", "--adapter-version", "0.1.0", "--json"], capsys)
 
     assert exit_code == 0
     assert cli_out["data"]["adapter_id"] == "gemini"
