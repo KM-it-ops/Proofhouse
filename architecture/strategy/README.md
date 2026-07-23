@@ -1,6 +1,6 @@
 # PromptRig Strategy Package
 
-**Package status:** Proposed by MISSION-007. The roadmap and mission sequence are not authoritative until independent architectural review and explicit owner approval.
+**Package status:** Proposed by MISSION-007. Independent architectural review returned a narrow correction requiring mandatory headless-core hardening and certification; the corrected roadmap and mission sequence are not authoritative until final independent review and explicit owner approval.
 
 ## Package index
 
@@ -11,7 +11,7 @@
 | [Roadmap V1](ROADMAP_V1.md) | Dependency order, phase gates, critical path, and safe parallel work | Proposed | Normative sequencing; phase entry still needs separate authorization |
 | [Deferred and Rejected Work](DEFERRED_AND_REJECTED_WORK.md) | Deferrals, rejected shortcuts, obsolete assumptions, debt classes, and promotion triggers | Proposed governance | Normative sequencing guardrail |
 | [Requirement-to-Roadmap Traceability](REQUIREMENT_TO_ROADMAP_TRACEABILITY.md) | Strategic-law and product-requirement mapping to evidence, phases, tests, and owner decisions | Proposed mixed normative/descriptive record | Normative traceability contract plus descriptive status |
-| [Mission Sequence V1](MISSION_SEQUENCE_V1.md) | Recommended MISSION-008–010 purpose, scope, tests, stop conditions, and merge gates | Proposed | Normative sequence only; each mission needs separate launch authority |
+| [Mission Sequence V1](MISSION_SEQUENCE_V1.md) | Recommended MISSION-008–011 purpose, scope, tests, stop conditions, and merge gates | Proposed | Normative sequence only; each mission needs separate launch authority |
 | [Roadmap Decision Request](ROADMAP_DECISION_REQUEST.md) | Exact owner choices, recommendations, alternatives, and consequences | Pending decision package | Historical decision evidence after an owner record is added |
 
 ## Authority order
@@ -36,6 +36,8 @@ The classifications below satisfy the MISSION-007 reconciliation requirement. `C
 |---|---|---|
 | Owner-supplied `PROMPTRIG_STRATEGIC_RECONCILIATION_AND_FORWARD_FOCUS_LOCK.md` | `CURRENT_AND_AUTHORITATIVE` mission input; incomplete as repository governance | Supplies the non-negotiable vision and critical-path direction; this package translates it into repository-native proposed governance |
 | MISSION-007 execution prompt | `CURRENT_AND_AUTHORITATIVE` mission authorization | Controls scope, required deliverables, stop conditions, baseline, branch, validation, and no-merge boundary |
+| PR #12 independent architectural review | `CURRENT_AND_AUTHORITATIVE` correction finding, not owner ratification | Found that MISSION-010 was a bounded prototype with no mandatory productionization dependency; blocks merge until Phase 4B/MISSION-011 and affected mappings are corrected |
+| PR #12 headless-core gate correction prompt | `CURRENT_AND_AUTHORITATIVE` correction authorization | Limits the response to documentation/governance changes on the existing branch and PR; requires preservation of the original seven commits, final-head validation/CI, and no mission implementation |
 | [OAR-001](../OWNER_ACCEPTANCE_RECORDS/OAR-001.md) | `CURRENT_AND_AUTHORITATIVE` | Binds Python 3.11+, adapter order, IR 0.1.0, canonical hashing, and diagnostic registry for Compiler Core v0.1 |
 | [ADR-000](../adr/ADR-000-Project-Principles.md), [ADR-005](../adr/ADR-005-Compiler-Core-CLI-Entry-Point.md), [ADR-006](../adr/ADR-006-Reasoning-Configuration-IR-Gap.md) | `CURRENT_AND_AUTHORITATIVE` within stated scopes | Preserved; roadmap must comply |
 | [ADR-001](../adr/ADR-001-PromptRig-Specification.md), [ADR-002](../adr/ADR-002-AI-Engineering-Workspace.md), [ADR-003](../adr/ADR-003-MissionRig.md), [ADR-004](../adr/ADR-004-Structured-Mission-Format.md) | `DEFERRED_PROPOSAL` or accepted direction with deferred implementation | Do not treat as executable product capability; mapped to Phases 2 and 9 |

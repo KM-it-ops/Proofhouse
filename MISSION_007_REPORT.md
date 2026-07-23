@@ -2,9 +2,9 @@
 
 ## Mission status
 
-**DRAFT PR OPEN; INITIAL SEVEN-JOB CI PASS; ROADMAP PROPOSED; FINAL-HEAD CI REMAINS AUTHORITATIVE IN PR METADATA.**
+**DRAFT PR OPEN; NARROW REVIEW CORRECTION APPENDED; LOCAL VALIDATION PASS; ROADMAP PROPOSED; FINAL-HEAD CI REMAINS AUTHORITATIVE IN PR METADATA.**
 
-MISSION-007 is governance and documentation only. It does not authorize or begin MISSION-008. The strategy package remains non-binding until independent architectural review and explicit owner approval.
+MISSION-007 is governance and documentation only. It does not authorize or begin MISSION-008, MISSION-009, MISSION-010, or MISSION-011. Independent architectural review found one blocking productionization dependency in the initial seven-commit package. The corrected strategy package remains non-binding until final independent review and explicit owner approval.
 
 ## Verified starting state
 
@@ -36,6 +36,25 @@ The complete classification is in [the strategy package index](architecture/stra
 - v0.4 Project Charter, Status and Decisions, Open Questions, Master Scope, Product Constitution, Baseline Architecture, architecture ADRs/RFCs, release roadmap, benchmark rules, environment, rubric, source manifest, and claims policy;
 - current Vite dashboard and legacy interactive PromptOps artifact only to determine that neither implements canonical Simple/Developer modes;
 - current technical-debt and missing-capability evidence in mission reports and current governance records.
+
+## Independent review correction
+
+Independent architectural review of PR #12 at head `be3c0670500844a689a33b95bd7551dd5350dfb1` returned **NARROW REQUEST CHANGES — DO NOT MERGE YET**. The review confirmed the product identity, IR center, authority model, deferrals, evidence doctrine, and MISSION-008 through MISSION-010 contract-first sequence, but found one critical-path gap.
+
+The initial package incorrectly left production hardening optional after MISSION-010 even though that mission is explicitly a bounded fake-adapter prototype. It then allowed the roadmap to advance toward live execution, benchmarking, and hosted product work without a mandatory gate that makes requirements compilation, evaluation, bounded repair, evidence, library/CLI, packaging, and installed-consumer behavior stable production boundaries.
+
+The correction:
+
+- preserves MISSION-010 as the bounded prototype;
+- adds mandatory Roadmap Phase 4B and MISSION-011 — Headless Core Hardening and Certification;
+- requires production behavior for the authoring profiles approved by MISSION-008 and deterministic validation around model-assisted stages;
+- requires a ratified headless implementation schedule for plain-language/model-assisted requirements compilation so Simple Mode cannot become its first or only semantic implementation;
+- requires production evaluation and bounded repair, stable evidence envelopes, library/CLI parity, packaging, clean-install, external-consumer, cross-platform, adversarial/security/regression, and meaningful performance/resource evidence;
+- blocks live execution, benchmark construction or claims, and Product Vertical Slice entry from prototype evidence alone;
+- permits separately authorized IR v0.2 planning to use prototype evidence, while preventing implementation or downstream runtime reliance from bypassing Phase 4B and ratified compatibility decisions;
+- keeps the roadmap and D-050-013 `PROPOSED` and begins no later mission.
+
+All seven original commits were preserved. The appended correction commits are `63bfc5c` (`docs(strategy): add mandatory headless core hardening gate`), `5cd56a8` (`docs(strategy): extend mission sequence through core certification`), and the governance/report closeout commit containing this report; that commit cannot embed its own hash.
 
 ## PR #1 through PR #11 outcome reconciliation
 
@@ -97,11 +116,13 @@ Changed:
 
 - `architecture/compiler-contract-freeze-v0.5/DECISION_LOG.md` — appended proposed entry D-050-013 only; no prior row changed.
 
+The independent-review correction updates the same ten documentation/governance files only: eight strategy documents, this report, and the D-050-013 wording in `DECISION_LOG.md`. No new implementation or contract file was added.
+
 ## Capability conclusion
 
 The certified product boundary begins with already-formed PromptRig IR and ends with deterministic offline provider-shaped artifacts plus diagnostics, semantic context, provenance, and evidence. Governance, the v0.1 freeze, canonical JSON, validation, diagnostics, pipeline, capability resolution, four offline adapters, artifact sinks, library, and CLI are certified within narrow scopes. Generated TypeScript boundaries and CI exist but are not independently consumer/product certified.
 
-The requirements compiler is not started. PRS is a proposal, not a grammar. Evaluation and repair are contract-only. Runtime state is proposed. Live execution, credentials, benchmark runner, persistence, tenancy, hosted transport/UI, MissionRig, and Workspace integration are deferred or not started.
+The requirements compiler is not started. PRS is a proposal, not a grammar. Evaluation and repair are contract-only. The MISSION-010 closed loop remains a future bounded prototype, and the MISSION-011 production hardening/certification boundary is not started. Runtime state is proposed. Live execution, credentials, benchmark runner, persistence, tenancy, hosted transport/UI, MissionRig, and Workspace integration are deferred or not started.
 
 ## Direct answers to required reconciliation questions
 
@@ -114,28 +135,29 @@ The requirements compiler is not started. PRS is a proposal, not a grammar. Eval
 | 5 | The stale/contradictory sources are listed above and classified in the strategy index and deferred/rejected registry. |
 | 6 | Python 3.11+, generated TypeScript boundaries, monorepo direction, IR ownership, headless core, replaceable adapters, and whole-configuration benchmark doctrine remain valid within stated scopes. |
 | 7 | FastAPI/Next.js require renewed Phase 8 ratification; Supabase is reopened entirely; jobs, auth, storage, tenancy, billing, and infrastructure remain undecided. |
-| 8 | The dependency order is MISSION-008 requirements contract → MISSION-009 evaluation/repair contract → MISSION-010 fake-adapter closed loop, followed by IR planning, live boundary, benchmark, product slice, and downstream expansion. |
+| 8 | The dependency order is MISSION-008 requirements contract → MISSION-009 evaluation/repair contract → MISSION-010 fake-adapter prototype → mandatory MISSION-011 headless-core hardening/certification. Separately authorized IR planning may use prototype evidence, but live execution, benchmark construction or claims, and product UI require MISSION-011 exit. |
 | 9 | Do not build a fifth adapter, live calls, credentials, broad UI, billing, tenancy, MissionRig, cosmetic redesign, unbounded debt cleanup, premature IR v0.2, or benchmark claims. |
 | 10 | Phase entry requires the prior phase's accepted contracts/evidence, independent review, explicit owner authorization, exact baseline, and named fixtures/risks. |
 | 11 | Phase completion requires behavior-level positive/negative/adversarial evidence, traceability, non-claims, full relevant validation, independent review, and owner acceptance—not test counts alone. |
 | 12 | Drift is detected by mandatory updates across vision, maturity, roadmap, deferrals, traceability, mission gates, and decision log whenever authority or sequencing changes. |
 | 13 | Strategic IDs and product requirements map to repository evidence, roadmap phase, planned verification, owner decision, and status; future missions must extend the chain through contracts, code, tests, and evidence. |
-| 14 | The reconciled vision, Roadmap V1, MISSION-008–010 sequence, IR center, adapter prohibition, live/hosted deferral, ADR-007 threshold, and contract-first IR v0.2 rule require owner ratification. |
+| 14 | The reconciled vision, Roadmap V1, MISSION-008–011 sequence, mandatory Phase 4B promotion gate, IR center, adapter prohibition, live/benchmark/hosted deferral, ADR-007 threshold, and contract-first IR v0.2 rule require owner ratification. |
 | 15 | Every later phase remains proposed or deferred after MISSION-007; approval of the roadmap does not authorize phase entry or implementation. |
 
 ## Proposed roadmap
 
-1. Strategic Reconciliation and Roadmap Lock
-2. Requirements Compiler and PRS Contract
-3. Evaluation and Bounded Repair Contract
-4. Headless Closed-Loop Prototype
-5. IR v0.2 Planning and Migration Design
-6. Live Execution Permission Boundary
-7. Reproducible Whole-Configuration Benchmark
-8. Product Vertical Slice
-9. MissionRig and Workspace Expansion
+- Phase 1 — Strategic Reconciliation and Roadmap Lock
+- Phase 2 — Requirements Compiler and PRS Contract
+- Phase 3 — Evaluation and Bounded Repair Contract
+- Phase 4 — Headless Closed-Loop Prototype
+- Phase 4B — Headless Core Hardening and Certification
+- Phase 5 — IR v0.2 Planning and Migration Design
+- Phase 6 — Live Execution Permission Boundary
+- Phase 7 — Reproducible Whole-Configuration Benchmark
+- Phase 8 — Product Vertical Slice
+- Phase 9 — MissionRig and Workspace Expansion
 
-The first nine phases form the critical dependency path. Evidence gathering, provider research, benchmark-method research, UX/accessibility research, and platform/security option analysis may run in parallel only as explicitly authorized research that cannot mutate accepted architecture.
+These ten roadmap stages form the critical dependency path. Separately authorized Phase 5 planning may overlap Phase 4B using prototype evidence, but production IR implementation and downstream runtime reliance cannot bypass the hardening gate. Evidence gathering, provider research, benchmark-method research, UX/accessibility research, and platform/security option analysis may run in parallel only as explicitly authorized research that cannot mutate accepted architecture.
 
 ## Local validation evidence
 
@@ -144,29 +166,29 @@ The first nine phases form the critical dependency path. Evidence gathering, pro
 | Complete pytest | PASS — 325 tests on Windows/Python 3.14.6 from the exact isolated repository root |
 | Dataset validation | PASS — all 4 bundled JSONL datasets |
 | TypeScript drift | PASS — generator ran; zero content diff |
-| Markdown links, anchors, duplicate headings | PASS — all non-historical Markdown checked; changed strategy documents have unique headings and valid anchors |
+| Markdown links, anchors, duplicate headings | PASS — 115 non-historical Markdown files checked; local links and anchors valid; changed strategy/report headings unique |
 | Changed JSON validation | PASS — no JSON file changed |
-| Changed-file scope | PASS — strategy/governance Markdown and this report only |
+| Changed-file scope | PASS — exactly ten Markdown files total across the full PR: eight strategy documents, `DECISION_LOG.md`, and this report; correction changed no other path |
 | Frozen contracts | PASS — no frozen schema, contract, diagnostic registry, or generated boundary changed |
 | Implementation/tests/CI/package | PASS — no source, adapter, test, workflow, or package-version change |
 | Frozen tag | PASS — peeled commit `7948c9a419dc02ea43ca994f0334733ea4b08855` |
 | Historical review integrity | PASS — 244 files; aggregate SHA-256 `04ae9c299a2d884f5ad85fc736d7ef174029a8f153eed826cea1dc6df2384195`; zero diff |
 | CI trigger verification | PASS — `docs/**` push and PRs targeting `feature/promptrig-framework` are covered |
-| Manual traceability review | PASS — 12 strategic laws and 20 product requirements mapped; all 9 phases have entry/exit gates; missing work is scheduled/deferred; prototypes are not claimed as product capability |
+| Manual traceability review | PASS — 12 strategic laws and 21 product requirements mapped; all ten roadmap stages including Phase 4B have entry/exit gates; MISSION-010 remains a prototype; MISSION-011 is mandatory; plain-language behavior is scheduled headlessly; no live, benchmark, or product entry is allowed from prototype evidence alone |
 | Git whitespace | PASS — report-inclusive diff is clean |
-| Seven-job GitHub CI | PASS — pull-request run `29972540592` completed all seven jobs on pre-closeout head `c2395192e344298c11c78f0eeefc671cf96297d9`; the report-only closeout head requires a fresh seven-job run recorded by PR metadata |
+| Seven-job GitHub CI | PASS on reviewed pre-correction head — pull-request run `29972667815` completed all seven jobs on `be3c0670500844a689a33b95bd7551dd5350dfb1`; the corrected report-inclusive final head requires a fresh seven-job run recorded by PR metadata |
 
-The initial `py -3.14 -m pytest` invocation found that the system interpreter lacked the `pytest` module. A validation-only Python 3.14 venv was created under `C:\tmp`, the declared test dependencies were installed there, and the complete suite then passed without changing repository dependencies or package versions.
+The correction validation's initial `py -3.14 -m pytest` invocation found that the system interpreter still lacked the `pytest` module. A validation-only Python 3.14 venv was created at `C:\tmp\promptrig-mission007-pr12-validation`, the repository and pytest were installed there, and the complete suite then passed from the exact isolated repository root without changing repository dependencies or package versions.
 
 ## Owner decisions required
 
-The exact requested decisions are DR-007-01 through DR-007-08 in [ROADMAP_DECISION_REQUEST.md](architecture/strategy/ROADMAP_DECISION_REQUEST.md): accept the vision; adopt the roadmap; approve the MISSION-008–010 sequence; retain IR as product center; prohibit a fifth adapter; defer live/hosted work; keep ADR-007 Proposed until its executable evidence threshold; and require contract-first IR v0.2 work.
+The exact requested decisions are DR-007-01 through DR-007-09 in [ROADMAP_DECISION_REQUEST.md](architecture/strategy/ROADMAP_DECISION_REQUEST.md): accept the vision; adopt the roadmap; approve the MISSION-008–011 sequence; retain IR as product center; prohibit a fifth adapter until Phase 4B; defer live/benchmark/hosted work; keep ADR-007 Proposed until its executable evidence threshold; require contract-first IR v0.2 work; and require headless-core hardening/certification before downstream reliance.
 
 No answer is implied by this mission.
 
 ## Unresolved issues
 
-- The strategy package has not received independent architectural review or owner ratification.
+- The corrected strategy package has not received final independent architectural review or owner ratification; the initial review's blocker is addressed but not self-accepted by this correction.
 - ADR-007 remains Proposed.
 - PRS disposition remains open for MISSION-008.
 - Evaluation/repair authority and runtime/live/hosted/platform decisions remain open at their phase gates.
@@ -178,12 +200,13 @@ No answer is implied by this mission.
 - State: `OPEN`, `isDraft=true`
 - Base/head: `feature/promptrig-framework` ← `docs/mission-007-strategic-reconciliation-roadmap-lock`
 - Auto-merge: disabled (`autoMergeRequest=null`)
-- Initial validated PR head: `c2395192e344298c11c78f0eeefc671cf96297d9`
-- Initial pull-request CI: run `29972540592`, seven of seven jobs passed
+- Independently reviewed pre-correction head: `be3c0670500844a689a33b95bd7551dd5350dfb1`
+- Reviewed pre-correction CI: run `29972667815`, seven of seven jobs passed
+- Original commits preserved: seven of seven; correction commits appended without amend, squash, rebase, reset, or force push
 - Merge performed: no
 
-This report-only closeout commit necessarily triggers a new CI run that cannot be embedded in itself. GitHub PR metadata is authoritative for the final branch head and final seven-job CI result.
+This report-inclusive correction closeout commit necessarily triggers a new CI run that cannot be embedded in itself. GitHub PR metadata is authoritative for the final branch head and final seven-job CI result.
 
 ## Scope confirmation
 
-No implementation code, tests, JSON Schema, frozen contract, diagnostic registry, provider adapter, CI workflow, package version, tag, or historical review file changed. No live call, credential use, platform provisioning, benchmark execution, MISSION-008 work, merge, auto-merge, rebase, amend, force push, tag movement, or branch deletion occurred.
+No implementation code, tests, JSON Schema, frozen contract, diagnostic registry, provider adapter, CI workflow, package version, tag, or historical review file changed. D-050-013 remains Proposed; only its wording was updated to identify the corrected Phase 4B/MISSION-011 package. No live call, credential use, platform provisioning, benchmark execution, MISSION-008/009/010/011 work, merge, auto-merge, rebase, amend, force push, tag movement, or branch deletion occurred.

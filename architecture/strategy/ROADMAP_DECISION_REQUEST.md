@@ -1,11 +1,11 @@
 # Roadmap Decision Request
 
-**Status:** Pending independent architectural review and explicit owner decision.
+**Status:** Independent architectural review returned narrow request changes; the corrected package remains pending final independent review and explicit owner decision.
 **Decision package:** MISSION-007 strategy documents at baseline `b3b6f6cd46300e846e38f6601acb6a9d0b68cafb` plus this mission's documentation-only commits.
 
 ## Decision standard
 
-Approval adopts governance and dependency order. It does not merge this PR, authorize MISSION-008 implementation, approve later phase entry, change frozen contracts, accept ADR-007, select a hosted platform, or authorize live execution.
+Approval adopts governance and dependency order. It does not merge this PR, authorize execution of MISSION-008 through MISSION-011, approve later phase entry, change frozen contracts, accept ADR-007, select a hosted platform, or authorize live execution.
 
 ## Requested decisions
 
@@ -25,13 +25,13 @@ Approval adopts governance and dependency order. It does not merge this PR, auth
 
 **Consequence of alternative:** The middle of the pipeline will continue to deepen while the requirements and evaluation/repair stages remain absent; platform decisions may precede semantic stability.
 
-### DR-007-03 — Approve the MISSION-008 through MISSION-010 sequence
+### DR-007-03 — Approve the MISSION-008 through MISSION-011 sequence
 
-**Recommended answer:** Approve the sequence in [MISSION_SEQUENCE_V1.md](MISSION_SEQUENCE_V1.md): requirements/evidence contract, evaluation/bounded-repair contract, then fake-adapter headless closed-loop prototype.
+**Recommended answer:** Approve the sequence in [MISSION_SEQUENCE_V1.md](MISSION_SEQUENCE_V1.md): requirements/evidence contract, evaluation/bounded-repair contract, fake-adapter headless closed-loop prototype, then mandatory headless-core hardening and certification.
 
 **Alternative:** Combine contracts and implementation into one mission or reorder the sequence.
 
-**Consequence of alternative:** Ambiguous semantics become implementation defaults, evaluation identities cannot trace to accepted requirements, and closed-loop code becomes expensive to unwind.
+**Consequence of alternative:** Ambiguous semantics become implementation defaults, evaluation identities cannot trace to accepted requirements, or prototype-grade requirements/evaluation/repair become accidental production infrastructure that is expensive to unwind.
 
 ### DR-007-04 — Retain PromptRig IR as the product center
 
@@ -41,9 +41,9 @@ Approval adopts governance and dependency order. It does not merge this PR, auth
 
 **Consequence of alternative:** Portability, headless parity, migration, and semantic-retention guarantees become structurally unreliable.
 
-### DR-007-05 — Prohibit new provider adapters until the closed loop exists
+### DR-007-05 — Prohibit new provider adapters until the headless core is certified
 
-**Recommended answer:** Approve DFR-001. No fifth adapter before Roadmap Phase 4 exits and new provider evidence materially informs canonical design.
+**Recommended answer:** Approve DFR-001. No fifth adapter before mandatory Roadmap Phase 4B certifies the headless core and new provider evidence materially informs canonical design.
 
 **Alternative:** Add Mistral or another adapter next.
 
@@ -51,7 +51,7 @@ Approval adopts governance and dependency order. It does not merge this PR, auth
 
 ### DR-007-06 — Keep live execution and hosted-product work deferred
 
-**Recommended answer:** Defer live calls, credentials, persistence, tenancy, FastAPI, Next.js, billing, and broad UI until their roadmap entry gates.
+**Recommended answer:** Defer live calls, credentials, benchmark construction or claims, persistence, tenancy, FastAPI, Next.js, billing, and broad UI until Phase 4B headless-core certification and their later roadmap entry gates.
 
 **Alternative:** Start a thin hosted or live integration before the headless loop.
 
@@ -78,11 +78,19 @@ Approval adopts governance and dependency order. It does not merge this PR, auth
 
 ### DR-007-08 — Require contract-first IR v0.2 work
 
-**Recommended answer:** No IR v0.2 production schema or code until Phase 5 produces a SPEC, ADR decisions, semantic delta, compatibility/migration plan, fixtures, generated-contract impact, independent review, and owner ratification.
+**Recommended answer:** Phase 5 planning may use MISSION-010 prototype evidence only when separately authorized. No IR v0.2 production schema, code, or downstream runtime reliance may proceed until Phase 5 produces a SPEC, ADR decisions, semantic delta, compatibility/migration plan, fixtures, generated-contract impact, independent review, and owner ratification, and the relevant dependency also respects Phase 4B certification.
 
 **Alternative:** Add fields incrementally when adapters or product work encounter gaps.
 
 **Consequence of alternative:** Provider-shaped accretion can turn IR into an unstable union of APIs and break v0.1 compatibility.
+
+### DR-007-09 — Require headless-core hardening and certification before downstream reliance
+
+**Recommended answer:** Approve Roadmap Phase 4B and MISSION-011 as a mandatory gate. Productionize and certify the approved requirements compiler profiles, deterministic-first evaluation, bounded repair, evidence envelopes, library/CLI parity, packaging, installed-consumer behavior, cross-platform behavior, security/adversarial resistance, and meaningful performance/resource limits before live execution, benchmark construction or claims, or Product Vertical Slice entry. Require an explicit headless implementation schedule for plain-language/model-assisted intent compilation so UI is never its first or only semantic implementation.
+
+**Alternative:** Allow MISSION-010 prototype evidence to satisfy downstream entry or let the Product Vertical Slice productionize missing headless semantics.
+
+**Consequence of alternative:** Live, benchmark, and hosted-product investments would depend on a fake-adapter prototype that explicitly excludes production hardening; Simple Mode could become the accidental semantic owner of requirements compilation.
 
 ## Decision matrix
 
@@ -96,12 +104,14 @@ Approval adopts governance and dependency order. It does not merge this PR, auth
 | DR-007-06 | Approve deferral | Low irreversibility; premature platform/credential commitments are the expensive alternative |
 | DR-007-07 | Keep Proposed | Accepting a state model too early creates security and migration cost |
 | DR-007-08 | Require contract first | IR public-version mistakes are expensive to migrate and support |
+| DR-007-09 | Require Phase 4B/MISSION-011 | Skipping certification lets prototype boundaries harden accidentally inside runtime, benchmark, or UI work |
 
 ## What remains deferred after approval
 
 Approval still does not authorize:
 
 - MISSION-008 execution without a separate exact-baseline launch;
+- MISSION-009, MISSION-010, or MISSION-011 execution without its own separate exact-baseline launch and accepted dependencies;
 - any production requirements compiler, PRS parser, evaluator, or repair engine;
 - IR v0.2 schema or implementation;
 - runtime/session state or ADR-007 acceptance;
@@ -114,4 +124,4 @@ Approval still does not authorize:
 
 ## Requested response form
 
-The owner should explicitly record accept, reject, or revise for DR-007-01 through DR-007-08. Silence, PR review activity, CI success, or merge preparation does not constitute acceptance.
+The owner should explicitly record accept, reject, or revise for DR-007-01 through DR-007-09. Silence, PR review activity, CI success, or merge preparation does not constitute acceptance.
