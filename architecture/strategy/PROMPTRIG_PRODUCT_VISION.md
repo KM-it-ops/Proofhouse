@@ -83,13 +83,13 @@ Neither mode is implemented by the current experimental Vite dashboard or the le
 
 ## Headless-first doctrine
 
-The authoritative compiler must be usable and independently testable through the Python library and `promptrig-compiler` CLI before a hosted transport or user interface is allowed to claim the capability. FastAPI, Next.js, persistence, and tenancy are later wrappers. They may orchestrate the compiler but may not duplicate its semantics.
+The authoritative compiler must be production-hardened, independently certified, and usable through the Python library and `promptrig-compiler` CLI before live execution, benchmarking, a hosted transport, or a user interface is allowed to rely on the capability. Plain-language/model-assisted requirements compilation must have a headless implementation path with deterministic validation; Simple Mode cannot become its first or only semantic implementation. FastAPI, Next.js, persistence, and tenancy are later wrappers. They may orchestrate the compiler but may not duplicate its semantics.
 
 ## Provider-neutrality doctrine
 
 A provider adapter consumes validated IR plus a versioned capability manifest and produces provider-shaped artifacts, diagnostics, omissions, and provenance. Provider-native limits are explicit. Unsupported required meaning fails closed; optional omissions remain machine-readable and affect deployability as defined by contract. No adapter may introduce credentials, live calls, or provider-owned state into the offline lowering boundary.
 
-A fifth provider adapter is prohibited until the headless compile/evaluate/repair loop is proven. The current four conformance targets are fake, OpenAI, Anthropic, and Gemini.
+A fifth provider adapter is prohibited until the headless compile/evaluate/repair loop is production-hardened and certified after the fake-adapter prototype. The current four conformance targets are fake, OpenAI, Anthropic, and Gemini.
 
 ## Benchmark doctrine
 
@@ -120,6 +120,7 @@ Supabase is not an inherited commitment. It may be reconsidered alongside portab
 - a contract-governed PRS source language if evidence supports it;
 - evaluation, baseline comparison, and bounded repair;
 - a headless closed loop proven first with the fake adapter;
+- mandatory production hardening and certification of the headless requirements, evaluation, repair, evidence, library, CLI, packaging, and consumer boundaries;
 - versioned IR evolution with migrations and compatibility evidence;
 - a permissioned live-execution boundary;
 - a reproducible whole-configuration benchmark;

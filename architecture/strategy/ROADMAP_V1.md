@@ -48,7 +48,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 - stale and contradictory sources are classified without historical rewrite;
 - documentation-only diff, local links/anchors, full tests, dataset validation, TypeScript drift, historical integrity, frozen-tag verification, and seven-job CI pass.
 
-**Owner decisions:** Accept the reconciled vision, adopt this roadmap, approve the MISSION-008–010 sequence, and retain all listed deferrals.
+**Owner decisions:** Accept the reconciled vision, adopt this roadmap, approve the MISSION-008–011 sequence, and retain all listed deferrals.
 
 **Prohibited shortcuts:** No implementation, contract mutation, roadmap ratification by implication, MISSION-008 work, merge, auto-merge, or tag movement.
 
@@ -93,7 +93,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Exit criteria:** A reviewed, owner-ratified contract package is executable through fixtures and unambiguously defines the later implementation mission.
 
-**Downstream dependencies:** Phases 3 and 4 consume the requirement/evidence identity model; Phase 8 consumes its user-facing boundary.
+**Downstream dependencies:** Phases 3, 4, and 4B consume the requirement/evidence identity model; Phase 8 consumes only a headless requirements boundary already hardened under Phase 4B.
 
 ## Phase 3 — Evaluation and Bounded Repair Contract
 
@@ -131,7 +131,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Exit criteria:** Independent review and owner approval establish an executable evaluation/repair contract sufficient for a fake-adapter prototype.
 
-**Downstream dependencies:** Phase 4 implements this contract; Phases 7 and 8 depend on its evidence model.
+**Downstream dependencies:** Phase 4 prototypes this contract; Phase 4B productionizes it; Phases 7 and 8 depend on the certified evidence model rather than the prototype alone.
 
 ## Phase 4 — Headless Closed-Loop Prototype
 
@@ -165,13 +165,60 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 - requirements, IR leaves, capability decisions, artifacts, evaluation results, repair attempts, and diagnostics form a complete trace;
 - full regression, packaging, installed CLI, cross-platform CI, and independent architecture review pass.
 
-**Owner decisions:** Accept the prototype as proof of the headless loop and authorize Phase 5 planning; decide whether production implementation needs a separate hardening mission.
+**Owner decisions:** Accept the prototype only as bounded proof, authorize mandatory MISSION-011 hardening, and separately decide whether Phase 5 planning may begin from prototype evidence.
 
 **Prohibited shortcuts:** No live adapters, credentials, hosted API, database, UI, benchmark claims, or silent contract amendments.
 
-**Exit criteria:** The fake-adapter closed loop is reproducible and behaviorally proven, with no unresolved correctness blocker.
+**Exit criteria:** The fake-adapter closed loop is reproducible and behaviorally proven within its declared prototype profile, with no unresolved correctness blocker. Exit does not certify the loop for production consumers.
 
-**Downstream dependencies:** Supplies evidence for IR evolution, live execution, benchmark design, and product APIs.
+**Downstream dependencies:** Supplies evidence to Phase 4B and may inform separately authorized Phase 5 planning. Live execution, benchmark construction or claims, and product APIs cannot enter from Phase 4 evidence alone.
+
+## Phase 4B — Headless Core Hardening and Certification
+
+**Goal:** Convert the MISSION-010 fake-adapter prototype and the MISSION-008/009 contract packages into stable, production-grade headless requirements, evaluation, bounded-repair, and evidence boundaries before downstream runtime or product investment.
+
+**Entry criteria**
+
+- Phases 2 and 3 contracts are accepted and the exact approved authoring profiles are identified.
+- Phase 4 has produced independently reviewed prototype evidence without changing frozen Compiler Core v0.1.
+- MISSION-011 is separately authorized from an exact verified baseline with explicit certification fixtures, platforms, performance/resource measures, and failure expectations.
+
+**Normative deliverables**
+
+- production requirements/evidence, evaluation, repair, orchestration, provenance, unresolved-defect, and result-envelope contracts;
+- a stable library API and `promptrig-compiler` CLI contract with deep parity and versioned evidence bundles;
+- deterministic validation around every model-assisted requirements stage, with no model output accepted directly as canonical meaning;
+- a ratified headless implementation schedule for plain-language/model-assisted intent compilation so Simple Mode cannot become its first or only semantic implementation;
+- operational, resource, security, packaging, compatibility, and consumer-support boundaries where meaningful;
+- capability-promotion criteria tied to behavior-level certification rather than prototype completion or test counts.
+
+**Implementation deliverables**
+
+- production-grade requirements compiler behavior for every authoring profile approved for implementation by MISSION-008;
+- production deterministic-first evaluation and bounded-repair engines implementing the MISSION-009 authority, budget, baseline, regression, failed-attempt, unresolved-defect, and provenance contracts;
+- hardened offline orchestration, stable evidence bundles, and library/CLI surfaces suitable for external consumers;
+- package build and clean-install proof, external-consumer smoke fixtures, cross-platform behavior, security/adversarial coverage, and bounded performance/resource evidence.
+
+**Validation gates**
+
+- requirement-to-IR-to-capability-to-artifact-to-evaluation-to-repair trace completeness, including terminal unresolved failures and every failed attempt;
+- positive, negative, adversarial, metamorphic, ambiguity, injection, regression, and failure-path tests;
+- model-assisted and plain-language outputs cannot bypass deterministic semantic validation or immutable diagnostics;
+- repair budgets 0, 1, and 2 terminate correctly and cannot weaken accepted objectives, security constraints, or meaning;
+- baseline identity, regression protection, failed-attempt evidence, unresolved-defect evidence, and provenance remain stable and reproducible;
+- zero network and zero credentials remain the default and are enforced across library, CLI, package, and external-consumer paths;
+- deterministic repeatability and stable library/CLI deep parity pass;
+- package build, clean install, installed CLI, external-consumer smoke tests, and supported cross-platform CI pass;
+- explicit performance/resource ceilings or measured bounds exist where meaningful;
+- independent architecture and security review certify the boundary, and the owner explicitly approves promotion.
+
+**Owner decisions:** Approve the production authoring profiles, plain-language/model-assisted headless schedule, stable API/CLI and evidence contracts, operational/resource limits, supported platforms, certification evidence, and promotion of the headless core for downstream reliance.
+
+**Prohibited shortcuts:** No live provider execution, credentials, hosted API or UI, persistence, tenancy, fifth adapter, benchmark runner or public claim, MissionRig, Workspace integration, unauthorized IR v0.2 change, model-output trust, UI-owned requirements semantics, or promotion from green CI alone.
+
+**Exit criteria:** Independent architectural and security certification plus explicit owner approval establish production-grade headless requirements, evaluation, repair, evidence, library, CLI, packaging, installed-consumer, and cross-platform boundaries with no unresolved correctness or security blocker.
+
+**Downstream dependencies:** Phase 6 live execution, Phase 7 benchmark construction or claims, and Phase 8 product entry all require this exit. Phase 5 planning may begin earlier from Phase 4 evidence only when separately authorized, but IR implementation or downstream runtime reliance cannot bypass Phase 4B and separately ratified compatibility decisions.
 
 ## Phase 5 — IR v0.2 Planning and Migration Design
 
@@ -180,6 +227,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 **Entry criteria**
 
 - Phase 4 evidence exists.
+- Phase 5 planning may proceed before Phase 4B exits only under separate authorization; production IR implementation and downstream runtime reliance remain blocked by Phase 4B and ratified compatibility decisions.
 - ADR-006 inputs and ADR-007 evidence are current.
 - Requirements, evaluation, repair, server-tool, output-cardinality, and runtime-state needs are traceable to executable cases.
 
@@ -215,7 +263,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Entry criteria**
 
-- Phase 4 closed loop is stable.
+- Phase 4B headless-core hardening and certification has exited with explicit owner approval; prototype evidence alone is insufficient.
 - Relevant Phase 5 IR/runtime decisions are ratified.
 - Current provider documentation and security assumptions are refreshed.
 
@@ -257,7 +305,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Entry criteria**
 
-- Closed-loop evaluation evidence is stable.
+- Phase 4B has certified the production evaluation, bounded-repair, evidence, library/CLI, packaging, and consumer boundaries; the Phase 4 prototype alone is insufficient.
 - Any live track uses the accepted Phase 6 boundary.
 - Source snapshots, resource budgets, network modes, repetition policy, and scoring are frozen before competitors run.
 
@@ -296,7 +344,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Entry criteria**
 
-- Headless loop and evidence APIs are stable.
+- Phase 4B has certified the headless requirements, evaluation, bounded-repair, evidence, library, and CLI boundaries; Simple Mode and Developer Mode consume those boundaries and cannot become their first production implementation.
 - Platform, persistence, identity, tenancy, storage, retention, deletion, and secrets decisions are ratified.
 - FastAPI, Next.js, and Supabase/alternatives are reevaluated with current evidence.
 
@@ -377,6 +425,7 @@ Phase 1
 → Phase 2
 → Phase 3
 → Phase 4
+→ Phase 4B
 → Phase 5
 → Phase 6
 → Phase 7
@@ -384,7 +433,7 @@ Phase 1
 → Phase 9
 ```
 
-The dependency is semantic, not merely chronological. Requirements identity feeds evaluation evidence; both feed the closed loop; closed-loop evidence justifies IR evolution; stable IR/runtime boundaries precede live execution; executable behavior precedes benchmark claims; headless stability precedes product UI; and PromptRig product capability precedes MissionRig/Workspace expansion.
+The dependency is semantic, not merely chronological. Requirements identity feeds evaluation evidence; both feed the prototype; Phase 4B converts the prototype into a certified production headless core; stable headless and IR/runtime boundaries precede live execution; certified executable behavior precedes benchmark construction or claims; hardened headless requirements/evaluation/repair precede product UI; and PromptRig product capability precedes MissionRig/Workspace expansion. Separately authorized Phase 5 planning may overlap Phase 4B using prototype evidence, but production IR implementation or downstream runtime reliance cannot bypass either Phase 4B or ratified compatibility decisions.
 
 ## Safe parallel work
 

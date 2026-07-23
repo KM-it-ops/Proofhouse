@@ -10,13 +10,13 @@
 
 | ID | Work | Disposition | Why it is not active | Promotion trigger | Earliest roadmap phase |
 |---|---|---|---|---|---|
-| DFR-001 | Fifth provider adapter | `DEFERRED` | Adapter breadth would optimize the already-strong middle of the pipeline while intent, evaluation, and repair remain missing | Headless closed loop exits Phase 4; a provider adds distinct evidence that affects canonical design; owner authorizes scope | Phase 5 or later |
-| DFR-002 | Broad UI work | `DEFERRED` | A UI before stable headless behavior risks hidden semantics and duplicated state | Phases 2–7 provide stable APIs/evidence; one shared project model and accessibility gates are ratified | Phase 8 |
-| DFR-003 | Live provider calls | `DEFERRED` | Lowering is certified offline; execution introduces network, cost, provider-returned state, partial failure, and side effects | Phase 4 closed loop is proven and Phase 6 permission/execution contract is accepted | Phase 6 |
+| DFR-001 | Fifth provider adapter | `DEFERRED` | Adapter breadth would optimize the already-strong middle of the pipeline while intent, evaluation, and repair remain missing | Phase 4B certifies the headless core; a provider adds distinct evidence that affects canonical design; owner authorizes scope | Phase 5 or later, after Phase 4B |
+| DFR-002 | Broad UI work | `DEFERRED` | A UI before stable headless behavior risks hidden semantics and duplicated state | Phase 4B certifies headless requirements/evaluation/repair and Phases 5–7 provide any additional required APIs/evidence; one shared project model and accessibility gates are ratified | Phase 8 |
+| DFR-003 | Live provider calls | `DEFERRED` | Lowering is certified offline; execution introduces network, cost, provider-returned state, partial failure, and side effects | Phase 4B certifies the production headless loop and Phase 6 permission/execution contract is accepted | Phase 6 |
 | DFR-004 | Credential integration and BYOK | `DEFERRED` | No secret lifecycle, scope, redaction, audit, or incident contract exists | Accepted threat model, vault/rotation contract, action-boundary approvals, and live-execution design | Phase 6 |
 | DFR-005 | Billing and managed credits | `DEFERRED` | Commercial accounting cannot precede stable execution, identity, budgets, and tenancy | Hosted vertical slice proves metering and owner approves commercial boundary | After Phase 8 |
 | DFR-006 | Hosted multi-tenancy | `DEFERRED` | Tenant authorization, isolation, retention, deletion, and incident semantics are unresolved | Phase 8 SPEC, threat model, migration plan, adversarial isolation tests, and owner platform decision | Phase 8 |
-| DFR-007 | Persistence and background jobs | `DEFERRED` | Current sinks are local outputs, not durable product state; no job/idempotency contract exists | Stable closed loop plus project, job, cancellation, retention, and recovery contracts | Phase 8 |
+| DFR-007 | Persistence and background jobs | `DEFERRED` | Current sinks are local outputs, not durable product state; no job/idempotency contract exists | Phase 4B-certified headless core plus project, job, cancellation, retention, and recovery contracts | Phase 8 |
 | DFR-008 | MissionRig implementation | `DEFERRED` | Mission generation is downstream of reliable canonical compilation and evidence | PromptRig completes Phases 2–8 and MissionRig receives a separate ratified SPEC | Phase 9 |
 | DFR-009 | AI Engineering Workspace integration | `DEFERRED` | Workspace orchestration must consume, not shape, compiler semantics | Stable compiler/product APIs and a versioned consumer-boundary contract | Phase 9 |
 | DFR-010 | Marketplace, mobile, enterprise control plane, arbitrary plugins | `DEFERRED` | These are expansion surfaces without critical-path value | Product vertical slice, security posture, demand evidence, and separate owner scope | After Phase 9 |
@@ -61,6 +61,7 @@ No known unresolved correctness-critical defect is accepted at the MISSION-007 b
 
 - No accepted requirements/evidence contract exists for intent-to-IR compilation.
 - No accepted evaluation, baseline, scoring, repair-provenance, or regression contract exists.
+- No production-hardened or independently certified headless requirements/evaluation/repair boundary exists; MISSION-010 prototype evidence cannot promote it.
 - ADR-007 remains Proposed; runtime state, replay, security, retention, and migration semantics are unresolved.
 - Provider schema-subset checkers are intentionally bounded and cannot support live-execution claims without refreshed authoritative provider evidence and failure semantics.
 - IR v0.1 has no machine-readable security/privacy policy grammar and fails closed on populated free-text policy blocks.
