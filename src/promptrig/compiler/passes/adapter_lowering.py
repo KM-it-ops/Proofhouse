@@ -77,9 +77,18 @@ class AdapterLoweringPass:
             )
             for source_path in semantic_leaf_pointers(state.ir_document)
         )
+        optional_capability_indexes = {
+            capability: index
+            for index, capability in enumerate(
+                (state.ir_document.get("provider_requirements") or {}).get("optional_capabilities") or []
+            )
+        }
         omissions = tuple(
             SemanticOmission(
-                source_path=f"/provider_requirements/optional_capabilities/{index}",
+                source_path=(
+                    "/provider_requirements/optional_capabilities/"
+                    f"{optional_capability_indexes[decision.capability]}"
+                ),
                 semantic_identifier=decision.capability,
                 resolution=decision.resolution,
                 reason=(
@@ -88,12 +97,13 @@ class AdapterLoweringPass:
                 ),
                 effect_on_deployability="nondeployable",
             )
-            for index, decision in enumerate(state.capability_decisions)
+            for decision in state.capability_decisions
             if decision.requirement == "optional" and decision.resolution in {"unsupported", "conditional"}
         )
+        source_paths = tuple(disposition.source_path for disposition in dispositions)
         provenance = ArtifactProvenance(
-            source_ir_paths=(semantic_root,),
-            semantic_coverage=(semantic_root,),
+            source_ir_paths=source_paths,
+            semantic_coverage=source_paths,
             ir_sha256=state.canonical_sha256,
             compiler_id=COMPILER_ID,
             compiler_version=COMPILER_VERSION,
