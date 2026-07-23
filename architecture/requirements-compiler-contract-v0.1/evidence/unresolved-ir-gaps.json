@@ -1,0 +1,24 @@
+{
+  "contract_version": "0.1.0-draft",
+  "status": "PROPOSED",
+  "frozen_ir_version": "0.1",
+  "gaps": [
+    {
+      "id": "IRG-008-001",
+      "requirement_id": "REQ-RUNTIME-001",
+      "summary": "Opaque provider continuation state has no provider-neutral PromptRig IR v0.1 representation.",
+      "diagnostic_code": "RQC-IRG-0001",
+      "effect": "BLOCKED",
+      "disposition": "defer to separately unauthorized Roadmap Phase 5 planning; any production reliance must also respect the MISSION-011 certification dependency"
+    },
+    {
+      "id": "IRG-008-002",
+      "requirement_id": "REQ-REASONING-001",
+      "summary": "Per-request reasoning configuration has no accepted PromptRig IR v0.1 field.",
+      "diagnostic_code": "RQC-IRG-0001",
+      "effect": "BLOCKED",
+      "disposition": "defer to separately unauthorized Roadmap Phase 5 planning; any production reliance must also respect the MISSION-011 certification dependency"
+    }
+  ],
+  "non_claim": "These records identify gaps only; they do not change frozen PromptRig IR v0.1 or authorize later work."
+}

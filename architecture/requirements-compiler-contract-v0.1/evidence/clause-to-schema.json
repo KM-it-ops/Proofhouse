@@ -1,0 +1,14 @@
+{
+  "contract_version": "0.1.0-draft",
+  "status": "PROPOSED",
+  "mappings": [
+    {"clauses": ["RC-001", "RC-002", "RC-121"], "schema": "intent-input.schema.json"},
+    {"clauses": ["RC-020", "RC-022", "EM-001", "EM-012", "TR-002"], "schema": "source-evidence.schema.json"},
+    {"clauses": ["RC-010", "RC-011", "RC-012", "RC-013", "RC-014", "RC-015", "EM-001"], "schema": "requirement.schema.json"},
+    {"clauses": ["RC-004", "RC-020", "RC-040", "RC-060", "EM-001"], "schema": "requirements-document.schema.json"},
+    {"clauses": ["RC-080", "DG-001", "DG-002", "DG-003", "DG-004"], "schema": "requirements-diagnostic.schema.json"},
+    {"clauses": ["RC-100", "RC-101", "RC-102", "RC-103", "TR-004", "TR-005", "TR-008"], "schema": "requirement-ir-mapping.schema.json"},
+    {"clauses": ["RC-060", "RC-061", "RC-062", "RC-063", "RC-064", "RC-120"], "schema": "requirements-compile-result.schema.json"},
+    {"clauses": ["RC-110", "RC-111", "EM-020", "EM-021", "EM-022", "TR-001"], "schema": "requirements-evidence-bundle.schema.json"}
+  ]
+}

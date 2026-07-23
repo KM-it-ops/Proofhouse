@@ -1,0 +1,31 @@
+{
+  "contract_version": "0.1.0-draft",
+  "status": "PROPOSED",
+  "fields": [
+    {"field": "requirement.id", "required": true, "clauses": ["RC-010", "EM-010"], "justification": "Stable identity is required for evidence and cross-reference integrity."},
+    {"field": "requirement.type", "required": true, "clauses": ["RC-012"], "justification": "Classification makes completeness and policy checks deterministic."},
+    {"field": "requirement.statement", "required": true, "clauses": ["RC-011"], "justification": "The accepted or disputed meaning must remain explicit."},
+    {"field": "requirement.priority", "required": true, "clauses": ["RC-013", "RC-073"], "justification": "Required versus optional meaning controls terminal status."},
+    {"field": "requirement.acceptance_state", "required": true, "clauses": ["RC-014", "EM-011"], "justification": "Proposed, accepted, unresolved, disputed, unsupported, refused, and invalid meaning cannot be conflated."},
+    {"field": "requirement.authority_basis", "required": true, "clauses": ["RC-015", "AD-001"], "justification": "Every accepted claim needs visible authority."},
+    {"field": "requirement.source_refs", "required": true, "clauses": ["RC-020", "TR-002"], "justification": "No requirement may exist without attributable source evidence."},
+    {"field": "requirement.acceptance_criteria", "required": true, "clauses": ["RC-110", "EM-030"], "justification": "A requirement must expose how its meaning will be proven."},
+    {"field": "requirement.consequential", "required": true, "clauses": ["RC-051", "SP-015"], "justification": "Consequential meaning invokes approval and fail-closed rules."},
+    {"field": "requirement.approval_refs", "required": false, "clauses": ["RC-051", "SP-020"], "justification": "Approval evidence is conditional on consequential meaning."},
+    {"field": "requirement.default_ref", "required": false, "clauses": ["RC-050", "AD-010"], "justification": "Default-derived meaning must identify the visible authorized default."},
+    {"field": "source.id", "required": true, "clauses": ["RC-020", "EM-010"], "justification": "Stable source identity prevents silent evidence substitution."},
+    {"field": "source.kind", "required": true, "clauses": ["RC-002", "EM-001"], "justification": "Producer surfaces remain attributable while converging on one contract."},
+    {"field": "source.sha256", "required": false, "clauses": ["EM-012"], "justification": "Byte-backed sources require content identity; ephemeral claims may lack bytes."},
+    {"field": "source.lifecycle", "required": true, "clauses": ["RC-022"], "justification": "Current, missing, replaced, and withdrawn evidence have different validity."},
+    {"field": "source.authority_claim", "required": true, "clauses": ["AD-001", "TR-003"], "justification": "A source assertion is evidence, not implicit authority."},
+    {"field": "source.location", "required": true, "clauses": ["RC-021", "DG-003"], "justification": "Exact URI and JSON Pointer support reproducible diagnostics."},
+    {"field": "mapping.outcome", "required": true, "clauses": ["RC-100", "TR-004"], "justification": "Direct, derived, defaulted, unresolved, prohibited, and missing representation are materially different."},
+    {"field": "mapping.target_pointer", "required": false, "clauses": ["RC-101", "TR-005"], "justification": "Successful IR mappings must identify an exact frozen IR pointer."},
+    {"field": "mapping.gap_id", "required": false, "clauses": ["RC-103", "TR-008"], "justification": "Missing IR representation requires stable Phase 5 gap evidence."},
+    {"field": "result.status", "required": true, "clauses": ["RC-060", "RC-061", "RC-062", "RC-063", "RC-064"], "justification": "Terminal outcomes must be explicit and machine-distinct."},
+    {"field": "result.reason_codes", "required": true, "clauses": ["RC-080", "DG-007"], "justification": "Stable sorted diagnostics explain non-success without prose parsing."},
+    {"field": "evidence.schema_hashes", "required": true, "clauses": ["EM-020"], "justification": "Validation claims must identify the exact schemas used."},
+    {"field": "evidence.network_access", "required": true, "clauses": ["SP-014"], "justification": "Contract validation must prove it did not access the network."},
+    {"field": "evidence.credentials_accessed", "required": true, "clauses": ["SP-014"], "justification": "Contract validation must prove it did not read credentials."}
+  ]
+}
