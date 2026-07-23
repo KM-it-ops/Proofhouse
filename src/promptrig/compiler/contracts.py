@@ -12,6 +12,8 @@ import base64
 from dataclasses import dataclass, field
 from typing import Any, Literal
 
+from .immutability import freeze_json
+
 CONTRACT_VERSION = "0.1.0"
 
 Severity = Literal["info", "warning", "error"]
@@ -91,6 +93,7 @@ class Artifact:
     sha256: str
     data: bytes | None = field(default=None, repr=False)
     path: str | None = None
+    provenance: "ArtifactProvenance | None" = None
 
     def __post_init__(self) -> None:
         if (self.data is None) == (self.path is None):
@@ -102,7 +105,81 @@ class Artifact:
             d["path"] = self.path
         else:
             d["data_base64"] = base64.b64encode(self.data).decode("ascii")
+        if self.provenance is not None:
+            d["provenance"] = self.provenance.to_dict()
         return d
+
+
+@dataclass(frozen=True, slots=True)
+class ArtifactProvenance:
+    source_ir_paths: tuple[str, ...]
+    semantic_coverage: tuple[str, ...]
+    ir_sha256: str
+    compiler_id: str
+    compiler_version: str
+    adapter_id: str
+    adapter_version: str
+    capability_manifest_version: str
+    capability_manifest_digest: str
+    capability_decisions: tuple["CapabilityDecision", ...]
+    deployable: bool
+    semantic_dispositions: tuple["SemanticDisposition", ...] = ()
+    omissions: tuple["SemanticOmission", ...] = ()
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source_ir_paths": list(self.source_ir_paths),
+            "semantic_coverage": list(self.semantic_coverage),
+            "ir_sha256": self.ir_sha256,
+            "compiler_id": self.compiler_id,
+            "compiler_version": self.compiler_version,
+            "adapter_id": self.adapter_id,
+            "adapter_version": self.adapter_version,
+            "capability_manifest_version": self.capability_manifest_version,
+            "capability_manifest_digest": self.capability_manifest_digest,
+            "capability_decisions": [decision.to_dict() for decision in self.capability_decisions],
+            "deployable": self.deployable,
+            "semantic_dispositions": [disposition.to_dict() for disposition in self.semantic_dispositions],
+            "omissions": [omission.to_dict() for omission in self.omissions],
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticDisposition:
+    """The single truthful handling record for one populated IR semantic path."""
+
+    source_path: str
+    disposition: Literal["lowered", "enforced", "retained"]
+    artifact_paths: tuple[str, ...]
+    detail: str
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source_path": self.source_path,
+            "disposition": self.disposition,
+            "artifact_paths": list(self.artifact_paths),
+            "detail": self.detail,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class SemanticOmission:
+    """A declared optional semantic that the selected adapter cannot execute."""
+
+    source_path: str
+    semantic_identifier: str
+    resolution: Literal["unsupported", "conditional"]
+    reason: str
+    effect_on_deployability: Literal["nondeployable"]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "source_path": self.source_path,
+            "semantic_identifier": self.semantic_identifier,
+            "resolution": self.resolution,
+            "reason": self.reason,
+            "effect_on_deployability": self.effect_on_deployability,
+        }
 
 
 @dataclass(frozen=True, slots=True)
@@ -153,6 +230,9 @@ class CompileRequest:
     adapter_id: str
     adapter_version: str
     options: CompileOptions = field(default_factory=CompileOptions)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "ir_document", freeze_json(self.ir_document))
 
 
 @dataclass(frozen=True, slots=True)

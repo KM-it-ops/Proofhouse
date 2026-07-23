@@ -40,7 +40,7 @@ def test_validate_invalid_exit_three(tmp_path, capsys):
 
 def test_compile_success_exit_zero(tmp_path, capsys):
     input_path = _write_ir(tmp_path, minimal_valid_ir())
-    exit_code = cli_compiler.main(["compile", input_path, "--json"])
+    exit_code = cli_compiler.main(["compile", input_path, "--adapter-version", "0.1.0", "--json"])
     assert exit_code == cli_compiler.EXIT_SUCCESS
     out = json.loads(capsys.readouterr().out)
     assert out["data"]["adapter_id"] == "fake"
@@ -49,14 +49,14 @@ def test_compile_success_exit_zero(tmp_path, capsys):
 def test_compile_missing_required_capability_exit_four(tmp_path, capsys):
     ir = ir_with_capabilities(required=["nonexistent.capability@1"])
     input_path = _write_ir(tmp_path, ir)
-    exit_code = cli_compiler.main(["compile", input_path, "--json"])
+    exit_code = cli_compiler.main(["compile", input_path, "--adapter-version", "0.1.0", "--json"])
     assert exit_code == cli_compiler.EXIT_CAPABILITY_UNSUPPORTED
 
 
 def test_compile_writes_artifacts_to_output_dir(tmp_path, capsys):
     input_path = _write_ir(tmp_path, minimal_valid_ir())
     out_dir = tmp_path / "out"
-    exit_code = cli_compiler.main(["compile", input_path, "--output", str(out_dir), "--json"])
+    exit_code = cli_compiler.main(["compile", input_path, "--adapter-version", "0.1.0", "--output", str(out_dir), "--json"])
     assert exit_code == cli_compiler.EXIT_SUCCESS
     assert (out_dir / "compiled_prompt").exists()
 
@@ -71,7 +71,7 @@ def test_adapters_exit_zero(capsys):
 
 def test_compile_with_openai_adapter_exit_zero(tmp_path, capsys):
     input_path = _write_ir(tmp_path, ir_with_openai_structured_output(compliant=True))
-    exit_code = cli_compiler.main(["compile", input_path, "--adapter", "openai", "--json"])
+    exit_code = cli_compiler.main(["compile", input_path, "--adapter", "openai", "--adapter-version", "0.1.0", "--json"])
     assert exit_code == cli_compiler.EXIT_SUCCESS
     out = json.loads(capsys.readouterr().out)
     assert out["data"]["adapter_id"] == "openai"
@@ -79,7 +79,7 @@ def test_compile_with_openai_adapter_exit_zero(tmp_path, capsys):
 
 def test_compile_with_anthropic_adapter_exit_zero(tmp_path, capsys):
     input_path = _write_ir(tmp_path, ir_with_anthropic_structured_output(compliant=True))
-    exit_code = cli_compiler.main(["compile", input_path, "--adapter", "anthropic", "--json"])
+    exit_code = cli_compiler.main(["compile", input_path, "--adapter", "anthropic", "--adapter-version", "0.1.0", "--json"])
     assert exit_code == cli_compiler.EXIT_SUCCESS
     out = json.loads(capsys.readouterr().out)
     assert out["data"]["adapter_id"] == "anthropic"
@@ -87,7 +87,7 @@ def test_compile_with_anthropic_adapter_exit_zero(tmp_path, capsys):
 
 def test_compile_with_gemini_adapter_exit_zero(tmp_path, capsys):
     input_path = _write_ir(tmp_path, ir_with_gemini_structured_output(compliant=True))
-    exit_code = cli_compiler.main(["compile", input_path, "--adapter", "gemini", "--json"])
+    exit_code = cli_compiler.main(["compile", input_path, "--adapter", "gemini", "--adapter-version", "0.1.0", "--json"])
     assert exit_code == cli_compiler.EXIT_SUCCESS
     out = json.loads(capsys.readouterr().out)
     assert out["data"]["adapter_id"] == "gemini"
@@ -128,7 +128,7 @@ def test_human_readable_output_not_json(tmp_path, capsys):
 
 def test_json_stdout_is_exactly_one_json_object(tmp_path, capsys):
     input_path = _write_ir(tmp_path, minimal_valid_ir())
-    cli_compiler.main(["compile", input_path, "--json"])
+    cli_compiler.main(["compile", input_path, "--adapter-version", "0.1.0", "--json"])
     out = capsys.readouterr().out
     assert out.count("\n") == 1
     json.loads(out)  # must not raise

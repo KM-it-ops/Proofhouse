@@ -128,6 +128,7 @@ def compile(  # noqa: A001 -- mirrors the CLI command name intentionally
     ir_raw: bytes | str,
     *,
     adapter_id: str,
+    adapter_version: str | None = None,
     options: CompileOptions | None = None,
     sink: ArtifactSink | None = None,
     source_document: str = "<input>",
@@ -153,6 +154,20 @@ def compile(  # noqa: A001 -- mirrors the CLI command name intentionally
         )
         return _envelope("compile", "error", {}, (diag,))
 
+    if adapter_version is None or adapter.adapter_version != adapter_version:
+        requested = adapter_version if adapter_version is not None else "<missing>"
+        diag = factory.emit(
+            code="PRG-ADAPTER-0001",
+            phase="adapter_lowering",
+            message=(
+                f"Exact adapter version is required: requested {requested!r}, "
+                f"available version is {adapter.adapter_version!r}."
+            ),
+            document=source_document,
+            json_pointer="",
+        )
+        return _envelope("compile", "error", {}, (diag,))
+
     manifest = adapter.capability_manifest()
     state = CompilationState(
         ir_document=parsed.document, canonical_sha256=parsed.canonical_sha256, source_document=source_document
@@ -167,6 +182,8 @@ def compile(  # noqa: A001 -- mirrors the CLI command name intentionally
     )
     result = run_pipeline(state, passes)
     status = status_from_diagnostics(result.diagnostics)
+    if result.state.lowering_status == "partial" and status == "success":
+        status = "warning"
 
     sunk_artifacts = tuple(sink.write(a) for a in result.state.artifacts)
     compile_result = CompileResult(
@@ -184,6 +201,9 @@ def compile(  # noqa: A001 -- mirrors the CLI command name intentionally
     )
     data = compile_result.to_dict()
     data.pop("diagnostics", None)
+    data["deployable"] = status == "success" and all(
+        artifact.provenance is not None and artifact.provenance.deployable for artifact in sunk_artifacts
+    )
     return _envelope("compile", status, data, result.diagnostics)
 
 

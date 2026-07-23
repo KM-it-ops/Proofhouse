@@ -40,27 +40,27 @@ def test_inspect_makes_no_network_access(forbid_network):
 
 
 def test_compile_with_fake_adapter_makes_no_network_access(forbid_network):
-    env = api.compile(_raw(), adapter_id="fake")
+    env = api.compile(_raw(), adapter_id="fake", adapter_version="0.1.0")
     assert env.status == "success"
 
 
 def test_compile_with_openai_adapter_makes_no_network_access(forbid_network):
     env = api.compile(
-        json.dumps(ir_with_openai_structured_output(compliant=True)).encode("utf-8"), adapter_id="openai"
+        json.dumps(ir_with_openai_structured_output(compliant=True)).encode("utf-8"), adapter_id="openai", adapter_version="0.1.0"
     )
     assert env.status == "success"
 
 
 def test_compile_with_anthropic_adapter_makes_no_network_access(forbid_network):
     env = api.compile(
-        json.dumps(ir_with_anthropic_structured_output(compliant=True)).encode("utf-8"), adapter_id="anthropic"
+        json.dumps(ir_with_anthropic_structured_output(compliant=True)).encode("utf-8"), adapter_id="anthropic", adapter_version="0.1.0"
     )
     assert env.status == "success"
 
 
 def test_compile_with_gemini_adapter_makes_no_network_access(forbid_network):
     env = api.compile(
-        json.dumps(ir_with_gemini_structured_output(compliant=True)).encode("utf-8"), adapter_id="gemini"
+        json.dumps(ir_with_gemini_structured_output(compliant=True)).encode("utf-8"), adapter_id="gemini", adapter_version="0.1.0"
     )
     assert env.status == "success"
 
@@ -84,7 +84,7 @@ def _strip_volatile(data: dict) -> dict:
 
 def test_compile_is_byte_deterministic_across_many_runs():
     raw = _raw()
-    results = [api.compile(raw, adapter_id="fake") for _ in range(5)]
+    results = [api.compile(raw, adapter_id="fake", adapter_version="0.1.0") for _ in range(5)]
     normalized = [_strip_volatile(r.data) for r in results]
     assert all(n == normalized[0] for n in normalized)
     digests = {r.data["artifacts"][0]["sha256"] for r in results}

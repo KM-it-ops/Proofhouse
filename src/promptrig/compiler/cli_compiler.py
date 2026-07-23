@@ -92,6 +92,7 @@ def _cmd_compile(args: argparse.Namespace) -> int:
     envelope = api.compile(
         raw,
         adapter_id=args.adapter,
+        adapter_version=args.adapter_version,
         options=CompileOptions(offline=True),
         sink=sink,
         source_document=args.input,
@@ -129,6 +130,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_compile = subparsers.add_parser("compile", help="Compile a PromptRig IR document with a selected adapter.")
     p_compile.add_argument("input", help="Path to an IR JSON file, or '-' for stdin.")
     p_compile.add_argument("--adapter", default="fake", help="Adapter id to compile with (default: fake).")
+    p_compile.add_argument("--adapter-version", required=True, help="Exact registered adapter version.")
     p_compile.add_argument("--output", default=None, help="Directory to write artifacts into (default: in-memory).")
     p_compile.add_argument("--json", action="store_true", help="Emit a single JSON result envelope.")
     p_compile.set_defaults(func=_cmd_compile)
