@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/contracts/requirements-compiler/v0.1/requirements-document.schema.json",
+  "title": "Requirements Document",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "document_id", "input_ref", "requirements", "sources", "assumptions", "open_questions", "conflicts"],
+  "properties": {
+    "contract_version": {"const": "0.1.0-draft"},
+    "document_id": {"type": "string", "pattern": "^RQD-[A-Z0-9-]+$"},
+    "input_ref": {"type": "string", "pattern": "^INP-[A-Z0-9-]+$"},
+    "requirements": {"type": "array", "items": {"$ref": "requirement.schema.json"}, "minItems": 1},
+    "sources": {"type": "array", "items": {"$ref": "source-evidence.schema.json"}, "minItems": 1},
+    "assumptions": {"type": "array", "items": {"type": "object"}, "uniqueItems": true},
+    "open_questions": {"type": "array", "items": {"type": "object"}, "uniqueItems": true},
+    "conflicts": {"type": "array", "items": {"type": "object"}, "uniqueItems": true},
+    "defaults": {"type": "array", "items": {"type": "object"}, "uniqueItems": true},
+    "approvals": {"type": "array", "items": {"type": "object"}, "uniqueItems": true},
+    "model_proposals": {"type": "array", "items": {"type": "object"}, "uniqueItems": true}
+  }
+}

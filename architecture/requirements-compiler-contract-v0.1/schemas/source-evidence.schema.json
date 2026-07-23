@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/contracts/requirements-compiler/v0.1/source-evidence.schema.json",
+  "title": "Source Evidence",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "kind", "lifecycle", "authority_claim", "location"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"},
+    "kind": {"enum": ["ordinary_language", "developer_config", "api_request", "file", "prs", "decision", "contract"]},
+    "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "lifecycle": {"enum": ["current", "missing", "replaced", "withdrawn"]},
+    "authority_claim": {"type": "string", "minLength": 1},
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uri", "json_pointer"],
+      "properties": {
+        "uri": {"type": "string", "minLength": 1},
+        "json_pointer": {"type": "string", "pattern": "^(|/(?:[^~/]|~[01])*)$"},
+        "line": {"type": "integer", "minimum": 1},
+        "column": {"type": "integer", "minimum": 1}
+      }
+    },
+    "replaced_by": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}
+  },
+  "allOf": [
+    {"if": {"properties": {"lifecycle": {"const": "replaced"}}}, "then": {"required": ["replaced_by"]}}
+  ]
+}

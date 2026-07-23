@@ -1,0 +1,30 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/contracts/requirements-compiler/v0.1/requirements-evidence-bundle.schema.json",
+  "title": "Requirements Evidence Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "id", "input_hash", "artifact_hashes", "schema_hashes", "source_refs", "requirement_refs", "mapping_refs", "validation", "network_access", "credentials_accessed"],
+  "properties": {
+    "contract_version": {"const": "0.1.0-draft"},
+    "id": {"type": "string", "pattern": "^EVB-[A-Z0-9-]+$"},
+    "input_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+    "artifact_hashes": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "schema_hashes": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}},
+    "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "requirement_refs": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "mapping_refs": {"type": "array", "items": {"type": "string", "pattern": "^MAP-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validator_version", "result", "fixture_count"],
+      "properties": {
+        "validator_version": {"type": "string", "minLength": 1},
+        "result": {"enum": ["PASS", "FAIL"]},
+        "fixture_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "network_access": {"const": false},
+    "credentials_accessed": {"const": false}
+  }
+}

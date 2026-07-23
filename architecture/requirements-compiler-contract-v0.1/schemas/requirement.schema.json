@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/contracts/requirements-compiler/v0.1/requirement.schema.json",
+  "title": "Requirement",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "type", "statement", "priority", "acceptance_state", "authority_basis", "source_refs", "acceptance_criteria", "consequential"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^REQ-[A-Z0-9-]+$"},
+    "type": {"enum": ["objective", "behavior", "input", "output", "constraint", "security", "privacy", "approval", "evidence", "runtime"]},
+    "statement": {"type": "string", "minLength": 1},
+    "priority": {"enum": ["required", "optional"]},
+    "acceptance_state": {"enum": ["proposed", "accepted", "unresolved", "disputed", "unsupported", "refused", "invalid"]},
+    "authority_basis": {"enum": ["directly_stated", "owner_decision", "accepted_contract", "explicitly_defaulted", "deterministically_derived", "model_suggested", "unresolved", "disputed", "unsupported", "refused", "invalid"]},
+    "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "minItems": 1, "uniqueItems": true},
+    "acceptance_criteria": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+    "consequential": {"type": "boolean"},
+    "approval_refs": {"type": "array", "items": {"type": "string", "pattern": "^APR-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "default_ref": {"type": "string", "pattern": "^DFT-[A-Z0-9-]+$"}
+  }
+}
