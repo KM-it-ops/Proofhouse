@@ -32,7 +32,8 @@ meaning: populated policy blocks fail closed before artifact production.
 | `/provider_requirements/*` | supported decisions retained in context/provenance | required unresolved capability errors; optional unresolved capability creates an `omissions` record and a nondeployable artifact/envelope | capability omission tests |
 | `/evaluation/*`, `/deployment/*`, `/assumptions/*`, `/open_questions/*`, `/provenance/*` | `retained` | schema-invalid values error | generated semantic metamorphic suite |
 
-`source_ir_paths` and `semantic_coverage` now identify only the actual
-semantic-context artifact root (`/promptrig_semantic_context/ir`). The detailed
-per-leaf mapping is `semantic_dispositions`; it is not inferred from an IR
-digest or an all-pointer inventory.
+`source_ir_paths` and `semantic_coverage` are the ordered actual IR leaf paths
+from `SemanticDisposition.source_path`. Each source path appears exactly once.
+Artifact destinations appear only in `SemanticDisposition.artifact_paths`,
+under `/promptrig_semantic_context/ir`; they are never represented as source
+IR paths or inferred from an IR digest/all-pointer inventory.

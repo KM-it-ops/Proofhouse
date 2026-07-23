@@ -16,6 +16,7 @@ import pytest
 
 from promptrig.compiler import api
 from promptrig.compiler.canonical import CanonicalizationError, canonicalize
+from promptrig.compiler.paths import semantic_leaf_pointers
 
 from .fixtures.ir_fixtures import minimal_valid_ir, strict_compliant_schema
 
@@ -115,12 +116,19 @@ def test_successful_artifact_retains_exact_deterministic_semantic_context_and_di
     provenance = artifact["provenance"]
 
     assert payload["promptrig_semantic_context"]["ir"] == document
-    assert provenance["source_ir_paths"] == ["/promptrig_semantic_context/ir"]
-    assert provenance["semantic_coverage"] == ["/promptrig_semantic_context/ir"]
+    assert provenance["source_ir_paths"] == list(semantic_leaf_pointers(document))
+    assert provenance["semantic_coverage"] == provenance["source_ir_paths"]
     dispositions = provenance["semantic_dispositions"]
     assert dispositions
+    assert [item["source_path"] for item in dispositions] == provenance["source_ir_paths"]
+    assert all(not path.startswith("/promptrig_semantic_context") for path in provenance["source_ir_paths"])
     assert {item["disposition"] for item in dispositions} <= {"lowered", "enforced", "retained"}
     assert all(item["artifact_paths"] for item in dispositions)
+    assert all(
+        path.startswith("/promptrig_semantic_context/ir")
+        for item in dispositions
+        for path in item["artifact_paths"]
+    )
     assert not provenance["omissions"]
 
 

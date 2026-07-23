@@ -39,11 +39,19 @@ are deliberately behavioral, not source-identity claims:
    envelope deployability agree.
 6. **Evidence:** the semantic and safety matrices now describe actual
    retention, rejection, and omission paths. ADR-007 remains Proposed.
+7. **Final traceability:** optional omission paths are derived from the
+   canonical IR optional-capability index map, never from combined decision
+   order. `source_ir_paths` and `semantic_coverage` now contain actual
+   disposition source leaves; semantic-context destinations remain only in
+   disposition artifact paths.
 
-## Preserved and appended commits
+## Implementation and evidence commits preceding report-closeout
 
-The original five PR commits were preserved exactly. The correction commits
-are appended; no commit was amended or rewritten.
+The original five PR commits were preserved exactly. The listed implementation
+and evidence commits precede this report-closeout commit; no commit was amended
+or rewritten. PR #11 metadata is authoritative for the final branch head and
+latest CI. The reviewed `fa6bffc` head passed CI run #42; the traceability
+correction commits below supersede that reviewed head and require a new matrix.
 
 1. `11a9a3d58ca65b813f4aff848a09b3fd66018658` — `test: add failing frozen-contract recovery cases`
 2. `54927001f6d7abb4d537c9a99ad6a2d03e60400a` — `fix(compiler): fail closed on contract recovery gaps`
@@ -57,15 +65,21 @@ are appended; no commit was amended or rewritten.
 10. `6c27b81862ee66f254135c4a06e1f776e6cd18a6` — `docs(governance): record independent review correction evidence`
 11. `eaca67c01f9a9b2d041d4ab1b1429d67ba42783f` — `test: cover DirectorySink provenance propagation`
 12. `7f2763a00c69feb7bec6dd0856396658e75d9eac` — `fix(compiler): retain provenance through DirectorySink`
+13. `fa6bffcf1acf63bdecb51f8b10792eaccfb0b90f` — `docs(governance): refresh final correction evidence`
+14. `3159f461a3262cad7657e7288e166c2c3e0ac788` — `test: expose final provenance traceability defects`
+15. `8cba3c754a04f18a6ece939872217e0641e41326` — `fix(compiler): correct omission and source-path provenance`
 
 Before implementation, the independent-audit regression suite produced
 **10 failed, 59 passed**. After the corrections it produced **69 passed**.
+The second-review traceability suite produced **3 failed** before its fix and
+**3 passed** afterward.
 
 ## Validation evidence
 
 | Check | Result |
 |---|---|
-| Complete local pytest | 322 passed (Windows, Python 3.14.6) |
+| Complete local pytest | 325 passed (Windows, Python 3.14.6) |
+| Final traceability suite | 3 passed |
 | RFC 8785 Appendix B / non-finite suite | 27 passed |
 | Semantic metamorphic, output-contract, omission checks | 42 passed |
 | Repeated determinism / no-network | covered by the passing compiler suite; no provider API was called |
