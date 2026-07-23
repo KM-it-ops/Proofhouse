@@ -51,7 +51,7 @@
 ## Model-assisted suggestions
 
 - **AD-040:** Model output has proposal authority only.
-- **AD-041:** Model output cannot mark itself accepted, user approved, or owner approved.
+- **AD-041:** Model output cannot mark itself accepted, user-decision authority, or owner-decision authority.
 - **AD-042:** Model output cannot approve defaults or resolve authority conflicts.
 - **AD-043:** Suggested source links must be validated against preserved source evidence.
 - **AD-044:** Suggested security/privacy weakening is rejected and fails closed.

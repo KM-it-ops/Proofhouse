@@ -183,8 +183,8 @@
     },
     {
       "id": "api-model-self-accept", "authoring_mode": "api", "category": "adversarial",
-      "input": {"intent": "Model proposal marks itself owner-approved.", "authoritative_inputs": ["user:api-request"], "non_authoritative_inputs": ["model:proposal"]},
-      "candidate": {"requirements": [{"id": "REQ-MODEL-001", "statement": "Candidate model-derived requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "model_suggested", "source_refs": ["SRC-API-009"]}], "sources": [{"id": "SRC-API-009", "lifecycle": "current", "location": {"uri": "api://request/009", "json_pointer": "/model_output/requirements/0"}}], "model_proposals": [{"id": "MDL-002", "acceptance_state": "owner_approved", "self_accepted": true, "source_refs": ["SRC-API-009"]}]},
+      "input": {"intent": "Model proposal marks itself accepted.", "authoritative_inputs": ["user:api-request"], "non_authoritative_inputs": ["model:proposal"]},
+      "candidate": {"requirements": [{"id": "REQ-MODEL-001", "statement": "Candidate model-derived requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "model_suggested", "source_refs": ["SRC-API-009"]}], "sources": [{"id": "SRC-API-009", "lifecycle": "current", "location": {"uri": "api://request/009", "json_pointer": "/model_output/requirements/0"}}], "model_proposals": [{"id": "MDL-002", "acceptance_state": "accepted", "self_accepted": true, "source_refs": ["SRC-API-009"]}]},
       "expected": {"status": "INVALID_OUTPUT", "diagnostic_codes": ["RQC-MDL-0001"], "requirement_ids": ["REQ-MODEL-001"], "assumptions": [], "open_questions": [], "conflicts": [], "ir_mapping_outcomes": ["unresolved"], "evidence": ["SRC-API-009", "MDL-002"], "approval_required": true}
     },
     {

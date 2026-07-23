@@ -11,7 +11,7 @@
     "statement": {"type": "string", "minLength": 1},
     "priority": {"enum": ["required", "optional"]},
     "acceptance_state": {"enum": ["proposed", "accepted", "unresolved", "disputed", "unsupported", "refused", "invalid"]},
-    "authority_basis": {"enum": ["directly_stated", "owner_decision", "accepted_contract", "explicitly_defaulted", "deterministically_derived", "model_suggested", "unresolved", "disputed", "unsupported", "refused", "invalid"]},
+    "authority_basis": {"enum": ["directly_stated", "owner_decision", "user_decision", "accepted_contract", "explicitly_defaulted", "deterministically_derived", "model_suggested", "unresolved", "disputed", "unsupported", "refused", "invalid"]},
     "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "minItems": 1, "uniqueItems": true},
     "acceptance_criteria": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
     "consequential": {"type": "boolean"},

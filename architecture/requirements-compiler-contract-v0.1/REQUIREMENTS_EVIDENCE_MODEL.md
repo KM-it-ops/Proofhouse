@@ -27,7 +27,7 @@
 - **EM-002:** `deterministically_derived` identifies the contract rule and all input/output refs.
 - **EM-003:** `explicitly_defaulted` identifies a visible authorized default record.
 - **EM-004:** `model_suggested` is unaccepted regardless of confidence.
-- **EM-005:** `owner_approved` and `user_approved` require immutable approval records.
+- **EM-005:** `owner_decision` and `user_decision` are authority-basis values identifying who decided, not approval evidence; when the underlying decision is consequential, the record must additionally carry an immutable approval record via `approval_refs` (`APR-*`). Approval is never expressed as an authority-basis value.
 - **EM-006:** `disputed`, `unresolved`, `unsupported`, `refused`, and `invalid` remain visible and cannot be collapsed into accepted.
 - **EM-007:** Confidence may be recorded as descriptive proposal metadata but never changes authority, acceptance, status, or priority.
 

@@ -1,0 +1,321 @@
+{
+  "schema_instance_contract_version": "0.1.0-draft",
+  "instances": [
+    {
+      "id": "SCHI-INTENT-INPUT-POS-001",
+      "schema": "intent-input.schema.json",
+      "kind": "positive",
+      "instance": {
+        "contract_version": "0.1.0-draft",
+        "input_id": "INP-SCHI-001",
+        "authoring_mode": "api",
+        "intent": "Schema-instance positive fixture for intent input.",
+        "authoritative_inputs": ["user:api-request"],
+        "non_authoritative_inputs": []
+      }
+    },
+    {
+      "id": "SCHI-INTENT-INPUT-NEG-001",
+      "schema": "intent-input.schema.json",
+      "kind": "negative",
+      "instance": {
+        "contract_version": "0.1.0-draft",
+        "input_id": "INP-SCHI-002",
+        "authoring_mode": "api",
+        "intent": "Schema-instance negative fixture missing required authoritative_inputs.",
+        "non_authoritative_inputs": []
+      },
+      "expected_rejection": {"keyword": "required", "instance_path": "", "schema_path": "/required"}
+    },
+    {
+      "id": "SCHI-SOURCE-EVIDENCE-POS-001",
+      "schema": "source-evidence.schema.json",
+      "kind": "positive",
+      "instance": {
+        "id": "SRC-SCHI-001",
+        "kind": "api_request",
+        "lifecycle": "current",
+        "authority_claim": "Schema-instance positive source evidence.",
+        "location": {"uri": "api://schema-instance/001", "json_pointer": "/payload"}
+      }
+    },
+    {
+      "id": "SCHI-SOURCE-EVIDENCE-NEG-001",
+      "schema": "source-evidence.schema.json",
+      "kind": "negative",
+      "instance": {
+        "id": "SRC-SCHI-002",
+        "kind": "api_request",
+        "lifecycle": "deleted",
+        "authority_claim": "Schema-instance negative source evidence lifecycle.",
+        "location": {"uri": "api://schema-instance/002", "json_pointer": "/payload"}
+      },
+      "expected_rejection": {"keyword": "enum", "instance_path": "/lifecycle", "schema_path": "/properties/lifecycle/enum"}
+    },
+    {
+      "id": "SCHI-REQUIREMENT-POS-OWNER-DECISION",
+      "schema": "requirement.schema.json",
+      "kind": "positive",
+      "instance": {
+        "id": "REQ-SCHI-001",
+        "type": "objective",
+        "statement": "Schema-instance positive requirement with owner_decision authority.",
+        "priority": "required",
+        "acceptance_state": "accepted",
+        "authority_basis": "owner_decision",
+        "source_refs": ["SRC-SCHI-001"],
+        "acceptance_criteria": ["Owner decision accepted."],
+        "consequential": false
+      }
+    },
+    {
+      "id": "SCHI-REQUIREMENT-POS-USER-DECISION",
+      "schema": "requirement.schema.json",
+      "kind": "positive",
+      "instance": {
+        "id": "REQ-SCHI-002",
+        "type": "objective",
+        "statement": "Schema-instance positive requirement with user_decision authority.",
+        "priority": "required",
+        "acceptance_state": "accepted",
+        "authority_basis": "user_decision",
+        "source_refs": ["SRC-SCHI-001"],
+        "acceptance_criteria": ["User decision accepted."],
+        "consequential": false
+      }
+    },
+    {
+      "id": "SCHI-REQUIREMENT-POS-ACCEPTED-CONTRACT",
+      "schema": "requirement.schema.json",
+      "kind": "positive",
+      "instance": {
+        "id": "REQ-SCHI-003",
+        "type": "objective",
+        "statement": "Schema-instance positive requirement with accepted_contract authority.",
+        "priority": "required",
+        "acceptance_state": "accepted",
+        "authority_basis": "accepted_contract",
+        "source_refs": ["SRC-SCHI-001"],
+        "acceptance_criteria": ["Accepted-contract authority accepted."],
+        "consequential": false
+      }
+    },
+    {
+      "id": "SCHI-REQUIREMENT-NEG-OWNER-APPROVED",
+      "schema": "requirement.schema.json",
+      "kind": "negative",
+      "instance": {
+        "id": "REQ-SCHI-004",
+        "type": "objective",
+        "statement": "Schema-instance negative requirement using stale owner_approved authority basis.",
+        "priority": "required",
+        "acceptance_state": "accepted",
+        "authority_basis": "owner_approved",
+        "source_refs": ["SRC-SCHI-001"],
+        "acceptance_criteria": ["Should be rejected."],
+        "consequential": false
+      },
+      "expected_rejection": {"keyword": "enum", "instance_path": "/authority_basis", "schema_path": "/properties/authority_basis/enum"}
+    },
+    {
+      "id": "SCHI-REQUIREMENT-NEG-USER-APPROVED",
+      "schema": "requirement.schema.json",
+      "kind": "negative",
+      "instance": {
+        "id": "REQ-SCHI-005",
+        "type": "objective",
+        "statement": "Schema-instance negative requirement using stale user_approved authority basis.",
+        "priority": "required",
+        "acceptance_state": "accepted",
+        "authority_basis": "user_approved",
+        "source_refs": ["SRC-SCHI-001"],
+        "acceptance_criteria": ["Should be rejected."],
+        "consequential": false
+      },
+      "expected_rejection": {"keyword": "enum", "instance_path": "/authority_basis", "schema_path": "/properties/authority_basis/enum"}
+    },
+    {
+      "id": "SCHI-REQUIREMENTS-DOCUMENT-POS-001",
+      "schema": "requirements-document.schema.json",
+      "kind": "positive",
+      "instance": {
+        "contract_version": "0.1.0-draft",
+        "document_id": "RQD-SCHI-001",
+        "input_ref": "INP-SCHI-001",
+        "requirements": [
+          {
+            "id": "REQ-SCHI-006",
+            "type": "objective",
+            "statement": "Schema-instance positive requirement for document.",
+            "priority": "required",
+            "acceptance_state": "accepted",
+            "authority_basis": "directly_stated",
+            "source_refs": ["SRC-SCHI-003"],
+            "acceptance_criteria": ["Present."],
+            "consequential": false
+          }
+        ],
+        "sources": [
+          {
+            "id": "SRC-SCHI-003",
+            "kind": "api_request",
+            "lifecycle": "current",
+            "authority_claim": "Schema-instance positive document source.",
+            "location": {"uri": "api://schema-instance/003", "json_pointer": "/payload"}
+          }
+        ],
+        "assumptions": [],
+        "open_questions": [],
+        "conflicts": []
+      }
+    },
+    {
+      "id": "SCHI-REQUIREMENTS-DOCUMENT-NEG-001",
+      "schema": "requirements-document.schema.json",
+      "kind": "negative",
+      "instance": {
+        "contract_version": "0.1.0-draft",
+        "document_id": "RQD-SCHI-002",
+        "input_ref": "INP-SCHI-001",
+        "requirements": [],
+        "sources": [
+          {
+            "id": "SRC-SCHI-004",
+            "kind": "api_request",
+            "lifecycle": "current",
+            "authority_claim": "Schema-instance negative document source.",
+            "location": {"uri": "api://schema-instance/004", "json_pointer": "/payload"}
+          }
+        ],
+        "assumptions": [],
+        "open_questions": [],
+        "conflicts": []
+      },
+      "expected_rejection": {"keyword": "minItems", "instance_path": "/requirements", "schema_path": "/properties/requirements/minItems"}
+    },
+    {
+      "id": "SCHI-REQUIREMENTS-DIAGNOSTIC-POS-001",
+      "schema": "requirements-diagnostic.schema.json",
+      "kind": "positive",
+      "instance": {
+        "id": "RQDIA-SCHI-001",
+        "code": "RQC-CTX-0001",
+        "severity": "error",
+        "message_key": "requirements.context_missing",
+        "parameters": {},
+        "source_refs": ["SRC-SCHI-001"],
+        "requirement_refs": ["REQ-SCHI-001"]
+      }
+    },
+    {
+      "id": "SCHI-REQUIREMENTS-DIAGNOSTIC-NEG-001",
+      "schema": "requirements-diagnostic.schema.json",
+      "kind": "negative",
+      "instance": {
+        "id": "RQDIA-SCHI-002",
+        "code": "RQC-CTX-0001",
+        "severity": "critical",
+        "message_key": "requirements.context_missing",
+        "parameters": {},
+        "source_refs": ["SRC-SCHI-001"],
+        "requirement_refs": ["REQ-SCHI-001"]
+      },
+      "expected_rejection": {"keyword": "enum", "instance_path": "/severity", "schema_path": "/properties/severity/enum"}
+    },
+    {
+      "id": "SCHI-REQUIREMENT-IR-MAPPING-POS-001",
+      "schema": "requirement-ir-mapping.schema.json",
+      "kind": "positive",
+      "instance": {
+        "id": "MAP-SCHI-001",
+        "requirement_id": "REQ-SCHI-001",
+        "outcome": "direct",
+        "target_pointer": "/project/objective",
+        "authority_ref": "REQ-SCHI-001",
+        "validation_ref": "VAL-SCHI-001"
+      }
+    },
+    {
+      "id": "SCHI-REQUIREMENT-IR-MAPPING-NEG-001",
+      "schema": "requirement-ir-mapping.schema.json",
+      "kind": "negative",
+      "instance": {
+        "id": "map-001",
+        "requirement_id": "REQ-SCHI-001",
+        "outcome": "direct",
+        "target_pointer": "/project/objective",
+        "authority_ref": "REQ-SCHI-001",
+        "validation_ref": "VAL-SCHI-001"
+      },
+      "expected_rejection": {"keyword": "pattern", "instance_path": "/id", "schema_path": "/properties/id/pattern"}
+    },
+    {
+      "id": "SCHI-REQUIREMENTS-COMPILE-RESULT-POS-001",
+      "schema": "requirements-compile-result.schema.json",
+      "kind": "positive",
+      "instance": {
+        "contract_version": "0.1.0-draft",
+        "attempt_id": "ATT-SCHI-001",
+        "status": "SUCCESS",
+        "requirements_document_ref": "RQD-SCHI-001",
+        "diagnostic_refs": [],
+        "mapping_refs": ["MAP-SCHI-001"],
+        "evidence_bundle_ref": "EVB-SCHI-001",
+        "reason_codes": []
+      }
+    },
+    {
+      "id": "SCHI-REQUIREMENTS-COMPILE-RESULT-NEG-001",
+      "schema": "requirements-compile-result.schema.json",
+      "kind": "negative",
+      "instance": {
+        "contract_version": "0.1.0-draft",
+        "attempt_id": "ATT-SCHI-002",
+        "status": "SUCCESSFUL",
+        "requirements_document_ref": "RQD-SCHI-001",
+        "diagnostic_refs": [],
+        "mapping_refs": ["MAP-SCHI-001"],
+        "evidence_bundle_ref": "EVB-SCHI-001",
+        "reason_codes": []
+      },
+      "expected_rejection": {"keyword": "enum", "instance_path": "/status", "schema_path": "/properties/status/enum"}
+    },
+    {
+      "id": "SCHI-REQUIREMENTS-EVIDENCE-BUNDLE-POS-001",
+      "schema": "requirements-evidence-bundle.schema.json",
+      "kind": "positive",
+      "instance": {
+        "contract_version": "0.1.0-draft",
+        "id": "EVB-SCHI-001",
+        "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "artifact_hashes": {"cases.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+        "schema_hashes": {"requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+        "source_refs": ["SRC-SCHI-001"],
+        "requirement_refs": ["REQ-SCHI-001"],
+        "mapping_refs": ["MAP-SCHI-001"],
+        "validation": {"validator_version": "0.1.0", "result": "PASS", "fixture_count": 41},
+        "network_access": false,
+        "credentials_accessed": false
+      }
+    },
+    {
+      "id": "SCHI-REQUIREMENTS-EVIDENCE-BUNDLE-NEG-001",
+      "schema": "requirements-evidence-bundle.schema.json",
+      "kind": "negative",
+      "instance": {
+        "contract_version": "0.1.0-draft",
+        "id": "EVB-SCHI-002",
+        "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+        "artifact_hashes": {"cases.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
+        "schema_hashes": {"requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
+        "source_refs": ["SRC-SCHI-001"],
+        "requirement_refs": ["REQ-SCHI-001"],
+        "mapping_refs": ["MAP-SCHI-001"],
+        "validation": {"validator_version": "0.1.0", "result": "PASS", "fixture_count": 41},
+        "network_access": true,
+        "credentials_accessed": false
+      },
+      "expected_rejection": {"keyword": "const", "instance_path": "/network_access", "schema_path": "/properties/network_access/const"}
+    }
+  ]
+}

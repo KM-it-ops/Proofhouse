@@ -36,9 +36,9 @@
 ## Acceptance and authority
 
 - **RC-020:** Acceptance state is exactly one of `accepted`, `proposed`, `disputed`, `unresolved`, `unsupported`, `refused`, or `invalid`.
-- **RC-021:** Authority basis is exactly one of directly stated, deterministically derived, explicitly defaulted, model suggested, owner approved, user approved, disputed, unresolved, unsupported, refused, or invalid.
+- **RC-021:** Authority basis is exactly one of directly stated, owner decision, user decision, accepted contract, explicitly defaulted, deterministically derived, model suggested, disputed, unresolved, unsupported, refused, or invalid.
 - **RC-022:** Confidence, probability, model agreement, or frequency never substitutes for authority or acceptance.
-- **RC-023:** Model-suggested meaning cannot self-accept, invent an approval, resolve a conflict, or become owner/user approved without an attributable decision record.
+- **RC-023:** Model-suggested meaning cannot self-accept, invent an approval, resolve a conflict, or become owner-decision or user-decision authority without an attributable decision record.
 - **RC-024:** Accepted meaning requires at least one valid source reference and an authority basis permitted by [AUTHORITY_AND_DEFAULTS.md](AUTHORITY_AND_DEFAULTS.md).
 
 ## Assumptions, ambiguity, conflicts, and questions

@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from jsonschema import Draft202012Validator
+from referencing import Registry, Resource
 
 
 CONTRACT_VERSION = "0.1.0-draft"
@@ -55,6 +56,74 @@ def load_diagnostic_registry(package: Path) -> dict[str, dict[str, Any]]:
     if len(by_code) != len(records):
         raise ValueError("duplicate requirements diagnostic code")
     return by_code
+
+
+def load_schema_instances(package: Path) -> list[dict[str, Any]]:
+    document = _read_json(package / "fixtures" / "schema_instances.json")
+    return document.get("instances", [])
+
+
+def _json_pointer(path: Any) -> str:
+    return "/" + "/".join(str(segment) for segment in path) if path else ""
+
+
+def _normalize_validation_error(error: Any) -> dict[str, Any]:
+    return {
+        "instance_path": _json_pointer(error.path),
+        "keyword": error.validator,
+        "message": error.message,
+        "schema_path": _json_pointer(error.schema_path),
+    }
+
+
+def build_schema_registry(schema_docs: Mapping[str, dict[str, Any]]) -> Registry:
+    return Registry().with_resources(
+        (schema["$id"], Resource.from_contents(schema)) for schema in schema_docs.values()
+    )
+
+
+def validate_schema_instance(
+    record: Mapping[str, Any],
+    schema_docs: Mapping[str, dict[str, Any]],
+    registry: Registry,
+) -> dict[str, Any]:
+    """Validate one schema-instance fixture and judge it against its declared expectation.
+
+    A positive instance passes only with zero validation errors. A negative instance
+    passes only when validation produces exactly one error and that error matches the
+    fixture's declared expected_rejection (keyword, instance_path, and optionally
+    schema_path) -- proving the instance was rejected for its specific intended defect,
+    not merely rejected for some reason.
+    """
+
+    schema = schema_docs[record["schema"]]
+    validator = Draft202012Validator(schema, registry=registry)
+    errors = sorted(
+        (_normalize_validation_error(error) for error in validator.iter_errors(record["instance"])),
+        key=lambda item: (item["instance_path"], item["keyword"], item["schema_path"]),
+    )
+
+    if record["kind"] == "positive":
+        passed = not errors
+    else:
+        expected = record.get("expected_rejection", {})
+        passed = (
+            len(errors) == 1
+            and errors[0]["keyword"] == expected.get("keyword")
+            and errors[0]["instance_path"] == expected.get("instance_path")
+            and (
+                expected.get("schema_path") is None
+                or errors[0]["schema_path"] == expected.get("schema_path")
+            )
+        )
+
+    return {
+        "errors": errors,
+        "id": record["id"],
+        "kind": record["kind"],
+        "passed": passed,
+        "schema": record["schema"],
+    }
 
 
 def _identities(records: list[dict[str, Any]]) -> list[str]:
@@ -271,9 +340,15 @@ def validate_package(package: Path) -> dict[str, Any]:
     schema_paths = sorted(schemas.glob("*.schema.json"), key=lambda path: path.name)
     if tuple(path.name for path in schema_paths) != SCHEMA_NAMES:
         errors.append("schema inventory does not match the eight-file contract")
+    schema_docs: dict[str, dict[str, Any]] = {}
     for path in schema_paths:
         try:
-            Draft202012Validator.check_schema(_read_json(path))
+            schema_docs[path.name] = _read_json(path)
+        except Exception as exc:  # pragma: no cover - failure evidence path
+            errors.append(f"{path.name}: {exc}")
+            continue
+        try:
+            Draft202012Validator.check_schema(schema_docs[path.name])
         except Exception as exc:  # pragma: no cover - failure evidence path
             errors.append(f"{path.name}: {exc}")
 
@@ -282,6 +357,25 @@ def validate_package(package: Path) -> dict[str, Any]:
     except (KeyError, TypeError, ValueError) as exc:
         registry = {}
         errors.append(f"diagnostic registry: {exc}")
+
+    try:
+        schema_instance_records = load_schema_instances(package)
+    except (OSError, ValueError) as exc:  # pragma: no cover - failure evidence path
+        schema_instance_records = []
+        errors.append(f"schema instance corpus: {exc}")
+
+    schema_registry = build_schema_registry(schema_docs)
+    schema_instance_results = [
+        validate_schema_instance(record, schema_docs, schema_registry)
+        for record in schema_instance_records
+    ]
+    schema_instance_failed = sorted(
+        result["id"] for result in schema_instance_results if not result["passed"]
+    )
+    if schema_instance_failed:
+        errors.append(
+            f"schema instance outcome mismatch: {', '.join(schema_instance_failed)}"
+        )
 
     cases_document = _read_json(package / "fixtures" / "cases.json")
     manifest = _read_json(package / "fixtures" / "manifest.json")
@@ -325,6 +419,21 @@ def validate_package(package: Path) -> dict[str, Any]:
         ],
         "network_access": False,
         "schema_count": len(schema_paths),
+        "schema_instance_count": len(schema_instance_results),
+        "schema_instance_pass_count": len(schema_instance_results) - len(schema_instance_failed),
+        "schema_instance_results": sorted(
+            (
+                {
+                    "errors": result["errors"],
+                    "id": result["id"],
+                    "kind": result["kind"],
+                    "passed": result["passed"],
+                    "schema": result["schema"],
+                }
+                for result in schema_instance_results
+            ),
+            key=lambda item: item["id"],
+        ),
         "schema_sha256": {path.name: _sha256(path) for path in schema_paths},
         "status": "PASS" if not errors else "FAIL",
         "validator_version": VALIDATOR_VERSION,
