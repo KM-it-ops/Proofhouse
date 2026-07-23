@@ -171,3 +171,54 @@ def test_frozen_ir_and_diagnostic_registry_hashes_are_unchanged() -> None:
     for relative, expected in FROZEN_HASHES.items():
         actual = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
         assert actual == expected
+
+
+def test_authority_basis_vocabulary_is_normalized() -> None:
+    schema = _json(PACKAGE / "schemas" / "requirement.schema.json")
+    enum_values = set(schema["properties"]["authority_basis"]["enum"])
+    assert {"owner_decision", "user_decision", "accepted_contract"} <= enum_values
+    assert not {"owner_approved", "user_approved"} & enum_values
+
+    banned = ("owner_approved", "user_approved", "owner approved", "user approved")
+    for name in ("REQUIREMENTS_COMPILER_SPEC.md", "REQUIREMENTS_EVIDENCE_MODEL.md", "AUTHORITY_AND_DEFAULTS.md"):
+        text = (PACKAGE / name).read_text(encoding="utf-8")
+        for term in banned:
+            assert term not in text, f"{term!r} still present in {name}"
+
+
+def test_schema_instance_corpus_proves_specific_rejection_reasons() -> None:
+    validator = _load_validator()
+    result = validator.validate_package(PACKAGE)
+    assert result["schema_instance_count"] >= 19
+    assert result["schema_instance_pass_count"] == result["schema_instance_count"]
+
+    by_id = {item["id"]: item for item in result["schema_instance_results"]}
+    for instance_id in ("SCHI-REQUIREMENT-NEG-OWNER-APPROVED", "SCHI-REQUIREMENT-NEG-USER-APPROVED"):
+        record = by_id[instance_id]
+        assert record["passed"] is True
+        assert len(record["errors"]) == 1
+        assert record["errors"][0]["keyword"] == "enum"
+        assert record["errors"][0]["instance_path"] == "/authority_basis"
+
+    for instance_id in (
+        "SCHI-REQUIREMENT-POS-OWNER-DECISION",
+        "SCHI-REQUIREMENT-POS-USER-DECISION",
+        "SCHI-REQUIREMENT-POS-ACCEPTED-CONTRACT",
+    ):
+        record = by_id[instance_id]
+        assert record["passed"] is True
+        assert record["errors"] == []
+
+    schemas_covered = {record["schema"] for record in result["schema_instance_results"]}
+    assert schemas_covered == SCHEMAS
+
+
+def test_schema_instance_validation_is_byte_deterministic() -> None:
+    validator = _load_validator()
+    first = validator.canonical_validation_json(validator.validate_package(PACKAGE))
+    second = validator.canonical_validation_json(validator.validate_package(PACKAGE))
+    assert first == second
+    parsed = json.loads(first)
+    assert [item["id"] for item in parsed["schema_instance_results"]] == sorted(
+        item["id"] for item in parsed["schema_instance_results"]
+    )
