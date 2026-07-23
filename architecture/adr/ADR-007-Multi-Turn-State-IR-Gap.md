@@ -12,7 +12,7 @@ MISSION-005 (Gemini adapter) surfaced this while investigating Gemini's mandator
 
 This is related to, but explicitly distinct from, the gap recorded in ADR-006. ADR-006 concerns a missing field for a *caller-chosen configuration value* (a reasoning-effort level or thinking-token budget) within a single request. This gap concerns *provider-returned opaque state* that must be carried across multiple requests — a session/turn-state modeling question, not a configuration-field question. Resolving ADR-006 (e.g. adding a `reasoning` block to a single compiled request) would not resolve this gap; they require different, independently-scoped IR extensions.
 
-This is currently a single, first-occurrence finding (Gemini only). Unlike ADR-006, this has not yet been independently confirmed by a second unrelated provider or adapter, though OpenAI's and Anthropic's adapters did not surface an equivalent finding in their own missions — it is plausible this is a Gemini-specific requirement (its thought-signature model) rather than a universal one, or it may simply not have been triggered by the fixture/IR shapes exercised so far. This ADR is Proposed accordingly, at a lower confidence tier than ADR-006's now-Accepted status.
+This is no longer honestly characterized as a Gemini-only first occurrence. Anthropic's extended-thinking documentation requires signature-verified thinking blocks to be returned unmodified across tool-use turns. OpenAI's Responses documentation describes reasoning items, including encrypted reasoning content, that callers manually managing context must include on subsequent turns. Gemini thought signatures remain a distinct, model/API-specific form of the same broad continuation-state problem. The evidence is multi-provider, but it does not authorize a schema design or acceptance; this ADR remains Proposed pending an owner decision.
 
 ## Decision (proposed, not yet accepted)
 
@@ -43,3 +43,6 @@ Any of these requires its own SPEC, an accepted ADR, and explicit owner ratifica
 - `PROMPTRIG_IR_V0_1.schema.json` (`architecture/compiler-contract-freeze-v0.5/`), confirmed frozen, no session/turn/conversation-state concept present anywhere in the schema.
 - MISSION-005 Technical Debt: "Thought-signature/multi-turn continuation state cannot be represented in IR v0.1 at all," and the dedicated "ADR-006 third-confirmation check" report subsection explicitly distinguishing this finding from the ADR-006 gap.
 - `PROVIDER_SELECTION_MATRIX.md`: Gemini's documented "thinking levels/signatures with model-specific continuation rules."
+- Anthropic official documentation: extended-thinking blocks and signatures must be preserved when continuing tool-use context.
+- OpenAI official Responses API reference: reasoning items, including optional encrypted content, must be supplied in subsequent input when callers manage context manually.
+- Gemini official Thought Signatures documentation: signatures must be returned exactly as received for relevant multi-turn/function-calling flows.

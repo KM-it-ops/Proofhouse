@@ -68,6 +68,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from ..paths import join_json_pointer
+
 _SUPPORTED_TYPES = frozenset({"string", "number", "integer", "boolean", "array", "object", "null"})
 
 
@@ -114,14 +116,14 @@ def _walk(schema: dict, pointer: str, violations: list[SubsetViolation]) -> None
     if "object" in type_names:
         properties: dict = schema.get("properties", {})
         for prop_name, prop_schema in properties.items():
-            _walk(prop_schema, f"{pointer}/properties/{prop_name}", violations)
+            _walk(prop_schema, join_json_pointer(join_json_pointer(pointer, "properties"), prop_name), violations)
 
     if "array" in type_names:
         items = schema.get("items")
         if items is None:
             violations.append(SubsetViolation(pointer, "array schemas must declare items"))
         else:
-            _walk(items, f"{pointer}/items", violations)
+            _walk(items, join_json_pointer(pointer, "items"), violations)
 
 
 def property_ordering(schema: dict) -> list[str] | None:
