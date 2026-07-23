@@ -153,7 +153,7 @@ The first nine phases form the critical dependency path. Evidence gathering, pro
 | Historical review integrity | PASS — 244 files; aggregate SHA-256 `04ae9c299a2d884f5ad85fc736d7ef174029a8f153eed826cea1dc6df2384195`; zero diff |
 | CI trigger verification | PASS — `docs/**` push and PRs targeting `feature/promptrig-framework` are covered |
 | Manual traceability review | PASS — 12 strategic laws and 20 product requirements mapped; all 9 phases have entry/exit gates; missing work is scheduled/deferred; prototypes are not claimed as product capability |
-| Git whitespace | Re-run on the report-inclusive staged diff before commit |
+| Git whitespace | PASS — report-inclusive diff is clean |
 | Seven-job GitHub CI | Pending draft PR; all seven must pass before mission completion |
 
 The initial `py -3.14 -m pytest` invocation found that the system interpreter lacked the `pytest` module. A validation-only Python 3.14 venv was created under `C:\tmp`, the declared test dependencies were installed there, and the complete suite then passed without changing repository dependencies or package versions.
