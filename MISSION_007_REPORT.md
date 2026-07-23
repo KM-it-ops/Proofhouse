@@ -2,7 +2,7 @@
 
 ## Mission status
 
-**LOCAL PACKAGE COMPLETE; ROADMAP PROPOSED; DRAFT PR AND FINAL CI CLOSEOUT FOLLOW THIS REPORT COMMIT.**
+**DRAFT PR OPEN; INITIAL SEVEN-JOB CI PASS; ROADMAP PROPOSED; FINAL-HEAD CI REMAINS AUTHORITATIVE IN PR METADATA.**
 
 MISSION-007 is governance and documentation only. It does not authorize or begin MISSION-008. The strategy package remains non-binding until independent architectural review and explicit owner approval.
 
@@ -154,7 +154,7 @@ The first nine phases form the critical dependency path. Evidence gathering, pro
 | CI trigger verification | PASS — `docs/**` push and PRs targeting `feature/promptrig-framework` are covered |
 | Manual traceability review | PASS — 12 strategic laws and 20 product requirements mapped; all 9 phases have entry/exit gates; missing work is scheduled/deferred; prototypes are not claimed as product capability |
 | Git whitespace | PASS — report-inclusive diff is clean |
-| Seven-job GitHub CI | Pending draft PR; all seven must pass before mission completion |
+| Seven-job GitHub CI | PASS — pull-request run `29972540592` completed all seven jobs on pre-closeout head `c2395192e344298c11c78f0eeefc671cf96297d9`; the report-only closeout head requires a fresh seven-job run recorded by PR metadata |
 
 The initial `py -3.14 -m pytest` invocation found that the system interpreter lacked the `pytest` module. A validation-only Python 3.14 venv was created under `C:\tmp`, the declared test dependencies were installed there, and the complete suite then passed without changing repository dependencies or package versions.
 
@@ -174,7 +174,15 @@ No answer is implied by this mission.
 
 ## Pull request state
 
-At this report commit, the draft PR is not yet open because local validation and a committed report are prerequisites. The branch will be pushed and a draft PR opened against `feature/promptrig-framework`; a later report-only closeout commit will record its URL and initial CI run without rewriting this history. GitHub PR metadata is authoritative for the final head and final seven-job CI state.
+- Draft PR: [#12 — MISSION-007: Strategic Reconciliation and Roadmap Lock](https://github.com/KM-it-ops/PromptRig/pull/12)
+- State: `OPEN`, `isDraft=true`
+- Base/head: `feature/promptrig-framework` ← `docs/mission-007-strategic-reconciliation-roadmap-lock`
+- Auto-merge: disabled (`autoMergeRequest=null`)
+- Initial validated PR head: `c2395192e344298c11c78f0eeefc671cf96297d9`
+- Initial pull-request CI: run `29972540592`, seven of seven jobs passed
+- Merge performed: no
+
+This report-only closeout commit necessarily triggers a new CI run that cannot be embedded in itself. GitHub PR metadata is authoritative for the final branch head and final seven-job CI result.
 
 ## Scope confirmation
 
