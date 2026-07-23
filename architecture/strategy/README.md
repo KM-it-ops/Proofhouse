@@ -1,10 +1,10 @@
 # PromptRig Strategy Package
 
-**Package status:** Proposed by MISSION-007. Independent architectural review returned a narrow correction requiring mandatory headless-core hardening and certification; the corrected roadmap and mission sequence are not authoritative until final independent review and explicit owner approval.
+**Package status:** Owner-ratified through DR-007-01 through DR-007-09 in PR #12 after final independent architectural review; authoritative upon merge into `feature/promptrig-framework`. Ratification governs strategy and sequence only, activates no deferred work, and authorizes no phase, mission, or implementation.
 
 ## Package index
 
-| Document | Role | Authority before owner approval | Authority after owner approval |
+| Document | Role | Pre-ratification status | Authority upon merge |
 |---|---|---|---|
 | [Product Vision](PROMPTRIG_PRODUCT_VISION.md) | Concise product identity, canonical pipeline, system/product boundaries, and doctrines | Proposed normative reconciliation constrained by the MISSION-007 authorization | Normative strategy |
 | [Capability Maturity Map](CAPABILITY_MATURITY_MAP.md) | Evidence-bound statement of what is certified, implemented, partial, proposed, deferred, or absent | Descriptive baseline | Descriptive baseline; future changes require evidence |
@@ -12,7 +12,7 @@
 | [Deferred and Rejected Work](DEFERRED_AND_REJECTED_WORK.md) | Deferrals, rejected shortcuts, obsolete assumptions, debt classes, and promotion triggers | Proposed governance | Normative sequencing guardrail |
 | [Requirement-to-Roadmap Traceability](REQUIREMENT_TO_ROADMAP_TRACEABILITY.md) | Strategic-law and product-requirement mapping to evidence, phases, tests, and owner decisions | Proposed mixed normative/descriptive record | Normative traceability contract plus descriptive status |
 | [Mission Sequence V1](MISSION_SEQUENCE_V1.md) | Recommended MISSION-008–011 purpose, scope, tests, stop conditions, and merge gates | Proposed | Normative sequence only; each mission needs separate launch authority |
-| [Roadmap Decision Request](ROADMAP_DECISION_REQUEST.md) | Exact owner choices, recommendations, alternatives, and consequences | Pending decision package | Historical decision evidence after an owner record is added |
+| [Roadmap Decision Record](ROADMAP_DECISION_REQUEST.md) | Exact owner choices, approved recommendations, alternatives, and consequences | Decision request | Decided historical record of DR-007-01 through DR-007-09 |
 
 ## Authority order
 
@@ -34,17 +34,18 @@ The classifications below satisfy the MISSION-007 reconciliation requirement. `C
 
 | Source | Classification | Reconciliation treatment |
 |---|---|---|
-| Owner-supplied `PROMPTRIG_STRATEGIC_RECONCILIATION_AND_FORWARD_FOCUS_LOCK.md` | `CURRENT_AND_AUTHORITATIVE` mission input; incomplete as repository governance | Supplies the non-negotiable vision and critical-path direction; this package translates it into repository-native proposed governance |
+| Owner-supplied `PROMPTRIG_STRATEGIC_RECONCILIATION_AND_FORWARD_FOCUS_LOCK.md` | `CURRENT_AND_AUTHORITATIVE` mission input; incomplete as repository governance | Supplies the non-negotiable vision and critical-path direction; this package translates it into repository-native owner-ratified governance effective upon merge |
 | MISSION-007 execution prompt | `CURRENT_AND_AUTHORITATIVE` mission authorization | Controls scope, required deliverables, stop conditions, baseline, branch, validation, and no-merge boundary |
-| PR #12 independent architectural review | `CURRENT_AND_AUTHORITATIVE` correction finding, not owner ratification | Found that MISSION-010 was a bounded prototype with no mandatory productionization dependency; blocks merge until Phase 4B/MISSION-011 and affected mappings are corrected |
+| PR #12 independent architectural reviews | `CURRENT_AND_AUTHORITATIVE` review evidence, not implementation authority | Initial review found the missing Phase 4B/MISSION-011 dependency; final substantive and merge reviews passed after correction |
 | PR #12 headless-core gate correction prompt | `CURRENT_AND_AUTHORITATIVE` correction authorization | Limits the response to documentation/governance changes on the existing branch and PR; requires preservation of the original seven commits, final-head validation/CI, and no mission implementation |
+| Explicit owner approval of DR-007-01 through DR-007-09 recorded in PR #12 | `CURRENT_AND_AUTHORITATIVE` strategy ratification | Ratifies the corrected strategy package and sequence upon merge; does not authorize MISSION-008 through MISSION-011, phase entry, implementation, ADR-007 acceptance, merge automation, or tag changes |
 | [OAR-001](../OWNER_ACCEPTANCE_RECORDS/OAR-001.md) | `CURRENT_AND_AUTHORITATIVE` | Binds Python 3.11+, adapter order, IR 0.1.0, canonical hashing, and diagnostic registry for Compiler Core v0.1 |
 | [ADR-000](../adr/ADR-000-Project-Principles.md), [ADR-005](../adr/ADR-005-Compiler-Core-CLI-Entry-Point.md), [ADR-006](../adr/ADR-006-Reasoning-Configuration-IR-Gap.md) | `CURRENT_AND_AUTHORITATIVE` within stated scopes | Preserved; roadmap must comply |
 | [ADR-001](../adr/ADR-001-PromptRig-Specification.md), [ADR-002](../adr/ADR-002-AI-Engineering-Workspace.md), [ADR-003](../adr/ADR-003-MissionRig.md), [ADR-004](../adr/ADR-004-Structured-Mission-Format.md) | `DEFERRED_PROPOSAL` or accepted direction with deferred implementation | Do not treat as executable product capability; mapped to Phases 2 and 9 |
 | [ADR-007](../adr/ADR-007-Multi-Turn-State-IR-Gap.md) and its owner request | `UNRESOLVED_OWNER_DECISION` | Remains Proposed; no IR change; MISSION-007 recommends an explicit evidence threshold |
 | Frozen contract files under `architecture/compiler-contract-freeze-v0.5/` | `CURRENT_AND_AUTHORITATIVE` for Compiler Core v0.1 | Contract contents remain binding; the directory README's candidate wording is stale metadata |
 | Freeze-package README and [architecture index](../README.md) | `CURRENT_BUT_INCOMPLETE` | They predate ratification/implementation and do not report current maturity; this package supersedes their roadmap/status implications |
-| Freeze [decision log](../compiler-contract-freeze-v0.5/DECISION_LOG.md) | `CURRENT_AND_AUTHORITATIVE` per-row status | Accepted rows bind their scope; Proposed rows remain non-binding |
+| Freeze [decision log](../compiler-contract-freeze-v0.5/DECISION_LOG.md) | `CURRENT_AND_AUTHORITATIVE` per-row status | D-050-013 records owner acceptance of this package; other Proposed rows, including ADR-007's gap record, remain non-binding |
 | Freeze open questions | `CURRENT_BUT_INCOMPLETE` | Correctly defers product surfaces but predates MISSION-002–006 implementation and this dependency order |
 | Language/platform and provider-selection decisions in the freeze package | `CURRENT_AND_AUTHORITATIVE` for v0.1 compiler and initial conformance targets | Preserve Python/TypeScript boundary and fake→OpenAI→Anthropic→Gemini set; they do not freeze hosted platform or a fifth adapter |
 | PRS overview, syntax, examples, and roadmap | `DEFERRED_PROPOSAL` | Examples are non-binding; MISSION-008 must accept, defer, or reject the PRS direction |
@@ -61,11 +62,11 @@ The classifications below satisfy the MISSION-007 reconciliation requirement. `C
 | v0.4 Supabase ADR | `SUPERSEDED` as inherited commitment | Supabase is one future candidate, not the default |
 | v0.4 compiler/provider/evaluation RFCs | `HISTORICAL_EVIDENCE_ONLY` or `DEFERRED_PROPOSAL` | Useful requirements are remapped; review-status RFCs are not current contracts |
 | v0.4 benchmark rules, environment, rubric, manifest, and claims policy | `HISTORICAL_EVIDENCE_ONLY` and deferred design input | Whole-configuration doctrine is retained; no runner, sealed source, or result is claimed |
-| v0.4 release roadmap | `SUPERSEDED` | Replaced by `ROADMAP_V1.md` after approval; Phase A “complete” and benchmark-first sequencing are not current |
+| v0.4 release roadmap | `SUPERSEDED` | Replaced by `ROADMAP_V1.md` upon merge; Phase A “complete” and benchmark-first sequencing are not current |
 
 ## Supersedence boundary
 
-After owner approval, this package supersedes older roadmap, phase-order, maturity, product-status, inherited-platform, and adapter-expansion statements. It does not edit or supersede:
+Upon merge following owner approval, this package supersedes older roadmap, phase-order, maturity, product-status, inherited-platform, and adapter-expansion statements. It does not edit or supersede:
 
 - OAR-001 or accepted current ADRs;
 - frozen Compiler Core v0.1 contracts;

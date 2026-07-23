@@ -1,7 +1,7 @@
 # PromptRig Roadmap V1
 
-**Status:** `PROPOSED`. This roadmap is not ratified and authorizes no implementation until independent architectural review and explicit owner approval.
-**Authority if approved:** This file supersedes earlier sequencing statements, but not accepted contracts, ADRs, OARs, or historical evidence.
+**Status:** `OWNER_RATIFIED` through DR-007-01 through DR-007-09 in PR #12; authoritative upon merge into `feature/promptrig-framework`.
+**Authority upon merge:** This file supersedes earlier sequencing statements, but not accepted contracts, ADRs, OARs, or historical evidence. Ratification authorizes no phase entry, mission execution, or implementation; every phase and MISSION-008 through MISSION-011 require separate exact-baseline authorization.
 
 ## Roadmap objective
 

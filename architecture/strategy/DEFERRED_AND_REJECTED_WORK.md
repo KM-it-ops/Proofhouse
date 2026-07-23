@@ -1,6 +1,6 @@
 # Deferred and Rejected Work
 
-**Status:** Proposed MISSION-007 registry. This document controls sequencing only after owner approval of the strategy package.
+**Status:** Owner-ratified through DR-007-01 through DR-007-09 in PR #12; authoritative as a sequencing guardrail upon merge into `feature/promptrig-framework`. Ratification activates no deferred work and authorizes no implementation.
 
 ## Registry rules
 

@@ -1,6 +1,6 @@
 # Requirement-to-Roadmap Traceability
 
-**Status:** Proposed by MISSION-007.
+**Status:** Owner-ratified through DR-007-01 through DR-007-09 in PR #12; authoritative as the strategy traceability contract upon merge into `feature/promptrig-framework`. Ratification does not promote any capability or authorize phase or mission entry.
 **Baseline:** `b3b6f6cd46300e846e38f6601acb6a9d0b68cafb`.
 
 ## Status vocabulary

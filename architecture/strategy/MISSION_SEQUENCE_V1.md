@@ -1,6 +1,6 @@
 # Mission Sequence V1
 
-**Status:** Proposed. These mission definitions authorize no work until the strategy package receives independent architectural review, explicit owner approval, and a separate mission launch from an exact verified baseline.
+**Status:** Owner-ratified through DR-007-01 through DR-007-09 in PR #12; authoritative as sequence governance upon merge into `feature/promptrig-framework`. These definitions authorize no work: MISSION-008 through MISSION-011 each require a separate launch from an exact verified baseline.
 
 ## Sequence law
 

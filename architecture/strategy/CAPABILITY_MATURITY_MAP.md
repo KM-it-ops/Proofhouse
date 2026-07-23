@@ -1,6 +1,6 @@
 # Capability Maturity Map
 
-**Status:** Proposed by MISSION-007. Evidence is fixed to repository baseline `b3b6f6cd46300e846e38f6601acb6a9d0b68cafb` and merged PRs #1–#11.
+**Status:** Owner-ratified through DR-007-01 through DR-007-09 in PR #12; authoritative as the evidence-bound maturity baseline upon merge into `feature/promptrig-framework`. Evidence remains fixed to repository baseline `b3b6f6cd46300e846e38f6601acb6a9d0b68cafb` and merged PRs #1–#11; ratification promotes no capability and authorizes no implementation.
 
 ## Status vocabulary
 
@@ -21,7 +21,7 @@ Certification never expands scope. An offline lowering adapter can be certified 
 
 | Capability | Status | Evidence | Known limitations | Blocking dependencies | Next authorized step | Explicit non-claim |
 |---|---|---|---|---|---|---|
-| Governance | `CERTIFIED` | [ADR-000](../adr/ADR-000-Project-Principles.md), [OAR-001](../OWNER_ACCEPTANCE_RECORDS/OAR-001.md), merged PRs #2–#11 | Only the owner can ratify new architecture; reports preserve point-in-time states | Independent review and owner decisions for future phases | Submit the MISSION-007 decision package | Governance evidence does not itself certify product behavior |
+| Governance | `CERTIFIED` | [ADR-000](../adr/ADR-000-Project-Principles.md), [OAR-001](../OWNER_ACCEPTANCE_RECORDS/OAR-001.md), merged PRs #2–#11 | Only the owner can ratify new architecture; reports preserve point-in-time states | Independent review and owner decisions for future phases | Complete PR #12 merge review; authorize any later mission separately | Governance evidence does not itself certify product behavior |
 | Architecture freeze | `CERTIFIED` | Tag `v0.5-architecture-freeze` peels to `7948c9a419dc02ea43ca994f0334733ea4b08855`; [freeze contracts](../compiler-contract-freeze-v0.5/README.md) | Freeze covers Compiler Core v0.1, not hosted product, benchmark, PRS, evaluation, or runtime state | Versioned change proposal and compatibility plan | Preserve v0.1; plan later evolution in Roadmap Phase 5 | The full product architecture is not frozen |
 | Canonical JSON | `CERTIFIED` | [MISSION-006 report](../../MISSION_006_REPORT.md); `rfc8785==0.1.4`; Appendix B and non-finite tests | Applies to supported JSON domain; invalid Unicode and non-finite values fail | None for v0.1 | Maintain adversarial vectors and dependency review | Passing ordinary serialization tests is not RFC 8785 certification |
 | IR validation | `CERTIFIED` | Frozen IR schema, semantic validation, drift tests, and 325-test MISSION-006 suite | Reports first schema failure; v0.1 lacks later reasoning, runtime-state, and policy surfaces | Ratified IR evolution for new semantics | Keep v0.1 fail-closed; collect v0.2 evidence | Valid IR does not imply a deployable or evaluated system |

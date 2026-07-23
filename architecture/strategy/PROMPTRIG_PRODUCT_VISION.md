@@ -1,6 +1,6 @@
 # PromptRig Product Vision
 
-**Status:** Proposed by MISSION-007; binding only after independent architectural review and explicit owner approval.
+**Status:** Owner-ratified through DR-007-01 through DR-007-09 in PR #12; authoritative upon merge into `feature/promptrig-framework`. Ratification governs strategy only and authorizes no phase, mission, or implementation.
 **Baseline:** `feature/promptrig-framework` at `b3b6f6cd46300e846e38f6601acb6a9d0b68cafb`.
 
 ## Product identity
@@ -149,4 +149,4 @@ Supabase is not an inherited commitment. It may be reconsidered alongside portab
 
 ## Authority and change control
 
-This document reconciles the mission-authorized vision with the repository at the baseline above. The product laws are required constraints for this proposal; adoption of this repository-native statement and its roadmap remains proposed until independent architectural review and explicit owner approval. Future changes must update the strategy index, maturity map, roadmap traceability, decision record, and affected mission gates together.
+This document reconciles the mission-authorized vision with the repository at the baseline above. Independent architectural review passed and the owner ratified this repository-native statement through DR-007-01 through DR-007-09 in PR #12. It becomes authoritative upon merge into `feature/promptrig-framework`; ratification does not authorize entry into any phase or execution of MISSION-008 through MISSION-011. Future changes must update the strategy index, maturity map, roadmap traceability, decision record, and affected mission gates together.
