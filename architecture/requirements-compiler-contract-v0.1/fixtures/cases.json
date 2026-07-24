@@ -232,7 +232,7 @@
     {
       "id": "file-source-location-stability", "authoring_mode": "file", "category": "positive",
       "input": {"intent": "Preserve exact source URI and JSON Pointer across runs.", "authoritative_inputs": ["file:stable"], "non_authoritative_inputs": []},
-      "candidate": {"requirements": [{"id": "REQ-FILE-006", "statement": "Preserve stable source locations.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-FILE-006"]}], "sources": [{"id": "SRC-FILE-006", "lifecycle": "current", "location": {"uri": "file://stable.json", "json_pointer": "/requirements/0", "line": 12, "column": 3}}], "mappings": [{"requirement_id": "REQ-FILE-006", "outcome": "direct", "target_pointer": "/requirements/0"}]},
+      "candidate": {"requirements": [{"id": "REQ-FILE-006", "statement": "Preserve stable source locations.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-FILE-006"]}], "sources": [{"id": "SRC-FILE-006", "lifecycle": "current", "location": {"uri": "file://stable.json", "json_pointer": "/requirements/0", "line": 12, "column": 3}}], "mappings": [{"requirement_id": "REQ-FILE-006", "outcome": "direct", "target_pointer": "/requirements/0/statement"}]},
       "expected": {"status": "SUCCESS", "diagnostic_codes": [], "requirement_ids": ["REQ-FILE-006"], "assumptions": [], "open_questions": [], "conflicts": [], "ir_mapping_outcomes": ["direct"], "evidence": ["SRC-FILE-006"], "approval_required": false}
     },
     {

@@ -28,8 +28,8 @@
 
 - **RC-010:** Requirement IDs match `REQ-[A-Z0-9-]{3,64}`, are unique within a requirements document, and remain stable across equivalent deterministic validation.
 - **RC-011:** A requirement identity may change only when its accepted semantic unit changes; textual reformatting alone does not create a new identity.
-- **RC-012:** A requirement has exactly one type from objective, input, output, behavior, constraint, security, privacy, approval, capability, evidence, or policy.
-- **RC-013:** Priority is exactly `required`, `recommended`, or `optional`; contradictory priority claims create a conflict and cannot be normalized away.
+- **RC-012:** A requirement has exactly one type from objective, behavior, input, output, constraint, security, privacy, approval, evidence, or runtime. `runtime` covers requirement meaning about provider-hosted runtime/session state (see the IR v0.1 gap register); no other requirement type is defined by this contract, since neither a distinct `capability` nor `policy` type has executable clause, mapping-rule, diagnostic, or fixture backing in this package.
+- **RC-013:** Priority is exactly `required` or `optional`; contradictory priority claims create a conflict and cannot be normalized away. A third `recommended` tier is not defined by this contract: it would need its own terminal-status behavior, IR-mapping rules, fixtures, and owner-review consequences before it could be added, none of which exist yet.
 - **RC-014:** Required meaning cannot disappear, become optional, or move to `PARTIAL` because an implementation cannot represent it.
 - **RC-015:** Requirement ordering is lexical by stable ID in canonical evidence; source order remains separately preserved.
 

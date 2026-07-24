@@ -12,7 +12,7 @@
     "message_key": {"type": "string", "pattern": "^requirements\\.[a-z0-9_]+$"},
     "parameters": {"type": "object"},
     "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "uniqueItems": true},
-    "requirement_refs": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "requirement_refs": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"}, "uniqueItems": true},
     "location": {
       "type": "object",
       "additionalProperties": false,

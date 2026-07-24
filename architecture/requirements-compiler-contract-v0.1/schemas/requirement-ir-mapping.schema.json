@@ -7,7 +7,7 @@
   "required": ["id", "requirement_id", "outcome", "authority_ref", "validation_ref"],
   "properties": {
     "id": {"type": "string", "pattern": "^MAP-[A-Z0-9-]+$"},
-    "requirement_id": {"type": "string", "pattern": "^REQ-[A-Z0-9-]+$"},
+    "requirement_id": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"},
     "outcome": {"enum": ["direct", "deterministic_derivation", "authorized_default", "unresolved", "prohibited", "no_ir_representation"]},
     "target_pointer": {"type": "string", "pattern": "^/"},
     "authority_ref": {"type": "string", "minLength": 1},

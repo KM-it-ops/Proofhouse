@@ -34,6 +34,43 @@ SCHEMA_NAMES = (
 STATUS_VALUES = {"SUCCESS", "PARTIAL", "BLOCKED", "REFUSED", "INVALID_OUTPUT"}
 JSON_POINTER = re.compile(r"^(?:|(?:/(?:[^~/]|~[01])*)*)$")
 
+# Canonical vocabulary mirrored from the normative documents (RC-012, RC-013, RC-010,
+# RC-020, RC-021, TRACEABILITY.md's mapping-class table, and RC-060's status table).
+# A change to any of those clauses' enumerated values requires updating both the
+# clause text AND these constants together -- this check catches the schema silently
+# drifting away from prose, not the reverse; manual review still owns correctness.
+CONTRACT_REQUIREMENT_TYPES = {
+    "objective", "behavior", "input", "output", "constraint",
+    "security", "privacy", "approval", "evidence", "runtime",
+}
+CONTRACT_REQUIREMENT_PRIORITIES = {"required", "optional"}
+CONTRACT_REQUIREMENT_ID_PATTERN = "^REQ-[A-Z0-9-]{3,64}$"
+CONTRACT_ACCEPTANCE_STATES = {
+    "proposed", "accepted", "disputed", "unresolved", "unsupported", "refused", "invalid",
+}
+CONTRACT_AUTHORITY_BASIS_VALUES = {
+    "directly_stated", "owner_decision", "user_decision", "accepted_contract",
+    "explicitly_defaulted", "deterministically_derived", "model_suggested",
+    "unresolved", "disputed", "unsupported", "refused", "invalid",
+}
+CONTRACT_MAPPING_OUTCOMES = {
+    "direct", "deterministic_derivation", "authorized_default",
+    "unresolved", "prohibited", "no_ir_representation",
+}
+
+# Dotted-field-name prefix used by requirement-field-justifications.json, keyed by
+# the schema whose `required` list is checked for coverage.
+_SCHEMA_FIELD_PREFIX = {
+    "requirement.schema.json": "requirement",
+    "source-evidence.schema.json": "source",
+    "requirement-ir-mapping.schema.json": "mapping",
+    "requirements-compile-result.schema.json": "result",
+    "requirements-evidence-bundle.schema.json": "evidence",
+}
+
+_CLAUSE_ID_LINE = re.compile(r"^- \*\*((?:RC|EM|AD|TR|DG|SP)-\d{3}):\*\*")
+_ARRAY_INDEX_SEGMENT = re.compile(r"^\d+$")
+
 
 def _read_json(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -61,6 +98,201 @@ def load_diagnostic_registry(package: Path) -> dict[str, dict[str, Any]]:
 def load_schema_instances(package: Path) -> list[dict[str, Any]]:
     document = _read_json(package / "fixtures" / "schema_instances.json")
     return document.get("instances", [])
+
+
+def load_known_clause_ids(package: Path) -> set[str]:
+    """Collect every normative clause ID actually defined in the package's docs."""
+
+    ids: set[str] = set()
+    for md_path in sorted(package.glob("*.md")):
+        for line in md_path.read_text(encoding="utf-8").splitlines():
+            match = _CLAUSE_ID_LINE.match(line)
+            if match:
+                ids.add(match.group(1))
+    return ids
+
+
+def find_unknown_clause_references(package: Path) -> list[str]:
+    """Reject any clause ID cited by the traceability evidence that isn't real."""
+
+    known = load_known_clause_ids(package)
+    evidence = package / "evidence"
+    problems: list[str] = []
+
+    clause_to_schema = _read_json(evidence / "clause-to-schema.json")
+    for entry in clause_to_schema.get("mappings", []):
+        for clause in entry.get("clauses", []):
+            if clause not in known:
+                problems.append(f"clause-to-schema.json: unknown clause {clause!r} (schema {entry.get('schema')!r})")
+
+    clause_to_fixture = _read_json(evidence / "clause-to-fixture.json")
+    for entry in clause_to_fixture.get("mappings", []):
+        for clause in entry.get("clauses", []):
+            if clause not in known:
+                problems.append(f"clause-to-fixture.json: unknown clause {clause!r}")
+
+    field_justifications = _read_json(evidence / "requirement-field-justifications.json")
+    for entry in field_justifications.get("fields", []):
+        for clause in entry.get("clauses", []):
+            if clause not in known:
+                problems.append(
+                    f"requirement-field-justifications.json: unknown clause {clause!r} (field {entry.get('field')!r})"
+                )
+
+    return sorted(problems)
+
+
+def find_uncovered_required_fields(package: Path, schema_docs: Mapping[str, dict[str, Any]]) -> list[str]:
+    """Every required field of a covered schema must have justified clause coverage."""
+
+    field_justifications = _read_json(package / "evidence" / "requirement-field-justifications.json")
+    covered = {entry["field"] for entry in field_justifications.get("fields", [])}
+    missing: list[str] = []
+    for schema_name, prefix in _SCHEMA_FIELD_PREFIX.items():
+        schema = schema_docs.get(schema_name, {})
+        for field_name in schema.get("required", []):
+            dotted = f"{prefix}.{field_name}"
+            if dotted not in covered:
+                missing.append(dotted)
+    return sorted(missing)
+
+
+def find_vocabulary_drift(schema_docs: Mapping[str, dict[str, Any]]) -> list[str]:
+    """Detect schema enum/pattern values silently diverging from contract prose."""
+
+    problems: list[str] = []
+    requirement_schema = schema_docs.get("requirement.schema.json", {})
+    props = requirement_schema.get("properties", {})
+
+    checks = (
+        ("requirement.type", set(props.get("type", {}).get("enum", [])), CONTRACT_REQUIREMENT_TYPES),
+        ("requirement.priority", set(props.get("priority", {}).get("enum", [])), CONTRACT_REQUIREMENT_PRIORITIES),
+        ("requirement.acceptance_state", set(props.get("acceptance_state", {}).get("enum", [])), CONTRACT_ACCEPTANCE_STATES),
+        ("requirement.authority_basis", set(props.get("authority_basis", {}).get("enum", [])), CONTRACT_AUTHORITY_BASIS_VALUES),
+    )
+    for label, actual, expected in checks:
+        if actual != expected:
+            problems.append(f"{label} enum drift: schema has {sorted(actual)}, contract defines {sorted(expected)}")
+
+    id_pattern = props.get("id", {}).get("pattern")
+    if id_pattern != CONTRACT_REQUIREMENT_ID_PATTERN:
+        problems.append(f"requirement.id pattern drift: schema has {id_pattern!r}, contract defines {CONTRACT_REQUIREMENT_ID_PATTERN!r}")
+
+    mapping_schema = schema_docs.get("requirement-ir-mapping.schema.json", {})
+    outcome_enum = set(mapping_schema.get("properties", {}).get("outcome", {}).get("enum", []))
+    if outcome_enum != CONTRACT_MAPPING_OUTCOMES:
+        problems.append(f"mapping.outcome enum drift: schema has {sorted(outcome_enum)}, contract defines {sorted(CONTRACT_MAPPING_OUTCOMES)}")
+
+    result_schema = schema_docs.get("requirements-compile-result.schema.json", {})
+    status_enum = set(result_schema.get("properties", {}).get("status", {}).get("enum", []))
+    if status_enum != STATUS_VALUES:
+        problems.append(f"result.status enum drift: schema has {sorted(status_enum)}, contract defines {sorted(STATUS_VALUES)}")
+
+    return problems
+
+
+def load_frozen_ir_schema() -> dict[str, Any]:
+    frozen_path = Path(__file__).resolve().parent.parent / "compiler-contract-freeze-v0.5" / "PROMPTRIG_IR_V0_1.schema.json"
+    return _read_json(frozen_path)
+
+
+def _resolve_ir_node(defs: Mapping[str, Any], node: Mapping[str, Any]) -> Mapping[str, Any]:
+    if "$ref" in node:
+        return defs[node["$ref"].rsplit("/", 1)[-1]]
+    return node
+
+
+def build_ir_pointer_index(ir_schema: Mapping[str, Any]) -> tuple[set[str], set[str]]:
+    """Return (leaves, subtrees): every valid mapping-target pointer in frozen IR v0.1.
+
+    A "leaf" is a location an emitting mapping may legally target: a scalar/enum/
+    boolean/integer/const field, a whole scalar array or one of its indexed elements,
+    or an opaque closed-schema-boundary object (one with no declared `properties`,
+    e.g. an embedded `json_schema` blob) -- the last case is EM-035's justified
+    closed-boundary carve-out. A "subtree" is a structured object or an array of
+    structured objects: it exists, but mapping directly to it is a prohibited
+    shortcut (TR-006/EM-035) -- only its own named leaves are valid targets.
+    Indexed array positions are represented with a literal '#' wildcard segment.
+    """
+
+    defs = ir_schema.get("$defs", {})
+    leaves: set[str] = set()
+    subtrees: set[str] = set()
+
+    def walk(node: Mapping[str, Any], pointer: str) -> None:
+        node = _resolve_ir_node(defs, node)
+        node_type = node.get("type")
+        props = node.get("properties")
+        if node_type == "object" and props:
+            subtrees.add(pointer)
+            for name, sub in props.items():
+                walk(sub, f"{pointer}/{name}")
+            return
+        if node_type == "array":
+            items = node.get("items")
+            items_resolved = _resolve_ir_node(defs, items) if items else {}
+            if items_resolved.get("type") == "object" and items_resolved.get("properties"):
+                subtrees.add(pointer)
+                subtrees.add(f"{pointer}/#")
+                for name, sub in items_resolved["properties"].items():
+                    leaves.add(f"{pointer}/#/{name}")
+            else:
+                leaves.add(pointer)
+                leaves.add(f"{pointer}/#")
+            return
+        leaves.add(pointer)
+
+    for name, sub in ir_schema.get("properties", {}).items():
+        walk(sub, f"/{name}")
+
+    return leaves, subtrees
+
+
+_IR_POINTER_INDEX_CACHE: tuple[set[str], set[str]] | None = None
+
+
+def _default_ir_pointer_index() -> tuple[set[str], set[str]]:
+    global _IR_POINTER_INDEX_CACHE
+    if _IR_POINTER_INDEX_CACHE is None:
+        _IR_POINTER_INDEX_CACHE = build_ir_pointer_index(load_frozen_ir_schema())
+    return _IR_POINTER_INDEX_CACHE
+
+
+def classify_ir_pointer(pointer: Any, leaves: set[str], subtrees: set[str]) -> str:
+    """Classify a candidate target_pointer against frozen IR v0.1: 'valid',
+    'invalid_pointer_syntax', 'subtree_shortcut', or 'not_a_permitted_leaf'."""
+
+    if not isinstance(pointer, str) or not pointer.startswith("/"):
+        return "invalid_pointer_syntax"
+    segments = pointer.split("/")[1:]
+    if any(segment == "" for segment in segments):
+        return "invalid_pointer_syntax"
+    normalized = "/" + "/".join("#" if _ARRAY_INDEX_SEGMENT.match(segment) else segment for segment in segments)
+    if normalized in leaves:
+        return "valid"
+    if normalized in subtrees:
+        return "subtree_shortcut"
+    return "not_a_permitted_leaf"
+
+
+def load_ir_pointer_cases(package: Path) -> list[dict[str, Any]]:
+    path = package / "fixtures" / "ir_pointer_cases.json"
+    return _read_json(path).get("cases", [])
+
+
+def validate_ir_pointer_case(case: Mapping[str, Any], leaves: set[str], subtrees: set[str]) -> dict[str, Any]:
+    actual = classify_ir_pointer(case.get("target_pointer"), leaves, subtrees)
+    if case["kind"] == "positive":
+        passed = actual == "valid"
+    else:
+        passed = actual == case.get("expected_reason")
+    return {
+        "actual_classification": actual,
+        "id": case["id"],
+        "kind": case["kind"],
+        "passed": passed,
+        "target_pointer": case.get("target_pointer"),
+    }
 
 
 def _json_pointer(path: Any) -> str:
@@ -181,6 +413,14 @@ def _derive_outcome(case: dict[str, Any], registry: Mapping[str, Any]) -> tuple[
     mapped_ids = {mapping.get("requirement_id") for mapping in mappings}
     if mapped_ids - set(requirement_ids):
         return "INVALID_OUTPUT", ["RQC-EVD-0001"]
+
+    ir_leaves, ir_subtrees = _default_ir_pointer_index()
+    emitting_outcomes = {"direct", "deterministic_derivation", "authorized_default"}
+    for mapping in mappings:
+        if mapping.get("outcome") in emitting_outcomes:
+            if classify_ir_pointer(mapping.get("target_pointer"), ir_leaves, ir_subtrees) != "valid":
+                return "INVALID_OUTPUT", ["RQC-EVD-0001"]
+
     referenced_sources = {
         source_ref
         for requirement in requirements
@@ -401,6 +641,33 @@ def validate_package(package: Path) -> dict[str, Any]:
     if unknown_codes:
         errors.append(f"unregistered diagnostics: {', '.join(unknown_codes)}")
 
+    try:
+        ir_pointer_cases = load_ir_pointer_cases(package)
+    except (OSError, ValueError) as exc:  # pragma: no cover - failure evidence path
+        ir_pointer_cases = []
+        errors.append(f"IR pointer case corpus: {exc}")
+    ir_leaves, ir_subtrees = build_ir_pointer_index(load_frozen_ir_schema())
+    ir_pointer_results = [
+        validate_ir_pointer_case(case, ir_leaves, ir_subtrees) for case in ir_pointer_cases
+    ]
+    ir_pointer_failed = sorted(
+        result["id"] for result in ir_pointer_results if not result["passed"]
+    )
+    if ir_pointer_failed:
+        errors.append(f"IR pointer outcome mismatch: {', '.join(ir_pointer_failed)}")
+
+    unknown_clauses = find_unknown_clause_references(package)
+    if unknown_clauses:
+        errors.append(f"unknown clause references: {', '.join(unknown_clauses)}")
+
+    uncovered_fields = find_uncovered_required_fields(package, schema_docs)
+    if uncovered_fields:
+        errors.append(f"required fields missing clause justification: {', '.join(uncovered_fields)}")
+
+    vocabulary_drift = find_vocabulary_drift(schema_docs)
+    if vocabulary_drift:
+        errors.append(f"vocabulary drift: {'; '.join(vocabulary_drift)}")
+
     return {
         "contract_version": CONTRACT_VERSION,
         "credentials_accessed": False,
@@ -417,6 +684,9 @@ def validate_package(package: Path) -> dict[str, Any]:
             }
             for result in sorted(fixture_results, key=lambda item: item["id"])
         ],
+        "ir_pointer_case_count": len(ir_pointer_results),
+        "ir_pointer_case_pass_count": len(ir_pointer_results) - len(ir_pointer_failed),
+        "ir_pointer_case_results": sorted(ir_pointer_results, key=lambda item: item["id"]),
         "network_access": False,
         "schema_count": len(schema_paths),
         "schema_instance_count": len(schema_instance_results),
@@ -436,7 +706,10 @@ def validate_package(package: Path) -> dict[str, Any]:
         ),
         "schema_sha256": {path.name: _sha256(path) for path in schema_paths},
         "status": "PASS" if not errors else "FAIL",
+        "uncovered_required_fields": uncovered_fields,
+        "unknown_clause_references": unknown_clauses,
         "validator_version": VALIDATOR_VERSION,
+        "vocabulary_drift": vocabulary_drift,
     }
 
 
