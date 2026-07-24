@@ -22,61 +22,67 @@
   },
   "$defs": {
     "assumption": {
-      "description": "RC-030: an explicit record with identity, statement, source references, impact, and acceptance state. A bare non-empty string is the informal shorthand already in use by the semantic-oracle fixture corpus; it carries no separately addressable identity and cannot be referenced by an assumption_refs evidence array.",
-      "oneOf": [
-        {"type": "string", "minLength": 1},
+      "description": "RC-030 (OQ-008-010 resolved structured-only, owner decision): a canonical assumption is a structured record with stable identity, statement, impact, source references, acceptance state, and consequential flag. Bare strings are no longer canonical assumption records; the 41 semantic-oracle fixtures remain a compact test-only projection, not a canonical requirements document.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "statement", "impact", "source_refs", "acceptance_state", "consequential"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^ASM-[A-Z0-9-]+$"},
+        "statement": {"type": "string", "minLength": 1},
+        "impact": {"enum": ["required", "optional"]},
+        "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "minItems": 1, "uniqueItems": true},
+        "acceptance_state": {"enum": ["proposed", "accepted", "disputed", "unresolved", "unsupported", "refused", "invalid"]},
+        "consequential": {"type": "boolean"},
+        "approval_refs": {"type": "array", "items": {"type": "string", "pattern": "^APR-[A-Z0-9-]+$"}, "uniqueItems": true}
+      },
+      "allOf": [
         {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["id", "statement", "source_refs", "acceptance_state"],
-          "properties": {
-            "id": {"type": "string", "pattern": "^ASM-[A-Z0-9-]+$"},
-            "statement": {"type": "string", "minLength": 1},
-            "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "minItems": 1, "uniqueItems": true},
-            "impact": {"type": "string", "minLength": 1},
-            "acceptance_state": {"enum": ["proposed", "accepted", "disputed", "unresolved", "unsupported", "refused", "invalid"]},
-            "approval_refs": {"type": "array", "items": {"type": "string", "pattern": "^APR-[A-Z0-9-]+$"}, "uniqueItems": true}
-          }
+          "$comment": "RC-031/AD-023: a consequential assumption requires at least one approval reference (semantically resolved to a valid active APR record).",
+          "if": {"properties": {"consequential": {"const": true}}, "required": ["consequential"]},
+          "then": {"required": ["approval_refs"], "properties": {"approval_refs": {"minItems": 1}}}
         }
       ]
     },
     "question": {
-      "description": "EM-020 Question record: stable ID, text, affected requirements, required/optional impact, resolution evidence. A bare non-empty string is the informal shorthand already in use by the semantic-oracle fixture corpus.",
-      "oneOf": [
-        {"type": "string", "minLength": 1},
+      "description": "EM-020/RC-035 Question record: stable ID, text, affected requirements, required/optional impact, and resolution state. Structured-only (OQ-008-010 resolved). resolution_evidence is required once resolution_state is resolved.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "text", "affected_requirement_refs", "impact", "resolution_state"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^OQN-[A-Z0-9-]+$"},
+        "text": {"type": "string", "minLength": 1},
+        "affected_requirement_refs": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"}, "minItems": 1, "uniqueItems": true},
+        "impact": {"enum": ["required", "optional"]},
+        "resolution_state": {"enum": ["unresolved", "resolved"]},
+        "resolution_evidence": {"type": "string", "minLength": 1}
+      },
+      "allOf": [
         {
-          "type": "object",
-          "additionalProperties": false,
-          "required": ["id", "text", "impact"],
-          "properties": {
-            "id": {"type": "string", "pattern": "^OQN-[A-Z0-9-]+$"},
-            "text": {"type": "string", "minLength": 1},
-            "affected_requirement_refs": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"}, "uniqueItems": true},
-            "impact": {"enum": ["required", "optional"]},
-            "resolution_evidence": {"type": "string", "minLength": 1}
-          }
+          "$comment": "A resolved question must carry its resolution evidence; an unresolved question explicitly does not (and blocks required meaning per RC-035).",
+          "if": {"properties": {"resolution_state": {"const": "resolved"}}, "required": ["resolution_state"]},
+          "then": {"required": ["resolution_evidence"]}
         }
       ]
     },
     "conflict": {
-      "description": "RC-033/EM-020: preserves all claims, sources, authority levels, affected requirements, and resolution status.",
+      "description": "RC-033/EM-020: preserves all claims, sources, authority levels, affected requirements, and resolution status. All are required evidence.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "requirement_ids"],
+      "required": ["id", "requirement_ids", "claims", "source_ids", "authority_ranks", "resolution_state"],
       "properties": {
         "id": {"type": "string", "pattern": "^CFL-[A-Z0-9-]+$"},
         "requirement_ids": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"}, "minItems": 1, "uniqueItems": true},
-        "claim": {"type": "string", "minLength": 1},
-        "source_ids": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "uniqueItems": true},
-        "authority_ranks": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "claims": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 2, "uniqueItems": true},
+        "source_ids": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "minItems": 1, "uniqueItems": true},
+        "authority_ranks": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
         "resolution_state": {"enum": ["unresolved", "resolved"]}
       }
     },
     "default": {
-      "description": "AD-020/RC-040: a default record has stable ID, statement, authority reference, scope, affected requirement IDs, consequential flag, approval state, and source references.",
+      "description": "AD-020/RC-040: a default record has stable ID, statement, authority reference, scope, affected requirement IDs, consequential flag, approval state, and source references. `approved` is NOT an independent authority signal (refinement 2): when consequential, approval_refs must resolve to a valid active APR record and `approved` must equal that resolution (enforced semantically).",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "authority_ref", "consequential", "approved"],
+      "required": ["id", "statement", "authority_ref", "scope", "affected_requirement_refs", "source_refs", "consequential", "approved"],
       "properties": {
         "id": {"type": "string", "pattern": "^DFT-[A-Z0-9-]+$"},
         "authority_ref": {"type": "string", "minLength": 1},
@@ -84,41 +90,49 @@
         "approved": {"type": "boolean"},
         "statement": {"type": "string", "minLength": 1},
         "scope": {"type": "string", "minLength": 1},
-        "affected_requirement_refs": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"}, "uniqueItems": true},
-        "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "uniqueItems": true}
-      }
+        "affected_requirement_refs": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"}, "minItems": 1, "uniqueItems": true},
+        "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "minItems": 1, "uniqueItems": true},
+        "approval_refs": {"type": "array", "items": {"type": "string", "pattern": "^APR-[A-Z0-9-]+$"}, "uniqueItems": true}
+      },
+      "allOf": [
+        {
+          "$comment": "AD-023/AD-025/SP-015: a consequential default requires at least one approval reference; a bare approved boolean never authorizes.",
+          "if": {"properties": {"consequential": {"const": true}}, "required": ["consequential"]},
+          "then": {"required": ["approval_refs"], "properties": {"approval_refs": {"minItems": 1}}}
+        }
+      ]
     },
     "approval": {
-      "description": "EM-020/AD-050/SP-020: stable ID, subject refs, authority, decision, scope, evidence, immutable sequence.",
+      "description": "EM-020/AD-050/SP-020/RC-044: stable ID, subject refs, authority, decision, machine-readable scope, non-empty evidence, immutable sequence. The approval record is the source of authorization truth.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "subject_refs", "authority", "decision", "scope", "sequence"],
+      "required": ["id", "subject_refs", "authority", "decision", "scope", "evidence", "sequence"],
       "properties": {
         "id": {"type": "string", "pattern": "^APR-[A-Z0-9-]+$"},
-        "subject_refs": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+        "subject_refs": {"type": "array", "items": {"type": "string", "pattern": "^(REQ-[A-Z0-9-]{3,64}|ASM-[A-Z0-9-]+|DFT-[A-Z0-9-]+|MAP-[A-Z0-9-]+)$"}, "minItems": 1, "uniqueItems": true},
         "authority": {"enum": ["owner", "user"]},
         "decision": {"enum": ["approved", "rejected", "revoked", "expired", "superseded"]},
-        "scope": {"type": "string", "minLength": 1},
-        "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+        "scope": {"type": "object", "additionalProperties": false, "required": ["kind", "value"], "properties": {"kind": {"enum": ["requirement", "assumption", "default", "mapping", "operation", "policy"]}, "value": {"type": "string", "minLength": 1}}},
+        "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
         "sequence": {"type": "integer", "minimum": 0}
       }
     },
     "model_proposal": {
-      "description": "EM-020/RC-072: stable ID, source refs, producer identity/version when known, input/output digest, proposed records, acceptance state. self_accepted/weakens_security are adversarial-detection markers used by the semantic-oracle fixture corpus, not canonical acceptance authority.",
+      "description": "EM-020/RC-072/AD-040-041: a model proposal is unaccepted evidence. It preserves input/output digest and proposed records; producer identity/version are 'when known' and optional. acceptance_state may NEVER be accepted (B1) — model output cannot self-accept. self_accepted/weakens_security are adversarial-detection markers, not acceptance authority, and gate nothing.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "source_refs", "acceptance_state"],
+      "required": ["id", "source_refs", "acceptance_state", "input_digest", "output_digest", "proposed_records"],
       "properties": {
         "id": {"type": "string", "pattern": "^MDL-[A-Z0-9-]+$"},
         "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "minItems": 1, "uniqueItems": true},
-        "acceptance_state": {"enum": ["proposed", "accepted", "disputed", "unresolved", "unsupported", "refused", "invalid"]},
+        "acceptance_state": {"enum": ["proposed", "disputed", "unresolved", "unsupported", "refused", "invalid"]},
         "self_accepted": {"type": "boolean"},
         "weakens_security": {"type": "boolean"},
         "producer_identity": {"type": "string", "minLength": 1},
         "producer_version": {"type": "string", "minLength": 1},
         "input_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
         "output_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
-        "proposed_records": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true}
+        "proposed_records": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true}
       }
     },
     "derivation": {

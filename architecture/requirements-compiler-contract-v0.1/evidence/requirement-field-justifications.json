@@ -53,6 +53,7 @@
     {"field": "evidence.source_refs", "required": true, "clauses": ["TR-002"], "justification": "The evidence bundle closes over the exact source evidence its accepted requirements reference."},
     {"field": "evidence.requirement_refs", "required": true, "clauses": ["EM-030"], "justification": "Every requirement must appear in the bundle's mapping evidence."},
     {"field": "evidence.mapping_refs", "required": true, "clauses": ["EM-031"], "justification": "The evidence bundle closes over the mapping records naming accepted requirements and IR pointers."},
+    {"field": "evidence.compile_result_ref", "required": true, "clauses": ["EM-020"], "justification": "The evidence bundle names the exact compile-result attempt it supports so same-attempt closure is machine-checkable; the compile result reciprocates via evidence_bundle_ref."},
     {"field": "evidence.validation", "required": true, "clauses": ["RC-114"], "justification": "Validation evidence reports schema inventory/hashes, fixture outcomes, and determinism."},
     {"field": "evidence.network_access", "required": true, "clauses": ["SP-014"], "justification": "Contract validation must prove it did not access the network."},
     {"field": "evidence.credentials_accessed", "required": true, "clauses": ["SP-014"], "justification": "Contract validation must prove it did not read credentials."}

@@ -17,5 +17,17 @@
     "consequential": {"type": "boolean"},
     "approval_refs": {"type": "array", "items": {"type": "string", "pattern": "^APR-[A-Z0-9-]+$"}, "uniqueItems": true},
     "default_ref": {"type": "string", "pattern": "^DFT-[A-Z0-9-]+$"}
-  }
+  },
+  "allOf": [
+    {
+      "$comment": "B1 (RC-023/EM-004/EM-006/AD-040/AD-041): an accepted requirement may only carry an accepted-permitted authority basis. model_suggested and every non-accepting basis are structurally forbidden on an accepted requirement. Semantic validation additionally proves the basis is backed by resolved evidence (authority-basis proof matrix).",
+      "if": {"properties": {"acceptance_state": {"const": "accepted"}}, "required": ["acceptance_state"]},
+      "then": {"properties": {"authority_basis": {"enum": ["directly_stated", "owner_decision", "user_decision", "accepted_contract", "explicitly_defaulted", "deterministically_derived"]}}}
+    },
+    {
+      "$comment": "EM-005/AD-023: an explicitly_defaulted accepted requirement names the resolved default it was accepted from.",
+      "if": {"properties": {"acceptance_state": {"const": "accepted"}, "authority_basis": {"const": "explicitly_defaulted"}}, "required": ["acceptance_state", "authority_basis"]},
+      "then": {"required": ["default_ref"]}
+    }
+  ]
 }

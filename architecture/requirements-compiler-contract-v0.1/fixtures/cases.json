@@ -28,7 +28,7 @@
     {
       "id": "simple-security-privacy-explicit", "authoring_mode": "simple", "category": "positive",
       "input": {"intent": "Process redacted samples offline; never use credentials or network access.", "authoritative_inputs": ["user:intent"], "non_authoritative_inputs": []},
-      "candidate": {"requirements": [{"id": "REQ-SECURITY-001", "statement": "Use no network or credentials.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-USER-005"]}, {"id": "REQ-PRIVACY-001", "statement": "Use only redacted samples.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-USER-005"]}], "sources": [{"id": "SRC-USER-005", "lifecycle": "current", "location": {"uri": "intent://simple-security-privacy-explicit", "json_pointer": "/intent"}}], "mappings": [{"requirement_id": "REQ-SECURITY-001", "outcome": "direct", "target_pointer": "/security/rules/0"}, {"requirement_id": "REQ-PRIVACY-001", "outcome": "direct", "target_pointer": "/privacy/rules/0"}]},
+      "candidate": {"requirements": [{"id": "REQ-SECURITY-001", "type": "security", "statement": "Use no network or credentials.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-USER-005"]}, {"id": "REQ-PRIVACY-001", "type": "privacy", "statement": "Use only redacted samples.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-USER-005"]}], "sources": [{"id": "SRC-USER-005", "lifecycle": "current", "location": {"uri": "intent://simple-security-privacy-explicit", "json_pointer": "/intent"}}], "mappings": [{"requirement_id": "REQ-SECURITY-001", "outcome": "direct", "target_pointer": "/security/rules/0"}, {"requirement_id": "REQ-PRIVACY-001", "outcome": "direct", "target_pointer": "/privacy/rules/0"}]},
       "expected": {"status": "SUCCESS", "diagnostic_codes": [], "requirement_ids": ["REQ-SECURITY-001", "REQ-PRIVACY-001"], "assumptions": [], "open_questions": [], "conflicts": [], "ir_mapping_outcomes": ["direct"], "evidence": ["SRC-USER-005"], "approval_required": false}
     },
     {
@@ -52,7 +52,7 @@
     {
       "id": "simple-privacy-posture-unknown", "authoring_mode": "simple", "category": "negative",
       "input": {"intent": "Analyze customer medical notes; privacy rules are unknown.", "authoritative_inputs": ["user:intent"], "non_authoritative_inputs": []},
-      "candidate": {"requirements": [{"id": "REQ-PRIVACY-002", "statement": "Analyze customer medical notes.", "priority": "required", "acceptance_state": "unresolved", "authority_basis": "unresolved", "source_refs": ["SRC-USER-009"]}], "sources": [{"id": "SRC-USER-009", "lifecycle": "current", "location": {"uri": "intent://simple-privacy-posture-unknown", "json_pointer": "/intent"}}]},
+      "candidate": {"requirements": [{"id": "REQ-PRIVACY-002", "type": "privacy", "statement": "Analyze customer medical notes.", "priority": "required", "acceptance_state": "unresolved", "authority_basis": "unresolved", "source_refs": ["SRC-USER-009"]}], "sources": [{"id": "SRC-USER-009", "lifecycle": "current", "location": {"uri": "intent://simple-privacy-posture-unknown", "json_pointer": "/intent"}}]},
       "expected": {"status": "BLOCKED", "diagnostic_codes": ["RQC-PRV-0001"], "requirement_ids": ["REQ-PRIVACY-002"], "assumptions": [], "open_questions": ["What privacy authority permits processing medical notes?"], "conflicts": [], "ir_mapping_outcomes": ["unresolved"], "evidence": ["SRC-USER-009"], "approval_required": true}
     },
     {
@@ -76,7 +76,7 @@
     {
       "id": "developer-conflicting-priorities", "authoring_mode": "developer", "category": "negative",
       "input": {"intent": "One requirement is simultaneously required and optional.", "authoritative_inputs": ["user:structured-config"], "non_authoritative_inputs": []},
-      "candidate": {"requirements": [{"id": "REQ-PRI-001", "statement": "Retain audit evidence.", "priority": "required", "acceptance_state": "disputed", "authority_basis": "disputed", "source_refs": ["SRC-DEV-003"]}], "sources": [{"id": "SRC-DEV-003", "lifecycle": "current", "location": {"uri": "developer://conflicting-priorities", "json_pointer": "/requirements/0"}}], "conflicts": [{"id": "CFL-PRI-001", "requirement_ids": ["REQ-PRI-001"], "claim": "required|optional"}]},
+      "candidate": {"requirements": [{"id": "REQ-PRI-001", "statement": "Retain audit evidence.", "priority": "required", "acceptance_state": "disputed", "authority_basis": "disputed", "source_refs": ["SRC-DEV-003"]}], "sources": [{"id": "SRC-DEV-003", "lifecycle": "current", "location": {"uri": "developer://conflicting-priorities", "json_pointer": "/requirements/0"}}], "conflicts": [{"id": "CFL-PRI-001", "requirement_ids": ["REQ-PRI-001"], "claims": ["required", "optional"]}]},
       "expected": {"status": "BLOCKED", "diagnostic_codes": ["RQC-PRI-0001"], "requirement_ids": ["REQ-PRI-001"], "assumptions": [], "open_questions": [], "conflicts": ["CFL-PRI-001"], "ir_mapping_outcomes": ["unresolved"], "evidence": ["SRC-DEV-003"], "approval_required": false}
     },
     {
@@ -94,7 +94,7 @@
     {
       "id": "developer-security-fail-closed", "authoring_mode": "developer", "category": "adversarial",
       "input": {"intent": "Security policy is required but candidate output silently removes it.", "authoritative_inputs": ["accepted_contract:security", "user:structured-config"], "non_authoritative_inputs": ["implementation:convenience"]},
-      "candidate": {"requirements": [{"id": "REQ-SECURITY-002", "statement": "Deny network access.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-DEV-006"]}], "sources": [{"id": "SRC-DEV-006", "lifecycle": "current", "location": {"uri": "developer://security-fail-closed", "json_pointer": "/security"}}], "mappings": []},
+      "candidate": {"requirements": [{"id": "REQ-SECURITY-002", "type": "security", "statement": "Deny network access.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-DEV-006"]}], "sources": [{"id": "SRC-DEV-006", "lifecycle": "current", "location": {"uri": "developer://security-fail-closed", "json_pointer": "/security"}}], "mappings": []},
       "expected": {"status": "REFUSED", "diagnostic_codes": ["RQC-SEC-0001"], "requirement_ids": ["REQ-SECURITY-002"], "assumptions": [], "open_questions": [], "conflicts": [], "ir_mapping_outcomes": ["prohibited"], "evidence": ["SRC-DEV-006"], "approval_required": false}
     },
     {
@@ -118,7 +118,7 @@
     {
       "id": "developer-model-security-weakening", "authoring_mode": "developer", "category": "adversarial",
       "input": {"intent": "Model proposal changes deny-network to allow-network.", "authoritative_inputs": ["accepted_contract:security", "user:structured-config"], "non_authoritative_inputs": ["model:proposal"]},
-      "candidate": {"requirements": [{"id": "REQ-SECURITY-003", "statement": "Deny network access.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-DEV-010"]}], "sources": [{"id": "SRC-DEV-010", "lifecycle": "current", "location": {"uri": "developer://model-security-weakening", "json_pointer": "/security"}}], "model_proposals": [{"id": "MDL-001", "acceptance_state": "accepted", "weakens_security": true, "source_refs": ["SRC-DEV-010"]}]},
+      "candidate": {"requirements": [{"id": "REQ-SECURITY-003", "type": "security", "statement": "Deny network access.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-DEV-010"]}], "sources": [{"id": "SRC-DEV-010", "lifecycle": "current", "location": {"uri": "developer://model-security-weakening", "json_pointer": "/security"}}], "model_proposals": [{"id": "MDL-001", "acceptance_state": "accepted", "weakens_security": true, "source_refs": ["SRC-DEV-010"]}]},
       "expected": {"status": "REFUSED", "diagnostic_codes": ["RQC-MDL-0001", "RQC-SEC-0001"], "requirement_ids": ["REQ-SECURITY-003"], "assumptions": [], "open_questions": [], "conflicts": [], "ir_mapping_outcomes": ["prohibited"], "evidence": ["SRC-DEV-010", "MDL-001"], "approval_required": false}
     },
     {
@@ -130,7 +130,7 @@
     {
       "id": "developer-deterministic-derivation", "authoring_mode": "developer", "category": "positive",
       "input": {"intent": "Derive offline mode from explicit no-network policy.", "authoritative_inputs": ["user:structured-config", "accepted_contract:derivations"], "non_authoritative_inputs": []},
-      "candidate": {"requirements": [{"id": "REQ-DERIVE-001", "statement": "Operate offline.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "deterministically_derived", "source_refs": ["SRC-DEV-012"]}], "sources": [{"id": "SRC-DEV-012", "lifecycle": "current", "location": {"uri": "developer://deterministic-derivation", "json_pointer": "/network_policy"}}], "mappings": [{"requirement_id": "REQ-DERIVE-001", "outcome": "deterministic_derivation", "target_pointer": "/behavior/constraints/0", "authority_ref": "DRV-001"}]},
+      "candidate": {"requirements": [{"id": "REQ-DERIVE-001", "statement": "Operate offline.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "deterministically_derived", "source_refs": ["SRC-DEV-012"]}], "sources": [{"id": "SRC-DEV-012", "lifecycle": "current", "location": {"uri": "developer://deterministic-derivation", "json_pointer": "/network_policy"}}], "derivations": [{"id": "DRV-001", "rule_id": "AD-032-offline", "input_refs": ["SRC-DEV-012"], "output_refs": ["REQ-DERIVE-001"], "validation_ref": "VAL-DRV-001"}], "mappings": [{"requirement_id": "REQ-DERIVE-001", "outcome": "deterministic_derivation", "target_pointer": "/behavior/constraints/0", "authority_ref": "DRV-001"}]},
       "expected": {"status": "SUCCESS", "diagnostic_codes": [], "requirement_ids": ["REQ-DERIVE-001"], "assumptions": [], "open_questions": [], "conflicts": [], "ir_mapping_outcomes": ["deterministic_derivation"], "evidence": ["SRC-DEV-012", "DRV-001"], "approval_required": false}
     },
     {

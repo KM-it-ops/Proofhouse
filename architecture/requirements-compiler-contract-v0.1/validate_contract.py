@@ -69,7 +69,12 @@ _SCHEMA_FIELD_PREFIX = {
 }
 
 _CLAUSE_ID_LINE = re.compile(r"^- \*\*((?:RC|EM|AD|TR|DG|SP)-\d{3}):\*\*")
-_ARRAY_INDEX_SEGMENT = re.compile(r"^\d+$")
+# RFC 6901 array index: 0 or a nonzero digit followed by digits. Leading zeros, signs, and
+# exponent notation are NOT valid array indices.
+_ARRAY_INDEX_SEGMENT = re.compile(r"^(?:0|[1-9][0-9]*)$")
+# A segment that looks positional (all digits, signed, or exponent) but is not a valid RFC 6901
+# index -- e.g. 00, 007, -1, +1, 1e3. Property names containing letters are never positional.
+_POSITIONAL_LOOKING = re.compile(r"^[+-]?[0-9]+(?:[eE][+-]?[0-9]+)?$")
 
 
 def _read_json(path: Path) -> dict[str, Any]:
@@ -267,7 +272,20 @@ def classify_ir_pointer(pointer: Any, leaves: set[str], subtrees: set[str]) -> s
     segments = pointer.split("/")[1:]
     if any(segment == "" for segment in segments):
         return "invalid_pointer_syntax"
-    normalized = "/" + "/".join("#" if _ARRAY_INDEX_SEGMENT.match(segment) else segment for segment in segments)
+    normalized_segments: list[str] = []
+    for segment in segments:
+        # RFC 6901 escaping: '~' must be followed by 0 or 1; nothing else is a valid escape.
+        if re.search(r"~(?![01])", segment):
+            return "invalid_pointer_syntax"
+        if _ARRAY_INDEX_SEGMENT.fullmatch(segment):
+            normalized_segments.append("#")
+        elif _POSITIONAL_LOOKING.fullmatch(segment):
+            # positional-looking but not a valid RFC 6901 index (e.g. 00, 007, -1, 1e3)
+            return "invalid_pointer_syntax"
+        else:
+            # RFC 6901 reference-token unescaping: '~1' -> '/', '~0' -> '~'.
+            normalized_segments.append(segment.replace("~1", "/").replace("~0", "~"))
+    normalized = "/" + "/".join(normalized_segments)
     if normalized in leaves:
         return "valid"
     if normalized in subtrees:
@@ -378,19 +396,138 @@ def _evidence_ids(candidate: dict[str, Any]) -> list[str]:
     return sorted(evidence)
 
 
+# --- Semantic authority / approval model (refinements 1-2; blockers B1, B2) ----------
+ACCEPTED_PERMITTED_AUTHORITY = {
+    "directly_stated", "owner_decision", "user_decision",
+    "accepted_contract", "explicitly_defaulted", "deterministically_derived",
+}
+_EMITTING_OUTCOMES = {"direct", "deterministic_derivation", "authorized_default"}
+
+
+def _by_id(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    return {record.get("id"): record for record in records if isinstance(record.get("id"), str)}
+
+
+def _model_originated(candidate: dict[str, Any]) -> set[str]:
+    originated: set[str] = set()
+    for proposal in candidate.get("model_proposals", []):
+        originated.update(proposal.get("proposed_records", []) or [])
+    return originated
+
+
+def _approval_authorizes(approval: Any, subject_id: str) -> bool:
+    """B2: an approval record authorizes a subject only when it is a valid, active,
+    evidenced, scope-covering decision. Rejected/revoked/expired/superseded, missing
+    evidence, or a non-covering subject never authorize (AD-051/SP-023/RC-044)."""
+    if not isinstance(approval, dict):
+        return False
+    if approval.get("decision") != "approved":
+        return False
+    if not approval.get("evidence"):
+        return False
+    if subject_id not in (approval.get("subject_refs") or []):
+        return False
+    return True
+
+
+def _has_active_approval(subject_id: str, approval_refs: Any, approvals: Mapping[str, Any]) -> bool:
+    return any(_approval_authorizes(approvals.get(ref), subject_id) for ref in (approval_refs or []))
+
+
+def _approval_policy_present(case: dict[str, Any]) -> bool:
+    """Refinement 2 / OQ-008-003: consequential approval enforcement requires an explicit
+    accepted approval-policy or authority-threshold reference; we do not invent owner-vs-user
+    thresholds while OQ-008-003 is unresolved. Absent the policy the required authority cannot
+    be determined and the result is BLOCKED."""
+    inputs = case["input"].get("authoritative_inputs", [])
+    if any(value.startswith("accepted_contract:approval") or value.startswith("owner:approval-policy") for value in inputs):
+        return True
+    return bool(case["candidate"].get("approval_policy_ref"))
+
+
+def _authority_backed(
+    requirement: dict[str, Any],
+    sources: Mapping[str, Any],
+    defaults: Mapping[str, Any],
+    approvals: Mapping[str, Any],
+    derivations: Mapping[str, Any],
+    model_originated: set[str],
+) -> tuple[bool, str | None]:
+    """Refinement 1 (authority-basis proof matrix): a permitted authority basis on an accepted
+    requirement must be backed by resolved evidence. Selecting an enum value is never sufficient.
+    Returns (ok, blocking_code)."""
+    basis = requirement.get("authority_basis")
+    rid = requirement.get("id", "")
+    if basis == "directly_stated":
+        if rid in model_originated:
+            return False, "RQC-MDL-0001"  # model-produced meaning cannot become directly stated
+        if not any(sources.get(ref, {}).get("lifecycle", "current") == "current" for ref in requirement.get("source_refs", [])):
+            return False, "RQC-EVD-0001"
+        return True, None
+    if basis in ("owner_decision", "user_decision"):
+        want = "owner" if basis == "owner_decision" else "user"
+        ok = any(
+            _approval_authorizes(approvals.get(ref), rid) and approvals.get(ref, {}).get("authority") == want
+            for ref in requirement.get("approval_refs", [])
+        )
+        return (ok, None if ok else "RQC-APR-0001")
+    if basis == "accepted_contract":
+        ok = any(sources.get(ref, {}).get("kind") == "contract" for ref in requirement.get("source_refs", []))
+        return (ok, None if ok else "RQC-EVD-0001")
+    if basis == "explicitly_defaulted":
+        default = defaults.get(requirement.get("default_ref"))
+        return (bool(default), None if default else "RQC-DFT-0001")
+    if basis == "deterministically_derived":
+        ok = any(rid in (record.get("output_refs") or []) and record.get("validation_ref") for record in derivations.values())
+        return (ok, None if ok else "RQC-EVD-0001")
+    return False, "RQC-EVD-0001"
+
+
+# Terminal-status matrix (refinement 3). Status is derived by explicit, documented precedence
+# over per-record dispositions rather than an accidental first-match chain. Precedence classes,
+# strongest first:
+#   0 STRUCTURAL/IDENTITY/VERSION invalidity            -> INVALID_OUTPUT
+#   1 EVIDENCE/REFERENCE integrity                       -> INVALID_OUTPUT / BLOCKED
+#   2 MODEL-BOUNDARY violation                           -> REFUSED (weakening) / INVALID_OUTPUT (self-accept)
+#   3 AUTHORITY-BACKING of accepted meaning              -> INVALID_OUTPUT / BLOCKED
+#   4 POLICY REFUSAL (refused meaning)                   -> REFUSED
+#   5 SECURITY/PRIVACY fail-closed (by type, B3)         -> REFUSED
+#   6 BLOCKING required meaning (approvals/conflicts/    -> BLOCKED
+#     authority/sources/IR-gaps/unsupported/privacy/
+#     unresolved-required/mapping-completeness, B4)
+#   7 PARTIAL (optional-only unresolved / replaced src)  -> PARTIAL
+#   8 COMPLETE                                           -> SUCCESS
+# A required accepted requirement is never SUCCESS/PARTIAL unless it has an emitting mapping (B4);
+# a security/privacy fail-closed or refusal is never masked by optional ambiguity (B3/B4).
 def _derive_outcome(case: dict[str, Any], registry: Mapping[str, Any]) -> tuple[str, list[str]]:
-    """Apply contract rules to one deliberately structured semantic fixture."""
+    """Apply the terminal-status matrix to one structured semantic fixture (test-only projection)."""
 
     intent_input = case["input"]
     candidate = case["candidate"]
     intent = intent_input["intent"].lower()
     requirements = candidate.get("requirements", [])
-    sources = candidate.get("sources", [])
+    source_list = candidate.get("sources", [])
     mappings = candidate.get("mappings", [])
     conflicts = candidate.get("conflicts", [])
-    defaults = candidate.get("defaults", [])
+    default_list = candidate.get("defaults", [])
     proposals = candidate.get("model_proposals", [])
 
+    sources = _by_id(source_list)
+    defaults = _by_id(default_list)
+    approvals = _by_id(candidate.get("approvals", []))
+    derivations = _by_id(candidate.get("derivations", []))
+    model_originated = _model_originated(candidate)
+
+    def is_security(requirement: dict[str, Any]) -> bool:
+        return requirement.get("type") == "security"
+
+    def is_privacy(requirement: dict[str, Any]) -> bool:
+        return requirement.get("type") == "privacy"
+
+    def has_emitting_mapping(rid: str) -> bool:
+        return any(m.get("requirement_id") == rid and m.get("outcome") in _EMITTING_OUTCOMES for m in mappings)
+
+    # --- Class 0: structural / identity / version invalidity ---
     emitted = set(candidate.get("emitted_diagnostic_codes", []))
     if emitted - set(registry):
         return "INVALID_OUTPUT", ["RQC-DIA-0001"]
@@ -404,118 +541,137 @@ def _derive_outcome(case: dict[str, Any], registry: Mapping[str, Any]) -> tuple[
     requirement_ids = _identities(requirements)
     if any(count > 1 for count in Counter(requirement_ids).values()):
         return "INVALID_OUTPUT", ["RQC-IDN-0001"]
-    source_ids = _identities(sources)
+    source_ids = _identities(source_list)
     if any(count > 1 for count in Counter(source_ids).values()):
         return "INVALID_OUTPUT", ["RQC-SRC-0001"]
-    if any(not JSON_POINTER.fullmatch(source.get("location", {}).get("json_pointer", "")) for source in sources):
+    if any(not JSON_POINTER.fullmatch(source.get("location", {}).get("json_pointer", "")) for source in source_list):
         return "INVALID_OUTPUT", ["RQC-SRC-0003"]
 
+    # --- Class 1: evidence / reference integrity ---
     mapped_ids = {mapping.get("requirement_id") for mapping in mappings}
     if mapped_ids - set(requirement_ids):
         return "INVALID_OUTPUT", ["RQC-EVD-0001"]
 
     ir_leaves, ir_subtrees = _default_ir_pointer_index()
-    emitting_outcomes = {"direct", "deterministic_derivation", "authorized_default"}
     for mapping in mappings:
-        if mapping.get("outcome") in emitting_outcomes:
+        if mapping.get("outcome") in _EMITTING_OUTCOMES:
             if classify_ir_pointer(mapping.get("target_pointer"), ir_leaves, ir_subtrees) != "valid":
                 return "INVALID_OUTPUT", ["RQC-EVD-0001"]
 
-    referenced_sources = {
-        source_ref
-        for requirement in requirements
-        for source_ref in requirement.get("source_refs", [])
-    }
+    referenced_sources = {ref for requirement in requirements for ref in requirement.get("source_refs", [])}
     missing_sources = referenced_sources - set(source_ids)
     if missing_sources:
         return "BLOCKED", ["RQC-EVD-0001", "RQC-SRC-0002"]
 
-    if proposals:
-        if any(proposal.get("weakens_security") for proposal in proposals):
-            return "REFUSED", ["RQC-MDL-0001", "RQC-SEC-0001"]
-        if any(proposal.get("self_accepted") for proposal in proposals):
-            return "INVALID_OUTPUT", ["RQC-MDL-0001"]
+    # --- Class 2: model-boundary violation (B1) ---
+    # A model proposal that weakens security is the most severe (REFUSED). Otherwise any model
+    # output crossing the proposal boundary -- a proposal marked accepted or self_accepted, or a
+    # requirement claiming accepted meaning on model_suggested authority -- is INVALID_OUTPUT. The
+    # optional self_accepted/weakens_security markers are detectors, never the sole gate.
+    if any(proposal.get("weakens_security") for proposal in proposals):
+        return "REFUSED", ["RQC-MDL-0001", "RQC-SEC-0001"]
+    model_self_accept = any(
+        proposal.get("self_accepted") or proposal.get("acceptance_state") == "accepted"
+        for proposal in proposals
+    ) or any(
+        requirement.get("acceptance_state") == "accepted" and requirement.get("authority_basis") == "model_suggested"
+        for requirement in requirements
+    )
+    if model_self_accept:
+        return "INVALID_OUTPUT", ["RQC-MDL-0001"]
 
+    # --- Class 3: authority-backing of accepted meaning (refinement 1, B1) ---
+    for requirement in requirements:
+        if requirement.get("acceptance_state") != "accepted":
+            continue
+        if requirement.get("authority_basis") not in ACCEPTED_PERMITTED_AUTHORITY:
+            return "INVALID_OUTPUT", ["RQC-EVD-0001"]
+        ok, code = _authority_backed(requirement, sources, defaults, approvals, derivations, model_originated)
+        if not ok:
+            status = "INVALID_OUTPUT" if code == "RQC-MDL-0001" else "BLOCKED"
+            return status, [code]
+
+    # --- Class 4: policy refusal ---
     if any(requirement.get("acceptance_state") == "refused" for requirement in requirements):
         codes = ["RQC-REF-0001"]
-        if any(word in intent for word in ("exfiltrate", "expose secrets", "override authority")):
+        if any(requirement.get("type") in ("security", "privacy") for requirement in requirements) or any(
+            word in intent for word in ("exfiltrate", "expose secrets", "secrets", "override authority")
+        ):
             codes.append("RQC-SEC-0001")
-        return "REFUSED", sorted(codes)
+        return "REFUSED", sorted(set(codes))
 
-    if any(
-        default.get("consequential") and not default.get("approved")
-        for default in defaults
-    ):
-        return "BLOCKED", ["RQC-DFT-0001"]
+    # --- Class 5: security/privacy fail-closed by canonical type (B3) ---
+    # An accepted security/privacy requirement whose meaning cannot be emitted (no valid emitting
+    # mapping) fails closed. Enforcement keys on `type`, never on an ID prefix; changing an ID never
+    # changes policy semantics.
+    for requirement in requirements:
+        if requirement.get("acceptance_state") == "accepted" and not has_emitting_mapping(requirement.get("id", "")):
+            if is_security(requirement):
+                return "REFUSED", ["RQC-SEC-0001"]
+            if is_privacy(requirement):
+                return "REFUSED", ["RQC-PRV-0001"]
 
+    # --- Class 6: blocking required meaning ---
+    # 6a consequential meaning requires resolved approval under an explicit policy (B2, refinement 2).
+    # A requirement that is consequential only via an authorized default is governed by that
+    # default's approval (checked in 6b), so it is exempt from the requirement-level gate here.
+    for requirement in requirements:
+        if requirement.get("consequential") and not requirement.get("default_ref"):
+            rid = requirement.get("id", "")
+            if not (_approval_policy_present(case) and _has_active_approval(rid, requirement.get("approval_refs"), approvals)):
+                return "BLOCKED", ["RQC-APR-0001"]
+    # 6b consequential defaults require resolved approval; `approved` alone never authorizes (B2).
+    for default in default_list:
+        if default.get("consequential"):
+            did = default.get("id", "")
+            if not (_approval_policy_present(case) and _has_active_approval(did, default.get("approval_refs"), approvals)):
+                return "BLOCKED", ["RQC-DFT-0001"]
+    # 6c conflicts (priority / source-claim / general).
     if conflicts:
-        if any(conflict.get("claim") == "required|optional" for conflict in conflicts):
+        if any("required" in (conflict.get("claims") or []) and "optional" in (conflict.get("claims") or []) for conflict in conflicts):
             return "BLOCKED", ["RQC-PRI-0001"]
         if any(conflict.get("source_ids") for conflict in conflicts):
             return "BLOCKED", ["RQC-SRC-0004"]
         return "BLOCKED", ["RQC-CFL-0001"]
-
+    # 6d owner/user authority conflict.
     authority_inputs = intent_input.get("authoritative_inputs", [])
-    if any(value.startswith("owner:") for value in authority_inputs) and any(
-        value.startswith("user:") for value in authority_inputs
-    ):
+    if any(value.startswith("owner:") for value in authority_inputs) and any(value.startswith("user:") for value in authority_inputs):
         return "BLOCKED", ["RQC-AUT-0001", "RQC-CFL-0002"]
-
-    if any(source.get("lifecycle") == "missing" for source in sources):
+    # 6e missing source lifecycle.
+    if any(source.get("lifecycle") == "missing" for source in source_list):
         return "BLOCKED", ["RQC-SRC-0002"]
-    if any(source.get("lifecycle") == "replaced" for source in sources):
-        return "PARTIAL", ["RQC-SRC-0005"]
-
-    no_ir_mappings = [
-        mapping for mapping in mappings if mapping.get("outcome") == "no_ir_representation"
-    ]
+    # 6f IR representation gap.
+    no_ir_mappings = [mapping for mapping in mappings if mapping.get("outcome") == "no_ir_representation"]
     if no_ir_mappings:
-        if any(
-            mapping.get("diagnostic_code") != "RQC-IRG-0001" or not mapping.get("gap_id")
-            for mapping in no_ir_mappings
-        ):
+        if any(mapping.get("diagnostic_code") != "RQC-IRG-0001" or not mapping.get("gap_id") for mapping in no_ir_mappings):
             return "INVALID_OUTPUT", ["RQC-EVD-0001"]
         return "BLOCKED", ["RQC-BLK-0001", "RQC-IRG-0001"]
-
+    # 6g unsupported behaviour / capability.
     if candidate.get("unsupported_behavior") == "recursive_import":
         return "BLOCKED", ["RQC-UNS-0002"]
     if any(requirement.get("acceptance_state") == "unsupported" for requirement in requirements):
         return "BLOCKED", ["RQC-UNS-0001"]
-
-    if any(
-        requirement.get("consequential")
-        and requirement.get("priority") == "required"
-        and not requirement.get("approval_refs")
-        for requirement in requirements
-    ):
-        return "BLOCKED", ["RQC-APR-0001"]
-    if "privacy" in intent and "unknown" in intent:
+    # 6h unknown privacy posture (by type): an unresolved/disputed privacy requirement blocks.
+    if any(is_privacy(requirement) and requirement.get("acceptance_state") in ("unresolved", "disputed") for requirement in requirements):
         return "BLOCKED", ["RQC-PRV-0001"]
-
-    unresolved = [
-        requirement
-        for requirement in requirements
-        if requirement.get("acceptance_state") == "unresolved"
-    ]
-    if unresolved:
-        if all(requirement.get("priority") == "optional" for requirement in unresolved):
-            return "PARTIAL", ["RQC-AMB-0001"]
+    # 6i unresolved required meaning.
+    unresolved = [requirement for requirement in requirements if requirement.get("acceptance_state") == "unresolved"]
+    if unresolved and not all(requirement.get("priority") == "optional" for requirement in unresolved):
         if "unspecified" in " ".join(requirement.get("statement", "").lower() for requirement in unresolved):
             return "BLOCKED", ["RQC-BLK-0001", "RQC-CTX-0001"]
         return "BLOCKED", ["RQC-AMB-0001"]
+    # 6j mapping completeness (B4): an accepted requirement without an emitting mapping is blocked.
+    if any(requirement.get("acceptance_state") == "accepted" and not has_emitting_mapping(requirement.get("id", "")) for requirement in requirements):
+        return "BLOCKED", ["RQC-BLK-0001"]
 
-    accepted_security_ids = {
-        requirement["id"]
-        for requirement in requirements
-        if requirement.get("acceptance_state") == "accepted"
-        and requirement.get("id", "").startswith("REQ-SECURITY-")
-    }
-    if accepted_security_ids and not (mapped_ids & accepted_security_ids):
-        return "REFUSED", ["RQC-SEC-0001"]
+    # --- Class 7: PARTIAL (optional-only remainder or advisory replaced source) ---
+    if unresolved and all(requirement.get("priority") == "optional" for requirement in unresolved):
+        return "PARTIAL", ["RQC-AMB-0001"]
+    if any(source.get("lifecycle") == "replaced" for source in source_list):
+        return "PARTIAL", ["RQC-SRC-0005"]
 
-    if requirements and all(
-        requirement.get("acceptance_state") == "accepted" for requirement in requirements
-    ):
+    # --- Class 8: complete success ---
+    if requirements and all(requirement.get("acceptance_state") == "accepted" for requirement in requirements):
         return "SUCCESS", []
     return "INVALID_OUTPUT", ["RQC-SEM-0001"]
 

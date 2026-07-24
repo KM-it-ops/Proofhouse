@@ -109,7 +109,7 @@
         "type": "objective",
         "statement": "Schema-instance negative requirement using stale owner_approved authority basis.",
         "priority": "required",
-        "acceptance_state": "accepted",
+        "acceptance_state": "proposed",
         "authority_basis": "owner_approved",
         "source_refs": ["SRC-SCHI-001"],
         "acceptance_criteria": ["Should be rejected."],
@@ -126,7 +126,7 @@
         "type": "objective",
         "statement": "Schema-instance negative requirement using stale user_approved authority basis.",
         "priority": "required",
-        "acceptance_state": "accepted",
+        "acceptance_state": "proposed",
         "authority_basis": "user_approved",
         "source_refs": ["SRC-SCHI-001"],
         "acceptance_criteria": ["Should be rejected."],
@@ -287,7 +287,7 @@
       "instance": {
         "contract_version": "0.1.0-draft",
         "id": "EVB-SCHI-001",
-        "frozen_ir_version": "0.1",
+        "frozen_ir_version": "0.1.0",
         "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "artifact_hashes": {"cases.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
         "schema_hashes": {"requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
@@ -317,7 +317,7 @@
       "instance": {
         "contract_version": "0.1.0-draft",
         "id": "EVB-SCHI-002",
-        "frozen_ir_version": "0.1",
+        "frozen_ir_version": "0.1.0",
         "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
         "artifact_hashes": {"cases.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},
         "schema_hashes": {"requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},
@@ -349,7 +349,7 @@
         "contract_version": "0.1.0-draft", "document_id": "RQD-SCHI-002", "input_ref": "INP-SCHI-001",
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
-        "assumptions": [{"id": "ASM-SCHI-001", "statement": "The report is consumed offline.", "source_refs": ["SRC-SCHI-005"], "impact": "Affects retention policy.", "acceptance_state": "accepted"}],
+        "assumptions": [{"id": "ASM-SCHI-001", "statement": "The report is consumed offline.", "impact": "required", "source_refs": ["SRC-SCHI-005"], "acceptance_state": "accepted", "consequential": false}],
         "open_questions": [], "conflicts": []
       }
     },
@@ -361,10 +361,10 @@
         "contract_version": "0.1.0-draft", "document_id": "RQD-SCHI-002", "input_ref": "INP-SCHI-001",
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
-        "assumptions": [{"id": "ASM-SCHI-002", "source_refs": ["SRC-SCHI-005"], "acceptance_state": "accepted"}],
+        "assumptions": [{"id": "ASM-SCHI-002", "statement": "Missing impact makes this assumption incomplete.", "source_refs": ["SRC-SCHI-005"], "acceptance_state": "accepted", "consequential": false}],
         "open_questions": [], "conflicts": []
       },
-      "expected_rejection": {"keyword": "oneOf", "instance_path": "/assumptions/0", "schema_path": "/properties/assumptions/items/oneOf"}
+      "expected_rejection": {"keyword": "required", "instance_path": "/assumptions/0"}
     },
     {
       "id": "SCHI-DOCUMENT-CONFLICT-POS-001",
@@ -375,7 +375,7 @@
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
         "assumptions": [], "open_questions": [],
-        "conflicts": [{"id": "CFL-SCHI-001", "requirement_ids": ["REQ-SCHI-007"], "claim": "Retention window disputed.", "resolution_state": "unresolved"}]
+        "conflicts": [{"id": "CFL-SCHI-001", "requirement_ids": ["REQ-SCHI-007"], "claims": ["Retain for 30 days.", "Retain indefinitely."], "source_ids": ["SRC-SCHI-005"], "authority_ranks": ["user"], "resolution_state": "unresolved"}]
       }
     },
     {
@@ -387,9 +387,9 @@
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
         "assumptions": [], "open_questions": [],
-        "conflicts": [{"id": "CFL-SCHI-002", "claim": "Retention window disputed."}]
+        "conflicts": [{"id": "CFL-SCHI-002", "requirement_ids": ["REQ-SCHI-007"], "claims": ["Retain for 30 days.", "Retain indefinitely."], "source_ids": ["SRC-SCHI-005"], "authority_ranks": ["user"]}]
       },
-      "expected_rejection": {"keyword": "required", "instance_path": "/conflicts/0", "schema_path": "/properties/conflicts/items/required"}
+      "expected_rejection": {"keyword": "required", "instance_path": "/conflicts/0"}
     },
     {
       "id": "SCHI-DOCUMENT-DEFAULT-POS-001",
@@ -400,7 +400,7 @@
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
         "assumptions": [], "open_questions": [], "conflicts": [],
-        "defaults": [{"id": "DFT-SCHI-001", "authority_ref": "accepted_contract:defaults", "consequential": false, "approved": true, "statement": "Use balanced mode.", "scope": "project.mode"}]
+        "defaults": [{"id": "DFT-SCHI-001", "authority_ref": "accepted_contract:defaults", "consequential": false, "approved": true, "statement": "Use balanced mode.", "scope": "project.mode", "affected_requirement_refs": ["REQ-SCHI-007"], "source_refs": ["SRC-SCHI-005"]}]
       }
     },
     {
@@ -412,9 +412,9 @@
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
         "assumptions": [], "open_questions": [], "conflicts": [],
-        "defaults": [{"id": "DFT-SCHI-002", "authority_ref": "accepted_contract:defaults", "consequential": "false", "approved": true}]
+        "defaults": [{"id": "DFT-SCHI-002", "authority_ref": "accepted_contract:defaults", "consequential": "false", "approved": true, "statement": "Use balanced mode.", "scope": "project.mode", "affected_requirement_refs": ["REQ-SCHI-007"], "source_refs": ["SRC-SCHI-005"]}]
       },
-      "expected_rejection": {"keyword": "type", "instance_path": "/defaults/0/consequential", "schema_path": "/properties/defaults/items/properties/consequential/type"}
+      "expected_rejection": {"keyword": "type", "instance_path": "/defaults/0/consequential"}
     },
     {
       "id": "SCHI-DOCUMENT-APPROVAL-POS-001",
@@ -425,7 +425,7 @@
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
         "assumptions": [], "open_questions": [], "conflicts": [],
-        "approvals": [{"id": "APR-SCHI-001", "subject_refs": ["REQ-SCHI-007"], "authority": "owner", "decision": "approved", "scope": "project.mode", "sequence": 1}]
+        "approvals": [{"id": "APR-SCHI-001", "subject_refs": ["REQ-SCHI-007"], "authority": "owner", "decision": "approved", "scope": {"kind": "requirement", "value": "REQ-SCHI-007"}, "evidence": ["decision-log://approvals/1"], "sequence": 1}]
       }
     },
     {
@@ -437,9 +437,9 @@
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
         "assumptions": [], "open_questions": [], "conflicts": [],
-        "approvals": [{"id": "APR-SCHI-002", "subject_refs": ["REQ-SCHI-007"], "authority": "model", "decision": "approved", "scope": "project.mode", "sequence": 1}]
+        "approvals": [{"id": "APR-SCHI-002", "subject_refs": ["REQ-SCHI-007"], "authority": "model", "decision": "approved", "scope": {"kind": "requirement", "value": "REQ-SCHI-007"}, "evidence": ["decision-log://approvals/2"], "sequence": 1}]
       },
-      "expected_rejection": {"keyword": "enum", "instance_path": "/approvals/0/authority", "schema_path": "/properties/approvals/items/properties/authority/enum"}
+      "expected_rejection": {"keyword": "enum", "instance_path": "/approvals/0/authority"}
     },
     {
       "id": "SCHI-DOCUMENT-MODEL-PROPOSAL-POS-001",
@@ -450,7 +450,7 @@
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
         "assumptions": [], "open_questions": [], "conflicts": [],
-        "model_proposals": [{"id": "MDL-SCHI-001", "source_refs": ["SRC-SCHI-005"], "acceptance_state": "proposed", "self_accepted": false}]
+        "model_proposals": [{"id": "MDL-SCHI-001", "source_refs": ["SRC-SCHI-005"], "acceptance_state": "proposed", "self_accepted": false, "input_digest": "1111111111111111111111111111111111111111111111111111111111111111", "output_digest": "2222222222222222222222222222222222222222222222222222222222222222", "proposed_records": ["REQ-SCHI-007"]}]
       }
     },
     {
@@ -462,9 +462,9 @@
         "requirements": [{"id": "REQ-SCHI-007", "type": "objective", "statement": "Base requirement.", "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated", "source_refs": ["SRC-SCHI-005"], "acceptance_criteria": ["Present."], "consequential": false}],
         "sources": [{"id": "SRC-SCHI-005", "kind": "api_request", "lifecycle": "current", "authority_claim": "Base source.", "location": {"uri": "api://schema-instance/005", "json_pointer": "/payload"}}],
         "assumptions": [], "open_questions": [], "conflicts": [],
-        "model_proposals": [{"id": "MDL-SCHI-002", "source_refs": ["SRC-SCHI-005"]}]
+        "model_proposals": [{"id": "MDL-SCHI-002", "source_refs": ["SRC-SCHI-005"], "acceptance_state": "accepted", "input_digest": "1111111111111111111111111111111111111111111111111111111111111111", "output_digest": "2222222222222222222222222222222222222222222222222222222222222222", "proposed_records": ["REQ-SCHI-007"]}]
       },
-      "expected_rejection": {"keyword": "required", "instance_path": "/model_proposals/0", "schema_path": "/properties/model_proposals/items/required"}
+      "expected_rejection": {"keyword": "enum", "instance_path": "/model_proposals/0/acceptance_state"}
     },
     {
       "id": "SCHI-DOCUMENT-DERIVATION-POS-001",
