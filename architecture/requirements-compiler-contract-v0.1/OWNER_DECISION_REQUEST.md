@@ -41,7 +41,7 @@
 
 ## RCD-008-004 — Deterministic/model-assisted boundary
 
-**Recommendation:** Approve deterministic validation as authoritative and keep model output proposal-only until separately accepted.
+**Recommendation:** Approve deterministic validation as authoritative for structural and contract validity; semantic acceptance additionally requires a permitted authority basis and attributable source evidence. Model output remains proposal-only until separately accepted through an attributable decision record.
 
 **Alternatives:** Accept model output directly; prohibit model proposals entirely; allow model-selected authority.
 
