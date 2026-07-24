@@ -3,7 +3,9 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import re
 import socket
+import subprocess
 from pathlib import Path
 from types import ModuleType
 
@@ -167,14 +169,31 @@ def test_validator_uses_no_network_or_credentials(monkeypatch: pytest.MonkeyPatc
     assert result["credentials_accessed"] is False
 
 
+def _canonical_git_blob_sha256(relative: str) -> str:
+    """Hash the exact committed git blob bytes for `relative` at HEAD.
+
+    Reading via `git show HEAD:<path>` bypasses the working-tree checkout entirely
+    (no smudge/clean filters, no core.autocrlf conversion), so this is sensitive to
+    ANY committed byte change, including a line-ending-only change -- unlike reading
+    the checked-out file directly, whose bytes depend on the tester's local git
+    config and would silently mask a real CRLF/LF change to frozen content.
+    """
+
+    try:
+        result = subprocess.run(
+            ["git", "show", f"HEAD:{relative}"],
+            cwd=ROOT,
+            capture_output=True,
+            check=True,
+        )
+    except (OSError, subprocess.CalledProcessError) as exc:
+        pytest.fail(f"could not retrieve canonical git blob for {relative!r}: {exc}")
+    return hashlib.sha256(result.stdout).hexdigest()
+
+
 def test_frozen_ir_and_diagnostic_registry_hashes_are_unchanged() -> None:
-    # Hash the LF-normalized content (matching the committed git blob), not the raw
-    # checked-out bytes: a local core.autocrlf=true checkout rewrites these files to
-    # CRLF on disk, which would otherwise make this content-integrity check depend on
-    # the tester's git config rather than on whether the frozen content actually changed.
     for relative, expected in FROZEN_HASHES.items():
-        raw = (ROOT / relative).read_bytes()
-        actual = hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+        actual = _canonical_git_blob_sha256(relative)
         assert actual == expected
 
 
@@ -227,3 +246,132 @@ def test_schema_instance_validation_is_byte_deterministic() -> None:
     assert [item["id"] for item in parsed["schema_instance_results"]] == sorted(
         item["id"] for item in parsed["schema_instance_results"]
     )
+
+
+def test_requirement_vocabulary_has_no_drift_from_normative_contract() -> None:
+    validator = _load_validator()
+    schema_docs = {
+        path.name: _json(path) for path in (PACKAGE / "schemas").glob("*.schema.json")
+    }
+    assert validator.find_vocabulary_drift(schema_docs) == []
+
+    requirement_schema = schema_docs["requirement.schema.json"]
+    props = requirement_schema["properties"]
+    assert set(props["type"]["enum"]) == validator.CONTRACT_REQUIREMENT_TYPES
+    assert set(props["priority"]["enum"]) == validator.CONTRACT_REQUIREMENT_PRIORITIES
+    assert props["id"]["pattern"] == validator.CONTRACT_REQUIREMENT_ID_PATTERN
+    assert "capability" not in props["type"]["enum"]
+    assert "policy" not in props["type"]["enum"]
+    assert "recommended" not in props["priority"]["enum"]
+
+
+def test_requirement_id_pattern_is_bounded_and_rejects_pathological_inputs() -> None:
+    validator = _load_validator()
+    pattern = re.compile(validator.CONTRACT_REQUIREMENT_ID_PATTERN)
+    assert pattern.match("REQ-ABC")
+    assert not pattern.match("REQ-AB")
+    assert not pattern.match("REQ-" + "A" * 65)
+    assert not pattern.match("req-abc")
+    assert not pattern.match("REQ-ABC ")
+
+
+def test_traceability_evidence_has_no_unknown_clause_references() -> None:
+    validator = _load_validator()
+    assert validator.find_unknown_clause_references(PACKAGE) == []
+
+
+def test_traceability_evidence_covers_every_required_field() -> None:
+    validator = _load_validator()
+    schema_docs = {
+        path.name: _json(path) for path in (PACKAGE / "schemas").glob("*.schema.json")
+    }
+    assert validator.find_uncovered_required_fields(PACKAGE, schema_docs) == []
+
+
+def test_traceability_checks_actually_detect_injected_drift() -> None:
+    """Prove the checks are not vacuously passing: a deliberately broken input must fail."""
+
+    validator = _load_validator()
+    schema_docs = {
+        path.name: _json(path) for path in (PACKAGE / "schemas").glob("*.schema.json")
+    }
+
+    broken_schema_docs = dict(schema_docs)
+    broken_requirement_schema = json.loads(json.dumps(schema_docs["requirement.schema.json"]))
+    broken_requirement_schema["properties"]["priority"]["enum"] = ["required", "optional", "recommended"]
+    broken_schema_docs["requirement.schema.json"] = broken_requirement_schema
+    assert validator.find_vocabulary_drift(broken_schema_docs) != []
+
+    missing_fields = validator.find_uncovered_required_fields(
+        PACKAGE, {"requirement.schema.json": {"required": ["a_field_with_no_justification_entry"]}}
+    )
+    assert "requirement.a_field_with_no_justification_entry" in missing_fields
+
+
+def test_ir_pointer_case_corpus_proves_valid_leaves_and_specific_rejection_reasons() -> None:
+    validator = _load_validator()
+    ir_leaves, ir_subtrees = validator.build_ir_pointer_index(validator.load_frozen_ir_schema())
+    cases = validator.load_ir_pointer_cases(PACKAGE)
+    assert len(cases) >= 11
+
+    results = {
+        case["id"]: validator.validate_ir_pointer_case(case, ir_leaves, ir_subtrees) for case in cases
+    }
+    assert all(result["passed"] for result in results.values())
+    assert sum(case["kind"] == "positive" for case in cases) >= 6
+    assert sum(case["kind"] == "negative" for case in cases) >= 5
+
+    assert results["IRP-NEG-IMPOSSIBLE-PROJECT-OBJECTIVE"]["actual_classification"] == "not_a_permitted_leaf"
+    assert results["IRP-NEG-SUBTREE-PROJECT"]["actual_classification"] == "subtree_shortcut"
+    assert results["IRP-NEG-SUBTREE-REQUIREMENTS-ITEM"]["actual_classification"] == "subtree_shortcut"
+    assert results["IRP-NEG-MALFORMED-POINTER"]["actual_classification"] == "invalid_pointer_syntax"
+    assert results["IRP-POS-OBJECTIVE-GOAL"]["actual_classification"] == "valid"
+
+    assert validator.classify_ir_pointer("/project/objective", ir_leaves, ir_subtrees) == "not_a_permitted_leaf"
+
+
+def test_validate_package_reports_ir_pointer_traceability_and_vocabulary_checks() -> None:
+    validator = _load_validator()
+    result = validator.validate_package(PACKAGE)
+    assert result["status"] == "PASS"
+    assert result["errors"] == []
+    assert result["ir_pointer_case_count"] >= 11
+    assert result["ir_pointer_case_pass_count"] == result["ir_pointer_case_count"]
+    assert result["unknown_clause_references"] == []
+    assert result["uncovered_required_fields"] == []
+    assert result["vocabulary_drift"] == []
+
+
+def test_ir_mapping_emitting_outcome_with_impossible_pointer_is_invalid_output() -> None:
+    validator = _load_validator()
+    registry = validator.load_diagnostic_registry(PACKAGE)
+    case = {
+        "id": "synthetic-impossible-pointer-check",
+        "authoring_mode": "developer",
+        "input": {"intent": "Synthetic check.", "authoritative_inputs": ["synthetic"]},
+        "candidate": {
+            "requirements": [{
+                "id": "REQ-SYN-001", "type": "objective", "statement": "Synthetic requirement.",
+                "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated",
+                "source_refs": ["SRC-SYN-001"], "acceptance_criteria": ["Present."], "consequential": False,
+            }],
+            "sources": [{
+                "id": "SRC-SYN-001", "kind": "developer_prompt", "lifecycle": "current",
+                "authority_claim": "Synthetic.", "location": {"uri": "synthetic://check", "json_pointer": "/x"},
+            }],
+            "mappings": [{
+                "id": "MAP-SYN-001", "requirement_id": "REQ-SYN-001", "outcome": "direct",
+                "target_pointer": "/project/objective", "authority_ref": "directly_stated",
+                "validation_ref": "VAL-SYN-001",
+            }],
+        },
+        "expected": {
+            "status": "INVALID_OUTPUT", "diagnostic_codes": ["RQC-EVD-0001"],
+            "requirement_ids": ["REQ-SYN-001"], "assumptions": [], "open_questions": [], "conflicts": [],
+            "ir_mapping_outcomes": ["direct"], "evidence": ["SRC-SYN-001"], "approval_required": False,
+        },
+    }
+    result = validator.validate_case(case, registry)
+    assert result["actual_status"] == "INVALID_OUTPUT"
+    assert "RQC-EVD-0001" in result["actual_diagnostic_codes"]
+    assert result["passed"] is True
