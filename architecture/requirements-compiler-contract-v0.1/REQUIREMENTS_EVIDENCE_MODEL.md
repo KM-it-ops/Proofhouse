@@ -11,11 +11,11 @@
 | Derivation | Stable ID, rule/clause, input refs, output refs, deterministic validation ref |
 | Model proposal | Stable ID, source refs, producer identity/version when known, input/output digest, proposed records, acceptance state |
 | Validation | Stable ID, validator/contract version, schema hashes, artifact hashes, deterministic result, diagnostics |
-| Assumption | Stable ID, statement, impact, source refs, acceptance state, approval refs |
+| Assumption | Stable ID, statement, impact, source refs, acceptance state, consequential flag, approval refs when consequential |
 | Conflict | Stable ID, claims, sources, authority ranks, affected requirements, resolution state |
-| Question | Stable ID, text, affected requirements, required/optional impact, resolution evidence |
-| Approval | Stable ID, subject refs, authority, decision, scope, evidence, immutable sequence/timestamp |
-| Default | Stable ID, statement, authority, scope, consequential flag, approval state, affected refs |
+| Question | Stable ID, text, affected requirements, required/optional impact, resolution state, resolution evidence when resolved |
+| Approval | Stable ID, subject refs, authority, decision, machine-readable scope, non-empty evidence, immutable sequence/timestamp |
+| Default | Stable ID, statement, authority, scope, consequential flag, approval state, affected refs, source refs, approval refs when consequential |
 | IR mapping | Stable ID, requirement, outcome, exact target pointer or non-mapping reason, authority, validation, diagnostic/gap |
 | Test mapping | Stable ID, requirement/clause, planned test/evidence ID, status |
 | Diagnostic ref | Stable diagnostic ID/code and affected source/requirement refs |
@@ -44,7 +44,8 @@
 - **EM-020:** The evidence bundle closes over sources, derivations, proposals, validations, assumptions, conflicts, questions, approvals, defaults, mappings, tests, diagnostics, status evidence, and gaps.
 - **EM-021:** Lists use deterministic ID ordering and preserve source order separately when semantically relevant.
 - **EM-022:** The bundle distinguishes generated evidence from accepted source evidence.
-- **EM-023:** The bundle includes contract version and exact frozen IR target version.
+- **EM-023:** The bundle includes contract version and exact frozen IR target version. The exact value is `0.1.0`, equal to frozen PromptRig IR v0.1's `spec_version` constant; deterministic validation reads that constant and compares it against the bundle rather than trusting the declared string.
+- **EM-025:** The bundle names the compile-result attempt it supports (`compile_result_ref`), and that result names the bundle (`evidence_bundle_ref`). Same-attempt membership is proved by this explicit reference chain, never by records merely appearing together.
 - **EM-024:** The bundle never claims production compiler certification.
 
 ## Requirement and IR completeness

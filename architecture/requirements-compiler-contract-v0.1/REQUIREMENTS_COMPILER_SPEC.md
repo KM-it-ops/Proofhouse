@@ -40,6 +40,17 @@
 - **RC-022:** Confidence, probability, model agreement, or frequency never substitutes for authority or acceptance.
 - **RC-023:** Model-suggested meaning cannot self-accept, invent an approval, resolve a conflict, or become owner-decision or user-decision authority without an attributable decision record.
 - **RC-024:** Accepted meaning requires at least one valid source reference and an authority basis permitted by [AUTHORITY_AND_DEFAULTS.md](AUTHORITY_AND_DEFAULTS.md).
+- **RC-025:** An accepted requirement carries exactly one of `directly_stated`, `owner_decision`, `user_decision`, `accepted_contract`, `explicitly_defaulted`, or `deterministically_derived`. `model_suggested`, `disputed`, `unresolved`, `unsupported`, `refused`, and `invalid` can never accompany accepted meaning.
+- **RC-026:** Selecting a permitted authority basis is not proof of it. Each basis must resolve to backing evidence, and validation that cannot resolve the backing fails closed:
+
+| Authority basis | Required backing evidence |
+|---|---|
+| `directly_stated` | A current, attributable, non-model source carrying the meaning. Meaning originating in a model proposal can never become `directly_stated`. |
+| `owner_decision` | An attributable owner decision: an active, evidenced approval record whose authority is `owner` and whose subject covers the requirement. |
+| `user_decision` | The same, with authority `user`. |
+| `accepted_contract` | A source of kind `contract` identifying the exact accepted contract. |
+| `explicitly_defaulted` | A resolved default record named by `default_ref`, itself approved when consequential. |
+| `deterministically_derived` | A resolved derivation record naming this requirement among its outputs and carrying deterministic validation evidence. |
 
 ## Assumptions, ambiguity, conflicts, and questions
 
@@ -80,6 +91,21 @@
 - **RC-061:** Each non-success result carries sorted machine-readable reason codes and stable diagnostics.
 - **RC-062:** `SUCCESS` and `PARTIAL` require every required accepted requirement to have a mapping evidence record.
 - **RC-063:** `BLOCKED`, `REFUSED`, and `INVALID_OUTPUT` are terminal for the current validation attempt.
+- **RC-065:** Terminal status is derived by explicit, deterministic precedence over per-record dispositions, never by the first rule that happens to match. Stronger classes always win:
+
+| Rank | Class | Status |
+|---:|---|---|
+| 1 | Structural, identity, or version invalidity | `INVALID_OUTPUT` |
+| 2 | Evidence or reference integrity failure | `INVALID_OUTPUT`, or `BLOCKED` when the referent is merely absent |
+| 3 | Model-boundary violation | `REFUSED` when security is weakened, otherwise `INVALID_OUTPUT` |
+| 4 | Accepted meaning with unbacked authority | `INVALID_OUTPUT` for impermissible basis, `BLOCKED` for unresolvable backing |
+| 5 | Accepted policy refusal | `REFUSED` |
+| 6 | Security or privacy meaning that cannot be honestly emitted | `REFUSED` |
+| 7 | Blocking required meaning: approvals, conflicts, authority, sources, IR gaps, unsupported meaning, unresolved required meaning, incomplete mapping | `BLOCKED` |
+| 8 | Only explicitly optional meaning unresolved, or advisory source replacement | `PARTIAL` |
+| 9 | Complete accepted and mapped meaning | `SUCCESS` |
+
+- **RC-066:** The status matrix is evaluated over the full cross-product of priority, acceptance state, authority basis, requirement type, and mapping outcome. A lower-ranked class can never mask a higher-ranked one: optional ambiguity does not hide a security refusal, a missing approval, or an unmapped required requirement.
 - **RC-064:** A later attempt is a new immutable validation record linked to the prior attempt.
 
 ## Deterministic versus model-assisted boundary

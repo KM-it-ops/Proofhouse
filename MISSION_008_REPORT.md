@@ -101,7 +101,9 @@ Best effort cannot bypass `BLOCKED` or `REFUSED`.
 
 ## Deterministic and model-assisted boundary
 
-Schema/version checks, identities, references, authority/default checks, mechanical conflicts, diagnostic ordering, mapping completeness, and fail-closed policy enforcement are deterministic authority. A future model may propose records only; proposals preserve provenance, remain unaccepted, cannot self-approve or invent authority, and must pass deterministic validation. MISSION-008 makes no model call and defines no production prompt.
+Schema/version checks, identities, references, authority backing, approval resolution, default authorization, mechanical conflicts, security and privacy classification by canonical `type`, mapping completeness, terminal-status precedence, and fail-closed policy enforcement are deterministic authority, and each is now executed by the validator rather than asserted. A future model may propose records only; proposals preserve provenance, remain unaccepted, cannot self-approve or invent authority, and must pass deterministic validation. MISSION-008 makes no model call and defines no production prompt.
+
+**Correction (this round).** Before this corrective round the validator did **not** actually enforce several of the properties this report previously claimed for it: an accepted requirement could carry `model_suggested` authority, an approval reference was treated as authorization without being resolved, a consequential default could self-certify through a boolean, security handling keyed on an ID prefix rather than `type`, and `SUCCESS`/`PARTIAL` could be reached with an accepted required requirement that had no emitting mapping. Those claims were stronger than the evidence supported. They are now backed by executed checks and adversarial regression tests; diagnostic ordering beyond code sorting remains `manual_review` rather than an executed guarantee.
 
 ## Requirement-to-IR traceability
 
@@ -142,12 +144,12 @@ All remain Proposed pending independent review and explicit owner approval.
 | 1 | What is the canonical requirements boundary? | A versioned requirements document, diagnostics, IR mappings, compile result, and evidence bundle between attributable intent input and frozen IR v0.1. |
 | 2 | What is authoritative input? | Explicit owner/user decisions and accepted contracts under the documented precedence, supported by attributable source evidence. |
 | 3 | What is merely proposed input? | Model suggestions, PRS/source-language drafts, unresolved defaults, provider constraints, and any unaccepted producer output. |
-| 4 | How is accepted meaning distinguished from model suggestion? | Separate acceptance state and authority basis; model proposals cannot self-accept and require deterministic validation plus permitted authority. |
+| 4 | How is accepted meaning distinguished from model suggestion? | Separate acceptance state and authority basis. `model_suggested` is structurally forbidden on accepted meaning, a model proposal can never be `accepted`, and meaning a proposal originated cannot be relabelled `directly_stated`. Enforcement does not depend on any self-reported adversarial flag. |
 | 5 | How are requirement identities stabilized? | Version-scoped stable IDs with uniqueness enforcement, immutable evidence links, and no silent ID reuse for different meaning. |
 | 6 | How are source locations preserved? | Stable source IDs with URI, RFC 6901 JSON Pointer, optional line/column, lifecycle, and content digest when bytes exist. |
 | 7 | How are ambiguity and conflicts represented? | Explicit questions, assumptions, conflicts, disputed/unresolved acceptance state, affected requirement/source IDs, and stable diagnostics. |
-| 8 | Which defaults require approval? | Every consequential default; all defaults must also be visible, scoped, attributable, and non-conflicting. |
-| 9 | What causes SUCCESS? | Every required accepted requirement is valid, evidenced, and mapped, with no blocking diagnostic. |
+| 8 | Which defaults require approval? | Every consequential default, resolved to an active, evidenced, scope-covering approval record under an explicit accepted approval policy; a boolean never authorizes. All defaults must also be visible, scoped, attributable, and non-conflicting. |
+| 9 | What causes SUCCESS? | Every accepted requirement carries a permitted authority basis backed by resolved evidence, and every accepted requirement has a valid emitting mapping, with no blocking diagnostic. An accepted requirement without an emitting mapping is `BLOCKED`, never `SUCCESS`. |
 | 10 | What causes PARTIAL? | All required meaning meets SUCCESS while only explicitly optional/deferrable meaning remains visible and unresolved. |
 | 11 | What causes BLOCKED? | Missing decisions/context/evidence/approvals, unresolved conflicts, unsupported required meaning, or v0.1 mapping gaps. |
 | 12 | What causes REFUSED? | Accepted policy or safety authority prohibits compilation or the requested operation. |
@@ -196,6 +198,8 @@ All commands were run from the isolated MISSION-008 worktree in an isolated `.ve
 - Frozen IR and diagnostic-registry hashes unchanged, verified via exact git-blob subprocess hashing (`test_frozen_ir_and_diagnostic_registry_hashes_are_unchanged` passed).
 
 **Full repository validation** — `python -m pytest`: **346/346 passed** (338 from round 1 + 8 new in `tests/requirements/`).
+
+**Final corrective round — how this round was validated.** The round-2 numbers above describe head `e04086be` and are retained as the record of that round. In the final corrective round the local environment had no installable `pytest` (a locked system interpreter refused both a normal and a `--user` install), so this report does **not** assert a local pytest count for it. Instead the round was validated by (a) executing `validate_contract.py` directly, which reports all four corpora and the traceability checks, (b) executing each new test assertion as a standalone script against the real validator, and (c) the GitHub Actions CI matrix, which installs pytest and runs the full suite on every pushed head. The authoritative pass/fail signal for this round is the final-head CI run recorded in the PR, not a locally claimed number.
 - Four dataset validations (`prompt_audit_cases.jsonl`, `meta_prompting_cases.jsonl`, `agentic_mode_cases.jsonl`, `adversarial_cases.jsonl`): all passed.
 - Compiler Core smoke tests, installed script and `python -m` invocation, `doctor` and `adapters`: all returned `"status": "success"`.
 - TypeScript regeneration (`scripts/generate_typescript_contracts.py`): zero drift (`git diff --exit-code -- architecture/typescript` exited 0; a byte-level `cmp` against the committed blob confirmed the regenerated files are identical to HEAD, with git status flagging them only due to a stat-level line-ending artifact under local `core.autocrlf`, not a content change).
@@ -204,6 +208,36 @@ All commands were run from the isolated MISSION-008 worktree in an isolated `.ve
 - Changed-file scope review: every changed or new file for this round is within `architecture/requirements-compiler-contract-v0.1/` or `tests/requirements/test_requirements_contract.py`; no frozen path (`architecture/compiler-contract-freeze-v0.5/`, `architecture/diagnostics/DIAGNOSTIC_CODE_REGISTRY.json`) or `src/promptrig` production code changed.
 
 **Explicitly not run — no current executable definition found.** This repository has no standing script for a Markdown link/anchor check, a duplicate-heading check, or a historical-corpus count/aggregate-SHA check (searched `scripts/` and the repository; none exists). Per this continuation's command-authority rule, current CI/scripts/package configuration governs over historical mission reports, so these checks are reported as not currently defined rather than invented or borrowed wholesale from a prior mission's ad hoc numbers.
+
+## Final corrective round — blocker corrections and three-layer evidence
+
+Two independent reviews returned `REQUEST CHANGES` against head `e04086be`. All four confirmed blockers are corrected in this round; the ten published commits are preserved and only new commits were created.
+
+| Blocker | Correction |
+|---|---|
+| B1 — model-suggested meaning could self-accept | `requirement.schema.json` conditionally restricts an accepted requirement to the six accepted-permitted authority bases; `model_proposal.acceptance_state` can no longer be `accepted`; the validator independently rejects impermissible accepted authority and refuses to let model-originated meaning be relabelled `directly_stated`. Optional `self_accepted`/`weakens_security` markers now gate nothing (RC-025, RC-026). |
+| B2 — approval references were never resolved | Approvals are loaded and resolved: the record must exist, be an active `approved` decision, cover the subject, and carry non-empty evidence. Rejected, revoked, expired, superseded, and dangling references all fail closed. A default's `approved` boolean no longer authorizes anything. Required authority follows an explicit accepted approval-policy reference; while OQ-008-003 is open, undeterminable authority is `BLOCKED` rather than assumed (SP-020, SP-025). |
+| B3 — security keyed on ID prefixes | Security and privacy handling keys on canonical `type`. Identifiers are identity only (SP-001). |
+| B4 — mapping completeness unenforced | Terminal status is derived by an explicit precedence matrix rather than a first-match chain. An accepted requirement without an emitting mapping is `BLOCKED`; optional ambiguity can no longer mask a security refusal, missing approval, or unmapped required meaning (RC-065, RC-066). |
+
+**Three independent validation layers**, each reported with its own counts; no layer's result is evidence for another:
+
+| Layer | Corpus | Result |
+|---|---|---|
+| Schema-instance | `fixtures/schema_instances.json` | 33/33 |
+| Semantic-oracle | `fixtures/cases.json` | 41/41 |
+| Linked-artifact closure | `fixtures/linked_artifact_sets.json` | 11/11 (4 positive covering SUCCESS/PARTIAL/BLOCKED/REFUSED, 7 negative each proving its specific rejection reason) |
+| IR-pointer classification | `fixtures/ir_pointer_cases.json` | 11/11 |
+
+The 41 semantic-oracle cases are a **test-only semantic projection, not canonical requirements documents**, and were deliberately not rewritten into schema documents.
+
+**Linked-artifact closure.** Each set validates every artifact against its own schema, then proves that references resolve, that the bundle closes over every canonical document record class, and that result and bundle references are mutually consistent. Same-attempt membership is proved by an explicit reference chain — `compile_result.attempt_id` ↔ `evidence_bundle.compile_result_ref`, and `compile_result.requirements_document_ref` → `requirements_document.document_id` — never by records appearing together in one fixture (EM-025).
+
+**Frozen IR version.** `frozen_ir_version` is the exact `0.1.0`, equal to frozen IR v0.1's `spec_version` constant, which the validator reads and compares. `compile_result_ref` is now required (EM-023).
+
+**Traceability.** Required-field coverage now spans all eight schemas including nested `$defs` and conditionally required fields: **125 fields**, against the 53 the previous five-schema top-level-only check inspected. All 183 normative clauses carry exactly one explicit disposition in `evidence/clause-dispositions.json`. `manual_review` is retained as a first-class disposition with a required rationale (34 clauses): deterministic validation proves identifier existence, disposition completeness, and field coverage, and **does not** claim to prove that a natural-language clause citation is semantically apt (TR-014, TR-015).
+
+**OQ-008-010 resolved — structured-only canonical records**, by explicit owner decision recorded in the MISSION-008 instruction context and **not** appended to the frozen D-050 log. Canonical assumptions and questions now require stable identity and normative evidence, so `assumption_refs`/`question_refs` close over every canonical record. All `RCD-008-*` decisions remain **Proposed**; this round approves none of them, and the PRS disposition remains `DEFERRED`.
 
 ## Final-head CI and PR state
 

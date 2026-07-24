@@ -64,3 +64,16 @@ For one validation attempt:
 | File | multi-source, duplicate/missing/stale/conflicting sources, stable locations, unsupported imports, adversarial content |
 
 The machine-readable clause-to-fixture and clause-to-schema matrices under `evidence/` are authoritative evidence for this proposed package. They do not certify a production compiler.
+
+## Three independent validation layers
+
+Deterministic validation reports three separate layers with their own counts and results. No layer's result is evidence for another:
+
+| Layer | Corpus | What it proves |
+|---|---|---|
+| Schema-instance | `fixtures/schema_instances.json` | Individual records are accepted, or rejected by the exact schema keyword and location intended |
+| Semantic-oracle | `fixtures/cases.json` | Terminal status and diagnostics for structured candidates. These 41 cases are a **test-only semantic projection, not canonical requirements documents** |
+| Linked-artifact | `fixtures/linked_artifact_sets.json` | Complete, schema-valid, cross-referenced artifact sets close over themselves with unambiguous document/result/bundle linkage |
+
+- **TR-014:** Every normative clause carries exactly one explicit disposition in `evidence/clause-dispositions.json`: `schema_enforced`, `semantic_fixture_enforced`, `linked_artifact_enforced`, `manual_review`, `governance_only`, `future_deferred`, or `non_executable_definition`.
+- **TR-015:** Deterministic validation proves clause-identifier existence, disposition completeness and uniqueness, and required-field coverage across all eight schemas including nested `$defs` and conditionally required fields. It does **not** prove that a natural-language clause citation is semantically apt. Clauses whose satisfaction is a human judgement carry `manual_review` with a recorded rationale, and that judgement is never reported as automated proof.

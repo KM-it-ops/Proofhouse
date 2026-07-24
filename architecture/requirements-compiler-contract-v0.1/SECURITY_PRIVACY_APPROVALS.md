@@ -4,7 +4,7 @@
 
 ## Representation
 
-- **SP-001:** Security and privacy requirements are first-class requirements, not annotations or prompt guidance.
+- **SP-001:** Security and privacy requirements are first-class requirements, not annotations or prompt guidance. They are recognised by the canonical requirement `type` (`security`, `privacy`). Identifiers are identity only: renaming a requirement never changes its policy semantics, and a security-looking identifier never confers security semantics on a requirement of another type.
 - **SP-002:** Data handling records identify data class, permitted purpose, allowed locations, retention, disclosure, and deletion obligations when known.
 - **SP-003:** Permission records identify actor, operation, resource, scope, decision authority, and approval.
 - **SP-004:** Network and credential restrictions are explicit required requirements when stated by user, owner, or accepted contract.
@@ -22,7 +22,8 @@
 
 ## Human approvals
 
-- **SP-020:** Approval is explicit, attributable, scoped, and linked to the exact requirement/default/operation.
+- **SP-020:** Approval is explicit, attributable, scoped, and linked to the exact requirement/default/operation. The approval record is the single source of authorization truth: a reference identifier, or a boolean such as a default's `approved` flag, never authorizes on its own. Deterministic validation resolves each reference to an existing record and requires an active `approved` decision, a covering subject, a machine-readable scope, and non-empty evidence.
+- **SP-025:** The authority level required for a given consequential category is governed by an explicit accepted approval-policy or authority-threshold reference. While OQ-008-003 remains unresolved this contract does not invent owner-versus-user thresholds; when the required authority cannot be determined from accepted policy, the result is `BLOCKED` with visible evidence rather than an assumed approver.
 - **SP-021:** Silence, prior unrelated consent, UI state, model suggestion, and provider capability are not approval.
 - **SP-022:** Destructive operations, credential use, network access, sensitive-data processing, external publication, and policy exceptions require the controlling approval threshold.
 - **SP-023:** Rejected, revoked, expired, and superseded approvals remain immutable evidence.

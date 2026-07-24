@@ -62,6 +62,7 @@
     {"clause": "EM-022", "disposition": "manual_review", "rationale": "The generated-versus-accepted evidence distinction is reviewed in the bundle layout."},
     {"clause": "EM-023", "disposition": "linked_artifact_enforced"},
     {"clause": "EM-024", "disposition": "governance_only"},
+    {"clause": "EM-025", "disposition": "linked_artifact_enforced"},
     {"clause": "EM-030", "disposition": "semantic_fixture_enforced"},
     {"clause": "EM-031", "disposition": "semantic_fixture_enforced"},
     {"clause": "EM-032", "disposition": "semantic_fixture_enforced"},
@@ -89,6 +90,8 @@
     {"clause": "RC-022", "disposition": "manual_review", "rationale": "No confidence or probability field exists in the contract, so the prohibition is reviewed rather than executed."},
     {"clause": "RC-023", "disposition": "semantic_fixture_enforced"},
     {"clause": "RC-024", "disposition": "semantic_fixture_enforced"},
+    {"clause": "RC-025", "disposition": "schema_enforced"},
+    {"clause": "RC-026", "disposition": "semantic_fixture_enforced"},
     {"clause": "RC-030", "disposition": "schema_enforced"},
     {"clause": "RC-031", "disposition": "schema_enforced"},
     {"clause": "RC-032", "disposition": "schema_enforced"},
@@ -110,6 +113,8 @@
     {"clause": "RC-062", "disposition": "semantic_fixture_enforced"},
     {"clause": "RC-063", "disposition": "manual_review", "rationale": "Terminality across attempts spans multiple validation runs, which this single-attempt package does not execute."},
     {"clause": "RC-064", "disposition": "linked_artifact_enforced"},
+    {"clause": "RC-065", "disposition": "semantic_fixture_enforced"},
+    {"clause": "RC-066", "disposition": "semantic_fixture_enforced"},
     {"clause": "RC-070", "disposition": "semantic_fixture_enforced"},
     {"clause": "RC-071", "disposition": "schema_enforced"},
     {"clause": "RC-072", "disposition": "schema_enforced"},
@@ -162,6 +167,7 @@
     {"clause": "SP-022", "disposition": "future_deferred"},
     {"clause": "SP-023", "disposition": "semantic_fixture_enforced"},
     {"clause": "SP-024", "disposition": "semantic_fixture_enforced"},
+    {"clause": "SP-025", "disposition": "semantic_fixture_enforced"},
     {"clause": "SP-030", "disposition": "manual_review", "rationale": "Refusal record completeness, including permitted alternatives, is reviewed."},
     {"clause": "SP-031", "disposition": "manual_review", "rationale": "Whether a refusal implied malice or erased safe meaning is a human judgement."},
     {"clause": "SP-032", "disposition": "semantic_fixture_enforced"},
@@ -177,6 +183,8 @@
     {"clause": "TR-010", "disposition": "semantic_fixture_enforced"},
     {"clause": "TR-011", "disposition": "manual_review", "rationale": "Stable semantic identity of array items is reviewed; the pointer index proves only schema-level validity."},
     {"clause": "TR-012", "disposition": "semantic_fixture_enforced"},
-    {"clause": "TR-013", "disposition": "governance_only"}
+    {"clause": "TR-013", "disposition": "governance_only"},
+    {"clause": "TR-014", "disposition": "semantic_fixture_enforced"},
+    {"clause": "TR-015", "disposition": "manual_review", "rationale": "States the boundary of automated proof itself; that the boundary is honestly described is a review judgement, not a machine-checkable property."}
   ]
 }
