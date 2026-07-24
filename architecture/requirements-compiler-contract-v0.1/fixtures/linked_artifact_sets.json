@@ -1,0 +1,1422 @@
+{
+  "linked_artifact_contract_version": "0.1.0-draft",
+  "note": "Third validation layer. Each set is a complete, schema-valid, cross-referenced artifact set. Same-attempt membership is proved by an explicit reference chain (compile_result.attempt_id <-> evidence_bundle.compile_result_ref and compile_result.requirements_document_ref -> requirements_document.document_id), never by co-location in one fixture.",
+  "set_count": 11,
+  "sets": [
+    {
+      "id": "LAS-POS-SUCCESS-001",
+      "kind": "positive",
+      "description": "Complete SUCCESS attempt: every record schema-valid, every reference resolved, bundle closed.",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": []
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "SUCCESS",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": []
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        }
+      }
+    },
+    {
+      "id": "LAS-NEG-DANGLING-BUNDLE-REF-001",
+      "kind": "negative",
+      "description": "Bundle declares a requirement reference that no document record defines.",
+      "expected_reason": "dangling_bundle_reference",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": []
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "SUCCESS",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": []
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001",
+            "REQ-LAS-NOPE"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        }
+      }
+    },
+    {
+      "id": "LAS-NEG-OMITTED-RECORD-001",
+      "kind": "negative",
+      "description": "Bundle omits a source record the document defines, so closure is incomplete.",
+      "expected_reason": "omitted_document_record",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": []
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "SUCCESS",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": []
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [],
+          "requirement_refs": [
+            "REQ-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        }
+      }
+    },
+    {
+      "id": "LAS-NEG-RESULT-BUNDLE-MISMATCH-001",
+      "kind": "negative",
+      "description": "Compile result points at a different evidence bundle than the one supplied.",
+      "expected_reason": "result_bundle_mismatch",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": []
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "SUCCESS",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-OTHER",
+          "reason_codes": []
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        }
+      }
+    },
+    {
+      "id": "LAS-NEG-WRONG-FROZEN-IR-VERSION-001",
+      "kind": "negative",
+      "description": "Bundle declares an inexact frozen IR version; the exact 0.1.0 const rejects it.",
+      "expected_reason": "schema_invalid",
+      "expected_schema_error_path": "/frozen_ir_version",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": []
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "SUCCESS",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": []
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        }
+      }
+    },
+    {
+      "id": "LAS-NEG-WRONG-MAPPING-REF-001",
+      "kind": "negative",
+      "description": "A mapping names a requirement identity the document does not define.",
+      "expected_reason": "wrong_mapping_reference",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": []
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-UNKNOWN",
+            "outcome": "direct",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "SUCCESS",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": []
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        }
+      }
+    },
+    {
+      "id": "LAS-NEG-INVALID-APPROVAL-CLOSURE-001",
+      "kind": "negative",
+      "description": "Consequential accepted meaning is closed over by a revoked approval, which cannot authorise.",
+      "expected_reason": "invalid_approval_closure",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": true,
+              "approval_refs": [
+                "APR-LAS-001"
+              ]
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": [],
+          "approvals": [
+            {
+              "id": "APR-LAS-001",
+              "subject_refs": [
+                "REQ-LAS-001"
+              ],
+              "authority": "owner",
+              "decision": "revoked",
+              "scope": {
+                "kind": "requirement",
+                "value": "REQ-LAS-001"
+              },
+              "evidence": [
+                "decision-log://las/1"
+              ],
+              "sequence": 1
+            }
+          ]
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "SUCCESS",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": []
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [
+            "APR-LAS-001"
+          ],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        }
+      }
+    },
+    {
+      "id": "LAS-NEG-MODEL-PROPOSAL-NO-DECISION-001",
+      "kind": "negative",
+      "description": "A requirement proposed by a model is marked accepted with no attributable decision record.",
+      "expected_reason": "invalid_model_closure",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": [],
+          "model_proposals": [
+            {
+              "id": "MDL-LAS-001",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_state": "proposed",
+              "input_digest": "1111111111111111111111111111111111111111111111111111111111111111",
+              "output_digest": "2222222222222222222222222222222222222222222222222222222222222222",
+              "proposed_records": [
+                "REQ-LAS-001"
+              ]
+            }
+          ]
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "SUCCESS",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": []
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [
+            "MDL-LAS-001"
+          ],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        }
+      }
+    },
+    {
+      "id": "LAS-POS-PARTIAL-001",
+      "kind": "positive",
+      "description": "Complete PARTIAL attempt: required meaning mapped, optional meaning visibly unresolved and closed over.",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false
+            },
+            {
+              "id": "REQ-LAS-002",
+              "type": "objective",
+              "statement": "Choose an optional report colour.",
+              "priority": "optional",
+              "acceptance_state": "unresolved",
+              "authority_basis": "unresolved",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Colour chosen."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [
+            {
+              "id": "OQN-LAS-001",
+              "text": "Which optional report colour is preferred?",
+              "affected_requirement_refs": [
+                "REQ-LAS-002"
+              ],
+              "impact": "optional",
+              "resolution_state": "unresolved"
+            }
+          ],
+          "conflicts": []
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          },
+          {
+            "id": "MAP-LAS-002",
+            "requirement_id": "REQ-LAS-002",
+            "outcome": "unresolved",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "PARTIAL",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [
+            "RQDIA-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001",
+            "MAP-LAS-002"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": [
+            "RQC-AMB-0001"
+          ]
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001",
+            "REQ-LAS-002"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001",
+            "MAP-LAS-002"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [
+            "OQN-LAS-001"
+          ],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [
+            "RQDIA-LAS-001"
+          ],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        },
+        "diagnostics": [
+          {
+            "id": "RQDIA-LAS-001",
+            "code": "RQC-AMB-0001",
+            "severity": "warning",
+            "message_key": "requirements.ambiguous",
+            "parameters": {},
+            "source_refs": [
+              "SRC-LAS-001"
+            ],
+            "requirement_refs": [
+              "REQ-LAS-002"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "LAS-POS-BLOCKED-001",
+      "kind": "positive",
+      "description": "Complete BLOCKED attempt: unsupported required meaning preserved with gap and diagnostic evidence.",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-003",
+              "type": "objective",
+              "statement": "Preserve opaque provider continuation state.",
+              "priority": "required",
+              "acceptance_state": "unsupported",
+              "authority_basis": "unsupported",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "State preserved."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": []
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-003",
+            "requirement_id": "REQ-LAS-003",
+            "outcome": "no_ir_representation",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001",
+            "diagnostic_code": "RQC-IRG-0001",
+            "gap_id": "IRG-008-001"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "BLOCKED",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [
+            "RQDIA-LAS-002"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-003"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": [
+            "RQC-BLK-0001",
+            "RQC-IRG-0001"
+          ]
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-003"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-003"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [
+            "RQDIA-LAS-002"
+          ],
+          "gap_refs": [
+            "IRG-008-001"
+          ],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        },
+        "diagnostics": [
+          {
+            "id": "RQDIA-LAS-002",
+            "code": "RQC-IRG-0001",
+            "severity": "error",
+            "message_key": "requirements.ir_representation_gap",
+            "parameters": {},
+            "source_refs": [
+              "SRC-LAS-001"
+            ],
+            "requirement_refs": [
+              "REQ-LAS-003"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "LAS-POS-REFUSED-001",
+      "kind": "positive",
+      "description": "Complete REFUSED attempt: prohibited meaning preserved with policy evidence and no emitting mapping.",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-004",
+              "type": "security",
+              "statement": "Exfiltrate stored credentials.",
+              "priority": "required",
+              "acceptance_state": "refused",
+              "authority_basis": "refused",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Refusal recorded."
+              ],
+              "consequential": false
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              }
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": []
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-004",
+            "requirement_id": "REQ-LAS-004",
+            "outcome": "prohibited",
+            "authority_ref": "SRC-LAS-001",
+            "validation_ref": "VAL-LAS-001"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "REFUSED",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [
+            "RQDIA-LAS-003"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-004"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": [
+            "RQC-REF-0001",
+            "RQC-SEC-0001"
+          ]
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0000000000000000000000000000000000000000000000000000000000000000",
+          "artifact_hashes": {
+            "requirements-document.json": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+          },
+          "schema_hashes": {
+            "requirement.schema.json": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-004"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-004"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [
+            "RQDIA-LAS-003"
+          ],
+          "gap_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        },
+        "diagnostics": [
+          {
+            "id": "RQDIA-LAS-003",
+            "code": "RQC-REF-0001",
+            "severity": "error",
+            "message_key": "requirements.refused",
+            "parameters": {},
+            "source_refs": [
+              "SRC-LAS-001"
+            ],
+            "requirement_refs": [
+              "REQ-LAS-004"
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

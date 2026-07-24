@@ -147,19 +147,84 @@ def find_unknown_clause_references(package: Path) -> list[str]:
     return sorted(problems)
 
 
+def _required_field_names(schema: Mapping[str, Any]) -> set[str]:
+    """Every field this (sub)schema requires, including inside allOf/if-then conditionals."""
+
+    names: set[str] = set(schema.get("required", []) or [])
+    for branch in schema.get("allOf", []) or []:
+        names.update(_required_field_names(branch))
+        names.update(_required_field_names(branch.get("then", {}) or {}))
+    return names
+
+
+def enumerate_required_fields(schema_docs: Mapping[str, dict[str, Any]]) -> list[str]:
+    """Enumerate every dotted required-field path across ALL eight schemas, including nested
+    `$defs` records and fields required only under an `if`/`then` conditional (6.9)."""
+
+    fields: set[str] = set()
+    for schema_name, schema in sorted(schema_docs.items()):
+        prefix = _SCHEMA_FIELD_PREFIX.get(schema_name, schema_name.split(".", 1)[0].replace("-", "_"))
+        for field_name in _required_field_names(schema):
+            fields.add(f"{prefix}.{field_name}")
+        for def_name, definition in sorted((schema.get("$defs") or {}).items()):
+            for field_name in _required_field_names(definition):
+                fields.add(f"{prefix}.{def_name}.{field_name}")
+    return sorted(fields)
+
+
 def find_uncovered_required_fields(package: Path, schema_docs: Mapping[str, dict[str, Any]]) -> list[str]:
-    """Every required field of a covered schema must have justified clause coverage."""
+    """Every required field of every schema -- top level, nested `$defs`, and conditionally
+    required -- must carry an explicit clause justification."""
 
     field_justifications = _read_json(package / "evidence" / "requirement-field-justifications.json")
     covered = {entry["field"] for entry in field_justifications.get("fields", [])}
-    missing: list[str] = []
-    for schema_name, prefix in _SCHEMA_FIELD_PREFIX.items():
-        schema = schema_docs.get(schema_name, {})
-        for field_name in schema.get("required", []):
-            dotted = f"{prefix}.{field_name}"
-            if dotted not in covered:
-                missing.append(dotted)
-    return sorted(missing)
+    return sorted(field for field in enumerate_required_fields(schema_docs) if field not in covered)
+
+
+# Dispositions a normative clause may carry (refinement 5). `manual_review` is a first-class,
+# permanently permitted disposition: semantic relevance of a natural-language clause citation is
+# NOT mechanically provable, so the validator proves identifier existence, pointer resolution,
+# disposition completeness, and field coverage -- and records, rather than fakes, human judgement.
+CLAUSE_DISPOSITIONS = {
+    "schema_enforced",
+    "semantic_fixture_enforced",
+    "linked_artifact_enforced",
+    "manual_review",
+    "governance_only",
+    "future_deferred",
+    "non_executable_definition",
+}
+
+
+def find_clauses_without_disposition(package: Path) -> list[str]:
+    """Every normative clause defined in the package docs must have exactly one explicit,
+    recognised disposition, and no disposition may name a clause that does not exist."""
+
+    known = load_known_clause_ids(package)
+    path = package / "evidence" / "clause-dispositions.json"
+    if not path.is_file():
+        return sorted(known)
+    document = _read_json(path)
+    declared: dict[str, str] = {}
+    problems: set[str] = set()
+    for entry in document.get("clauses", []):
+        clause = entry.get("clause")
+        disposition = entry.get("disposition")
+        if clause not in known:
+            problems.add(f"{clause} (unknown clause)")
+            continue
+        if disposition not in CLAUSE_DISPOSITIONS:
+            problems.add(f"{clause} (unrecognised disposition {disposition!r})")
+            continue
+        if clause in declared:
+            problems.add(f"{clause} (duplicate disposition)")
+            continue
+        if disposition == "manual_review" and not entry.get("rationale"):
+            problems.add(f"{clause} (manual_review without rationale)")
+            continue
+        declared[clause] = disposition
+    problems.update(known - set(declared))
+    return sorted(problems)
 
 
 def find_vocabulary_drift(schema_docs: Mapping[str, dict[str, Any]]) -> list[str]:
@@ -730,6 +795,136 @@ def validate_case(case: dict[str, Any], registry: Mapping[str, Any]) -> dict[str
     }
 
 
+def load_linked_artifact_sets(package: Path) -> list[dict[str, Any]]:
+    path = package / "fixtures" / "linked_artifact_sets.json"
+    if not path.is_file():
+        return []
+    return _read_json(path).get("sets", [])
+
+
+def frozen_ir_spec_version() -> str:
+    """The exact frozen IR target version (spec_version.const) mappings validate against."""
+    schema = load_frozen_ir_schema()
+    return schema.get("properties", {}).get("spec_version", {}).get("const", "")
+
+
+def _classify_linked_set(artifacts: Mapping[str, Any], frozen_version: str) -> str:
+    """Refinement 4 / EM-020: prove a complete artifact set closes over itself with unambiguous
+    document<->result<->bundle linkage and same-attempt membership. Returns 'valid' or a specific
+    rejection reason. Same-attempt membership is an EXPLICIT reference chain (result.attempt_id <->
+    bundle.compile_result_ref, result.requirements_document_ref -> document.document_id), never mere
+    co-location in one fixture."""
+    document = artifacts["requirements_document"]
+    result = artifacts["compile_result"]
+    bundle = artifacts["evidence_bundle"]
+    mappings = artifacts.get("mappings", [])
+
+    requirement_ids = {record["id"] for record in document.get("requirements", [])}
+    source_ids = {record["id"] for record in document.get("sources", [])}
+    mapping_ids = {record["id"] for record in mappings}
+    approvals = {record["id"]: record for record in document.get("approvals", [])}
+
+    if result.get("requirements_document_ref") != document.get("document_id"):
+        return "result_document_mismatch"
+    if result.get("evidence_bundle_ref") != bundle.get("id"):
+        return "result_bundle_mismatch"
+    if bundle.get("compile_result_ref") != result.get("attempt_id"):
+        return "different_attempt"
+    if bundle.get("frozen_ir_version") != frozen_version:
+        return "wrong_frozen_ir_version"
+
+    diagnostic_ids = {record["id"] for record in artifacts.get("diagnostics", [])}
+    closure = (
+        (requirement_ids, "requirement_refs"),
+        (source_ids, "source_refs"),
+        (mapping_ids, "mapping_refs"),
+        (diagnostic_ids, "diagnostic_refs"),
+        (set(approvals), "approval_refs"),
+        ({record["id"] for record in document.get("assumptions", [])}, "assumption_refs"),
+        ({record["id"] for record in document.get("open_questions", [])}, "question_refs"),
+        ({record["id"] for record in document.get("conflicts", [])}, "conflict_refs"),
+        ({record["id"] for record in document.get("defaults", [])}, "default_refs"),
+        ({record["id"] for record in document.get("model_proposals", [])}, "model_proposal_refs"),
+        ({record["id"] for record in document.get("derivations", [])}, "derivation_refs"),
+        ({record["id"] for record in document.get("test_mappings", [])}, "test_mapping_refs"),
+    )
+    for present, refs_key in closure:
+        declared = set(bundle.get(refs_key, []))
+        if declared != present:
+            return "omitted_document_record" if (present - declared) else "dangling_bundle_reference"
+    if set(result.get("diagnostic_refs", [])) != diagnostic_ids:
+        return "result_diagnostic_mismatch"
+
+    if not set(result.get("mapping_refs", [])) <= mapping_ids:
+        return "wrong_mapping_reference"
+    for mapping in mappings:
+        if mapping.get("requirement_id") not in requirement_ids:
+            return "wrong_mapping_reference"
+
+    model_originated: set[str] = set()
+    for proposal in document.get("model_proposals", []):
+        model_originated.update(proposal.get("proposed_records", []) or [])
+    for requirement in document.get("requirements", []):
+        if requirement.get("acceptance_state") == "accepted" and requirement["id"] in model_originated:
+            return "invalid_model_closure"
+
+    for requirement in document.get("requirements", []):
+        if requirement.get("consequential") and not any(
+            _approval_authorizes(approvals.get(ref), requirement["id"]) for ref in requirement.get("approval_refs", [])
+        ):
+            return "invalid_approval_closure"
+    for default in document.get("defaults", []):
+        if default.get("consequential") and not any(
+            _approval_authorizes(approvals.get(ref), default["id"]) for ref in default.get("approval_refs", [])
+        ):
+            return "invalid_approval_closure"
+    return "valid"
+
+
+def validate_linked_artifact_set(
+    record: Mapping[str, Any],
+    schema_docs: Mapping[str, dict[str, Any]],
+    registry: Registry,
+    frozen_version: str,
+) -> dict[str, Any]:
+    """Validate one complete, schema-valid, cross-referenced artifact set end to end (the third
+    validation layer, independent of the schema-instance and semantic-oracle corpora)."""
+    artifacts = record["artifacts"]
+    targets: list[tuple[str, Any]] = [
+        ("intent-input.schema.json", artifacts["intent_input"]),
+        ("requirements-document.schema.json", artifacts["requirements_document"]),
+        ("requirements-compile-result.schema.json", artifacts["compile_result"]),
+        ("requirements-evidence-bundle.schema.json", artifacts["evidence_bundle"]),
+    ]
+    targets.extend(("requirement-ir-mapping.schema.json", mapping) for mapping in artifacts.get("mappings", []))
+    targets.extend(("requirements-diagnostic.schema.json", diagnostic) for diagnostic in artifacts.get("diagnostics", []))
+
+    schema_errors: list[dict[str, Any]] = []
+    for name, instance in targets:
+        validator = Draft202012Validator(schema_docs[name], registry=registry)
+        for error in validator.iter_errors(instance):
+            schema_errors.append({"schema": name, **_normalize_validation_error(error)})
+
+    classification = "schema_invalid" if schema_errors else _classify_linked_set(artifacts, frozen_version)
+    if record["kind"] == "positive":
+        passed = classification == "valid"
+    else:
+        passed = classification == record.get("expected_reason")
+        expected_path = record.get("expected_schema_error_path")
+        if passed and expected_path is not None:
+            # A negative set rejected at the schema layer must prove the EXACT location of its
+            # defect, not merely that some schema error occurred.
+            passed = any(error["instance_path"] == expected_path for error in schema_errors)
+    return {
+        "classification": classification,
+        "id": record["id"],
+        "kind": record["kind"],
+        "passed": passed,
+        "schema_errors": sorted(schema_errors, key=lambda item: (item["instance_path"], item["keyword"]))[:5],
+        "status": artifacts["compile_result"].get("status"),
+    }
+
+
 def validate_package(package: Path) -> dict[str, Any]:
     errors: list[str] = []
     schemas = package / "schemas"
@@ -812,9 +1007,29 @@ def validate_package(package: Path) -> dict[str, Any]:
     if ir_pointer_failed:
         errors.append(f"IR pointer outcome mismatch: {', '.join(ir_pointer_failed)}")
 
+    # Third validation layer (6.1): complete linked artifact sets, reported independently of the
+    # schema-instance and semantic-oracle corpora. No layer's result is evidence for another.
+    frozen_version = frozen_ir_spec_version()
+    try:
+        linked_records = load_linked_artifact_sets(package)
+    except (OSError, ValueError) as exc:  # pragma: no cover - failure evidence path
+        linked_records = []
+        errors.append(f"linked artifact corpus: {exc}")
+    linked_results = [
+        validate_linked_artifact_set(record, schema_docs, schema_registry, frozen_version)
+        for record in linked_records
+    ]
+    linked_failed = sorted(result["id"] for result in linked_results if not result["passed"])
+    if linked_failed:
+        errors.append(f"linked artifact set mismatch: {', '.join(linked_failed)}")
+
     unknown_clauses = find_unknown_clause_references(package)
     if unknown_clauses:
         errors.append(f"unknown clause references: {', '.join(unknown_clauses)}")
+
+    missing_dispositions = find_clauses_without_disposition(package)
+    if missing_dispositions:
+        errors.append(f"clauses without an explicit disposition: {', '.join(missing_dispositions)}")
 
     uncovered_fields = find_uncovered_required_fields(package, schema_docs)
     if uncovered_fields:
@@ -825,12 +1040,17 @@ def validate_package(package: Path) -> dict[str, Any]:
         errors.append(f"vocabulary drift: {'; '.join(vocabulary_drift)}")
 
     return {
+        "clauses_without_disposition": missing_dispositions,
         "contract_version": CONTRACT_VERSION,
         "credentials_accessed": False,
         "diagnostic_codes": codes,
         "errors": sorted(errors),
         "fixture_count": len(cases),
         "fixture_pass_count": len(cases) - len(failed),
+        "frozen_ir_version": frozen_version,
+        "linked_artifact_set_count": len(linked_results),
+        "linked_artifact_set_pass_count": len(linked_results) - len(linked_failed),
+        "linked_artifact_set_results": sorted(linked_results, key=lambda item: item["id"]),
         "fixtures": [
             {
                 "diagnostic_codes": result["actual_diagnostic_codes"],
