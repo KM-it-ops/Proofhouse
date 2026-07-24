@@ -375,3 +375,297 @@ def test_ir_mapping_emitting_outcome_with_impossible_pointer_is_invalid_output()
     assert result["actual_status"] == "INVALID_OUTPUT"
     assert "RQC-EVD-0001" in result["actual_diagnostic_codes"]
     assert result["passed"] is True
+
+
+# --- Adversarial counterexample regression tests (blockers B1-B4, refinements 1-3) ---------
+# These construct candidates NOT present in the 41-case corpus, proving the semantic validator
+# enforces the invariants for arbitrary input rather than matching hardcoded fixture expectations.
+
+_CURRENT_SOURCE = {
+    "id": "SRC-CX", "kind": "file", "lifecycle": "current",
+    "authority_claim": "user", "location": {"uri": "cx://s", "json_pointer": ""},
+}
+
+
+def _cx_requirement(**overrides: object) -> dict:
+    base = {
+        "id": "REQ-CX-001", "type": "behavior", "statement": "Do the thing.",
+        "priority": "required", "acceptance_state": "accepted", "authority_basis": "directly_stated",
+        "source_refs": ["SRC-CX"], "acceptance_criteria": ["Present."], "consequential": False,
+    }
+    base.update(overrides)
+    return base
+
+
+def _cx_case(candidate: dict, intent: str = "Build a thing.") -> dict:
+    candidate.setdefault("sources", [dict(_CURRENT_SOURCE)])
+    return {"input": {"intent": intent, "authoritative_inputs": ["user:x"]}, "candidate": candidate}
+
+
+def _derive(validator: ModuleType, candidate: dict, intent: str = "Build a thing.") -> tuple[str, list[str]]:
+    registry = validator.load_diagnostic_registry(PACKAGE)
+    return validator._derive_outcome(_cx_case(candidate, intent), registry)
+
+
+def test_b1_model_suggested_meaning_never_self_accepts() -> None:
+    validator = _load_validator()
+    # Accepted meaning on model_suggested authority, with no self_accepted marker anywhere.
+    status, codes = _derive(validator, {"requirements": [_cx_requirement(authority_basis="model_suggested")]})
+    assert status == "INVALID_OUTPUT"
+    assert codes == ["RQC-MDL-0001"]
+    # Every non-accepting authority basis on an accepted requirement is rejected, not SUCCESS.
+    for basis in ("unresolved", "disputed", "unsupported", "refused", "invalid"):
+        status, _ = _derive(validator, {"requirements": [_cx_requirement(authority_basis=basis)]})
+        assert status != "SUCCESS", basis
+    # A model proposal marked accepted (without self_accepted) still crosses the boundary.
+    status, codes = _derive(validator, {
+        "requirements": [_cx_requirement()],
+        "mappings": [{"requirement_id": "REQ-CX-001", "outcome": "direct", "target_pointer": "/objective/goal"}],
+        "model_proposals": [{"id": "MDL-CX", "acceptance_state": "accepted", "source_refs": ["SRC-CX"]}],
+    })
+    assert status == "INVALID_OUTPUT" and codes == ["RQC-MDL-0001"]
+
+
+def test_b1_directly_stated_cannot_launder_model_originated_meaning() -> None:
+    validator = _load_validator()
+    status, codes = _derive(validator, {
+        "requirements": [_cx_requirement()],
+        "model_proposals": [{"id": "MDL-CX", "acceptance_state": "proposed",
+                             "source_refs": ["SRC-CX"], "proposed_records": ["REQ-CX-001"]}],
+    })
+    assert status == "INVALID_OUTPUT" and codes == ["RQC-MDL-0001"]
+
+
+def test_b2_approval_reference_must_resolve_to_active_evidenced_approval() -> None:
+    validator = _load_validator()
+    mapped = [{"requirement_id": "REQ-CX-001", "outcome": "direct", "target_pointer": "/objective/goal"}]
+
+    def approval(**overrides: object) -> dict:
+        base = {"id": "APR-CX", "subject_refs": ["REQ-CX-001"], "authority": "owner",
+                "decision": "approved", "scope": {"kind": "requirement", "value": "REQ-CX-001"},
+                "evidence": ["log://1"], "sequence": 1}
+        base.update(overrides)
+        return base
+
+    # Dangling reference: no approval record at all.
+    status, codes = _derive(validator, {
+        "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-NONE"])], "mappings": mapped,
+    }, intent="Consequential thing with an accepted approval policy.")
+    assert status == "BLOCKED" and codes == ["RQC-APR-0001"]
+
+    # Every inactive decision fails closed even when referenced and policy-present.
+    for decision in ("rejected", "revoked", "expired", "superseded"):
+        status, _ = _derive_with_policy(validator, {
+            "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-CX"])],
+            "approvals": [approval(decision=decision)], "mappings": mapped,
+        })
+        assert status == "BLOCKED", decision
+
+    # Empty evidence, or wrong subject, fails closed.
+    status, _ = _derive_with_policy(validator, {
+        "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-CX"])],
+        "approvals": [approval(evidence=[])], "mappings": mapped,
+    })
+    assert status == "BLOCKED"
+    status, _ = _derive_with_policy(validator, {
+        "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-CX"])],
+        "approvals": [approval(subject_refs=["REQ-OTHER-001"])], "mappings": mapped,
+    })
+    assert status == "BLOCKED"
+
+    # A fully valid, active, scoped, evidenced approval under an explicit policy authorizes.
+    status, codes = _derive_with_policy(validator, {
+        "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-CX"])],
+        "approvals": [approval()], "mappings": mapped,
+    })
+    assert status == "SUCCESS" and codes == []
+
+
+def _derive_with_policy(validator: ModuleType, candidate: dict) -> tuple[str, list[str]]:
+    registry = validator.load_diagnostic_registry(PACKAGE)
+    candidate.setdefault("sources", [dict(_CURRENT_SOURCE)])
+    case = {"input": {"intent": "Consequential.", "authoritative_inputs": ["user:x", "accepted_contract:approval-policy"]},
+            "candidate": candidate}
+    return validator._derive_outcome(case, registry)
+
+
+def test_b2_consequential_default_needs_resolved_approval_not_a_boolean() -> None:
+    validator = _load_validator()
+    mapped = [{"requirement_id": "REQ-CX-001", "outcome": "direct", "target_pointer": "/objective/goal"}]
+    status, codes = _derive_with_policy(validator, {
+        "requirements": [_cx_requirement()], "mappings": mapped,
+        "defaults": [{"id": "DFT-CX", "authority_ref": "x", "consequential": True, "approved": True}],
+    })
+    assert status == "BLOCKED" and codes == ["RQC-DFT-0001"]
+
+
+def test_b3_security_privacy_enforcement_keys_on_type_not_id_prefix() -> None:
+    validator = _load_validator()
+    # type=security with a NON-security-looking id, unmapped -> fails closed.
+    status, codes = _derive(validator, {"requirements": [_cx_requirement(id="REQ-AUTH-001", type="security")]})
+    assert status == "REFUSED" and codes == ["RQC-SEC-0001"]
+    # A security-LOOKING id with a non-security type is NOT security: mapped behavior -> success.
+    status, _ = _derive(validator, {
+        "requirements": [_cx_requirement(id="REQ-SECURITY-XX", type="behavior")],
+        "mappings": [{"requirement_id": "REQ-SECURITY-XX", "outcome": "direct", "target_pointer": "/objective/goal"}],
+    })
+    assert status == "SUCCESS"
+    # Unresolved privacy posture (by type) blocks.
+    status, codes = _derive(validator, {"requirements": [_cx_requirement(type="privacy", acceptance_state="unresolved", authority_basis="unresolved")]})
+    assert status == "BLOCKED" and codes == ["RQC-PRV-0001"]
+
+
+def test_b4_mapping_completeness_and_no_partial_masking() -> None:
+    validator = _load_validator()
+    # Accepted required requirement with no emitting mapping is blocked, never SUCCESS.
+    status, codes = _derive(validator, {"requirements": [_cx_requirement()], "mappings": []})
+    assert status == "BLOCKED" and codes == ["RQC-BLK-0001"]
+    # An unmapped accepted security requirement is REFUSED even beside an optional-unresolved one
+    # (optional ambiguity must not mask the fail-closed security condition).
+    status, codes = _derive(validator, {"requirements": [
+        _cx_requirement(id="REQ-SEC-1", type="security"),
+        _cx_requirement(id="REQ-OPT-1", priority="optional", acceptance_state="unresolved", authority_basis="unresolved", statement="Maybe."),
+    ]})
+    assert status == "REFUSED" and codes == ["RQC-SEC-0001"]
+
+
+def test_rfc6901_pointer_index_syntax_is_enforced() -> None:
+    validator = _load_validator()
+    leaves, subtrees = validator.build_ir_pointer_index(validator.load_frozen_ir_schema())
+
+    def classify(pointer: str) -> str:
+        return validator.classify_ir_pointer(pointer, leaves, subtrees)
+
+    assert classify("/behavior/constraints/0") == "valid"
+    for bad in ("/behavior/constraints/00", "/behavior/constraints/007", "/behavior/constraints/-1", "/behavior/constraints/1e3"):
+        assert classify(bad) == "invalid_pointer_syntax", bad
+    # An unescaped '~' that is not '~0'/'~1' is invalid syntax.
+    assert classify("/behavior/~2") == "invalid_pointer_syntax"
+
+
+# --- Third validation layer: linked artifact sets (6.1 / 6.7) ------------------------------
+
+def test_three_validation_layers_are_reported_independently() -> None:
+    validator = _load_validator()
+    result = validator.validate_package(PACKAGE)
+    assert result["status"] == "PASS"
+    # Each layer reports its own counts; no layer's result stands in for another.
+    assert result["schema_instance_count"] == result["schema_instance_pass_count"] >= 33
+    assert result["fixture_count"] == result["fixture_pass_count"] == 41
+    assert result["linked_artifact_set_count"] == result["linked_artifact_set_pass_count"] >= 11
+    assert result["ir_pointer_case_count"] == result["ir_pointer_case_pass_count"] >= 11
+
+
+def test_linked_artifact_sets_cover_every_terminal_status_and_required_negatives() -> None:
+    validator = _load_validator()
+    records = validator.load_linked_artifact_sets(PACKAGE)
+    assert len(records) >= 11
+    by_id = {record["id"]: record for record in records}
+
+    positives = [record for record in records if record["kind"] == "positive"]
+    statuses = {record["artifacts"]["compile_result"]["status"] for record in positives}
+    assert {"SUCCESS", "PARTIAL", "BLOCKED", "REFUSED"} <= statuses
+
+    required_reasons = {
+        "dangling_bundle_reference", "omitted_document_record", "result_bundle_mismatch",
+        "wrong_mapping_reference", "invalid_approval_closure", "invalid_model_closure",
+    }
+    declared = {record.get("expected_reason") for record in records if record["kind"] == "negative"}
+    assert required_reasons <= declared
+    # The wrong-frozen-IR-version set must prove its exact rejection location.
+    wrong_version = by_id["LAS-NEG-WRONG-FROZEN-IR-VERSION-001"]
+    assert wrong_version["expected_reason"] == "schema_invalid"
+    assert wrong_version["expected_schema_error_path"] == "/frozen_ir_version"
+
+
+def test_linked_artifact_closure_detects_injected_defects() -> None:
+    """Prove the closure layer is not vacuous: mutating a valid set must be detected, and each
+    mutation must be reported with its own specific reason."""
+
+    validator = _load_validator()
+    schema_docs = {path.name: _json(path) for path in (PACKAGE / "schemas").glob("*.schema.json")}
+    registry = validator.build_schema_registry(schema_docs)
+    frozen_version = validator.frozen_ir_spec_version()
+    positive = next(
+        record for record in validator.load_linked_artifact_sets(PACKAGE)
+        if record["id"] == "LAS-POS-SUCCESS-001"
+    )
+    assert validator.validate_linked_artifact_set(positive, schema_docs, registry, frozen_version)["classification"] == "valid"
+
+    mutations = {
+        "different_attempt": lambda a: a["evidence_bundle"].update(compile_result_ref="ATT-OTHER"),
+        "result_document_mismatch": lambda a: a["compile_result"].update(requirements_document_ref="RQD-OTHER"),
+        "omitted_document_record": lambda a: a["evidence_bundle"].update(mapping_refs=[]),
+        "wrong_mapping_reference": lambda a: a["compile_result"].update(mapping_refs=["MAP-NOPE"]),
+        "result_diagnostic_mismatch": lambda a: a["compile_result"].update(diagnostic_refs=["RQDIA-NOPE"]),
+    }
+    for expected_reason, mutate in mutations.items():
+        broken = json.loads(json.dumps(positive))
+        mutate(broken["artifacts"])
+        outcome = validator.validate_linked_artifact_set(broken, schema_docs, registry, frozen_version)
+        assert outcome["classification"] == expected_reason, (expected_reason, outcome["classification"])
+
+
+def test_evidence_bundle_frozen_ir_version_matches_frozen_schema_exactly() -> None:
+    validator = _load_validator()
+    bundle_schema = _json(PACKAGE / "schemas" / "requirements-evidence-bundle.schema.json")
+    assert bundle_schema["properties"]["frozen_ir_version"]["const"] == validator.frozen_ir_spec_version() == "0.1.0"
+    assert "compile_result_ref" in bundle_schema["required"]
+
+
+# --- Traceability completeness (6.9 / refinement 5) ----------------------------------------
+
+def test_required_field_coverage_spans_all_schemas_including_nested_and_conditional() -> None:
+    validator = _load_validator()
+    schema_docs = {path.name: _json(path) for path in (PACKAGE / "schemas").glob("*.schema.json")}
+    fields = validator.enumerate_required_fields(schema_docs)
+
+    # All eight schemas contribute, including nested `$defs` records and conditionally
+    # required fields -- not just top-level `required` on five schemas.
+    assert "requirements_document.approval.evidence" in fields          # nested $defs
+    assert "requirements_document.default.approval_refs" in fields      # conditional if/then
+    assert "requirement.default_ref" in fields                          # conditional if/then
+    assert "intent_input.intent" in fields                              # previously uncovered schema
+    assert "requirements_diagnostic.code" in fields                     # previously uncovered schema
+    assert len(fields) >= 125
+    assert validator.find_uncovered_required_fields(PACKAGE, schema_docs) == []
+
+
+def test_every_normative_clause_has_exactly_one_explicit_disposition() -> None:
+    validator = _load_validator()
+    assert validator.find_clauses_without_disposition(PACKAGE) == []
+
+    known = validator.load_known_clause_ids(PACKAGE)
+    document = _json(PACKAGE / "evidence" / "clause-dispositions.json")
+    declared = [entry["clause"] for entry in document["clauses"]]
+    assert sorted(declared) == sorted(known)
+    assert len(declared) == len(set(declared))
+    for entry in document["clauses"]:
+        assert entry["disposition"] in validator.CLAUSE_DISPOSITIONS
+        # Relevance of a natural-language clause citation is never claimed as automated proof:
+        # manual_review is preserved as a first-class disposition and must carry a rationale.
+        if entry["disposition"] == "manual_review":
+            assert entry.get("rationale")
+    assert any(entry["disposition"] == "manual_review" for entry in document["clauses"])
+
+
+def test_disposition_check_detects_missing_and_invalid_dispositions(tmp_path: Path) -> None:
+    """Prove the disposition check is not vacuous."""
+
+    validator = _load_validator()
+    document = _json(PACKAGE / "evidence" / "clause-dispositions.json")
+
+    staged = tmp_path / "evidence"
+    staged.mkdir()
+    for name in ("REQUIREMENTS_COMPILER_SPEC.md", "AUTHORITY_AND_DEFAULTS.md", "REQUIREMENTS_EVIDENCE_MODEL.md",
+                 "SECURITY_PRIVACY_APPROVALS.md", "DIAGNOSTICS.md", "TRACEABILITY.md"):
+        (tmp_path / name).write_text((PACKAGE / name).read_text(encoding="utf-8"), encoding="utf-8")
+
+    dropped = {"contract_version": "0.1.0-draft", "clauses": document["clauses"][:-1]}
+    (staged / "clause-dispositions.json").write_text(json.dumps(dropped), encoding="utf-8")
+    assert validator.find_clauses_without_disposition(tmp_path) != []
+
+    invalid = {"contract_version": "0.1.0-draft",
+               "clauses": [dict(entry, disposition="looks_fine_to_me") for entry in document["clauses"]]}
+    (staged / "clause-dispositions.json").write_text(json.dumps(invalid), encoding="utf-8")
+    assert validator.find_clauses_without_disposition(tmp_path) != []
