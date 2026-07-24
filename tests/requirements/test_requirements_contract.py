@@ -33,8 +33,8 @@ REQUIRED_DIAGNOSTIC_FAMILIES = {
     "RQC-UNS-0001", "RQC-VER-0001",
 }
 FROZEN_HASHES = {
-    "architecture/compiler-contract-freeze-v0.5/PROMPTRIG_IR_V0_1.schema.json": "a274953882b5b46166d87eece761dd1b637ddc7c8061b1c2ba4b2f0cb9303ad3",
-    "architecture/diagnostics/DIAGNOSTIC_CODE_REGISTRY.json": "ad42ca198f089a0f578bf99daa797f86e58d146f398bd2b93aae6a4c945e6987",
+    "architecture/compiler-contract-freeze-v0.5/PROMPTRIG_IR_V0_1.schema.json": "082e03e9b7c920a84b0359e71cb7429bf76a412cfcdc0b7d27f9d247ab0074e6",
+    "architecture/diagnostics/DIAGNOSTIC_CODE_REGISTRY.json": "d900aa57468be4cadb145d4a6458ef0308ad4d686ea86aab3407c782dfd4dc8f",
 }
 
 
@@ -168,8 +168,13 @@ def test_validator_uses_no_network_or_credentials(monkeypatch: pytest.MonkeyPatc
 
 
 def test_frozen_ir_and_diagnostic_registry_hashes_are_unchanged() -> None:
+    # Hash the LF-normalized content (matching the committed git blob), not the raw
+    # checked-out bytes: a local core.autocrlf=true checkout rewrites these files to
+    # CRLF on disk, which would otherwise make this content-integrity check depend on
+    # the tester's git config rather than on whether the frozen content actually changed.
     for relative, expected in FROZEN_HASHES.items():
-        actual = hashlib.sha256((ROOT / relative).read_bytes()).hexdigest()
+        raw = (ROOT / relative).read_bytes()
+        actual = hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
         assert actual == expected
 
 
