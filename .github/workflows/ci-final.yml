@@ -1,0 +1,106 @@
+name: CI Final Gate
+
+on:
+  pull_request:
+    branches: ["feature/promptrig-framework"]
+    types: [labeled, synchronize, reopened]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Exact branch, tag, or SHA to test
+        required: true
+        type: string
+      expected_sha:
+        description: Expected exact commit SHA
+        required: true
+        type: string
+
+concurrency:
+  group: ci-final-${{ github.event.pull_request.number || inputs.expected_sha }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  preflight:
+    name: exact-head
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.pull_request.labels.*.name, 'ci:final-gate')
+    runs-on: ubuntu-latest
+    outputs:
+      target_sha: ${{ steps.target.outputs.sha }}
+    steps:
+      - name: Check out exact target
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.ref || github.event.pull_request.head.sha }}
+          fetch-depth: 0
+
+      - name: Verify exact target
+        id: target
+        shell: bash
+        run: |
+          ACTUAL="$(git rev-parse HEAD)"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            EXPECTED="${{ inputs.expected_sha }}"
+          else
+            EXPECTED="${{ github.event.pull_request.head.sha }}"
+          fi
+          test "$ACTUAL" = "$EXPECTED"
+          echo "sha=$ACTUAL" >> "$GITHUB_OUTPUT"
+
+  test:
+    name: test (${{ matrix.os }}, py${{ matrix.python-version }})
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.11", "3.12"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.target_sha }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install
+        run: |
+          python -m pip install -e .
+          python -m pip install pytest
+
+      - name: Full tests
+        run: python -m pytest
+
+      - name: Validate datasets
+        run: |
+          python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
+          python -m promptrig.cli validate --dataset evals/datasets/meta_prompting_cases.jsonl
+          python -m promptrig.cli validate --dataset evals/datasets/agentic_mode_cases.jsonl
+          python -m promptrig.cli validate --dataset evals/datasets/adversarial_cases.jsonl
+
+      - name: Compiler smoke
+        run: |
+          promptrig-compiler doctor --json
+          promptrig-compiler adapters --json
+          python -m promptrig.compiler.cli_compiler doctor --json
+          python -m promptrig.compiler.cli_compiler adapters --json
+
+  typescript-drift:
+    name: typescript-drift
+    needs: preflight
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.preflight.outputs.target_sha }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install -e .
+      - run: |
+          python scripts/generate_typescript_contracts.py
+          git diff --exit-code -- architecture/typescript
