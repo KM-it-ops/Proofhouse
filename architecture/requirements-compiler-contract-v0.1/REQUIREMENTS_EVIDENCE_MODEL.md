@@ -45,7 +45,9 @@
 - **EM-021:** Lists use deterministic ID ordering and preserve source order separately when semantically relevant.
 - **EM-022:** The bundle distinguishes generated evidence from accepted source evidence.
 - **EM-023:** The bundle includes contract version and exact frozen IR target version. The exact value is `0.1.0`, equal to frozen PromptRig IR v0.1's `spec_version` constant; deterministic validation reads that constant and compares it against the bundle rather than trusting the declared string.
-- **EM-025:** The bundle names the compile-result attempt it supports (`compile_result_ref`), and that result names the bundle (`evidence_bundle_ref`). Same-attempt membership is proved by this explicit reference chain, never by records merely appearing together.
+- **EM-025:** The bundle names the compile-result attempt it supports (`compile_result_ref`), and that result names the bundle (`evidence_bundle_ref`). Same-attempt membership is proved by this explicit reference chain, never by records merely appearing together. Attempt-bound artifacts are the intent input, requirements document, mappings, diagnostics, and compile result. Sources, policies, approvals, and external evidence are **reusable authority evidence**: they need not be produced by the citing attempt, but must be immutable, content-addressed, and referenced exactly.
+- **EM-026:** Accepted-contract authority requires the exact contract identity, version, and content digest carried on a current source of kind `contract`. Source kind alone never establishes accepted-contract authority.
+- **EM-027:** The canonical hashing domain is exact: UTF-8 encoding; JSON object keys sorted lexicographically; array order preserved as semantic order; compact separators; exactly one trailing newline; SHA-256 over those bytes. `artifact_hashes` keys are limited to the attempt-bound artifacts, and the bundle never contains a hash of itself, so the digest domain is acyclic. A reusable record's `content_digest` is taken over the record with its own `content_digest` removed.
 - **EM-024:** The bundle never claims production compiler certification.
 
 ## Requirement and IR completeness

@@ -52,6 +52,8 @@
 | `explicitly_defaulted` | A resolved default record named by `default_ref`, itself approved when consequential. |
 | `deterministically_derived` | A resolved derivation record naming this requirement among its outputs and carrying deterministic validation evidence. |
 
+- **RC-027:** A resolved source proves *provenance*, not semantic equivalence. When a cited source is byte-backed, `directly_stated` acceptance additionally requires the requirement's `statement_digest` to equal the preserved source `fragment_digest`, so the statement is byte-identical to recorded source text. Whether that text *means* the requirement remains a manual-review obligation and is never reported as automated proof.
+
 ## Assumptions, ambiguity, conflicts, and questions
 
 - **RC-030:** Assumptions are explicit records with identity, statement, source references, impact, and acceptance state.

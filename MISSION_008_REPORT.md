@@ -239,6 +239,47 @@ The 41 semantic-oracle cases are a **test-only semantic projection, not canonica
 
 **OQ-008-010 resolved — structured-only canonical records**, by explicit owner decision recorded in the MISSION-008 instruction context and **not** appended to the frozen D-050 log. Canonical assumptions and questions now require stable identity and normative evidence, so `assumption_refs`/`question_refs` close over every canonical record. All `RCD-008-*` decisions remain **Proposed**; this round approves none of them, and the PRS disposition remains `DEFERRED`.
 
+## Corrective round 3 — canonical composition and complete reference resolution
+
+A further independent review of head `05ca2e2` returned `REQUEST CHANGES`. It accepted the B1–B4
+corrections *within the semantic-oracle layer* and identified that the canonical path never ran
+those rules, plus several incomplete resolutions. All seven blockers are corrected.
+
+| Blocker | Correction |
+|---|---|
+| 1 — closure was not validity | One shared contract-rule engine (`evaluate_contract_rules`) now evaluates a normalized `ContractRuleContext` reached through two adapters: `context_from_fixture` (compact) and `context_from_artifacts` (canonical). Every linked set derives its terminal status and diagnostics from its canonical artifacts and must match `compile_result.status`, `reason_codes`, `diagnostic_refs`, and mapping evidence exactly; a canonical `SUCCESS`/`PARTIAL` that fails semantic validation is rejected. There is exactly one rule implementation. Canonical evaluation inspects **no** authoring prose. |
+| 2 — approval resolution incomplete | Authorization now requires the full chain: subject → `approval_ref` → approval → `policy_ref` → accepted policy → authoritative source with exact identity, version, and digest. Unique ID, active `approved`, exact subject coverage, `scope.kind`+`scope.value` coverage, authority satisfying the policy, and evidence resolving through `evidence_refs` (preserved source or governed external URI+SHA-256) are all checked. `required_authority` is `owner`/`user`/`owner_or_user`/`owner_and_user` — the ambiguous `any` is gone. Requirements, assumptions, and defaults share one resolution path, and `default.approved` must agree exactly with the resolved state. A truthy string never satisfies the gate. |
+| 3 — duplicate identities hidden | `find_duplicate_identities` counts over **lists** across all 16 canonical namespaces; `_unique` fails closed on zero *or* more than one match, so authorization cannot depend on which duplicate appears last. Order-reversal fixtures prove it. |
+| 4 — security status semantics | An accepted security/privacy requirement missing evidence or mapping is now `BLOCKED` (`RQC-BLK-0001` + `RQC-SEC-0001`/`RQC-PRV-0001`). `REFUSED` requires an accepted `prohibition` policy that resolves and whose scope applies (SP-011/SP-024). The regression tests that expected unconditional `REFUSED` were corrected. |
+| 5 — authority-basis matrix incomplete | Each basis now resolves fully, and withdrawn/replaced/missing evidence never supports acceptance. `accepted_contract` requires exact identity, version, and digest — not merely source kind. Per RC-027, a byte-backed `directly_stated` source additionally requires the statement digest to equal the preserved fragment digest; semantic *equivalence* remains manual review and is never claimed as automated proof. |
+| 6 — closure incomplete | Mapping `authority_ref` (type-specific) and `validation_ref`, diagnostics, gaps, derivations, and validation records all resolve; result mappings and diagnostics equal the attempt's exactly; reason codes reconcile with diagnostics; and declared hashes are recomputed from actual canonical bytes. No syntactically valid dangling reference survives. |
+| 7 — pointer parity | `source-evidence.schema.json` accepts complete multi-segment RFC 6901 pointers, matching the semantic validator exactly, with new nested-pointer positive and malformed-escape negative fixtures. |
+
+**Attempt-bound versus reusable evidence (EM-025).** Intent input, requirements document, mappings,
+diagnostics, and compile result are attempt-bound and hash-verified. Sources, policies, approvals,
+and external evidence are reusable authority evidence: not produced by the citing attempt, but
+immutable, content-addressed, and referenced exactly. The report no longer claims every record
+belongs to the same attempt.
+
+**Canonical hashing (EM-027).** UTF-8; object keys sorted; array order preserved as semantic order;
+compact separators; one trailing newline; SHA-256 over those bytes. `artifact_hashes` keys are
+restricted to the attempt-bound artifacts and the bundle never hashes itself, so the digest domain
+is acyclic. A reusable record's `content_digest` is taken over the record with that field removed.
+
+**Layer results (four independent corpora):** schema-instance **35/35**, semantic-oracle **41/41**,
+linked-artifact **26/26** (5 positive covering SUCCESS/PARTIAL/BLOCKED/REFUSED plus a fully resolved
+approval chain; 21 negative each proving its specific rejection reason), IR-pointer **11/11**.
+Deterministic evidence is byte-identical across repeated runs.
+
+**Local verification for this round.** Unlike the previous round, a working interpreter was
+available, so the full suite ran locally: `python -m pytest` **366 passed**; four dataset
+validations passed; Compiler Core CLI `doctor` and `adapters` returned success; TypeScript
+regeneration produced no drift; `git diff --check` clean; frozen IR and frozen diagnostic-registry
+blobs byte-identical to baseline with tag `v0.5-architecture-freeze` still at
+`7948c9a419dc02ea43ca994f0334733ea4b08855`.
+
+All `RCD-008-*` decisions remain **Proposed**; this round approves none. PRS remains `DEFERRED`.
+
 ## Final-head CI and PR state
 
 This report cannot embed the final-head CI run or PR state as a claim inside itself: doing so would require a commit that changes HEAD, which would invalidate the very claim that the recorded run tested the final head. Final-head CI results and current PR state are therefore authoritative only through GitHub PR metadata (the draft PR's checks and a PR comment recording the exact run), not through any commit to this file.

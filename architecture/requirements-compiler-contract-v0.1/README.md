@@ -45,8 +45,8 @@ Out of scope:
 | [OWNER_DECISION_REQUEST.md](OWNER_DECISION_REQUEST.md) | Exact owner choices and non-authorizations |
 | `schemas/` | Eight Draft 2020-12 proposed schemas |
 | `fixtures/cases.json` | 41 semantic-oracle cases. A **test-only semantic projection, not canonical requirements documents** |
-| `fixtures/schema_instances.json` | 33 schema-conformance instances proving exact acceptance and rejection reasons |
-| `fixtures/linked_artifact_sets.json` | 11 complete, cross-referenced artifact sets proving evidence-bundle closure |
+| `fixtures/schema_instances.json` | 35 schema-conformance instances proving exact acceptance and rejection reasons |
+| `fixtures/linked_artifact_sets.json` | 26 complete, cross-referenced artifact sets proving closure **and** semantic validity |
 | `fixtures/ir_pointer_cases.json` | 11 frozen-IR pointer-validity cases |
 | `evidence/` | Deterministic inventories, mappings, hashes, results, gaps, clause dispositions, and PRS matrix |
 | `validate_contract.py` | Test-only package validator; not product runtime |
@@ -55,9 +55,11 @@ Out of scope:
 
 Deterministic validation reports three layers separately, each with its own counts. No layer's result is evidence for another:
 
-1. **Schema-instance** (33) — individual records accepted, or rejected at the exact intended keyword and location.
+1. **Schema-instance** (35) — individual records accepted, or rejected at the exact intended keyword and location.
 2. **Semantic-oracle** (41) — terminal status and diagnostics for structured candidates. These cases are a compact test-only projection, **not** canonical requirements documents.
-3. **Linked-artifact** (11) — complete schema-valid artifact sets whose references resolve and whose evidence bundle closes over every canonical document record, with same-attempt membership proved by an explicit reference chain.
+3. **Linked-artifact** (26) — complete schema-valid artifact sets whose references resolve, whose evidence bundle closes over every canonical record, and whose declared terminal status, reason codes, and diagnostics must reconcile **exactly** with the shared rule engine.
+
+Layers 2 and 3 are evaluated by **one shared contract-rule engine** over a normalized rule context, reached through two adapters (compact fixture, canonical artifacts). There is no second rule implementation, and canonical evaluation never inspects authoring prose.
 
 A fourth corpus of 11 IR-pointer cases checks frozen-IR pointer classification against frozen IR v0.1 (`spec_version` `0.1.0`). Green validation proves internal consistency of this proposal only.
 
