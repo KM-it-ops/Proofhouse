@@ -271,6 +271,14 @@ linked-artifact **26/26** (5 positive covering SUCCESS/PARTIAL/BLOCKED/REFUSED p
 approval chain; 21 negative each proving its specific rejection reason), IR-pointer **11/11**.
 Deterministic evidence is byte-identical across repeated runs.
 
+**Traceability after this round.** The new canonical records enlarge the required-field surface:
+**159 enumerated required fields** across all eight schemas including nested `$defs` and
+conditionally required fields, all covered, carried by 160 justification entries (155 for required
+fields plus 5 documenting conditionally-optional fields). Normative clauses rise to **186**, each
+with exactly one explicit disposition, of which **35** remain `manual_review` with a recorded
+rationale. The counts stated in the previous round's section above (125 fields, 183 clauses, 34
+`manual_review`) describe that round and are retained as its record, not as current totals.
+
 **Local verification for this round.** Unlike the previous round, a working interpreter was
 available, so the full suite ran locally: `python -m pytest` **366 passed**; four dataset
 validations passed; Compiler Core CLI `doctor` and `adapters` returned success; TypeScript
