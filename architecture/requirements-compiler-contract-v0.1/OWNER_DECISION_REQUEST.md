@@ -1,6 +1,19 @@
 # MISSION-008 Owner Decision Request
 
-**Status:** Proposed. Independent review and explicit owner answers are required.  
+**Status:** **RESOLVED — all ten decisions approved.** The Project Owner approved `RCD-008-001` through
+`RCD-008-010` individually on 2026-07-25 at head `ce4a3ac05bca4bab5b2574555ba69560ef733680`. The binding
+record is [OAR-002](../OWNER_ACCEPTANCE_RECORDS/OAR-002.md); statuses are `Accepted` in
+[DECISION_LOG.md](DECISION_LOG.md).
+
+`RCD-008-009` was approved as `DEFERRED` — the deferral itself is the accepted outcome, so ADR-001 is
+unchanged and PRS is not accepted contract syntax.
+
+Ratification accepts the contract direction only. Every non-authorization below still stands, and merge,
+release, capability promotion, and MISSION-009 onward remain separate explicit gates. `OQ-008-001` through
+`OQ-008-010` remain open.
+
+The recommendations below are retained as the record of what was requested and on what basis.
+
 **Requested response format:** approve, reject, or modify each `RCD-008-*` decision separately.
 
 ## RCD-008-001 — Requirements and evidence model
@@ -125,7 +138,8 @@
 
 ## Collective effect and retained gates
 
-Approval of all ten recommendations would ratify this Proposed contract direction only. The package would still require independent review, an owner-recorded acceptance change, and separately authorized implementation and certification missions. It would not:
+All ten recommendations were approved, ratifying the contract direction only. The package still requires
+separately authorized implementation and certification missions. Ratification does **not**:
 
 - self-certify or promote the Requirements compiler capability;
 - begin MISSION-009, MISSION-010, or MISSION-011;

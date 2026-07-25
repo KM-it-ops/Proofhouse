@@ -135,7 +135,8 @@ Explicit owner answers are required for RCD-008-001 through RCD-008-010:
 9. PRS `DEFERRED` recommendation;
 10. IRG-008-001 and IRG-008-002 as Phase 5 inputs.
 
-All remain Proposed pending independent review and explicit owner approval.
+All were Proposed at the time of this section. **Superseded: all ten were approved by explicit owner
+decision on 2026-07-25 — see "Owner ratification" below.**
 
 ## Required manual review answers
 
@@ -348,7 +349,45 @@ following that path would have verified nothing. The in-repo frozen-hash test al
 correct path and is unchanged.
 
 Round 4 changes no schema, adds no production code, touches no frozen path, and approves no decision.
-All ten `RCD-008-*` decisions remain **Proposed**. PRS remains `DEFERRED`.
+All ten `RCD-008-*` decisions remained **Proposed** as of round 4. **Superseded by owner ratification on
+2026-07-25 — see below.** PRS remains `DEFERRED`.
+
+## Owner ratification (2026-07-25)
+
+The Project Owner approved `RCD-008-001` through `RCD-008-010` individually at head
+`ce4a3ac05bca4bab5b2574555ba69560ef733680`. The binding record is
+[OAR-002](architecture/OWNER_ACCEPTANCE_RECORDS/OAR-002.md); `DECISION_LOG.md` statuses are now
+`Accepted`, and `OWNER_DECISION_REQUEST.md` is marked resolved. Earlier statements in this report that all
+`RCD-008-*` decisions remain Proposed describe the rounds in which they were written and are retained as
+those rounds' record.
+
+`RCD-008-009` was approved as `DEFERRED`: the deferral itself is the accepted outcome, so **ADR-001 is
+unchanged**, PRS is not accepted contract syntax, and no PRS grammar, parser, formatter, or language server
+is authorized.
+
+**What ratification does.** It accepts the contract direction — the requirements document and evidence
+bundle boundary, the authority order, the default regime, the deterministic/model-assisted boundary, the
+five terminal statuses, the `RQC-*` diagnostic namespace, first-class fail-closed security/privacy/approval
+handling, and exact requirement-to-IR traceability.
+
+**What ratification does not do.** It is not certification, not capability promotion, and not
+implementation authority. It authorizes no requirements compiler, parser, model call, evaluation, repair,
+live execution, benchmark, UI, API, persistence, tenancy, billing, or hosted infrastructure; changes no
+frozen contract, registry, generated artifact, CI, package, or tag; accepts no IR v0.2 shape and does not
+authorize ADR-007; starts no MISSION-009 through MISSION-011; and **does not merge PR #13, enable
+auto-merge, mark it ready for review, or authorize release or tags.** Merge, release, capability promotion,
+and later missions remain separate explicit gates.
+
+**Still open.** `OQ-008-001` through `OQ-008-010` remain open and are not resolved by ratification.
+`OQ-008-003` (approval-authority thresholds) is the operationally significant one: required authority
+continues to resolve from an accepted approval-threshold policy, and undeterminable authority remains
+`BLOCKED` rather than assumed. Semantic equivalence between a preserved source fragment and a requirement
+statement remains a manual review obligation.
+
+**On the record at ratification.** The round-4 correction at `ce4a3ac` has **not** itself been
+independently audited, and the conflict-precedence reordering in particular has not been independently
+reviewed. The owner ratified with that caveat explicit. Green CI evidences internal consistency of this
+proposal only, not production correctness.
 
 ## Final-head CI and PR state
 
