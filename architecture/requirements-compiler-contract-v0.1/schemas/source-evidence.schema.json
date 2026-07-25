@@ -17,14 +17,28 @@
       "required": ["uri", "json_pointer"],
       "properties": {
         "uri": {"type": "string", "minLength": 1},
-        "json_pointer": {"type": "string", "pattern": "^(|/(?:[^~/]|~[01])*)$"},
+        "json_pointer": {"type": "string", "pattern": "^(?:|(?:/(?:[^~/]|~[01])*)*)$", "description": "Complete RFC 6901 pointer with any number of reference tokens; '~' is valid only as '~0' or '~1'. This pattern is deliberately identical to the semantic validator's JSON_POINTER so schema and semantic layers agree."},
         "line": {"type": "integer", "minimum": 1},
         "column": {"type": "integer", "minimum": 1}
       }
     },
+    "fragment": {"type": "string", "minLength": 1, "description": "RC-027: the exact preserved source text a directly_stated requirement was taken from."},
+    "fragment_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "RC-027: SHA-256 over the UTF-8 bytes of `fragment`. A requirement claiming directly_stated authority against a byte-backed source must carry a statement_digest equal to this value."},
+    "contract_identity": {"type": "string", "minLength": 1, "description": "EM-026: exact accepted-contract identity, required when kind is `contract`."},
+    "contract_version": {"type": "string", "minLength": 1, "description": "EM-026: exact accepted-contract version, required when kind is `contract`."},
     "replaced_by": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}
   },
   "allOf": [
-    {"if": {"properties": {"lifecycle": {"const": "replaced"}}}, "then": {"required": ["replaced_by"]}}
+    {"if": {"properties": {"lifecycle": {"const": "replaced"}}, "required": ["lifecycle"]}, "then": {"required": ["replaced_by"]}},
+    {
+      "$comment": "EM-026: an accepted-contract source must identify the exact contract identity, version, and content digest. Source kind alone never establishes accepted-contract authority.",
+      "if": {"properties": {"kind": {"const": "contract"}}, "required": ["kind"]},
+      "then": {"required": ["contract_identity", "contract_version", "sha256"]}
+    },
+    {
+      "$comment": "RC-027: a preserved source fragment must carry its digest so statement provenance is checkable.",
+      "if": {"required": ["fragment"]},
+      "then": {"required": ["fragment_digest"]}
+    }
   ]
 }

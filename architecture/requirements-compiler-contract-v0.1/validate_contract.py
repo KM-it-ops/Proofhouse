@@ -469,82 +469,263 @@ ACCEPTED_PERMITTED_AUTHORITY = {
 _EMITTING_OUTCOMES = {"direct", "deterministic_derivation", "authorized_default"}
 
 
-def _by_id(records: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
-    return {record.get("id"): record for record in records if isinstance(record.get("id"), str)}
+# Every canonical record namespace whose identities must be unique. Uniqueness is checked over
+# LISTS: a dict, set, or JSON Schema `uniqueItems` would silently keep only one of two records
+# that share an ID but differ in content, which is exactly the substitution being guarded against.
+CANONICAL_NAMESPACES = (
+    "requirements", "sources", "mappings", "diagnostics", "assumptions", "questions",
+    "conflicts", "defaults", "approvals", "model_proposals", "derivations",
+    "test_mappings", "gaps", "validations", "policies", "external_evidence",
+)
+# Namespaces that are reusable authority evidence rather than products of one attempt. These need
+# not be created by the attempt that cites them, but must be immutable, content-addressed, and
+# referenced exactly (refinement 5).
+REUSABLE_NAMESPACES = ("sources", "policies", "approvals", "external_evidence")
 
 
-def _model_originated(candidate: dict[str, Any]) -> set[str]:
+def _records(container: Mapping[str, Any], key: str) -> list[dict[str, Any]]:
+    value = container.get(key)
+    return [record for record in value if isinstance(record, dict)] if isinstance(value, list) else []
+
+
+def find_duplicate_identities(context: Mapping[str, Any]) -> list[str]:
+    """Reject duplicate IDs in every canonical namespace (blocker 3). Operates on lists so that
+    same-ID/different-content records cannot hide behind last-write-wins lookup."""
+
+    problems: list[str] = []
+    for namespace in CANONICAL_NAMESPACES:
+        counts = Counter(
+            record["id"] for record in context.get(namespace, []) if isinstance(record.get("id"), str)
+        )
+        problems.extend(f"{namespace}:{identity}" for identity, count in counts.items() if count > 1)
+    return sorted(problems)
+
+
+def _unique(context: Mapping[str, Any], namespace: str, identity: Any) -> dict[str, Any] | None:
+    """Resolve exactly one record. Zero matches is dangling; more than one is ambiguous. Both fail
+    closed, so authorization can never depend on which duplicate happens to appear last."""
+
+    if not isinstance(identity, str):
+        return None
+    matches = [record for record in context.get(namespace, []) if record.get("id") == identity]
+    return matches[0] if len(matches) == 1 else None
+
+
+def _model_originated(context: Mapping[str, Any]) -> set[str]:
     originated: set[str] = set()
-    for proposal in candidate.get("model_proposals", []):
+    for proposal in context.get("model_proposals", []):
         originated.update(proposal.get("proposed_records", []) or [])
     return originated
 
 
-def _approval_authorizes(approval: Any, subject_id: str) -> bool:
-    """B2: an approval record authorizes a subject only when it is a valid, active,
-    evidenced, scope-covering decision. Rejected/revoked/expired/superseded, missing
-    evidence, or a non-covering subject never authorize (AD-051/SP-023/RC-044)."""
-    if not isinstance(approval, dict):
+def _authoritative_source(context: Mapping[str, Any], source_ref: Any) -> dict[str, Any] | None:
+    """A source that may anchor governing authority: uniquely resolvable, current, and -- for an
+    accepted contract -- carrying exact identity, version, and content digest (refinement 7)."""
+
+    source = _unique(context, "sources", source_ref)
+    if source is None or source.get("lifecycle") != "current":
+        return None
+    if source.get("kind") == "contract":
+        if not (source.get("contract_identity") and source.get("contract_version") and source.get("sha256")):
+            return None
+    elif source.get("kind") not in ("decision", "contract"):
+        return None
+    return source
+
+
+def resolve_policy(context: Mapping[str, Any], policy_ref: Any, kind: str | None = None) -> dict[str, Any] | None:
+    """Resolve an accepted governing policy anchored to an authoritative source. A truthy string is
+    never a policy (refinement 3)."""
+
+    policy = _unique(context, "policies", policy_ref)
+    if policy is None or policy.get("status") != "accepted":
+        return None
+    if kind is not None and policy.get("kind") != kind:
+        return None
+    if _authoritative_source(context, policy.get("source_ref")) is None:
+        return None
+    return policy
+
+
+def _evidence_resolves(context: Mapping[str, Any], evidence_refs: Any) -> bool:
+    """Approval evidence must resolve to preserved source evidence or governed external evidence
+    carrying a URI and SHA-256. An arbitrary non-empty string never authorizes (refinement 4)."""
+
+    refs = evidence_refs or []
+    if not refs:
         return False
-    if approval.get("decision") != "approved":
+    for ref in refs:
+        if isinstance(ref, str) and ref.startswith("SRC-"):
+            source = _unique(context, "sources", ref)
+            if source is None or source.get("lifecycle") not in ("current", "replaced"):
+                return False
+        elif isinstance(ref, str) and ref.startswith("EXT-"):
+            external = _unique(context, "external_evidence", ref)
+            if external is None or not (external.get("uri") and external.get("sha256")):
+                return False
+            if resolve_policy(context, external.get("governed_by")) is None:
+                return False
+        else:
+            return False
+    return True
+
+
+def _scope_covers(scope: Any, subject_kind: str, subject_id: str) -> bool:
+    """Exact machine-readable scope match. Membership in `subject_refs` alone is NOT scope
+    coverage (refinement 3)."""
+
+    if not isinstance(scope, dict):
         return False
-    if not approval.get("evidence"):
+    return scope.get("kind") == subject_kind and scope.get("value") == subject_id
+
+
+def _authority_satisfied(granted: set[str], required: Any) -> bool:
+    if required == "owner":
+        return "owner" in granted
+    if required == "user":
+        return "user" in granted
+    if required == "owner_or_user":
+        return bool(granted & {"owner", "user"})
+    if required == "owner_and_user":
+        return {"owner", "user"} <= granted
+    return False
+
+
+def subject_authorized(
+    context: Mapping[str, Any], subject_kind: str, subject_id: str, approval_refs: Any
+) -> bool:
+    """The exact approval chain (refinement 3):
+
+        subject -> approval_ref -> approval -> policy_ref -> accepted policy -> authoritative
+        source with exact identity/version/digest
+
+    Every link must resolve. Rejected, revoked, expired, superseded, duplicate, wrong-subject,
+    wrong-scope, unresolved-evidence, and fabricated-policy approvals all fail closed.
+    """
+
+    granted: set[str] = set()
+    required: set[str] = set()
+    for ref in approval_refs or []:
+        approval = _unique(context, "approvals", ref)
+        if approval is None or approval.get("decision") != "approved":
+            continue
+        if subject_id not in (approval.get("subject_refs") or []):
+            continue
+        if not _scope_covers(approval.get("scope"), subject_kind, subject_id):
+            continue
+        policy = resolve_policy(context, approval.get("policy_ref"), kind="approval_threshold")
+        if policy is None:
+            continue
+        if not _scope_covers(policy.get("scope"), subject_kind, subject_id):
+            continue
+        if not _evidence_resolves(context, approval.get("evidence_refs")):
+            continue
+        granted.add(approval.get("authority"))
+        required.add(policy.get("required_authority"))
+    if not granted or len(required) != 1:
         return False
-    if subject_id not in (approval.get("subject_refs") or []):
+    return _authority_satisfied(granted, next(iter(required)))
+
+
+def prohibition_applies(context: Mapping[str, Any], requirement: Mapping[str, Any]) -> bool:
+    """REFUSED requires an accepted prohibition policy whose scope actually resolves and applies to
+    this requirement (blocker 4). Absent one, fail-closed meaning is BLOCKED, not REFUSED."""
+
+    for policy in context.get("policies", []):
+        if resolve_policy(context, policy.get("id"), kind="prohibition") is None:
+            continue
+        if _scope_covers(policy.get("scope"), "requirement", requirement.get("id", "")):
+            return True
+        if _scope_covers(policy.get("scope"), "operation", requirement.get("operation", "")):
+            return True
+    return False
+
+
+def default_authorized(context: Mapping[str, Any], default: Mapping[str, Any]) -> bool:
+    """AD-020/AD-025: a default carries authority only when it resolves completely. A consequential
+    default additionally needs a valid approval chain, and its `approved` flag must AGREE EXACTLY
+    with the resolved approval state -- the boolean is derived evidence, never authorization."""
+
+    if not default.get("scope") or not default.get("authority_ref"):
+        return False
+    for ref in default.get("source_refs") or []:
+        if _unique(context, "sources", ref) is None:
+            return False
+    resolved = subject_authorized(context, "default", default.get("id", ""), default.get("approval_refs"))
+    if default.get("consequential"):
+        if not resolved:
+            return False
+    if bool(default.get("approved")) != bool(resolved or not default.get("consequential")):
         return False
     return True
 
 
-def _has_active_approval(subject_id: str, approval_refs: Any, approvals: Mapping[str, Any]) -> bool:
-    return any(_approval_authorizes(approvals.get(ref), subject_id) for ref in (approval_refs or []))
+def authority_backed(context: Mapping[str, Any], requirement: Mapping[str, Any]) -> tuple[bool, str | None]:
+    """The authority-basis proof matrix (RC-026 / refinement 7). Selecting a permitted enum value is
+    never proof of it: each basis must resolve to backing evidence, and withdrawn, replaced, or
+    missing authority evidence never supports accepted meaning. Returns (ok, blocking_code).
 
+    Note on scope: a resolved source proves *provenance*, not semantic equivalence. Where the cited
+    source is byte-backed, `directly_stated` additionally requires the requirement's
+    `statement_digest` to equal the preserved source fragment digest. Semantic equivalence itself
+    remains a manual-review obligation and is never claimed as automated proof."""
 
-def _approval_policy_present(case: dict[str, Any]) -> bool:
-    """Refinement 2 / OQ-008-003: consequential approval enforcement requires an explicit
-    accepted approval-policy or authority-threshold reference; we do not invent owner-vs-user
-    thresholds while OQ-008-003 is unresolved. Absent the policy the required authority cannot
-    be determined and the result is BLOCKED."""
-    inputs = case["input"].get("authoritative_inputs", [])
-    if any(value.startswith("accepted_contract:approval") or value.startswith("owner:approval-policy") for value in inputs):
-        return True
-    return bool(case["candidate"].get("approval_policy_ref"))
-
-
-def _authority_backed(
-    requirement: dict[str, Any],
-    sources: Mapping[str, Any],
-    defaults: Mapping[str, Any],
-    approvals: Mapping[str, Any],
-    derivations: Mapping[str, Any],
-    model_originated: set[str],
-) -> tuple[bool, str | None]:
-    """Refinement 1 (authority-basis proof matrix): a permitted authority basis on an accepted
-    requirement must be backed by resolved evidence. Selecting an enum value is never sufficient.
-    Returns (ok, blocking_code)."""
     basis = requirement.get("authority_basis")
     rid = requirement.get("id", "")
+
     if basis == "directly_stated":
-        if rid in model_originated:
-            return False, "RQC-MDL-0001"  # model-produced meaning cannot become directly stated
-        if not any(sources.get(ref, {}).get("lifecycle", "current") == "current" for ref in requirement.get("source_refs", [])):
-            return False, "RQC-EVD-0001"
-        return True, None
+        if rid in _model_originated(context):
+            return False, "RQC-MDL-0001"
+        for ref in requirement.get("source_refs") or []:
+            source = _unique(context, "sources", ref)
+            if source is None or source.get("lifecycle") != "current":
+                continue
+            if source.get("fragment_digest") or source.get("sha256"):
+                # Byte-backed source: the statement must match the preserved fragment exactly.
+                if requirement.get("statement_digest") and requirement["statement_digest"] == source.get("fragment_digest"):
+                    return True, None
+                continue
+            return True, None  # ephemeral source with no bytes; provenance only
+        return False, "RQC-EVD-0001"
+
     if basis in ("owner_decision", "user_decision"):
         want = "owner" if basis == "owner_decision" else "user"
-        ok = any(
-            _approval_authorizes(approvals.get(ref), rid) and approvals.get(ref, {}).get("authority") == want
-            for ref in requirement.get("approval_refs", [])
-        )
-        return (ok, None if ok else "RQC-APR-0001")
+        for ref in requirement.get("approval_refs") or []:
+            approval = _unique(context, "approvals", ref)
+            if approval is None or approval.get("authority") != want:
+                continue
+            if subject_authorized(context, "requirement", rid, [ref]):
+                return True, None
+        return False, "RQC-APR-0001"
+
     if basis == "accepted_contract":
-        ok = any(sources.get(ref, {}).get("kind") == "contract" for ref in requirement.get("source_refs", []))
-        return (ok, None if ok else "RQC-EVD-0001")
+        for ref in requirement.get("source_refs") or []:
+            source = _unique(context, "sources", ref)
+            if source is None or source.get("kind") != "contract" or source.get("lifecycle") != "current":
+                continue
+            if source.get("contract_identity") and source.get("contract_version") and source.get("sha256"):
+                return True, None
+        return False, "RQC-EVD-0001"
+
     if basis == "explicitly_defaulted":
-        default = defaults.get(requirement.get("default_ref"))
-        return (bool(default), None if default else "RQC-DFT-0001")
+        default = _unique(context, "defaults", requirement.get("default_ref"))
+        if default is None or rid not in (default.get("affected_requirement_refs") or []):
+            return False, "RQC-DFT-0001"
+        return (True, None) if default_authorized(context, default) else (False, "RQC-DFT-0001")
+
     if basis == "deterministically_derived":
-        ok = any(rid in (record.get("output_refs") or []) and record.get("validation_ref") for record in derivations.values())
-        return (ok, None if ok else "RQC-EVD-0001")
+        derivation = _unique(context, "derivations", requirement.get("derivation_ref"))
+        if derivation is None or not derivation.get("rule_id"):
+            return False, "RQC-EVD-0001"
+        if rid not in (derivation.get("output_refs") or []):
+            return False, "RQC-EVD-0001"
+        for ref in derivation.get("input_refs") or []:
+            if not any(_unique(context, namespace, ref) for namespace in ("sources", "requirements")):
+                return False, "RQC-EVD-0001"
+        if _unique(context, "validations", derivation.get("validation_ref")) is None:
+            return False, "RQC-EVD-0001"
+        return True, None
+
     return False, "RQC-EVD-0001"
 
 
@@ -564,44 +745,121 @@ def _authority_backed(
 #   8 COMPLETE                                           -> SUCCESS
 # A required accepted requirement is never SUCCESS/PARTIAL unless it has an emitting mapping (B4);
 # a security/privacy fail-closed or refusal is never masked by optional ambiguity (B3/B4).
-def _derive_outcome(case: dict[str, Any], registry: Mapping[str, Any]) -> tuple[str, list[str]]:
-    """Apply the terminal-status matrix to one structured semantic fixture (test-only projection)."""
+def context_from_fixture(case: Mapping[str, Any]) -> dict[str, Any]:
+    """Adapter A: compact semantic-oracle fixture -> normalized ContractRuleContext.
+
+    The compact corpus is a test-only projection whose cases lean on short intent prose, so the
+    few free-text heuristics the corpus depends on are computed HERE and nowhere else. The shared
+    rule engine sees only normalized booleans and record lists, so canonical behaviour can never
+    depend on intent keywords (refinement 1)."""
 
     intent_input = case["input"]
     candidate = case["candidate"]
-    intent = intent_input["intent"].lower()
-    requirements = candidate.get("requirements", [])
-    source_list = candidate.get("sources", [])
-    mappings = candidate.get("mappings", [])
-    conflicts = candidate.get("conflicts", [])
-    default_list = candidate.get("defaults", [])
-    proposals = candidate.get("model_proposals", [])
+    authoritative = intent_input.get("authoritative_inputs", []) or []
 
-    sources = _by_id(source_list)
-    defaults = _by_id(default_list)
-    approvals = _by_id(candidate.get("approvals", []))
-    derivations = _by_id(candidate.get("derivations", []))
-    model_originated = _model_originated(candidate)
+    context = {namespace: _records(candidate, namespace) for namespace in CANONICAL_NAMESPACES}
+    context.update(
+        canonical=False,
+        version=intent_input.get("version", CONTRACT_VERSION),
+        unknown_fields=list(intent_input.get("unknown_fields") or []),
+        semantically_empty=bool(candidate.get("semantically_empty")),
+        unsupported_behavior=candidate.get("unsupported_behavior"),
+        emitted_diagnostic_codes=list(candidate.get("emitted_diagnostic_codes") or []),
+        owner_user_conflict=(
+            any(str(v).startswith("owner:") for v in authoritative)
+            and any(str(v).startswith("user:") for v in authoritative)
+        ),
+        # Derived from records, identically to the canonical adapter (SP-006).
+        privacy_posture_unknown=any(
+            requirement.get("type") == "privacy"
+            and requirement.get("acceptance_state") in ("unresolved", "disputed")
+            for requirement in candidate.get("requirements", [])
+        ),
+        # The one remaining fixture-only textual signal, confined to this adapter: the compact
+        # corpus encodes "required context is missing" as prose in the requirement statement. The
+        # canonical adapter never sets this from text.
+        required_context_missing=any(
+            "unspecified" in str(requirement.get("statement", "")).lower()
+            for requirement in candidate.get("requirements", [])
+        ),
+    )
+    return context
 
-    def is_security(requirement: dict[str, Any]) -> bool:
-        return requirement.get("type") == "security"
 
-    def is_privacy(requirement: dict[str, Any]) -> bool:
-        return requirement.get("type") == "privacy"
+def context_from_artifacts(artifacts: Mapping[str, Any]) -> dict[str, Any]:
+    """Adapter B: canonical linked artifact set -> normalized ContractRuleContext.
+
+    Every signal is derived from records. No intent prose is inspected, so canonical evaluation is
+    independent of authoring text (refinement 1)."""
+
+    document = artifacts["requirements_document"]
+    intent_input = artifacts.get("intent_input", {})
+    authoritative = intent_input.get("authoritative_inputs", []) or []
+
+    context = {namespace: _records(document, namespace) for namespace in CANONICAL_NAMESPACES}
+    context["mappings"] = _records(artifacts, "mappings")
+    context["diagnostics"] = _records(artifacts, "diagnostics")
+    context["questions"] = _records(document, "open_questions")
+    context.update(
+        canonical=True,
+        version=intent_input.get("contract_version", CONTRACT_VERSION),
+        unknown_fields=[],
+        semantically_empty=False,
+        unsupported_behavior=None,
+        emitted_diagnostic_codes=[record.get("code") for record in _records(artifacts, "diagnostics")],
+        owner_user_conflict=(
+            any(str(v).startswith("owner:") for v in authoritative)
+            and any(str(v).startswith("user:") for v in authoritative)
+        ),
+        # Derived from records only: an unresolved or disputed privacy requirement is an unknown
+        # privacy posture (SP-006). No text matching.
+        privacy_posture_unknown=any(
+            requirement.get("type") == "privacy"
+            and requirement.get("acceptance_state") in ("unresolved", "disputed")
+            for requirement in _records(document, "requirements")
+        ),
+        required_context_missing=False,
+    )
+    return context
+
+
+def evaluate_contract_rules(context: Mapping[str, Any], registry: Mapping[str, Any]) -> tuple[str, list[str]]:
+    """The single shared contract-rule engine (refinement 1).
+
+    Both the compact semantic-oracle corpus and complete canonical artifact sets are evaluated by
+    THIS function over a normalized context, so there is exactly one rule implementation and the
+    two layers cannot diverge. Terminal status follows the explicit precedence matrix of RC-065."""
+
+    requirements = context["requirements"]
+    source_list = context["sources"]
+    mappings = context["mappings"]
+    conflicts = context["conflicts"]
+    default_list = context["defaults"]
+    proposals = context["model_proposals"]
+
+    def is_type(requirement: Mapping[str, Any], wanted: str) -> bool:
+        return requirement.get("type") == wanted
 
     def has_emitting_mapping(rid: str) -> bool:
         return any(m.get("requirement_id") == rid and m.get("outcome") in _EMITTING_OUTCOMES for m in mappings)
 
     # --- Class 0: structural / identity / version invalidity ---
-    emitted = set(candidate.get("emitted_diagnostic_codes", []))
+    emitted = {code for code in context["emitted_diagnostic_codes"] if code}
     if emitted - set(registry):
         return "INVALID_OUTPUT", ["RQC-DIA-0001"]
-    if intent_input.get("unknown_fields"):
+    if context["unknown_fields"]:
         return "INVALID_OUTPUT", ["RQC-SCH-0001"]
-    if intent_input.get("version", CONTRACT_VERSION) != CONTRACT_VERSION:
+    if context["version"] != CONTRACT_VERSION:
         return "INVALID_OUTPUT", ["RQC-VER-0001"]
-    if candidate.get("semantically_empty"):
+    if context["semantically_empty"]:
         return "INVALID_OUTPUT", ["RQC-SEM-0001"]
+
+    # Namespace-wide identity uniqueness over lists (blocker 3). Evaluated before any resolution so
+    # a duplicate can never influence authorization through ordering.
+    duplicates = find_duplicate_identities(context)
+    if duplicates:
+        code = "RQC-SRC-0001" if all(item.startswith("sources:") for item in duplicates) else "RQC-IDN-0001"
+        return "INVALID_OUTPUT", [code]
 
     requirement_ids = _identities(requirements)
     if any(count > 1 for count in Counter(requirement_ids).values()):
@@ -651,46 +909,56 @@ def _derive_outcome(case: dict[str, Any], registry: Mapping[str, Any]) -> tuple[
             continue
         if requirement.get("authority_basis") not in ACCEPTED_PERMITTED_AUTHORITY:
             return "INVALID_OUTPUT", ["RQC-EVD-0001"]
-        ok, code = _authority_backed(requirement, sources, defaults, approvals, derivations, model_originated)
+        ok, code = authority_backed(context, requirement)
         if not ok:
             status = "INVALID_OUTPUT" if code == "RQC-MDL-0001" else "BLOCKED"
             return status, [code]
 
     # --- Class 4: policy refusal ---
-    if any(requirement.get("acceptance_state") == "refused" for requirement in requirements):
-        codes = ["RQC-REF-0001"]
-        if any(requirement.get("type") in ("security", "privacy") for requirement in requirements) or any(
-            word in intent for word in ("exfiltrate", "expose secrets", "secrets", "override authority")
-        ):
-            codes.append("RQC-SEC-0001")
-        return "REFUSED", sorted(set(codes))
+    # REFUSED requires an accepted prohibition policy that actually resolves and applies (blocker 4).
+    # Refused meaning without a resolvable controlling prohibition is BLOCKED: the result cannot be
+    # justified as a policy refusal.
+    refused = [r for r in requirements if r.get("acceptance_state") == "refused"]
+    if refused:
+        if not all(prohibition_applies(context, requirement) for requirement in refused):
+            return "BLOCKED", ["RQC-BLK-0001", "RQC-REF-0001"]
+        codes = {"RQC-REF-0001"}
+        if any(requirement.get("type") in ("security", "privacy") for requirement in refused):
+            codes.add("RQC-SEC-0001")
+        return "REFUSED", sorted(codes)
 
-    # --- Class 5: security/privacy fail-closed by canonical type (B3) ---
-    # An accepted security/privacy requirement whose meaning cannot be emitted (no valid emitting
-    # mapping) fails closed. Enforcement keys on `type`, never on an ID prefix; changing an ID never
-    # changes policy semantics.
+    # --- Class 5: security/privacy fail-closed by canonical type (B3, blocker 4) ---
+    # An accepted security/privacy requirement whose meaning cannot be emitted fails closed. That is
+    # BLOCKED -- missing evidence or mapping is not a policy prohibition -- unless an accepted
+    # prohibition policy resolves and applies, which is the only route to REFUSED (SP-011/SP-024).
     for requirement in requirements:
         if requirement.get("acceptance_state") == "accepted" and not has_emitting_mapping(requirement.get("id", "")):
-            if is_security(requirement):
-                return "REFUSED", ["RQC-SEC-0001"]
-            if is_privacy(requirement):
-                return "REFUSED", ["RQC-PRV-0001"]
+            if is_type(requirement, "security"):
+                if prohibition_applies(context, requirement):
+                    return "REFUSED", ["RQC-SEC-0001"]
+                return "BLOCKED", ["RQC-BLK-0001", "RQC-SEC-0001"]
+            if is_type(requirement, "privacy"):
+                if prohibition_applies(context, requirement):
+                    return "REFUSED", ["RQC-PRV-0001"]
+                return "BLOCKED", ["RQC-BLK-0001", "RQC-PRV-0001"]
 
     # --- Class 6: blocking required meaning ---
-    # 6a consequential meaning requires resolved approval under an explicit policy (B2, refinement 2).
+    # 6a consequential meaning requires a fully resolved approval chain (B2, refinements 2-4).
     # A requirement that is consequential only via an authorized default is governed by that
     # default's approval (checked in 6b), so it is exempt from the requirement-level gate here.
     for requirement in requirements:
         if requirement.get("consequential") and not requirement.get("default_ref"):
-            rid = requirement.get("id", "")
-            if not (_approval_policy_present(case) and _has_active_approval(rid, requirement.get("approval_refs"), approvals)):
+            if not subject_authorized(context, "requirement", requirement.get("id", ""), requirement.get("approval_refs")):
                 return "BLOCKED", ["RQC-APR-0001"]
-    # 6b consequential defaults require resolved approval; `approved` alone never authorizes (B2).
+    # 6b consequential assumptions require the same resolution path (RC-031).
+    for assumption in context["assumptions"]:
+        if isinstance(assumption, dict) and assumption.get("consequential"):
+            if not subject_authorized(context, "assumption", assumption.get("id", ""), assumption.get("approval_refs")):
+                return "BLOCKED", ["RQC-APR-0001"]
+    # 6c consequential defaults require resolved approval; `approved` alone never authorizes (B2).
     for default in default_list:
-        if default.get("consequential"):
-            did = default.get("id", "")
-            if not (_approval_policy_present(case) and _has_active_approval(did, default.get("approval_refs"), approvals)):
-                return "BLOCKED", ["RQC-DFT-0001"]
+        if default.get("consequential") and not default_authorized(context, default):
+            return "BLOCKED", ["RQC-DFT-0001"]
     # 6c conflicts (priority / source-claim / general).
     if conflicts:
         if any("required" in (conflict.get("claims") or []) and "optional" in (conflict.get("claims") or []) for conflict in conflicts):
@@ -698,9 +966,8 @@ def _derive_outcome(case: dict[str, Any], registry: Mapping[str, Any]) -> tuple[
         if any(conflict.get("source_ids") for conflict in conflicts):
             return "BLOCKED", ["RQC-SRC-0004"]
         return "BLOCKED", ["RQC-CFL-0001"]
-    # 6d owner/user authority conflict.
-    authority_inputs = intent_input.get("authoritative_inputs", [])
-    if any(value.startswith("owner:") for value in authority_inputs) and any(value.startswith("user:") for value in authority_inputs):
+    # 6d owner/user authority conflict (normalized signal, computed by the adapter).
+    if context["owner_user_conflict"]:
         return "BLOCKED", ["RQC-AUT-0001", "RQC-CFL-0002"]
     # 6e missing source lifecycle.
     if any(source.get("lifecycle") == "missing" for source in source_list):
@@ -712,17 +979,17 @@ def _derive_outcome(case: dict[str, Any], registry: Mapping[str, Any]) -> tuple[
             return "INVALID_OUTPUT", ["RQC-EVD-0001"]
         return "BLOCKED", ["RQC-BLK-0001", "RQC-IRG-0001"]
     # 6g unsupported behaviour / capability.
-    if candidate.get("unsupported_behavior") == "recursive_import":
+    if context["unsupported_behavior"] == "recursive_import":
         return "BLOCKED", ["RQC-UNS-0002"]
     if any(requirement.get("acceptance_state") == "unsupported" for requirement in requirements):
         return "BLOCKED", ["RQC-UNS-0001"]
-    # 6h unknown privacy posture (by type): an unresolved/disputed privacy requirement blocks.
-    if any(is_privacy(requirement) and requirement.get("acceptance_state") in ("unresolved", "disputed") for requirement in requirements):
+    # 6h unknown privacy posture (normalized signal; canonical derives it from record state).
+    if context["privacy_posture_unknown"]:
         return "BLOCKED", ["RQC-PRV-0001"]
     # 6i unresolved required meaning.
     unresolved = [requirement for requirement in requirements if requirement.get("acceptance_state") == "unresolved"]
     if unresolved and not all(requirement.get("priority") == "optional" for requirement in unresolved):
-        if "unspecified" in " ".join(requirement.get("statement", "").lower() for requirement in unresolved):
+        if context["required_context_missing"]:
             return "BLOCKED", ["RQC-BLK-0001", "RQC-CTX-0001"]
         return "BLOCKED", ["RQC-AMB-0001"]
     # 6j mapping completeness (B4): an accepted requirement without an emitting mapping is blocked.
@@ -739,6 +1006,18 @@ def _derive_outcome(case: dict[str, Any], registry: Mapping[str, Any]) -> tuple[
     if requirements and all(requirement.get("acceptance_state") == "accepted" for requirement in requirements):
         return "SUCCESS", []
     return "INVALID_OUTPUT", ["RQC-SEM-0001"]
+
+
+def _derive_outcome(case: dict[str, Any], registry: Mapping[str, Any]) -> tuple[str, list[str]]:
+    """Evaluate one compact semantic-oracle fixture through the shared rule engine."""
+
+    return evaluate_contract_rules(context_from_fixture(case), registry)
+
+
+def derive_canonical_outcome(artifacts: Mapping[str, Any], registry: Mapping[str, Any]) -> tuple[str, list[str]]:
+    """Evaluate one complete canonical artifact set through the SAME shared rule engine."""
+
+    return evaluate_contract_rules(context_from_artifacts(artifacts), registry)
 
 
 def validate_case(case: dict[str, Any], registry: Mapping[str, Any]) -> dict[str, Any]:
@@ -808,22 +1087,81 @@ def frozen_ir_spec_version() -> str:
     return schema.get("properties", {}).get("spec_version", {}).get("const", "")
 
 
-def _classify_linked_set(artifacts: Mapping[str, Any], frozen_version: str) -> str:
-    """Refinement 4 / EM-020: prove a complete artifact set closes over itself with unambiguous
-    document<->result<->bundle linkage and same-attempt membership. Returns 'valid' or a specific
-    rejection reason. Same-attempt membership is an EXPLICIT reference chain (result.attempt_id <->
-    bundle.compile_result_ref, result.requirements_document_ref -> document.document_id), never mere
-    co-location in one fixture."""
+def canonical_digest(value: Any) -> str:
+    """EM-027 canonical hashing domain, defined exactly and non-circularly:
+
+    encoding UTF-8; JSON object keys sorted lexicographically; array order preserved as semantic
+    order; compact separators; exactly one trailing newline; digest is SHA-256 over those bytes.
+    The evidence bundle never hashes itself, so the digest domain is acyclic.
+    """
+
+    return hashlib.sha256(canonical_validation_json(value).encode("utf-8")).hexdigest()
+
+
+def record_content_digest(record: Mapping[str, Any]) -> str:
+    """Content address for a reusable authority record: the canonical digest of the record with
+    its own `content_digest` removed, so the value is well defined and never self-referential."""
+
+    return canonical_digest({k: v for k, v in record.items() if k != "content_digest"})
+
+
+# Attempt-bound artifact keys (refinement 5/6). Reusable authority evidence -- sources, policies,
+# approvals, external evidence -- is deliberately NOT hashed here: it is not produced by this
+# attempt, and is bound instead by exact reference plus its own content digest.
+ATTEMPT_ARTIFACT_KEYS = ("intent_input", "requirements_document", "mappings", "diagnostics", "compile_result")
+
+
+def _closure_expectations(context: Mapping[str, Any], document: Mapping[str, Any]) -> tuple[tuple[set[str], str], ...]:
+    def ids(namespace: str) -> set[str]:
+        return {record["id"] for record in context.get(namespace, []) if isinstance(record.get("id"), str)}
+
+    return (
+        (ids("requirements"), "requirement_refs"),
+        (ids("sources"), "source_refs"),
+        (ids("mappings"), "mapping_refs"),
+        (ids("diagnostics"), "diagnostic_refs"),
+        (ids("approvals"), "approval_refs"),
+        (ids("assumptions"), "assumption_refs"),
+        (ids("questions"), "question_refs"),
+        (ids("conflicts"), "conflict_refs"),
+        (ids("defaults"), "default_refs"),
+        (ids("model_proposals"), "model_proposal_refs"),
+        (ids("derivations"), "derivation_refs"),
+        (ids("test_mappings"), "test_mapping_refs"),
+        (ids("gaps"), "gap_refs"),
+        (ids("policies"), "policy_refs"),
+        (ids("validations"), "validation_refs"),
+        (ids("external_evidence"), "external_evidence_refs"),
+    )
+
+
+def _classify_linked_set(
+    artifacts: Mapping[str, Any], frozen_version: str, registry: Mapping[str, Any]
+) -> str:
+    """Prove a complete canonical artifact set is internally closed AND semantically valid.
+
+    Closure alone is not validity: the same shared rule engine that evaluates the compact corpus is
+    run over this set, and its derived terminal status, reason codes, and diagnostics must reconcile
+    exactly with the declared compile result (blocker 1, refinement 9).
+
+    Same-attempt membership is proved by an explicit reference chain, never by co-location:
+    compile_result.attempt_id <-> evidence_bundle.compile_result_ref and
+    compile_result.requirements_document_ref -> requirements_document.document_id. Reusable authority
+    evidence (sources, policies, approvals, external evidence) is not attempt-bound, but must still be
+    exactly referenced and content-addressed (refinement 5).
+    """
+
     document = artifacts["requirements_document"]
     result = artifacts["compile_result"]
     bundle = artifacts["evidence_bundle"]
     mappings = artifacts.get("mappings", [])
+    diagnostics = artifacts.get("diagnostics", [])
+    context = context_from_artifacts(artifacts)
 
-    requirement_ids = {record["id"] for record in document.get("requirements", [])}
-    source_ids = {record["id"] for record in document.get("sources", [])}
-    mapping_ids = {record["id"] for record in mappings}
-    approvals = {record["id"]: record for record in document.get("approvals", [])}
+    if find_duplicate_identities(context):
+        return "duplicate_identity"
 
+    # --- explicit attempt linkage ---
     if result.get("requirements_document_ref") != document.get("document_id"):
         return "result_document_mismatch"
     if result.get("evidence_bundle_ref") != bundle.get("id"):
@@ -833,62 +1171,87 @@ def _classify_linked_set(artifacts: Mapping[str, Any], frozen_version: str) -> s
     if bundle.get("frozen_ir_version") != frozen_version:
         return "wrong_frozen_ir_version"
 
-    diagnostic_ids = {record["id"] for record in artifacts.get("diagnostics", [])}
-    closure = (
-        (requirement_ids, "requirement_refs"),
-        (source_ids, "source_refs"),
-        (mapping_ids, "mapping_refs"),
-        (diagnostic_ids, "diagnostic_refs"),
-        (set(approvals), "approval_refs"),
-        ({record["id"] for record in document.get("assumptions", [])}, "assumption_refs"),
-        ({record["id"] for record in document.get("open_questions", [])}, "question_refs"),
-        ({record["id"] for record in document.get("conflicts", [])}, "conflict_refs"),
-        ({record["id"] for record in document.get("defaults", [])}, "default_refs"),
-        ({record["id"] for record in document.get("model_proposals", [])}, "model_proposal_refs"),
-        ({record["id"] for record in document.get("derivations", [])}, "derivation_refs"),
-        ({record["id"] for record in document.get("test_mappings", [])}, "test_mapping_refs"),
-    )
-    for present, refs_key in closure:
+    # --- bundle closes over exactly the canonical record set ---
+    for present, refs_key in _closure_expectations(context, document):
         declared = set(bundle.get(refs_key, []))
         if declared != present:
             return "omitted_document_record" if (present - declared) else "dangling_bundle_reference"
-    if set(result.get("diagnostic_refs", [])) != diagnostic_ids:
-        return "result_diagnostic_mismatch"
 
-    if not set(result.get("mapping_refs", [])) <= mapping_ids:
+    # --- result references reconcile exactly with the attempt's records ---
+    mapping_ids = {record["id"] for record in mappings if isinstance(record.get("id"), str)}
+    if set(result.get("mapping_refs", [])) != mapping_ids:
         return "wrong_mapping_reference"
+    if set(result.get("diagnostic_refs", [])) != {record["id"] for record in diagnostics}:
+        return "result_diagnostic_mismatch"
     for mapping in mappings:
-        if mapping.get("requirement_id") not in requirement_ids:
+        if mapping.get("requirement_id") not in {r["id"] for r in context["requirements"]}:
             return "wrong_mapping_reference"
 
-    model_originated: set[str] = set()
-    for proposal in document.get("model_proposals", []):
-        model_originated.update(proposal.get("proposed_records", []) or [])
-    for requirement in document.get("requirements", []):
-        if requirement.get("acceptance_state") == "accepted" and requirement["id"] in model_originated:
-            return "invalid_model_closure"
+    # --- every mapping authority and validation reference resolves to a real record ---
+    authority_namespace = {
+        "source": "sources", "default": "defaults", "derivation": "derivations",
+        "approval": "approvals", "policy": "policies",
+    }
+    for mapping in mappings:
+        authority = mapping.get("authority_ref") or {}
+        namespace = authority_namespace.get(authority.get("kind"))
+        if namespace is None or _unique(context, namespace, authority.get("ref")) is None:
+            return "unresolved_mapping_authority"
+        if _unique(context, "validations", mapping.get("validation_ref")) is None:
+            return "unresolved_validation_reference"
+        if mapping.get("gap_id") and _unique(context, "gaps", mapping.get("gap_id")) is None:
+            return "unresolved_gap_reference"
 
-    for requirement in document.get("requirements", []):
-        if requirement.get("consequential") and not any(
-            _approval_authorizes(approvals.get(ref), requirement["id"]) for ref in requirement.get("approval_refs", [])
-        ):
-            return "invalid_approval_closure"
-    for default in document.get("defaults", []):
-        if default.get("consequential") and not any(
-            _approval_authorizes(approvals.get(ref), default["id"]) for ref in default.get("approval_refs", [])
-        ):
-            return "invalid_approval_closure"
+    # --- diagnostics are registered and reconcile with the declared reason codes ---
+    declared_reasons = set(result.get("reason_codes", []))
+    diagnostic_codes = {record.get("code") for record in diagnostics}
+    if diagnostic_codes - set(registry):
+        return "unknown_diagnostic_code"
+    if not diagnostic_codes <= declared_reasons:
+        return "diagnostic_reason_mismatch"
+
+    # --- declared hashes match the actual canonical bytes ---
+    if "evidence_bundle" in (bundle.get("artifact_hashes") or {}):
+        return "self_referential_hash"
+    if bundle.get("input_hash") != canonical_digest(artifacts["intent_input"]):
+        return "hash_mismatch"
+    actual_hashes = {
+        "intent_input": canonical_digest(artifacts["intent_input"]),
+        "requirements_document": canonical_digest(document),
+        "mappings": canonical_digest(mappings),
+        "diagnostics": canonical_digest(diagnostics),
+        "compile_result": canonical_digest(result),
+    }
+    for key, declared in (bundle.get("artifact_hashes") or {}).items():
+        if key not in ATTEMPT_ARTIFACT_KEYS or declared != actual_hashes.get(key):
+            return "hash_mismatch"
+    for record in context["approvals"] + context["policies"]:
+        if record.get("content_digest") != record_content_digest(record):
+            return "content_digest_mismatch"
+
+    # --- semantic composition: the shared rule engine must agree with the declared result ---
+    derived_status, derived_codes = evaluate_contract_rules(context, registry)
+    if derived_status != result.get("status"):
+        return "semantic_status_mismatch"
+    if sorted(derived_codes) != sorted(declared_reasons):
+        return "reason_code_mismatch"
+    if derived_status == "SUCCESS" and (declared_reasons or any(d.get("severity") == "error" for d in diagnostics)):
+        return "success_with_error_evidence"
+    if derived_status != "SUCCESS" and not declared_reasons:
+        return "missing_required_diagnostics"
     return "valid"
 
 
 def validate_linked_artifact_set(
     record: Mapping[str, Any],
     schema_docs: Mapping[str, dict[str, Any]],
-    registry: Registry,
+    registry_resolver: Registry,
     frozen_version: str,
+    diagnostic_registry: Mapping[str, Any],
 ) -> dict[str, Any]:
     """Validate one complete, schema-valid, cross-referenced artifact set end to end (the third
-    validation layer, independent of the schema-instance and semantic-oracle corpora)."""
+    validation layer), including semantic evaluation by the shared rule engine."""
+
     artifacts = record["artifacts"]
     targets: list[tuple[str, Any]] = [
         ("intent-input.schema.json", artifacts["intent_input"]),
@@ -901,11 +1264,15 @@ def validate_linked_artifact_set(
 
     schema_errors: list[dict[str, Any]] = []
     for name, instance in targets:
-        validator = Draft202012Validator(schema_docs[name], registry=registry)
+        validator = Draft202012Validator(schema_docs[name], registry=registry_resolver)
         for error in validator.iter_errors(instance):
             schema_errors.append({"schema": name, **_normalize_validation_error(error)})
 
-    classification = "schema_invalid" if schema_errors else _classify_linked_set(artifacts, frozen_version)
+    if schema_errors:
+        classification = "schema_invalid"
+    else:
+        classification = _classify_linked_set(artifacts, frozen_version, diagnostic_registry)
+
     if record["kind"] == "positive":
         passed = classification == "valid"
     else:
@@ -915,6 +1282,7 @@ def validate_linked_artifact_set(
             # A negative set rejected at the schema layer must prove the EXACT location of its
             # defect, not merely that some schema error occurred.
             passed = any(error["instance_path"] == expected_path for error in schema_errors)
+
     return {
         "classification": classification,
         "id": record["id"],
@@ -1016,7 +1384,7 @@ def validate_package(package: Path) -> dict[str, Any]:
         linked_records = []
         errors.append(f"linked artifact corpus: {exc}")
     linked_results = [
-        validate_linked_artifact_set(record, schema_docs, schema_registry, frozen_version)
+        validate_linked_artifact_set(record, schema_docs, schema_registry, frozen_version, registry)
         for record in linked_records
     ]
     linked_failed = sorted(result["id"] for result in linked_results if not result["passed"])

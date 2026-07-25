@@ -16,7 +16,9 @@
     "acceptance_criteria": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
     "consequential": {"type": "boolean"},
     "approval_refs": {"type": "array", "items": {"type": "string", "pattern": "^APR-[A-Z0-9-]+$"}, "uniqueItems": true},
-    "default_ref": {"type": "string", "pattern": "^DFT-[A-Z0-9-]+$"}
+    "default_ref": {"type": "string", "pattern": "^DFT-[A-Z0-9-]+$"},
+    "derivation_ref": {"type": "string", "pattern": "^DRV-[A-Z0-9-]+$"},
+    "statement_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "RC-027: SHA-256 over the UTF-8 bytes of the source fragment this statement was taken from. Required for directly_stated acceptance when the cited source is byte-backed. It proves the statement matches preserved source bytes; it does NOT prove semantic equivalence, which remains manual review."}
   },
   "allOf": [
     {
@@ -28,6 +30,16 @@
       "$comment": "EM-005/AD-023: an explicitly_defaulted accepted requirement names the resolved default it was accepted from.",
       "if": {"properties": {"acceptance_state": {"const": "accepted"}, "authority_basis": {"const": "explicitly_defaulted"}}, "required": ["acceptance_state", "authority_basis"]},
       "then": {"required": ["default_ref"]}
+    },
+    {
+      "$comment": "AD-030: a deterministically_derived accepted requirement names the derivation record that produced it.",
+      "if": {"properties": {"acceptance_state": {"const": "accepted"}, "authority_basis": {"const": "deterministically_derived"}}, "required": ["acceptance_state", "authority_basis"]},
+      "then": {"required": ["derivation_ref"]}
+    },
+    {
+      "$comment": "RC-044/AD-023: accepted owner_decision or user_decision meaning names the approval record carrying that decision.",
+      "if": {"properties": {"acceptance_state": {"const": "accepted"}, "authority_basis": {"enum": ["owner_decision", "user_decision"]}}, "required": ["acceptance_state", "authority_basis"]},
+      "then": {"required": ["approval_refs"], "properties": {"approval_refs": {"minItems": 1}}}
     }
   ]
 }

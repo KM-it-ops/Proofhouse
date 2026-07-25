@@ -18,7 +18,11 @@
     "approvals": {"type": "array", "items": {"$ref": "#/$defs/approval"}, "uniqueItems": true},
     "model_proposals": {"type": "array", "items": {"$ref": "#/$defs/model_proposal"}, "uniqueItems": true},
     "derivations": {"type": "array", "items": {"$ref": "#/$defs/derivation"}, "uniqueItems": true},
-    "test_mappings": {"type": "array", "items": {"$ref": "#/$defs/test_mapping"}, "uniqueItems": true}
+    "test_mappings": {"type": "array", "items": {"$ref": "#/$defs/test_mapping"}, "uniqueItems": true},
+    "policies": {"type": "array", "items": {"$ref": "#/$defs/policy"}, "uniqueItems": true},
+    "validations": {"type": "array", "items": {"$ref": "#/$defs/validation_record"}, "uniqueItems": true},
+    "gaps": {"type": "array", "items": {"$ref": "#/$defs/gap_record"}, "uniqueItems": true},
+    "external_evidence": {"type": "array", "items": {"$ref": "#/$defs/external_evidence"}, "uniqueItems": true}
   },
   "$defs": {
     "assumption": {
@@ -103,18 +107,90 @@
       ]
     },
     "approval": {
-      "description": "EM-020/AD-050/SP-020/RC-044: stable ID, subject refs, authority, decision, machine-readable scope, non-empty evidence, immutable sequence. The approval record is the source of authorization truth.",
+      "description": "EM-020/AD-050/SP-020/RC-044: the approval record is the source of authorization truth. It must name the accepted policy it was granted under (`policy_ref`) and resolve its evidence through `evidence_refs`; an arbitrary non-empty string never authorizes. Approvals are reusable authority evidence, not attempt-bound, so they are immutable and content-addressed via `content_digest`.",
       "type": "object",
       "additionalProperties": false,
-      "required": ["id", "subject_refs", "authority", "decision", "scope", "evidence", "sequence"],
+      "required": ["id", "subject_refs", "authority", "decision", "scope", "evidence_refs", "policy_ref", "sequence", "content_digest"],
       "properties": {
         "id": {"type": "string", "pattern": "^APR-[A-Z0-9-]+$"},
         "subject_refs": {"type": "array", "items": {"type": "string", "pattern": "^(REQ-[A-Z0-9-]{3,64}|ASM-[A-Z0-9-]+|DFT-[A-Z0-9-]+|MAP-[A-Z0-9-]+)$"}, "minItems": 1, "uniqueItems": true},
         "authority": {"enum": ["owner", "user"]},
         "decision": {"enum": ["approved", "rejected", "revoked", "expired", "superseded"]},
-        "scope": {"type": "object", "additionalProperties": false, "required": ["kind", "value"], "properties": {"kind": {"enum": ["requirement", "assumption", "default", "mapping", "operation", "policy"]}, "value": {"type": "string", "minLength": 1}}},
-        "evidence": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
-        "sequence": {"type": "integer", "minimum": 0}
+        "scope": {"$ref": "#/$defs/scope"},
+        "evidence_refs": {"type": "array", "items": {"type": "string", "pattern": "^(SRC-[A-Z0-9-]+|EXT-[A-Z0-9-]+)$"}, "minItems": 1, "uniqueItems": true, "description": "Resolves to preserved source evidence or governed external evidence carrying a URI and SHA-256."},
+        "policy_ref": {"type": "string", "pattern": "^POL-[A-Z0-9-]+$", "description": "The accepted approval-threshold policy this approval was granted under. Authorization requires this chain to resolve end to end."},
+        "sequence": {"type": "integer", "minimum": 0},
+        "content_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "SHA-256 over canonical JSON of this record with `content_digest` removed. Non-circular by construction."}
+      }
+    },
+    "scope": {
+      "description": "AD-050/SP-020: machine-readable approval scope. Scope coverage is an exact (kind, value) match against the subject; membership in `subject_refs` alone is never scope coverage.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "value"],
+      "properties": {
+        "kind": {"enum": ["requirement", "assumption", "default", "mapping", "operation", "policy"]},
+        "value": {"type": "string", "minLength": 1}
+      }
+    },
+    "policy": {
+      "description": "AD-023/SP-025: an accepted governing policy. `approval_threshold` policies define the authority required for a consequential subject; `prohibition` policies are the only thing that can turn a fail-closed result into REFUSED. A policy is reusable authority evidence: immutable, content-addressed, and anchored to an authoritative source with exact version and digest.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "status", "statement", "scope", "source_ref", "content_digest"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^POL-[A-Z0-9-]+$"},
+        "kind": {"enum": ["approval_threshold", "prohibition"]},
+        "status": {"enum": ["accepted", "proposed", "withdrawn"]},
+        "statement": {"type": "string", "minLength": 1},
+        "scope": {"$ref": "#/$defs/scope"},
+        "required_authority": {"enum": ["owner", "user", "owner_or_user", "owner_and_user"]},
+        "source_ref": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$", "description": "The authoritative accepted-contract or decision source carrying this policy, with exact identity, version, and digest."},
+        "content_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      },
+      "allOf": [
+        {
+          "$comment": "An approval-threshold policy must state the authority it requires; `any` is not a permitted value.",
+          "if": {"properties": {"kind": {"const": "approval_threshold"}}, "required": ["kind"]},
+          "then": {"required": ["required_authority"]}
+        }
+      ]
+    },
+    "validation_record": {
+      "description": "EM-013/RC-114: an immutable, content-addressable validation record that mapping and derivation evidence resolves to.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "validator_version", "result", "content_digest"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^VAL-[A-Z0-9-]+$"},
+        "validator_version": {"type": "string", "minLength": 1},
+        "result": {"enum": ["PASS", "FAIL"]},
+        "content_digest": {"type": "string", "pattern": "^[a-f0-9]{64}$"}
+      }
+    },
+    "gap_record": {
+      "description": "RC-105/TR-008: a preserved IR v0.1 representation gap carrying its diagnostic and planning disposition.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "requirement_ref", "summary", "diagnostic_code", "disposition"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^IRG-[A-Z0-9-]+$"},
+        "requirement_ref": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"},
+        "summary": {"type": "string", "minLength": 1},
+        "diagnostic_code": {"const": "RQC-IRG-0001"},
+        "disposition": {"type": "string", "minLength": 1}
+      }
+    },
+    "external_evidence": {
+      "description": "EM-014: evidence held outside the bundle. Permitted only when explicitly governed and content-addressed by URI and SHA-256.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "uri", "sha256", "governed_by"],
+      "properties": {
+        "id": {"type": "string", "pattern": "^EXT-[A-Z0-9-]+$"},
+        "uri": {"type": "string", "minLength": 1},
+        "sha256": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+        "governed_by": {"type": "string", "pattern": "^POL-[A-Z0-9-]+$"}
       }
     },
     "model_proposal": {
