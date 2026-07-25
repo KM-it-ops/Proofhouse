@@ -1,0 +1,23 @@
+{
+  "contract_version": "0.1.0-draft",
+  "status": "PROPOSED",
+  "recommendation": "DEFERRED",
+  "permitted_dispositions": ["CONTRACT_CANDIDATE", "DEFERRED", "REJECTED"],
+  "criteria": [
+    {"id": "PRS-VAL-001", "criterion": "value beyond JSON/API/file inputs", "finding": "UNPROVEN", "evidence": ["architecture/prs/PRS_EXAMPLES.md", "fixtures/cases.json"], "reentry_gate": "comparative authoring evidence across all 41 cases"},
+    {"id": "PRS-VAL-002", "criterion": "exact source-location preservation", "finding": "UNPROVEN", "evidence": ["architecture/prs/PRS_SYNTAX.md", "file-source-location-stability"], "reentry_gate": "grammar, parser, and byte-stable source-map fixtures"},
+    {"id": "PRS-VAL-003", "criterion": "deterministic parsing", "finding": "PLAUSIBLE_NOT_PROVEN", "evidence": ["architecture/prs/PRS_SYNTAX.md"], "reentry_gate": "versioned grammar, escaping rules, and conformance corpus"},
+    {"id": "PRS-VAL-004", "criterion": "canonical semantics remain source-language-neutral", "finding": "RISK_PRESENT", "evidence": ["REQUIREMENTS_COMPILER_SPEC.md#input-and-output-boundary", "architecture/prs/PRS_EXAMPLES.md"], "reentry_gate": "lossless PRS-to-requirements mapping with no PRS-owned meaning"},
+    {"id": "PRS-VAL-005", "criterion": "ambiguity, conflicts, evidence, approvals, and unresolved meaning", "finding": "UNPROVEN", "evidence": ["clause-to-fixture.json"], "reentry_gate": "PRS renderings and diagnostics for every relevant adversarial case"},
+    {"id": "PRS-VAL-006", "criterion": "bounded imports, macros, and extensions", "finding": "UNPROVEN_HIGH_COMPLEXITY", "evidence": ["architecture/prs/PRS_SYNTAX.md"], "reentry_gate": "explicit exclusion or versioned semantics with cycle and expansion limits"},
+    {"id": "PRS-VAL-007", "criterion": "representative examples", "finding": "INSUFFICIENT", "evidence": ["architecture/prs/PRS_EXAMPLES.md", "fixture-manifest.json"], "reentry_gate": "case-set parity and negative examples"},
+    {"id": "PRS-VAL-008", "criterion": "grammar freeze timing", "finding": "PREMATURE", "evidence": ["architecture/adr/ADR-001-PromptRig-Specification.md", "README.md"], "reentry_gate": "accepted source-neutral contract plus separately authorized syntax mission"}
+  ],
+  "adr_001_status_changed": false,
+  "non_authorization": [
+    "PRS parser implementation",
+    "PRS grammar freeze",
+    "PromptRig IR v0.1 change",
+    "later mission execution"
+  ]
+}

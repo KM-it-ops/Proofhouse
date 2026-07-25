@@ -1,0 +1,19 @@
+{
+  "contract_version": "0.1.0-draft",
+  "status": "PROPOSED",
+  "mappings": [
+    {"clauses": ["RC-001", "RC-002", "RC-070"], "fixtures": ["simple-clear-outcome", "developer-explicit-full", "api-valid-versioned-request", "file-valid-multi-source"]},
+    {"clauses": ["RC-030", "RC-073"], "fixtures": ["simple-missing-context", "simple-ambiguous-target-user", "developer-assumption-open-question"]},
+    {"clauses": ["RC-031", "AD-001", "AD-002", "AD-003"], "fixtures": ["simple-contradictory-statements", "developer-conflicting-priorities", "api-owner-user-conflict", "file-conflicting-source-claims"]},
+    {"clauses": ["RC-050", "RC-051", "SP-020", "SP-021"], "fixtures": ["simple-consequential-approval", "developer-hidden-consequential-default"]},
+    {"clauses": ["SP-001", "SP-010", "SP-011", "SP-012", "SP-013", "SP-014"], "fixtures": ["simple-security-privacy-explicit", "simple-hostile-rule-override", "simple-privacy-posture-unknown", "developer-security-fail-closed", "developer-model-security-weakening", "file-adversarial-embedded-content"]},
+    {"clauses": ["RC-062", "RC-074", "TR-008"], "fixtures": ["simple-unsupported-ir-gap", "developer-phase5-ir-gap", "developer-unsupported-capability", "file-unsupported-import"]},
+    {"clauses": ["RC-003", "RC-091", "RC-092", "RC-093"], "fixtures": ["developer-model-security-weakening", "api-model-self-accept"]},
+    {"clauses": ["RC-054", "RC-091", "RC-130", "RC-131", "DG-005"], "fixtures": ["simple-semantic-empty", "developer-semantic-empty-structured", "api-unknown-field", "api-unknown-version", "api-unknown-diagnostic-code"]},
+    {"clauses": ["RC-020", "RC-022", "TR-002"], "fixtures": ["api-invalid-source-location", "api-incomplete-evidence-link", "api-broken-ir-mapping-reference", "file-duplicate-source-id", "file-missing-source", "file-stale-replaced-source", "file-source-location-stability"]},
+    {"clauses": ["RC-050", "AD-010", "AD-011"], "fixtures": ["developer-explicit-default-approved", "developer-hidden-consequential-default"]},
+    {"clauses": ["RC-080", "RC-081", "RC-082", "RC-084"], "fixtures": ["developer-deterministic-derivation", "api-deterministic-ordering"]},
+    {"clauses": ["RC-072", "RC-132"], "fixtures": ["api-refused-result"]},
+    {"clauses": ["RC-120", "RC-121", "RC-122"], "fixtures": ["api-valid-versioned-request", "api-unknown-version"]}
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/contracts/requirements-compiler/v0.1/requirements-compile-result.schema.json",
+  "title": "Requirements Compile Result",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "attempt_id", "status", "requirements_document_ref", "diagnostic_refs", "mapping_refs", "evidence_bundle_ref", "reason_codes"],
+  "properties": {
+    "contract_version": {"const": "0.1.0-draft"},
+    "attempt_id": {"type": "string", "pattern": "^ATT-[A-Z0-9-]+$"},
+    "prior_attempt_ref": {"type": "string", "pattern": "^ATT-[A-Z0-9-]+$"},
+    "status": {"enum": ["SUCCESS", "PARTIAL", "BLOCKED", "REFUSED", "INVALID_OUTPUT"]},
+    "requirements_document_ref": {"type": "string", "pattern": "^RQD-[A-Z0-9-]+$"},
+    "diagnostic_refs": {"type": "array", "items": {"type": "string", "pattern": "^RQDIA-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "mapping_refs": {"type": "array", "items": {"type": "string", "pattern": "^MAP-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "evidence_bundle_ref": {"type": "string", "pattern": "^EVB-[A-Z0-9-]+$"},
+    "reason_codes": {"type": "array", "items": {"type": "string", "pattern": "^RQC-[A-Z]{3}-[0-9]{4}$"}, "uniqueItems": true},
+    "approval_required": {"type": "boolean"}
+  }
+}

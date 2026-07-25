@@ -1,0 +1,16 @@
+{
+  "fixture_contract_version": "0.1.0-draft",
+  "case_file": "cases.json",
+  "case_count": 41,
+  "authoring_modes": {"simple": 10, "developer": 12, "api": 11, "file": 8},
+  "categories": {"positive": 9, "boundary": 5, "negative": 20, "adversarial": 7},
+  "required_statuses": ["SUCCESS", "PARTIAL", "BLOCKED", "REFUSED", "INVALID_OUTPUT"],
+  "minimum_coverage": {
+    "positive_or_boundary": 12,
+    "negative_or_adversarial": 18,
+    "semantic_vacuity": 2,
+    "ir_gap_blocked": 2,
+    "model_output_rejection": 2,
+    "security_privacy_fail_closed": 2
+  }
+}

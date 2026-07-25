@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/contracts/requirements-compiler/v0.1/requirements-diagnostic.schema.json",
+  "title": "Requirements Diagnostic",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "code", "severity", "message_key", "parameters", "source_refs", "requirement_refs"],
+  "properties": {
+    "id": {"type": "string", "pattern": "^RQDIA-[A-Z0-9-]+$"},
+    "code": {"type": "string", "pattern": "^RQC-[A-Z]{3}-[0-9]{4}$"},
+    "severity": {"enum": ["error", "warning", "info"]},
+    "message_key": {"type": "string", "pattern": "^requirements\\.[a-z0-9_]+$"},
+    "parameters": {"type": "object"},
+    "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "requirement_refs": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"}, "uniqueItems": true},
+    "location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["uri", "json_pointer"],
+      "properties": {
+        "uri": {"type": "string", "minLength": 1},
+        "json_pointer": {"type": "string"},
+        "line": {"type": "integer", "minimum": 1},
+        "column": {"type": "integer", "minimum": 1}
+      }
+    }
+  }
+}

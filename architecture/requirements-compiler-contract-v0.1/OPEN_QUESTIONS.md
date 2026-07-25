@@ -1,0 +1,28 @@
+# MISSION-008 Open Questions
+
+**Status:** Proposed decision inputs. Unresolved answers remain explicit and non-authorizing.
+
+| ID | Question | Alternatives | Consequence | Evidence required | Decision timing | Downstream impact |
+|---|---|---|---|---|---|---|
+| OQ-008-001 | Should all source-backed requirements require a content digest, or only sources with stable bytes? | Require for all; require when bytes exist (recommended); allow optional | Universal digests may invent identity for ephemeral input; optional digests weaken reproducibility | API/interactive source lifecycle examples and replay requirements | Before production implementation scope | MISSION-010/011 evidence envelopes |
+| OQ-008-002 | Should optional unresolved meaning produce `PARTIAL` when it has no representable IR target? | `PARTIAL` with evidence (recommended); `BLOCKED`; omit it | Determines whether honest partial compilation can preserve optional gaps | More mixed required/optional adversarial cases | Before MISSION-010 prototype | Status parity and consumer behavior |
+| OQ-008-003 | Which consequential categories always require owner-level rather than user-level approval? | Fixed owner-only list; policy-defined authority (recommended); all consequential owner-only | Over-broad gates harm usability; under-broad gates weaken governance | Phase 6 permission model and security review | Before any production/live use; not needed to approve this proposal | MISSION-011 certification and Phase 6 |
+| OQ-008-004 | How should semantically equivalent requirements from distinct sources be coalesced? | Preserve separately; deterministic alias group (recommended for later study); merge identity | Merging can erase provenance; preserving duplicates may complicate evaluation | Multi-source equivalence and conflict fixtures | Before production requirements compiler | Evaluation and repair identity |
+| OQ-008-005 | What compatibility policy governs a future accepted 0.1 contract? | Strict exact version; negotiated minor compatibility; migration adapters | Controls installed consumers and evidence replay | Consumer matrix and migration fixtures | Before acceptance for production implementation | MISSION-010/011 packaging |
+| OQ-008-006 | Should advisory diagnostics ever coexist with `SUCCESS`? | Yes when explicitly non-semantic; only with `PARTIAL`; never | Affects status predictability and consumer UX | Advisory-only fixture suite and owner policy | Before production implementation | Library/CLI parity |
+| OQ-008-007 | Is PRS worth retaining after comparative authoring evidence? | Contract candidate; deferred (recommended now); rejected | Premature promotion freezes syntax; rejection may discard ergonomic value | Full 41-case PRS rendering, grammar/source-map conformance, comparison with JSON/API/file | Separate authorization after source-neutral contract review | Future authoring surface only |
+| OQ-008-008 | What provider-neutral shape, if any, should represent opaque continuation state? | New IR field; artifact/evidence only; prohibit canonical storage; defer | A premature shape may encode one provider and create security/retention debt | ADR-007 threshold, cross-provider use cases, replay/retention threat model | Separately authorized Phase 5 | IR v0.2 and runtime state |
+| OQ-008-009 | Should per-request reasoning controls enter canonical IR? | Provider-neutral bounded field; capability request; remain unsupported | Provider vocabulary may leak into durable semantics | Cross-provider semantic cases and compatibility analysis | Separately authorized Phase 5 | IR v0.2 and provider lowering |
+| OQ-008-010 | **RESOLVED — structured-only.** Should `requirements-document.schema.json`'s `assumption`/`open_question` entries require the full structured record in every case, or continue to permit a bare non-empty string as informal shorthand? | Require structured records only (**chosen**); permit `oneOf[string, structured record]`; permit string-only | Resolved by explicit owner decision. Canonical assumption and question records now carry stable identity and normative evidence, so `assumption_refs`/`question_refs` close over every canonical record | Owner decision recorded below; schema, fixtures, and evidence updated accordingly | Resolved | Evidence-bundle closure over assumptions and questions is now well defined |
+
+## Resolved questions
+
+**OQ-008-010 — canonical assumption and question record structure.**
+
+- **Resolution:** structured-only canonical records.
+- **Authority:** explicit owner decision recorded in the MISSION-008 instruction context. It is **not** appended to the frozen D-050 decision log.
+- **Effect:** `requirements-document.schema.json` no longer accepts bare strings for `assumptions` or `open_questions`. A canonical assumption requires `id`, `statement`, `impact`, `source_refs`, `acceptance_state`, and `consequential`, plus `approval_refs` when consequential. A canonical question requires `id`, `text`, `affected_requirement_refs`, `impact`, and `resolution_state`, plus `resolution_evidence` when resolved.
+- **Fixture corpus:** the preserved 41-case semantic-oracle corpus is a **test-only semantic projection, not a canonical requirements document**. It was deliberately not rewritten into schema documents; its compact shorthand carries no canonical status and is not evidence of canonical record shape.
+- **Non-authorization:** this resolution settles record structure only. It authorizes no production implementation and approves no `RCD-008-*` decision.
+
+No other open question authorizes implementation. Unknown answers must remain `BLOCKED`, `PARTIAL`, or explicit gap evidence under the proposed rules.

@@ -1,0 +1,46 @@
+{
+  "ir_pointer_case_contract_version": "0.1.0-draft",
+  "cases": [
+    {"id": "IRP-POS-OBJECTIVE-GOAL", "target_pointer": "/objective/goal", "kind": "positive"},
+    {"id": "IRP-POS-PROJECT-MODE", "target_pointer": "/project/mode", "kind": "positive"},
+    {"id": "IRP-POS-BEHAVIOR-INSTRUCTIONS-WHOLE", "target_pointer": "/behavior/instructions", "kind": "positive"},
+    {"id": "IRP-POS-BEHAVIOR-INSTRUCTIONS-INDEXED", "target_pointer": "/behavior/instructions/0", "kind": "positive"},
+    {"id": "IRP-POS-SECURITY-RULES-INDEXED", "target_pointer": "/security/rules/0", "kind": "positive"},
+    {"id": "IRP-POS-REQUIREMENTS-ITEM-FIELD", "target_pointer": "/requirements/0/statement", "kind": "positive"},
+    {
+      "id": "IRP-NEG-IMPOSSIBLE-PROJECT-OBJECTIVE",
+      "target_pointer": "/project/objective",
+      "kind": "negative",
+      "expected_reason": "not_a_permitted_leaf",
+      "note": "objective is a top-level sibling of project, not nested under it"
+    },
+    {
+      "id": "IRP-NEG-SUBTREE-PROJECT",
+      "target_pointer": "/project",
+      "kind": "negative",
+      "expected_reason": "subtree_shortcut",
+      "note": "project is a structured object; only its named leaves are valid mapping targets"
+    },
+    {
+      "id": "IRP-NEG-SUBTREE-REQUIREMENTS-ITEM",
+      "target_pointer": "/requirements/0",
+      "kind": "negative",
+      "expected_reason": "subtree_shortcut",
+      "note": "a whole IR requirement item is a structured object; requires field-level enumeration"
+    },
+    {
+      "id": "IRP-NEG-NONEXISTENT-FIELD",
+      "target_pointer": "/nonexistent/field",
+      "kind": "negative",
+      "expected_reason": "not_a_permitted_leaf",
+      "note": "no such path exists anywhere in frozen IR v0.1"
+    },
+    {
+      "id": "IRP-NEG-MALFORMED-POINTER",
+      "target_pointer": "objective/goal",
+      "kind": "negative",
+      "expected_reason": "invalid_pointer_syntax",
+      "note": "RFC 6901 pointers must begin with '/'"
+    }
+  ]
+}

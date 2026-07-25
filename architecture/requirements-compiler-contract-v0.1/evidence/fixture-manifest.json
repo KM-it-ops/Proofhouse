@@ -1,0 +1,1 @@
+{"authoring_modes":{"api":11,"developer":12,"file":8,"simple":10},"case_count":41,"categories":{"adversarial":7,"boundary":5,"negative":20,"positive":9},"contract_version":"0.1.0-draft","fixture_sha256":"c663cc58046d0f55362ef5c850f83de3c0917188ba4fde1c598793dcdf7a77fe","statuses":{"BLOCKED":16,"INVALID_OUTPUT":10,"PARTIAL":2,"REFUSED":4,"SUCCESS":9}}
