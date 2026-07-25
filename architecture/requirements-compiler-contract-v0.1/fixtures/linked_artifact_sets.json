@@ -1,7 +1,7 @@
 {
   "linked_artifact_contract_version": "0.1.0-draft",
   "note": "Third validation layer. Each set is a complete, schema-valid, cross-referenced attempt. Closure is not validity: the same shared rule engine that evaluates the compact corpus is run over every set, and its derived status, reason codes, and diagnostics must reconcile exactly with the declared compile result. Same-attempt membership is proved by an explicit reference chain; reusable authority evidence (sources, policies, approvals, external evidence) is not attempt-bound but must be exactly referenced and content-addressed.",
-  "set_count": 26,
+  "set_count": 28,
   "sets": [
     {
       "id": "LAS-POS-SUCCESS-001",
@@ -927,6 +927,195 @@
             ],
             "requirement_refs": [
               "REQ-LAS-004"
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "id": "LAS-POS-OWNER-USER-CONFLICT-001",
+      "kind": "positive",
+      "description": "Complete BLOCKED attempt whose owner/user authority conflict is proved by a structured conflict record (unresolved, authority_ranks spanning owner and user). No authoring text participates in the derivation.",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "user:structured-config"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false,
+              "statement_digest": "049e161a982207e5340e442da1fa807d2a5c85b4f723bbfb5d01b9ce536b77c0"
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              },
+              "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "fragment": "Produce a cited offline incident report.",
+              "fragment_digest": "049e161a982207e5340e442da1fa807d2a5c85b4f723bbfb5d01b9ce536b77c0"
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": [
+            {
+              "id": "CFL-LAS-OU-001",
+              "requirement_ids": [
+                "REQ-LAS-001"
+              ],
+              "claims": [
+                "owner decision requires a 30-day retention floor",
+                "user decision requires a 7-day retention ceiling"
+              ],
+              "source_ids": [
+                "SRC-LAS-001"
+              ],
+              "authority_ranks": [
+                "owner",
+                "user"
+              ],
+              "resolution_state": "unresolved"
+            }
+          ],
+          "validations": [
+            {
+              "id": "VAL-LAS-001",
+              "validator_version": "0.1.0",
+              "result": "PASS",
+              "content_digest": "e780b76acc872b7b38173f9bbb3e39a719fd52e54afa80a388969b6e0e13e573"
+            }
+          ]
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": {
+              "kind": "source",
+              "ref": "SRC-LAS-001"
+            },
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "BLOCKED",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [
+            "RQDIA-LAS-OU-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": [
+            "RQC-AUT-0001",
+            "RQC-CFL-0002"
+          ]
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "7e5fc8c226606cde2415c2ba3ac17153f5dd45b7a56ad110591b4319238d7331",
+          "artifact_hashes": {
+            "intent_input": "7e5fc8c226606cde2415c2ba3ac17153f5dd45b7a56ad110591b4319238d7331",
+            "requirements_document": "07fde5502b2ed636028596c31d27ed3c00330408673b7eb3d6572c0eb6c65c5c",
+            "mappings": "5e1a7ffda4120f1ac0d359a175fa0669258f45975a70d777576619a710350065",
+            "diagnostics": "ad8616f8bbb8128410e4b93e71f07709bd0b351eee4d1dd62ddf3b8dde0458bf",
+            "compile_result": "690a1be73c8b4589dcbf14e02ef51df3e4b9b6869f1c3dad5bc79e540d21a4bc"
+          },
+          "schema_hashes": {
+            "intent-input.schema.json": "a0e8c60fcb79ffe19f1876db91a17448fc1de20ad3930598f8d7e874537862dd",
+            "requirement-ir-mapping.schema.json": "434214152232b6cc4da0c37354ee5cdd97e22424060d1e3029e71a717a97cef5",
+            "requirement.schema.json": "68f55787ddfddf66f7eb5a417cb4b9971770f969e97e4123abf560491fa40f74",
+            "requirements-compile-result.schema.json": "8ef9547ba99997c3cdf6346e92d5448fadc5e92af0d696f536a165cd52d09ed2",
+            "requirements-diagnostic.schema.json": "b2a7554e25fda91d65dba7bbded2e747fb7ea64a518bd68159c2a08df392e131",
+            "requirements-document.schema.json": "6c972aca06a631f0d9ae2fa07623db9eaed0bce4d680f4ede5ee8b057c3d5575",
+            "requirements-evidence-bundle.schema.json": "79c1f06812cf0185c9227206086228ef63f2d3bd74b5f025093a5ac2cc65597d",
+            "source-evidence.schema.json": "07dcea8081ad8963e36a392d899513e86aaf6afbee2803695d307fec0b5bc4be"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [
+            "CFL-LAS-OU-001"
+          ],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [
+            "RQDIA-LAS-OU-001"
+          ],
+          "gap_refs": [],
+          "policy_refs": [],
+          "validation_refs": [
+            "VAL-LAS-001"
+          ],
+          "external_evidence_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        },
+        "diagnostics": [
+          {
+            "id": "RQDIA-LAS-OU-001",
+            "code": "RQC-CFL-0002",
+            "severity": "error",
+            "message_key": "requirements.owner_user_decision_conflict",
+            "parameters": {},
+            "source_refs": [
+              "SRC-LAS-001"
+            ],
+            "requirement_refs": [
+              "REQ-LAS-001"
             ]
           }
         ]
@@ -4474,6 +4663,176 @@
           "network_access": false,
           "credentials_accessed": false
         }
+      }
+    },
+    {
+      "id": "LAS-NEG-PROSE-ONLY-CONFLICT-001",
+      "kind": "negative",
+      "description": "Declares BLOCKED with owner/user conflict codes on the strength of `owner:`/`user:` prefixes in authoritative_inputs alone, with no structured conflict record. Authoring text cannot fabricate a canonical conflict, so the engine derives SUCCESS and the set is rejected.",
+      "expected_reason": "semantic_status_mismatch",
+      "artifacts": {
+        "intent_input": {
+          "contract_version": "0.1.0-draft",
+          "input_id": "INP-LAS-001",
+          "authoring_mode": "developer",
+          "intent": "Produce a cited offline incident report.",
+          "authoritative_inputs": [
+            "owner:retention-decision",
+            "user:retention-request"
+          ],
+          "non_authoritative_inputs": []
+        },
+        "requirements_document": {
+          "contract_version": "0.1.0-draft",
+          "document_id": "RQD-LAS-001",
+          "input_ref": "INP-LAS-001",
+          "requirements": [
+            {
+              "id": "REQ-LAS-001",
+              "type": "objective",
+              "statement": "Produce a cited offline incident report.",
+              "priority": "required",
+              "acceptance_state": "accepted",
+              "authority_basis": "directly_stated",
+              "source_refs": [
+                "SRC-LAS-001"
+              ],
+              "acceptance_criteria": [
+                "Report cites every finding."
+              ],
+              "consequential": false,
+              "statement_digest": "049e161a982207e5340e442da1fa807d2a5c85b4f723bbfb5d01b9ce536b77c0"
+            }
+          ],
+          "sources": [
+            {
+              "id": "SRC-LAS-001",
+              "kind": "developer_config",
+              "lifecycle": "current",
+              "authority_claim": "Developer configuration supplied the objective.",
+              "location": {
+                "uri": "developer://linked/001",
+                "json_pointer": "/objective"
+              },
+              "sha256": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+              "fragment": "Produce a cited offline incident report.",
+              "fragment_digest": "049e161a982207e5340e442da1fa807d2a5c85b4f723bbfb5d01b9ce536b77c0"
+            }
+          ],
+          "assumptions": [],
+          "open_questions": [],
+          "conflicts": [],
+          "validations": [
+            {
+              "id": "VAL-LAS-001",
+              "validator_version": "0.1.0",
+              "result": "PASS",
+              "content_digest": "e780b76acc872b7b38173f9bbb3e39a719fd52e54afa80a388969b6e0e13e573"
+            }
+          ]
+        },
+        "mappings": [
+          {
+            "id": "MAP-LAS-001",
+            "requirement_id": "REQ-LAS-001",
+            "outcome": "direct",
+            "authority_ref": {
+              "kind": "source",
+              "ref": "SRC-LAS-001"
+            },
+            "validation_ref": "VAL-LAS-001",
+            "target_pointer": "/objective/goal"
+          }
+        ],
+        "compile_result": {
+          "contract_version": "0.1.0-draft",
+          "attempt_id": "ATT-LAS-001",
+          "status": "BLOCKED",
+          "requirements_document_ref": "RQD-LAS-001",
+          "diagnostic_refs": [
+            "RQDIA-LAS-OU-002"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "evidence_bundle_ref": "EVB-LAS-001",
+          "reason_codes": [
+            "RQC-AUT-0001",
+            "RQC-CFL-0002"
+          ]
+        },
+        "evidence_bundle": {
+          "contract_version": "0.1.0-draft",
+          "id": "EVB-LAS-001",
+          "frozen_ir_version": "0.1.0",
+          "compile_result_ref": "ATT-LAS-001",
+          "input_hash": "0836c2d0009c27a253888a06ccc043d0fbc88efd385e3838bd17dbeb885dd3ff",
+          "artifact_hashes": {
+            "intent_input": "0836c2d0009c27a253888a06ccc043d0fbc88efd385e3838bd17dbeb885dd3ff",
+            "requirements_document": "7f5d12dd4b95fc699580423552cb244faa3963df348049c277d629f17d66693f",
+            "mappings": "5e1a7ffda4120f1ac0d359a175fa0669258f45975a70d777576619a710350065",
+            "diagnostics": "442362eec6a886e4a8b9ee5adda1b679559076c49e730803bbd44aebc8efb101",
+            "compile_result": "90d3da3ff370b36c9f610939c863d4ed7f26d03caca93bf9a43a461552cd286b"
+          },
+          "schema_hashes": {
+            "intent-input.schema.json": "a0e8c60fcb79ffe19f1876db91a17448fc1de20ad3930598f8d7e874537862dd",
+            "requirement-ir-mapping.schema.json": "434214152232b6cc4da0c37354ee5cdd97e22424060d1e3029e71a717a97cef5",
+            "requirement.schema.json": "68f55787ddfddf66f7eb5a417cb4b9971770f969e97e4123abf560491fa40f74",
+            "requirements-compile-result.schema.json": "8ef9547ba99997c3cdf6346e92d5448fadc5e92af0d696f536a165cd52d09ed2",
+            "requirements-diagnostic.schema.json": "b2a7554e25fda91d65dba7bbded2e747fb7ea64a518bd68159c2a08df392e131",
+            "requirements-document.schema.json": "6c972aca06a631f0d9ae2fa07623db9eaed0bce4d680f4ede5ee8b057c3d5575",
+            "requirements-evidence-bundle.schema.json": "79c1f06812cf0185c9227206086228ef63f2d3bd74b5f025093a5ac2cc65597d",
+            "source-evidence.schema.json": "07dcea8081ad8963e36a392d899513e86aaf6afbee2803695d307fec0b5bc4be"
+          },
+          "source_refs": [
+            "SRC-LAS-001"
+          ],
+          "requirement_refs": [
+            "REQ-LAS-001"
+          ],
+          "mapping_refs": [
+            "MAP-LAS-001"
+          ],
+          "derivation_refs": [],
+          "model_proposal_refs": [],
+          "assumption_refs": [],
+          "conflict_refs": [],
+          "question_refs": [],
+          "approval_refs": [],
+          "default_refs": [],
+          "test_mapping_refs": [],
+          "diagnostic_refs": [
+            "RQDIA-LAS-OU-002"
+          ],
+          "gap_refs": [],
+          "policy_refs": [],
+          "validation_refs": [
+            "VAL-LAS-001"
+          ],
+          "external_evidence_refs": [],
+          "validation": {
+            "validator_version": "0.1.0",
+            "result": "PASS",
+            "fixture_count": 41
+          },
+          "network_access": false,
+          "credentials_accessed": false
+        },
+        "diagnostics": [
+          {
+            "id": "RQDIA-LAS-OU-002",
+            "code": "RQC-CFL-0002",
+            "severity": "error",
+            "message_key": "requirements.owner_user_decision_conflict",
+            "parameters": {},
+            "source_refs": [
+              "SRC-LAS-001"
+            ],
+            "requirement_refs": [
+              "REQ-LAS-001"
+            ]
+          }
+        ]
       }
     }
   ]

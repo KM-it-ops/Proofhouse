@@ -858,3 +858,201 @@ def test_disposition_check_detects_missing_and_invalid_dispositions(tmp_path: Pa
                "clauses": [dict(entry, disposition="looks_fine_to_me") for entry in document["clauses"]]}
     (staged / "clause-dispositions.json").write_text(json.dumps(invalid), encoding="utf-8")
     assert validator.find_clauses_without_disposition(tmp_path) != []
+
+
+# --- Canonical conflict is structural, never textual (round-4 independent audit) ----------------
+#
+# The audit of head c2fd4ad demonstrated that two canonical artifact sets identical in every record
+# could declare different terminal statuses, because `context_from_artifacts` derived
+# `owner_user_conflict` from `owner:` / `user:` prefixes in `intent_input.authoritative_inputs` -- a
+# field the schema constrains only to a nonempty string. Canonical status must be a function of the
+# canonical record set alone.
+
+_PROSE_VARIANTS = (
+    ["user:structured-config", "owner:x", "user:y"],
+    ["owner:decision-1", "user:request-2"],
+    ["OWNER:X", "USER:Y"],
+    ["Owner: x", "User: y"],
+    ["owner:", "user:"],
+    ["owner:a", "owner:b", "user:c", "user:d"],
+    ["totally unrelated", "owner:sneaky", "user:sneaky"],
+    ["owner-x", "user-y"],
+    ["owner|x", "user|y"],
+    ["the owner: said, the user: disagreed"],
+    ["authority=owner", "authority=user"],
+)
+
+
+def _linked_set(validator: ModuleType, set_id: str) -> dict:
+    record = next(
+        item for item in validator.load_linked_artifact_sets(PACKAGE) if item["id"] == set_id
+    )
+    return json.loads(json.dumps(record["artifacts"]))
+
+
+def _structured_owner_user_conflict_record() -> dict:
+    return {
+        "id": "CFL-TEST-OU-001",
+        "requirement_ids": ["REQ-LAS-001"],
+        "claims": ["owner requires a retention floor", "user requires a retention ceiling"],
+        "source_ids": ["SRC-LAS-001"],
+        "authority_ranks": ["owner", "user"],
+        "resolution_state": "unresolved",
+    }
+
+
+def test_canonical_status_ignores_authoritative_input_prose() -> None:
+    """No formatting of `authoritative_inputs` may change canonical status or diagnostics."""
+
+    validator = _load_validator()
+    registry = validator.load_diagnostic_registry(PACKAGE)
+    baseline_artifacts = _linked_set(validator, "LAS-POS-SUCCESS-001")
+    baseline = validator.derive_canonical_outcome(baseline_artifacts, registry)
+    assert baseline == ("SUCCESS", [])
+
+    for variant in _PROSE_VARIANTS:
+        artifacts = _linked_set(validator, "LAS-POS-SUCCESS-001")
+        artifacts["intent_input"]["authoritative_inputs"] = list(variant)
+        assert validator.derive_canonical_outcome(artifacts, registry) == baseline, variant
+        # The normalized signal itself must stay false: prose cannot even set it.
+        assert validator.context_from_artifacts(artifacts)["owner_user_conflict"] is False, variant
+
+
+def test_structured_owner_user_conflict_blocks_with_authority_diagnostics() -> None:
+    """A real recorded owner/user authority conflict is BLOCKED with the specific codes."""
+
+    validator = _load_validator()
+    registry = validator.load_diagnostic_registry(PACKAGE)
+    artifacts = _linked_set(validator, "LAS-POS-SUCCESS-001")
+    artifacts["requirements_document"]["conflicts"] = [_structured_owner_user_conflict_record()]
+
+    assert validator.derive_canonical_outcome(artifacts, registry) == (
+        "BLOCKED", ["RQC-AUT-0001", "RQC-CFL-0002"],
+    )
+    # The specific authority diagnostic must win over the generic source-claim code, which would
+    # otherwise always shadow it because `source_ids` is required on every conflict record.
+    assert validator.context_from_artifacts(artifacts)["owner_user_conflict"] is True
+
+
+def test_removing_or_renaming_prose_cannot_hide_a_structured_conflict() -> None:
+    """Stripping every authority-looking token from the prose must not unblock a real conflict."""
+
+    validator = _load_validator()
+    registry = validator.load_diagnostic_registry(PACKAGE)
+    blocked = ("BLOCKED", ["RQC-AUT-0001", "RQC-CFL-0002"])
+
+    for prose in (["nothing authority-like at all"], ["x"], ["renamed-input"], ["OWNER", "USER"]):
+        artifacts = _linked_set(validator, "LAS-POS-SUCCESS-001")
+        artifacts["requirements_document"]["conflicts"] = [_structured_owner_user_conflict_record()]
+        artifacts["intent_input"]["authoritative_inputs"] = list(prose)
+        assert validator.derive_canonical_outcome(artifacts, registry) == blocked, prose
+
+
+def test_structured_conflict_signal_requires_exact_records() -> None:
+    """The structured signal is exact: resolved, single-rank, or mis-cased ranks do not set it."""
+
+    validator = _load_validator()
+    base = _structured_owner_user_conflict_record()
+
+    assert validator.structured_owner_user_conflict([base]) is True
+    assert validator.structured_owner_user_conflict([dict(base, resolution_state="resolved")]) is False
+    assert validator.structured_owner_user_conflict([dict(base, authority_ranks=["owner"])]) is False
+    assert validator.structured_owner_user_conflict([dict(base, authority_ranks=["user"])]) is False
+    assert validator.structured_owner_user_conflict([dict(base, authority_ranks=["Owner", "User"])]) is False
+    assert validator.structured_owner_user_conflict([dict(base, authority_ranks=[])]) is False
+    assert validator.structured_owner_user_conflict([]) is False
+    assert validator.structured_owner_user_conflict(None) is False
+    # A third rank alongside owner and user still is an owner/user conflict.
+    assert validator.structured_owner_user_conflict(
+        [dict(base, authority_ranks=["owner", "user", "delegate"])]
+    ) is True
+
+
+def test_canonical_linked_fixtures_exercise_the_structured_conflict_path() -> None:
+    """The canonical corpus -- not only the compact test projection -- must cover both directions."""
+
+    validator = _load_validator()
+    records = {record["id"]: record for record in validator.load_linked_artifact_sets(PACKAGE)}
+
+    positive = records["LAS-POS-OWNER-USER-CONFLICT-001"]
+    assert positive["kind"] == "positive"
+    document = positive["artifacts"]["requirements_document"]
+    assert validator.structured_owner_user_conflict(document["conflicts"]) is True
+    assert positive["artifacts"]["compile_result"]["status"] == "BLOCKED"
+    assert sorted(positive["artifacts"]["compile_result"]["reason_codes"]) == [
+        "RQC-AUT-0001", "RQC-CFL-0002",
+    ]
+
+    negative = records["LAS-NEG-PROSE-ONLY-CONFLICT-001"]
+    assert negative["kind"] == "negative"
+    assert negative["expected_reason"] == "semantic_status_mismatch"
+    prose = negative["artifacts"]["intent_input"]["authoritative_inputs"]
+    assert any(str(value).startswith("owner:") for value in prose)
+    assert any(str(value).startswith("user:") for value in prose)
+    # It declares the conflict codes, but records no conflict at all -- so it must be rejected.
+    assert negative["artifacts"]["requirements_document"]["conflicts"] == []
+    assert negative["artifacts"]["compile_result"]["status"] == "BLOCKED"
+
+
+def test_negative_control_prose_conflict_regression_is_load_bearing() -> None:
+    """Restoring the old prefix behaviour in memory must make the regression detectable.
+
+    A regression test that still passes once the defect is reintroduced proves nothing. This
+    monkeypatches the canonical adapter in-process, confirms the prose-invariance assertion breaks,
+    and restores the original behaviour. No validator file is modified.
+    """
+
+    validator = _load_validator()
+    registry = validator.load_diagnostic_registry(PACKAGE)
+    artifacts = _linked_set(validator, "LAS-POS-SUCCESS-001")
+    artifacts["intent_input"]["authoritative_inputs"] = ["owner:x", "user:y"]
+
+    assert validator.derive_canonical_outcome(artifacts, registry) == ("SUCCESS", [])
+
+    original = validator.context_from_artifacts
+
+    def legacy_prefix_adapter(payload):
+        context = original(payload)
+        inputs = payload.get("intent_input", {}).get("authoritative_inputs", []) or []
+        context["owner_user_conflict"] = (
+            any(str(value).startswith("owner:") for value in inputs)
+            and any(str(value).startswith("user:") for value in inputs)
+        )
+        return context
+
+    try:
+        validator.context_from_artifacts = legacy_prefix_adapter
+        regressed = validator.derive_canonical_outcome(artifacts, registry)
+        assert regressed == ("BLOCKED", ["RQC-AUT-0001", "RQC-CFL-0002"]), regressed
+        assert regressed != ("SUCCESS", []), "negative control failed to reproduce the defect"
+    finally:
+        validator.context_from_artifacts = original
+
+    assert validator.derive_canonical_outcome(artifacts, registry) == ("SUCCESS", [])
+
+
+def test_compact_fixture_prose_shortcut_is_confined_to_the_fixture_adapter() -> None:
+    """The `owner:`/`user:` shorthand may survive only as a noncanonical test projection."""
+
+    validator = _load_validator()
+    case = {
+        "input": {"intent": "x", "authoritative_inputs": ["owner:a", "user:b"]},
+        "candidate": {"requirements": []},
+    }
+    fixture_context = validator.context_from_fixture(case)
+    assert fixture_context["owner_user_conflict"] is True
+    assert fixture_context["canonical"] is False
+
+    # The same prose reaching the canonical adapter must be inert.
+    artifacts = _linked_set(validator, "LAS-POS-SUCCESS-001")
+    artifacts["intent_input"]["authoritative_inputs"] = ["owner:a", "user:b"]
+    canonical_context = validator.context_from_artifacts(artifacts)
+    assert canonical_context["owner_user_conflict"] is False
+    assert canonical_context["canonical"] is True
+
+    # The fixture adapter also honours structured records, so the two layers agree on real evidence.
+    structured = {
+        "input": {"intent": "x", "authoritative_inputs": ["neutral"]},
+        "candidate": {"conflicts": [_structured_owner_user_conflict_record()], "requirements": []},
+    }
+    assert validator.context_from_fixture(structured)["owner_user_conflict"] is True
