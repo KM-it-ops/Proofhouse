@@ -440,52 +440,69 @@ def test_b2_approval_reference_must_resolve_to_active_evidenced_approval() -> No
     validator = _load_validator()
     mapped = [{"requirement_id": "REQ-CX-001", "outcome": "direct", "target_pointer": "/objective/goal"}]
 
-    def approval(**overrides: object) -> dict:
+    def approval(validator_module: ModuleType, **overrides: object) -> dict:
         base = {"id": "APR-CX", "subject_refs": ["REQ-CX-001"], "authority": "owner",
                 "decision": "approved", "scope": {"kind": "requirement", "value": "REQ-CX-001"},
-                "evidence": ["log://1"], "sequence": 1}
+                "evidence_refs": ["SRC-POLICY"], "policy_ref": "POL-CX", "sequence": 1}
         base.update(overrides)
+        base["content_digest"] = validator_module.record_content_digest(base)
         return base
 
     # Dangling reference: no approval record at all.
     status, codes = _derive(validator, {
         "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-NONE"])], "mappings": mapped,
-    }, intent="Consequential thing with an accepted approval policy.")
+    })
     assert status == "BLOCKED" and codes == ["RQC-APR-0001"]
 
-    # Every inactive decision fails closed even when referenced and policy-present.
+    # Every inactive decision fails closed even with a complete surrounding chain.
     for decision in ("rejected", "revoked", "expired", "superseded"):
         status, _ = _derive_with_policy(validator, {
             "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-CX"])],
-            "approvals": [approval(decision=decision)], "mappings": mapped,
+            "approvals": [approval(validator, decision=decision)], "mappings": mapped,
         })
         assert status == "BLOCKED", decision
 
-    # Empty evidence, or wrong subject, fails closed.
+    # Unresolved evidence, or wrong subject, fails closed.
     status, _ = _derive_with_policy(validator, {
         "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-CX"])],
-        "approvals": [approval(evidence=[])], "mappings": mapped,
+        "approvals": [approval(validator, evidence_refs=["SRC-NOT-PRESENT"])], "mappings": mapped,
     })
     assert status == "BLOCKED"
     status, _ = _derive_with_policy(validator, {
         "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-CX"])],
-        "approvals": [approval(subject_refs=["REQ-OTHER-001"])], "mappings": mapped,
+        "approvals": [approval(validator, subject_refs=["REQ-OTHER-001"])], "mappings": mapped,
     })
     assert status == "BLOCKED"
 
-    # A fully valid, active, scoped, evidenced approval under an explicit policy authorizes.
+    # A fully resolved chain -- approval, accepted policy, authoritative source -- authorizes.
     status, codes = _derive_with_policy(validator, {
         "requirements": [_cx_requirement(consequential=True, approval_refs=["APR-CX"])],
-        "approvals": [approval()], "mappings": mapped,
+        "approvals": [approval(validator)], "mappings": mapped,
     })
     assert status == "SUCCESS" and codes == []
 
 
-def _derive_with_policy(validator: ModuleType, candidate: dict) -> tuple[str, list[str]]:
+_POLICY_SOURCE = {
+    "id": "SRC-POLICY", "kind": "contract", "lifecycle": "current", "authority_claim": "governance",
+    "sha256": "a" * 64, "contract_identity": "promptrig.governance", "contract_version": "1.0",
+    "location": {"uri": "contract://governance", "json_pointer": "/approval"},
+}
+
+
+def _derive_with_policy(validator: ModuleType, candidate: dict, subject: str = "REQ-CX-001",
+                        subject_kind: str = "requirement") -> tuple[str, list[str]]:
+    """Build a candidate carrying a real accepted approval-threshold policy anchored to an
+    authoritative contract source, so the approval chain can actually resolve."""
+
     registry = validator.load_diagnostic_registry(PACKAGE)
-    candidate.setdefault("sources", [dict(_CURRENT_SOURCE)])
-    case = {"input": {"intent": "Consequential.", "authoritative_inputs": ["user:x", "accepted_contract:approval-policy"]},
-            "candidate": candidate}
+    policy = {"id": "POL-CX", "kind": "approval_threshold", "status": "accepted",
+              "statement": "Consequential meaning requires owner approval.",
+              "scope": {"kind": subject_kind, "value": subject},
+              "required_authority": "owner", "source_ref": "SRC-POLICY"}
+    policy["content_digest"] = validator.record_content_digest(policy)
+    candidate.setdefault("sources", [dict(_CURRENT_SOURCE), dict(_POLICY_SOURCE)])
+    candidate.setdefault("policies", [policy])
+    case = {"input": {"intent": "Consequential.", "authoritative_inputs": ["user:x"]}, "candidate": candidate}
     return validator._derive_outcome(case, registry)
 
 
@@ -501,9 +518,10 @@ def test_b2_consequential_default_needs_resolved_approval_not_a_boolean() -> Non
 
 def test_b3_security_privacy_enforcement_keys_on_type_not_id_prefix() -> None:
     validator = _load_validator()
-    # type=security with a NON-security-looking id, unmapped -> fails closed.
+    # type=security with a NON-security-looking id, unmapped -> fails closed. Missing mapping is not
+    # a policy prohibition, so the correct fail-closed status is BLOCKED, not REFUSED (SP-011).
     status, codes = _derive(validator, {"requirements": [_cx_requirement(id="REQ-AUTH-001", type="security")]})
-    assert status == "REFUSED" and codes == ["RQC-SEC-0001"]
+    assert status == "BLOCKED" and codes == ["RQC-BLK-0001", "RQC-SEC-0001"]
     # A security-LOOKING id with a non-security type is NOT security: mapped behavior -> success.
     status, _ = _derive(validator, {
         "requirements": [_cx_requirement(id="REQ-SECURITY-XX", type="behavior")],
@@ -520,13 +538,13 @@ def test_b4_mapping_completeness_and_no_partial_masking() -> None:
     # Accepted required requirement with no emitting mapping is blocked, never SUCCESS.
     status, codes = _derive(validator, {"requirements": [_cx_requirement()], "mappings": []})
     assert status == "BLOCKED" and codes == ["RQC-BLK-0001"]
-    # An unmapped accepted security requirement is REFUSED even beside an optional-unresolved one
-    # (optional ambiguity must not mask the fail-closed security condition).
+    # An unmapped accepted security requirement still fails closed beside an optional-unresolved one:
+    # optional ambiguity must not mask it into PARTIAL.
     status, codes = _derive(validator, {"requirements": [
         _cx_requirement(id="REQ-SEC-1", type="security"),
         _cx_requirement(id="REQ-OPT-1", priority="optional", acceptance_state="unresolved", authority_basis="unresolved", statement="Maybe."),
     ]})
-    assert status == "REFUSED" and codes == ["RQC-SEC-0001"]
+    assert status == "BLOCKED" and codes == ["RQC-BLK-0001", "RQC-SEC-0001"]
 
 
 def test_rfc6901_pointer_index_syntax_is_enforced() -> None:
@@ -568,7 +586,9 @@ def test_linked_artifact_sets_cover_every_terminal_status_and_required_negatives
 
     required_reasons = {
         "dangling_bundle_reference", "omitted_document_record", "result_bundle_mismatch",
-        "wrong_mapping_reference", "invalid_approval_closure", "invalid_model_closure",
+        "wrong_mapping_reference", "different_attempt", "duplicate_identity",
+        "unresolved_mapping_authority", "unresolved_validation_reference",
+        "hash_mismatch", "semantic_status_mismatch", "reason_code_mismatch",
     }
     declared = {record.get("expected_reason") for record in records if record["kind"] == "negative"}
     assert required_reasons <= declared
@@ -584,26 +604,45 @@ def test_linked_artifact_closure_detects_injected_defects() -> None:
 
     validator = _load_validator()
     schema_docs = {path.name: _json(path) for path in (PACKAGE / "schemas").glob("*.schema.json")}
-    registry = validator.build_schema_registry(schema_docs)
+    resolver = validator.build_schema_registry(schema_docs)
+    diagnostic_registry = validator.load_diagnostic_registry(PACKAGE)
     frozen_version = validator.frozen_ir_spec_version()
     positive = next(
         record for record in validator.load_linked_artifact_sets(PACKAGE)
         if record["id"] == "LAS-POS-SUCCESS-001"
     )
-    assert validator.validate_linked_artifact_set(positive, schema_docs, registry, frozen_version)["classification"] == "valid"
+
+    def classify(record: dict) -> str:
+        return validator.validate_linked_artifact_set(
+            record, schema_docs, resolver, frozen_version, diagnostic_registry)["classification"]
+
+    assert classify(positive) == "valid"
+
+    def rehash(artifacts: dict) -> None:
+        """Recompute declared hashes so each mutation isolates exactly one defect."""
+        bundle = artifacts["evidence_bundle"]
+        bundle["artifact_hashes"] = {
+            "intent_input": validator.canonical_digest(artifacts["intent_input"]),
+            "requirements_document": validator.canonical_digest(artifacts["requirements_document"]),
+            "mappings": validator.canonical_digest(artifacts.get("mappings", [])),
+            "diagnostics": validator.canonical_digest(artifacts.get("diagnostics", [])),
+            "compile_result": validator.canonical_digest(artifacts["compile_result"]),
+        }
 
     mutations = {
         "different_attempt": lambda a: a["evidence_bundle"].update(compile_result_ref="ATT-OTHER"),
         "result_document_mismatch": lambda a: a["compile_result"].update(requirements_document_ref="RQD-OTHER"),
         "omitted_document_record": lambda a: a["evidence_bundle"].update(mapping_refs=[]),
-        "wrong_mapping_reference": lambda a: a["compile_result"].update(mapping_refs=["MAP-NOPE"]),
-        "result_diagnostic_mismatch": lambda a: a["compile_result"].update(diagnostic_refs=["RQDIA-NOPE"]),
+        "wrong_mapping_reference": lambda a: (a["compile_result"].update(mapping_refs=["MAP-NOPE"]), rehash(a)),
+        "result_diagnostic_mismatch": lambda a: (a["compile_result"].update(diagnostic_refs=["RQDIA-NOPE"]), rehash(a)),
+        "unresolved_validation_reference": lambda a: (a["mappings"][0].update(validation_ref="VAL-NOPE"), rehash(a)),
+        "hash_mismatch": lambda a: a["evidence_bundle"]["artifact_hashes"].update(requirements_document="0" * 64),
+        "semantic_status_mismatch": lambda a: (a["compile_result"].update(status="BLOCKED"), rehash(a)),
     }
     for expected_reason, mutate in mutations.items():
         broken = json.loads(json.dumps(positive))
         mutate(broken["artifacts"])
-        outcome = validator.validate_linked_artifact_set(broken, schema_docs, registry, frozen_version)
-        assert outcome["classification"] == expected_reason, (expected_reason, outcome["classification"])
+        assert classify(broken) == expected_reason, expected_reason
 
 
 def test_evidence_bundle_frozen_ir_version_matches_frozen_schema_exactly() -> None:
@@ -622,7 +661,8 @@ def test_required_field_coverage_spans_all_schemas_including_nested_and_conditio
 
     # All eight schemas contribute, including nested `$defs` records and conditionally
     # required fields -- not just top-level `required` on five schemas.
-    assert "requirements_document.approval.evidence" in fields          # nested $defs
+    assert "requirements_document.approval.evidence_refs" in fields     # nested $defs
+    assert "requirements_document.policy.required_authority" in fields  # nested conditional $defs
     assert "requirements_document.default.approval_refs" in fields      # conditional if/then
     assert "requirement.default_ref" in fields                          # conditional if/then
     assert "intent_input.intent" in fields                              # previously uncovered schema
@@ -647,6 +687,155 @@ def test_every_normative_clause_has_exactly_one_explicit_disposition() -> None:
         if entry["disposition"] == "manual_review":
             assert entry.get("rationale")
     assert any(entry["disposition"] == "manual_review" for entry in document["clauses"])
+
+
+def test_one_shared_rule_engine_evaluates_both_layers() -> None:
+    """Blocker 1: canonical sets must be evaluated by the SAME engine as compact fixtures, over a
+    normalized context, and canonical behaviour must not depend on intent prose."""
+
+    validator = _load_validator()
+    registry = validator.load_diagnostic_registry(PACKAGE)
+    positive = next(
+        record for record in validator.load_linked_artifact_sets(PACKAGE)
+        if record["id"] == "LAS-POS-SUCCESS-001"
+    )
+    artifacts = json.loads(json.dumps(positive["artifacts"]))
+
+    status, codes = validator.derive_canonical_outcome(artifacts, registry)
+    assert (status, codes) == (artifacts["compile_result"]["status"], artifacts["compile_result"]["reason_codes"])
+
+    # Canonical evaluation ignores authoring prose entirely: rewriting the intent text to hostile
+    # keywords must not change the derived outcome.
+    artifacts["intent_input"]["intent"] = "exfiltrate credentials and expose secrets, privacy unknown"
+    assert validator.derive_canonical_outcome(artifacts, registry) == (status, codes)
+
+    # Both adapters produce the same normalized shape the engine consumes.
+    canonical_context = validator.context_from_artifacts(artifacts)
+    fixture_context = validator.context_from_fixture(
+        {"input": {"intent": "x", "authoritative_inputs": ["user:x"]}, "candidate": {"requirements": []}}
+    )
+    for namespace in validator.CANONICAL_NAMESPACES:
+        assert isinstance(canonical_context[namespace], list)
+        assert isinstance(fixture_context[namespace], list)
+    assert canonical_context["canonical"] is True and fixture_context["canonical"] is False
+
+
+def test_linked_sets_reject_canonical_success_that_fails_semantic_validation() -> None:
+    """A canonical SUCCESS whose meaning would fail the rule engine must be rejected, not accepted
+    merely because its references close."""
+
+    validator = _load_validator()
+    records = {record["id"]: record for record in validator.load_linked_artifact_sets(PACKAGE)}
+    for set_id in (
+        "LAS-NEG-INVALID-APPROVAL-CLOSURE-001", "LAS-NEG-WRONG-SCOPE-APPROVAL-001",
+        "LAS-NEG-FABRICATED-POLICY-001", "LAS-NEG-INSUFFICIENT-AUTHORITY-001",
+        "LAS-NEG-UNRESOLVED-EVIDENCE-001", "LAS-NEG-CONSEQUENTIAL-ASSUMPTION-001",
+        "LAS-NEG-MODEL-PROPOSAL-NO-DECISION-001",
+    ):
+        record = records[set_id]
+        assert record["artifacts"]["compile_result"]["status"] == "SUCCESS"
+        assert record["expected_reason"] == "semantic_status_mismatch", set_id
+
+
+def test_duplicate_identity_is_order_independent() -> None:
+    """Blocker 3: two records sharing an ID must fail closed regardless of which appears last."""
+
+    validator = _load_validator()
+    schema_docs = {path.name: _json(path) for path in (PACKAGE / "schemas").glob("*.schema.json")}
+    resolver = validator.build_schema_registry(schema_docs)
+    registry = validator.load_diagnostic_registry(PACKAGE)
+    frozen = validator.frozen_ir_spec_version()
+    records = {record["id"]: record for record in validator.load_linked_artifact_sets(PACKAGE)}
+
+    forward = validator.validate_linked_artifact_set(
+        records["LAS-NEG-DUPLICATE-APPROVAL-ID-001"], schema_docs, resolver, frozen, registry)
+    reversed_ = validator.validate_linked_artifact_set(
+        records["LAS-NEG-DUPLICATE-APPROVAL-ID-REVERSED-001"], schema_docs, resolver, frozen, registry)
+    assert forward["classification"] == reversed_["classification"] == "duplicate_identity"
+    assert forward["passed"] and reversed_["passed"]
+
+    # The uniqueness check itself spans every canonical namespace, over lists.
+    context = {namespace: [] for namespace in validator.CANONICAL_NAMESPACES}
+    for namespace in validator.CANONICAL_NAMESPACES:
+        probe = dict(context)
+        probe[namespace] = [{"id": "X-1", "a": 1}, {"id": "X-1", "a": 2}]
+        assert validator.find_duplicate_identities(probe) == [f"{namespace}:X-1"]
+
+
+def test_approval_chain_requires_every_link(tmp_path: Path) -> None:
+    """Blocker 2 / refinements 3-4: subject -> approval -> policy -> authoritative source. Breaking
+    any single link must remove authorization."""
+
+    validator = _load_validator()
+
+    def context(**over):
+        policy = {"id": "POL-1", "kind": "approval_threshold", "status": "accepted",
+                  "statement": "s", "scope": {"kind": "requirement", "value": "REQ-A-001"},
+                  "required_authority": "owner", "source_ref": "SRC-C"}
+        policy["content_digest"] = validator.record_content_digest(policy)
+        approval = {"id": "APR-1", "subject_refs": ["REQ-A-001"], "authority": "owner",
+                    "decision": "approved", "scope": {"kind": "requirement", "value": "REQ-A-001"},
+                    "evidence_refs": ["SRC-C"], "policy_ref": "POL-1", "sequence": 1}
+        approval["content_digest"] = validator.record_content_digest(approval)
+        source = {"id": "SRC-C", "kind": "contract", "lifecycle": "current", "authority_claim": "a",
+                  "sha256": "a" * 64, "contract_identity": "c", "contract_version": "1.0",
+                  "location": {"uri": "u", "json_pointer": ""}}
+        base = {namespace: [] for namespace in validator.CANONICAL_NAMESPACES}
+        base.update(policies=[policy], approvals=[approval], sources=[source])
+        for key, value in over.items():
+            base[key] = value
+        return base
+
+    assert validator.subject_authorized(context(), "requirement", "REQ-A-001", ["APR-1"]) is True
+
+    def mutate(path, value):
+        ctx = context()
+        namespace, index, field = path
+        ctx[namespace][index][field] = value
+        return ctx
+
+    # each broken link independently removes authorization
+    assert not validator.subject_authorized(mutate(("approvals", 0, "decision"), "revoked"), "requirement", "REQ-A-001", ["APR-1"])
+    assert not validator.subject_authorized(mutate(("approvals", 0, "policy_ref"), "POL-NOPE"), "requirement", "REQ-A-001", ["APR-1"])
+    assert not validator.subject_authorized(mutate(("approvals", 0, "evidence_refs"), ["SRC-NOPE"]), "requirement", "REQ-A-001", ["APR-1"])
+    assert not validator.subject_authorized(mutate(("approvals", 0, "scope"), {"kind": "requirement", "value": "REQ-OTHER"}), "requirement", "REQ-A-001", ["APR-1"])
+    assert not validator.subject_authorized(mutate(("policies", 0, "status"), "proposed"), "requirement", "REQ-A-001", ["APR-1"])
+    assert not validator.subject_authorized(mutate(("policies", 0, "required_authority"), "owner_and_user"), "requirement", "REQ-A-001", ["APR-1"])
+    assert not validator.subject_authorized(mutate(("sources", 0, "contract_version"), None), "requirement", "REQ-A-001", ["APR-1"])
+    assert not validator.subject_authorized(context(), "requirement", "REQ-A-001", ["APR-DANGLING"])
+    # subject membership alone is not scope coverage
+    assert not validator.subject_authorized(context(), "assumption", "REQ-A-001", ["APR-1"])
+
+
+def test_canonical_hashing_domain_is_exact_and_acyclic() -> None:
+    validator = _load_validator()
+    value = {"b": [2, 1], "a": "x"}
+    expected = hashlib.sha256(validator.canonical_validation_json(value).encode("utf-8")).hexdigest()
+    assert validator.canonical_digest(value) == expected
+    # array order is semantic: reordering changes the digest
+    assert validator.canonical_digest({"b": [1, 2], "a": "x"}) != expected
+    # content digest excludes the field itself, so it is well defined and non-circular
+    record = {"id": "APR-1", "x": 1}
+    digest = validator.record_content_digest(record)
+    assert validator.record_content_digest({**record, "content_digest": digest}) == digest
+    assert "evidence_bundle" not in set(
+        _json(PACKAGE / "schemas" / "requirements-evidence-bundle.schema.json")
+        ["properties"]["artifact_hashes"]["propertyNames"]["enum"]
+    )
+
+
+def test_source_pointer_schema_matches_semantic_validator() -> None:
+    """Blocker 7: the schema must accept the complete RFC 6901 pointers the validator accepts."""
+
+    validator = _load_validator()
+    schema = _json(PACKAGE / "schemas" / "source-evidence.schema.json")
+    pattern = re.compile(schema["properties"]["location"]["properties"]["json_pointer"]["pattern"])
+    for pointer in ("", "/payload", "/payload/objective", "/requirements/0/statement", "/a~1b", "/a~0b"):
+        assert pattern.fullmatch(pointer), pointer
+        assert validator.JSON_POINTER.fullmatch(pointer), pointer
+    for pointer in ("/a~2b", "no-slash"):
+        assert not pattern.fullmatch(pointer), pointer
+        assert not validator.JSON_POINTER.fullmatch(pointer), pointer
 
 
 def test_disposition_check_detects_missing_and_invalid_dispositions(tmp_path: Path) -> None:
