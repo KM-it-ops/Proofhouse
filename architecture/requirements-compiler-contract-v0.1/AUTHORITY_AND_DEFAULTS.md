@@ -18,7 +18,7 @@
 
 - **AD-001:** Lower-ranked input cannot silently override, erase, reinterpret, or weaken higher-ranked authority.
 - **AD-002:** Equal-rank disagreement is an explicit conflict unless a recorded tie-break rule applies.
-- **AD-003:** Owner/user conflicts remain visible; owner policy controls execution while the user claim remains preserved as disputed evidence.
+- **AD-003:** Owner/user conflicts remain visible; owner policy controls execution while the user claim remains preserved as disputed evidence. An owner/user conflict is established **only** by structured conflict evidence — an unresolved `conflicts` record whose `authority_ranks` span `owner` and `user` — never by the wording or formatting of `intent_input` labels; a canonical attempt's terminal status is a function of its record set alone.
 - **AD-004:** Accepted contracts control artifact validity; owner approval is required to revise their semantic boundary.
 - **AD-005:** Provider constraints may cause blocked/unsupported evidence but never mutate a canonical requirement.
 

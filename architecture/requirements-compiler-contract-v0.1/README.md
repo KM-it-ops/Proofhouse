@@ -46,7 +46,7 @@ Out of scope:
 | `schemas/` | Eight Draft 2020-12 proposed schemas |
 | `fixtures/cases.json` | 41 semantic-oracle cases. A **test-only semantic projection, not canonical requirements documents** |
 | `fixtures/schema_instances.json` | 35 schema-conformance instances proving exact acceptance and rejection reasons |
-| `fixtures/linked_artifact_sets.json` | 26 complete, cross-referenced artifact sets proving closure **and** semantic validity |
+| `fixtures/linked_artifact_sets.json` | 28 complete, cross-referenced artifact sets proving closure **and** semantic validity |
 | `fixtures/ir_pointer_cases.json` | 11 frozen-IR pointer-validity cases |
 | `evidence/` | Deterministic inventories, mappings, hashes, results, gaps, clause dispositions, and PRS matrix |
 | `validate_contract.py` | Test-only package validator; not product runtime |
@@ -57,9 +57,11 @@ Deterministic validation reports three layers separately, each with its own coun
 
 1. **Schema-instance** (35) — individual records accepted, or rejected at the exact intended keyword and location.
 2. **Semantic-oracle** (41) — terminal status and diagnostics for structured candidates. These cases are a compact test-only projection, **not** canonical requirements documents.
-3. **Linked-artifact** (26) — complete schema-valid artifact sets whose references resolve, whose evidence bundle closes over every canonical record, and whose declared terminal status, reason codes, and diagnostics must reconcile **exactly** with the shared rule engine.
+3. **Linked-artifact** (28) — complete schema-valid artifact sets whose references resolve, whose evidence bundle closes over every canonical record, and whose declared terminal status, reason codes, and diagnostics must reconcile **exactly** with the shared rule engine.
 
-Layers 2 and 3 are evaluated by **one shared contract-rule engine** over a normalized rule context, reached through two adapters (compact fixture, canonical artifacts). There is no second rule implementation, and canonical evaluation never inspects authoring prose.
+Layers 2 and 3 are evaluated by **one shared contract-rule engine** over a normalized rule context, reached through two adapters (compact fixture, canonical artifacts). There is no second rule implementation.
+
+Canonical evaluation reads no authoring prose: `context_from_artifacts` consumes only canonical records plus `intent_input.contract_version`, so the terminal status of a canonical attempt is a function of its record set alone and a verifier holding only the records can recompute it. Owner/user authority conflict is therefore derived from structured conflict evidence — an unresolved `conflicts` record whose `authority_ranks` span `owner` and `user` — and never from how a caller formatted an input label. The compact corpus retains one `owner:`/`user:` prefix shorthand, confined to `context_from_fixture` and documented there as a noncanonical test projection; it cannot affect canonical validity.
 
 A fourth corpus of 11 IR-pointer cases checks frozen-IR pointer classification against frozen IR v0.1 (`spec_version` `0.1.0`). Green validation proves internal consistency of this proposal only.
 

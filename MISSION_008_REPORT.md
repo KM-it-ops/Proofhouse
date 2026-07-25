@@ -247,7 +247,7 @@ those rules, plus several incomplete resolutions. All seven blockers are correct
 
 | Blocker | Correction |
 |---|---|
-| 1 — closure was not validity | One shared contract-rule engine (`evaluate_contract_rules`) now evaluates a normalized `ContractRuleContext` reached through two adapters: `context_from_fixture` (compact) and `context_from_artifacts` (canonical). Every linked set derives its terminal status and diagnostics from its canonical artifacts and must match `compile_result.status`, `reason_codes`, `diagnostic_refs`, and mapping evidence exactly; a canonical `SUCCESS`/`PARTIAL` that fails semantic validation is rejected. There is exactly one rule implementation. Canonical evaluation inspects **no** authoring prose. |
+| 1 — closure was not validity | One shared contract-rule engine (`evaluate_contract_rules`) now evaluates a normalized `ContractRuleContext` reached through two adapters: `context_from_fixture` (compact) and `context_from_artifacts` (canonical). Every linked set derives its terminal status and diagnostics from its canonical artifacts and must match `compile_result.status`, `reason_codes`, `diagnostic_refs`, and mapping evidence exactly; a canonical `SUCCESS`/`PARTIAL` that fails semantic validation is rejected. There is exactly one rule implementation. ~~Canonical evaluation inspects **no** authoring prose.~~ **This last sentence was false at this round's head**: `owner_user_conflict` was still derived from `authoritative_inputs` string prefixes. See "Round 4 — canonical conflict made structural" below, which corrects it. |
 | 2 — approval resolution incomplete | Authorization now requires the full chain: subject → `approval_ref` → approval → `policy_ref` → accepted policy → authoritative source with exact identity, version, and digest. Unique ID, active `approved`, exact subject coverage, `scope.kind`+`scope.value` coverage, authority satisfying the policy, and evidence resolving through `evidence_refs` (preserved source or governed external URI+SHA-256) are all checked. `required_authority` is `owner`/`user`/`owner_or_user`/`owner_and_user` — the ambiguous `any` is gone. Requirements, assumptions, and defaults share one resolution path, and `default.approved` must agree exactly with the resolved state. A truthy string never satisfies the gate. |
 | 3 — duplicate identities hidden | `find_duplicate_identities` counts over **lists** across all 16 canonical namespaces; `_unique` fails closed on zero *or* more than one match, so authorization cannot depend on which duplicate appears last. Order-reversal fixtures prove it. |
 | 4 — security status semantics | An accepted security/privacy requirement missing evidence or mapping is now `BLOCKED` (`RQC-BLK-0001` + `RQC-SEC-0001`/`RQC-PRV-0001`). `REFUSED` requires an accepted `prohibition` policy that resolves and whose scope applies (SP-011/SP-024). The regression tests that expected unconditional `REFUSED` were corrected. |
@@ -287,6 +287,68 @@ blobs byte-identical to baseline with tag `v0.5-architecture-freeze` still at
 `7948c9a419dc02ea43ca994f0334733ea4b08855`.
 
 All `RCD-008-*` decisions remain **Proposed**; this round approves none. PRS remains `DEFERRED`.
+
+## Round 4 — canonical conflict made structural (independent-audit correction)
+
+An independent read-only audit of head `c2fd4ad6b72929ec009fef1e0417045c1875f7d4`, reconciled and
+confirmed, found one blocker that this round corrects. It is recorded here in full because the
+previous round's claim about it was false.
+
+**The defect.** `context_from_artifacts` derived the status-bearing `owner_user_conflict` signal from
+`owner:` / `user:` string prefixes in `intent_input.authoritative_inputs`, a field the schema
+constrains only to a nonempty string (no pattern, no enum). The audit produced two canonical artifact
+sets **identical in every record** — same requirements, sources, approvals, policies, mappings, and
+diagnostics — that both validated as `valid` while declaring different terminal statuses (`SUCCESS`
+versus `BLOCKED` with `RQC-AUT-0001` and `RQC-CFL-0002`), because only the free-text labels differed.
+Canonical terminal status was therefore **not** a function of the canonical record set, and a verifier
+holding only the records could not recompute it. The rule was also exercised by **0 of 26** linked
+artifact sets, so no canonical fixture could have caught it.
+
+**Correction of a false prior claim.** Earlier sections of this report, and the previous version of
+the package README and of `context_from_artifacts`' own docstring, asserted that canonical evaluation
+inspects **no** authoring prose. That assertion was **incorrect** for `authoritative_inputs` at heads
+up to and including `c2fd4ad`. It is now true and enforced by test.
+
+**What changed.** A new `structured_owner_user_conflict()` derives the signal from records only: an
+unresolved `conflicts` record whose required `authority_ranks` span `owner` and `user`. The canonical
+adapter uses that and nothing else, and now reads no field of `intent_input` other than
+`contract_version`. No new free-text convention, prefix grammar, or parser was introduced. The
+owner/user check moved **ahead** of the generic conflict codes in the precedence matrix, because a
+canonical conflict record always carries `source_ids` (required, `minItems` 1), so `RQC-SRC-0004`
+would otherwise shadow the specific authority diagnostic on every canonical set. `AD-003` now states
+the structural basis normatively. The compact corpus keeps its `owner:`/`user:` shorthand, confined to
+`context_from_fixture` and documented there as a noncanonical test projection that cannot reach
+canonical validity.
+
+**Canonical coverage added.** Two linked artifact sets close the corpus gap, taking the layer to
+**28**: `LAS-POS-OWNER-USER-CONFLICT-001` (a real structured conflict, `BLOCKED` with
+`RQC-AUT-0001`/`RQC-CFL-0002`) and `LAS-NEG-PROSE-ONLY-CONFLICT-001` (the former exploit — prose
+prefixes present, no conflict record, declared `BLOCKED`, rejected as `semantic_status_mismatch`).
+
+**Regression tests.** Seven new tests prove: eleven prose variants (prefix, capitalization,
+punctuation, empty-suffix, repeated, lookalike, embedded-in-sentence) change neither status nor
+diagnostics and cannot even set the signal; a real structured conflict blocks with the specific
+codes; removing or renaming prose cannot hide a structured conflict; the structured signal is exact
+(resolved, single-rank, or mis-cased ranks do not set it); the canonical fixtures exercise both
+directions; the fixture-only shorthand is confined to the fixture adapter. One test is an in-memory
+**negative control** that monkeypatches the legacy prefix behaviour back in, asserts the
+prose-invariance property then breaks (`SUCCESS` → `BLOCKED`), and restores the original — so the
+regression suite is proven load-bearing rather than decorative. No validator file is modified by it.
+
+**Layer results after this round:** schema-instance **35/35**, semantic-oracle **41/41**,
+linked-artifact **28/28** (6 positive, 22 negative), IR-pointer **11/11**; `tests/requirements`
+**48 passed**; full suite **366 passed**; deterministic evidence byte-identical across two
+regenerations. Traceability counts are unchanged at 159 required fields, 160 justification entries,
+186 clauses, and 35 `manual_review` dispositions: no schema field and no normative clause was added.
+
+**Also corrected.** The frozen Compiler Core diagnostic registry is
+`architecture/diagnostics/DIAGNOSTIC_CODE_REGISTRY.json`. Earlier handoff prose referred to a
+nonexistent `architecture/compiler-contract-freeze-v0.5/compiler-diagnostic-registry.json`; any check
+following that path would have verified nothing. The in-repo frozen-hash test already pinned the
+correct path and is unchanged.
+
+Round 4 changes no schema, adds no production code, touches no frozen path, and approves no decision.
+All ten `RCD-008-*` decisions remain **Proposed**. PRS remains `DEFERRED`.
 
 ## Final-head CI and PR state
 
