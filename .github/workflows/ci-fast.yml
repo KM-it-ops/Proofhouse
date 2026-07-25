@@ -1,0 +1,93 @@
+name: CI Fast
+
+on:
+  pull_request:
+    branches: ["feature/promptrig-framework"]
+  push:
+    branches: ["main"]
+
+concurrency:
+  group: ci-fast-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scoped:
+    name: scoped
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Resolve comparison
+        id: refs
+        shell: bash
+        run: |
+          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
+            echo "base=${{ github.event.pull_request.base.sha }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.event.pull_request.head.sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "base=${{ github.event.before }}" >> "$GITHUB_OUTPUT"
+            echo "head=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Classify changed scope
+        id: scope
+        run: |
+          python .github/ci/ci_scope.py \
+            --base "${{ steps.refs.outputs.base }}" \
+            --head "${{ steps.refs.outputs.head }}" \
+            --github-output "$GITHUB_OUTPUT"
+
+      - name: Whitespace integrity
+        run: git diff --check "${{ steps.refs.outputs.base }}...${{ steps.refs.outputs.head }}"
+
+      - name: Validate changed Markdown
+        if: steps.scope.outputs.scope == 'docs'
+        run: |
+          python .github/ci/validate_markdown.py \
+            --base "${{ steps.refs.outputs.base }}" \
+            --head "${{ steps.refs.outputs.head }}"
+
+      - name: Install package and pytest
+        if: steps.scope.outputs.scope != 'docs'
+        run: |
+          python -m pip install -e .
+          python -m pip install pytest
+
+      - name: CI helper regression tests
+        if: steps.scope.outputs.scope != 'docs'
+        run: python -m pytest -q tests/ci
+
+      - name: Requirements focused tests
+        if: steps.scope.outputs.scope == 'requirements'
+        run: python -m pytest -q tests/requirements
+
+      - name: Compiler focused tests
+        if: steps.scope.outputs.scope == 'compiler'
+        run: python -m pytest -q tests/compiler
+
+      - name: Broad tests
+        if: steps.scope.outputs.scope == 'broad'
+        run: python -m pytest -q
+
+      - name: TypeScript drift when relevant
+        if: steps.scope.outputs.typescript_drift == 'true'
+        run: |
+          python scripts/generate_typescript_contracts.py
+          git diff --exit-code -- architecture/typescript
+
+      - name: Compiler smoke when code is in scope
+        if: steps.scope.outputs.scope == 'compiler' || steps.scope.outputs.scope == 'broad'
+        run: |
+          promptrig-compiler doctor --json
+          promptrig-compiler adapters --json
