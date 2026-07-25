@@ -518,6 +518,32 @@ def _model_originated(context: Mapping[str, Any]) -> set[str]:
     return originated
 
 
+# Authority tokens shared with `approval.authority`. Owner/user conflict is a property of recorded
+# conflict evidence, never of how a caller formatted an input label.
+_OWNER_USER_RANKS = frozenset({"owner", "user"})
+
+
+def structured_owner_user_conflict(conflict_records: Any) -> bool:
+    """Owner/user authority conflict, derived ONLY from structured conflict records.
+
+    A conflict record carries `authority_ranks` (required, minItems 1) and `resolution_state`. An
+    unresolved conflict whose recorded authority ranks span both `owner` and `user` IS an owner/user
+    authority conflict; nothing else is. This deliberately inspects no authoring text: canonical
+    status must be a function of the canonical record set, so that a verifier holding only the
+    records can recompute it (independent audit finding, round 4).
+    """
+
+    if not isinstance(conflict_records, list):
+        return False
+    for conflict in conflict_records:
+        if not isinstance(conflict, dict) or conflict.get("resolution_state") != "unresolved":
+            continue
+        ranks = conflict.get("authority_ranks")
+        if isinstance(ranks, list) and _OWNER_USER_RANKS <= {rank for rank in ranks if isinstance(rank, str)}:
+            return True
+    return False
+
+
 def _authoritative_source(context: Mapping[str, Any], source_ref: Any) -> dict[str, Any] | None:
     """A source that may anchor governing authority: uniquely resolvable, current, and -- for an
     accepted contract -- carrying exact identity, version, and content digest (refinement 7)."""
@@ -765,9 +791,16 @@ def context_from_fixture(case: Mapping[str, Any]) -> dict[str, Any]:
         semantically_empty=bool(candidate.get("semantically_empty")),
         unsupported_behavior=candidate.get("unsupported_behavior"),
         emitted_diagnostic_codes=list(candidate.get("emitted_diagnostic_codes") or []),
+        # Structured derivation first -- identical to the canonical adapter. The trailing
+        # `authoritative_inputs` prefix test is a NONCANONICAL TEST PROJECTION retained solely so the
+        # preserved compact corpus keeps its shorthand; it exists in this adapter and nowhere else,
+        # and canonical validity can never reach it (see `context_from_artifacts`).
         owner_user_conflict=(
-            any(str(v).startswith("owner:") for v in authoritative)
-            and any(str(v).startswith("user:") for v in authoritative)
+            structured_owner_user_conflict(_records(candidate, "conflicts"))
+            or (
+                any(str(v).startswith("owner:") for v in authoritative)
+                and any(str(v).startswith("user:") for v in authoritative)
+            )
         ),
         # Derived from records, identically to the canonical adapter (SP-006).
         privacy_posture_unknown=any(
@@ -789,12 +822,13 @@ def context_from_fixture(case: Mapping[str, Any]) -> dict[str, Any]:
 def context_from_artifacts(artifacts: Mapping[str, Any]) -> dict[str, Any]:
     """Adapter B: canonical linked artifact set -> normalized ContractRuleContext.
 
-    Every signal is derived from records. No intent prose is inspected, so canonical evaluation is
-    independent of authoring text (refinement 1)."""
+    Every signal is derived from records. No field of `intent_input` other than `contract_version` is
+    read, and no authoring text is inspected or pattern-matched, so canonical evaluation is a function
+    of the canonical record set alone: a verifier holding only the records can recompute the terminal
+    status (refinement 1, enforced after the round-4 independent audit)."""
 
     document = artifacts["requirements_document"]
     intent_input = artifacts.get("intent_input", {})
-    authoritative = intent_input.get("authoritative_inputs", []) or []
 
     context = {namespace: _records(document, namespace) for namespace in CANONICAL_NAMESPACES}
     context["mappings"] = _records(artifacts, "mappings")
@@ -807,10 +841,10 @@ def context_from_artifacts(artifacts: Mapping[str, Any]) -> dict[str, Any]:
         semantically_empty=False,
         unsupported_behavior=None,
         emitted_diagnostic_codes=[record.get("code") for record in _records(artifacts, "diagnostics")],
-        owner_user_conflict=(
-            any(str(v).startswith("owner:") for v in authoritative)
-            and any(str(v).startswith("user:") for v in authoritative)
-        ),
+        # Records only: an unresolved conflict whose recorded `authority_ranks` span owner and user.
+        # Formerly derived from `intent_input.authoritative_inputs` string prefixes, which let
+        # caller-controlled text change the canonical terminal status; that is now impossible.
+        owner_user_conflict=structured_owner_user_conflict(_records(document, "conflicts")),
         # Derived from records only: an unresolved or disputed privacy requirement is an unknown
         # privacy posture (SP-006). No text matching.
         privacy_posture_unknown=any(
@@ -959,16 +993,19 @@ def evaluate_contract_rules(context: Mapping[str, Any], registry: Mapping[str, A
     for default in default_list:
         if default.get("consequential") and not default_authorized(context, default):
             return "BLOCKED", ["RQC-DFT-0001"]
-    # 6c conflicts (priority / source-claim / general).
+    # 6c owner/user authority conflict. Evaluated BEFORE the generic conflict codes: a canonical
+    # conflict record always carries `source_ids` (required, minItems 1), so RQC-SRC-0004 would
+    # otherwise shadow the specific authority diagnostic on every canonical set. Authority conflict
+    # is also the more fundamental finding than a priority or source-claim disagreement.
+    if context["owner_user_conflict"]:
+        return "BLOCKED", ["RQC-AUT-0001", "RQC-CFL-0002"]
+    # 6d remaining conflicts (priority / source-claim / general).
     if conflicts:
         if any("required" in (conflict.get("claims") or []) and "optional" in (conflict.get("claims") or []) for conflict in conflicts):
             return "BLOCKED", ["RQC-PRI-0001"]
         if any(conflict.get("source_ids") for conflict in conflicts):
             return "BLOCKED", ["RQC-SRC-0004"]
         return "BLOCKED", ["RQC-CFL-0001"]
-    # 6d owner/user authority conflict (normalized signal, computed by the adapter).
-    if context["owner_user_conflict"]:
-        return "BLOCKED", ["RQC-AUT-0001", "RQC-CFL-0002"]
     # 6e missing source lifecycle.
     if any(source.get("lifecycle") == "missing" for source in source_list):
         return "BLOCKED", ["RQC-SRC-0002"]
