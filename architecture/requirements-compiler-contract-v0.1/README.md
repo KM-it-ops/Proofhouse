@@ -1,6 +1,6 @@
 # Requirements Compiler Contract and Evidence Model v0.1
 
-**Status:** `RATIFIED DIRECTION` — `RCD-008-001` through `RCD-008-010` were approved by explicit owner decision on 2026-07-25, recorded in [OAR-002](../OWNER_ACCEPTANCE_RECORDS/OAR-002.md). This package is executable contract evidence; ratification accepts the **contract direction** only. It is **not** production-certified, not capability promotion, and not implementation authority, and it does not authorize merge, release, or tags. PRS remains `DEFERRED` and ADR-001 is unchanged. `OQ-008-001` through `OQ-008-010` remain open.
+**Status:** `RATIFIED DIRECTION` — `RCD-008-001` through `RCD-008-010` were approved by explicit owner decision on 2026-07-25, recorded in [OAR-002](../OWNER_ACCEPTANCE_RECORDS/OAR-002.md). This package is executable contract evidence; ratification accepts the **contract direction** only. It is **not** production-certified, not capability promotion, and not implementation authority, and it does not authorize merge, release, or tags. PRS remains `DEFERRED` and ADR-001 is unchanged. `OQ-008-001` through `OQ-008-009` remain open; `OQ-008-010` remains resolved as structured-only canonical assumption and question records.
 
 **Exact baseline:** `feature/promptrig-framework` at `b12b8262449d1a04cb3802f17f5f44f9a84de5d4`.
 

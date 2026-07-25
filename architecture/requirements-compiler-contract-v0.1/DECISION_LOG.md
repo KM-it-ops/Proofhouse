@@ -35,7 +35,9 @@ contract syntax, and no grammar, parser, formatter, or language server is author
 
 ## Open items not resolved by ratification
 
-`OQ-008-001` through `OQ-008-010` remain open. `OQ-008-003` (approval-authority thresholds) is the
+`OQ-008-001` through `OQ-008-009` remain open. `OQ-008-010` remains **resolved** as structured-only
+canonical assumption and question records; ratification neither changes nor reopens that resolution.
+`OQ-008-003` (approval-authority thresholds) is the
 operationally significant one: required authority continues to resolve from an accepted approval-threshold
 policy, and undeterminable authority remains `BLOCKED` rather than assumed. Semantic equivalence between a
 preserved source fragment and a requirement statement remains a manual review obligation; deterministic

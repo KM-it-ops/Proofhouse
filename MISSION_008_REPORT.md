@@ -378,16 +378,22 @@ authorize ADR-007; starts no MISSION-009 through MISSION-011; and **does not mer
 auto-merge, mark it ready for review, or authorize release or tags.** Merge, release, capability promotion,
 and later missions remain separate explicit gates.
 
-**Still open.** `OQ-008-001` through `OQ-008-010` remain open and are not resolved by ratification.
+**Still open.** `OQ-008-001` through `OQ-008-009` remain open and are not resolved by ratification.
+`OQ-008-010` remains **resolved** as structured-only canonical assumption and question records;
+ratification neither changes nor reopens that resolution.
 `OQ-008-003` (approval-authority thresholds) is the operationally significant one: required authority
 continues to resolve from an accepted approval-threshold policy, and undeterminable authority remains
 `BLOCKED` rather than assumed. Semantic equivalence between a preserved source fragment and a requirement
 statement remains a manual review obligation.
 
-**On the record at ratification.** The round-4 correction at `ce4a3ac` has **not** itself been
-independently audited, and the conflict-precedence reordering in particular has not been independently
-reviewed. The owner ratified with that caveat explicit. Green CI evidences internal consistency of this
-proposal only, not production correctness.
+**Independent review status at ratification.** Exact head `ce4a3ac05bca4bab5b2574555ba69560ef733680`
+**was independently audited by ChatGPT after the round-4 correction**. That audit inspected the structured
+conflict derivation, canonical prose invariance, the conflict-precedence reordering, the linked artifact
+fixtures, the regression tests, the in-memory negative control, and the final-head CI, and returned
+**`APPROVE FOR OWNER DECISIONS`**. Owner ratification followed that audit. The current ratification head
+`1a5b3616e51b52c61ac2ed1c4062e3e0547b0b6d` has **not yet undergone the separate final merge-readiness
+audit**, which remains a distinct gate. Green CI evidences internal consistency of this proposal only, not
+production correctness.
 
 ## Final-head CI and PR state
 
