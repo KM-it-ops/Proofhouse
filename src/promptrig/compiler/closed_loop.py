@@ -47,10 +47,16 @@ def _digest(payload: Any) -> str:
     return "sha256:" + hashlib.sha256(raw).hexdigest()
 
 
+APPROVED_PROFILES = frozenset({"structured_minimal_v0", "structured_developer_v0"})
+
+
 def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
     errors: list[str] = []
-    if doc.get("profile") != "structured_minimal_v0":
-        errors.append("unsupported profile; prototype accepts only structured_minimal_v0")
+    profile = doc.get("profile")
+    if profile not in APPROVED_PROFILES:
+        errors.append(
+            "unsupported profile; approved headless profiles are structured_minimal_v0 and structured_developer_v0"
+        )
     if doc.get("contract_version") != CONTRACT_008:
         errors.append("requirements contract_version must be 0.1.0-draft")
     reqs = doc.get("requirements")
@@ -67,11 +73,19 @@ def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
         errors.append("objective.goal is required")
     if doc.get("network_allowed") is True:
         errors.append("network_allowed must be false for prototype")
+    if profile == "structured_developer_v0":
+        tools = doc.get("tool_permissions")
+        if not isinstance(tools, dict) or not tools.get("allowed_tools"):
+            errors.append("structured_developer_v0 requires tool_permissions.allowed_tools")
+        if not doc.get("stop_conditions"):
+            errors.append("structured_developer_v0 requires stop_conditions")
+    if profile == "simple_mode_ui" or doc.get("authoring_mode") == "simple_ui_only":
+        errors.append("Simple Mode UI-only semantics are forbidden before plain-language headless milestone")
     return errors
 
 
 def requirements_to_ir(doc: dict[str, Any]) -> dict[str, Any]:
-    """Deterministic mapping for the single approved structured profile."""
+    """Deterministic mapping for approved structured profiles (MISSION-011)."""
     errors = validate_structured_requirements(doc)
     if errors:
         raise ValueError("; ".join(errors))
@@ -91,6 +105,14 @@ def requirements_to_ir(doc: dict[str, Any]) -> dict[str, Any]:
     goal = doc["objective"]["goal"]
     project_name = doc.get("project_name", "closed-loop-demo")
     source = canonicalize(doc)
+    instructions = list(doc.get("behavior", {}).get("instructions", ["Follow requirements exactly."]))
+    constraints = list(doc.get("behavior", {}).get("constraints", ["Do not invent facts."]))
+    if doc.get("profile") == "structured_developer_v0":
+        allowed = ",".join(doc["tool_permissions"]["allowed_tools"])
+        instructions.append(f"Tool permission map: allow only [{allowed}].")
+        instructions.append("Stop conditions: " + "; ".join(doc["stop_conditions"]))
+        constraints.append("Do not invoke disallowed tools.")
+
     return {
         "spec_version": "0.1.0",
         "project": {
@@ -106,8 +128,8 @@ def requirements_to_ir(doc: dict[str, Any]) -> dict[str, Any]:
         },
         "requirements": requirements,
         "behavior": {
-            "instructions": list(doc.get("behavior", {}).get("instructions", ["Follow requirements exactly."])),
-            "constraints": list(doc.get("behavior", {}).get("constraints", ["Do not invent facts."])),
+            "instructions": instructions,
+            "constraints": constraints,
             "uncertainty_policy": doc.get("behavior", {}).get(
                 "uncertainty_policy", "State uncertainty explicitly rather than guessing."
             ),
@@ -122,7 +144,7 @@ def requirements_to_ir(doc: dict[str, Any]) -> dict[str, Any]:
             "test_categories": ["smoke"],
         },
         "provenance": {
-            "source_id": "mission-010-structured-requirements",
+            "source_id": f"mission-011-{doc['profile']}",
             "source_sha256": hashlib.sha256(source).hexdigest(),
         },
     }
