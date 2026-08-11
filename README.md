@@ -112,4 +112,6 @@ python -m promptrig.cli generate --template prompt-architect \
 
 ## Status
 
-Intentionally small: no provider adapters, no API keys, no account-specific config, no network dependency in the eval harness. Next useful layer: richer eval fixtures and real-world prompt-system examples.
+**Headless core certified (MISSION-011)** for offline structured profiles → IR → fake-adapter compile → eval/repair → evidence (`promptrig-compiler closed-loop`). MISSION-008/009 contracts define requirements and evaluation/repair boundaries.
+
+Still intentionally offline by default: no live-provider execution in the certified path, no API keys required for the harness, no hosted UI, no benchmark claims. Plain-language/Simple Mode is scheduled only after a separate headless milestone — see `architecture/mission-011-certification/PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md`.
