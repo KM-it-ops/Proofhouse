@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.local/schemas/evaluation-repair/unresolved-defect.schema.json",
+  "title": "UnresolvedDefect",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "defect_id",
+    "requirement_ids",
+    "failed_attempt_ids",
+    "terminal_reason",
+    "discarded_attempts"
+  ],
+  "properties": {
+    "defect_id": {
+      "type": "string",
+      "pattern": "^UDF-[A-Z0-9-]{3,64}$"
+    },
+    "requirement_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[A-Z0-9-]{3,64}$"
+      },
+      "minItems": 1
+    },
+    "failed_attempt_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^RPA-[A-Z0-9-]{3,64}$"
+      }
+    },
+    "terminal_reason": {
+      "type": "string",
+      "minLength": 1
+    },
+    "discarded_attempts": {
+      "type": "boolean"
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^EVR-[A-Z]+-[0-9]{4}$"
+      }
+    }
+  }
+}

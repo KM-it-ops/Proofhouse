@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "contract_version": "0.1.0-draft",
+  "schema_count": 9,
+  "fixture_count": 24,
+  "fixture_pass_count": 24,
+  "schema_instance_count": 6,
+  "schema_instance_pass_count": 6,
+  "determinism_ok": true,
+  "failed_cases": [],
+  "failed_instances": []
+}

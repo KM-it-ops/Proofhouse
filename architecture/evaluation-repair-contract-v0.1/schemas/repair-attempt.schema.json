@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.local/schemas/evaluation-repair/repair-attempt.schema.json",
+  "title": "RepairAttempt",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "attempt_id",
+    "attempt_index",
+    "mutation_summary",
+    "outcome",
+    "preserved_failed_evidence",
+    "weakened_security_or_objective"
+  ],
+  "properties": {
+    "attempt_id": {
+      "type": "string",
+      "pattern": "^RPA-[A-Z0-9-]{3,64}$"
+    },
+    "attempt_index": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "mutation_summary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "allowed_mutation": {
+      "type": "boolean"
+    },
+    "outcome": {
+      "type": "string",
+      "enum": [
+        "improved",
+        "no_change",
+        "regressed",
+        "timeout",
+        "cost_exhausted",
+        "refused_immutable",
+        "error"
+      ]
+    },
+    "preserved_failed_evidence": {
+      "type": "boolean"
+    },
+    "weakened_security_or_objective": {
+      "type": "boolean"
+    },
+    "cost_units": {
+      "type": "number",
+      "minimum": 0
+    },
+    "duration_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^EVR-[A-Z]+-[0-9]{4}$"
+      }
+    }
+  }
+}

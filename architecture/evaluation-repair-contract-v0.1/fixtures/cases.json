@@ -1,0 +1,2496 @@
+{
+  "cases": [
+    {
+      "case_id": "001",
+      "category": "positive",
+      "description": "deterministic validator pass",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-001",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-001",
+        "request_id": "ERQ-001",
+        "status": "PASS",
+        "scores": {
+          "primary": 1.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "pass",
+            "authoritative_for_executable": true,
+            "score": 1.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "PASS",
+        "diagnostic_codes": [],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "002",
+      "category": "negative",
+      "description": "deterministic validator fail",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-002",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-002",
+        "request_id": "ERQ-002",
+        "status": "FAIL",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-DET-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0,
+            "message": "schema mismatch"
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "FAIL",
+        "diagnostic_codes": [
+          "EVR-DET-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "003",
+      "category": "negative",
+      "description": "deterministic validator error surfaces",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-003",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-003",
+        "request_id": "ERQ-003",
+        "status": "ERROR",
+        "scores": {
+          "primary": null
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-DET-0002"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "error",
+            "authoritative_for_executable": true,
+            "score": null
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "ERROR",
+        "diagnostic_codes": [
+          "EVR-DET-0002"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "004",
+      "category": "boundary",
+      "description": "baseline absent/mismatched",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-004",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-MISSING",
+          "artifact_digest": "sha256:cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-004",
+        "request_id": "ERQ-004",
+        "status": "BLOCKED",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-BSL-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "diagnostic_codes": [
+          "EVR-BSL-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "005",
+      "category": "boundary",
+      "description": "baseline stale",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-005",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": true
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-005",
+        "request_id": "ERQ-005",
+        "status": "BLOCKED",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-BSL-0002"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "diagnostic_codes": [
+          "EVR-BSL-0002"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "006",
+      "category": "boundary",
+      "description": "score aggregation min fails on any zero",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        },
+        {
+          "evaluator_id": "EVL-SEC-001",
+          "evaluator_kind": "security_policy_check",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "accepted_objectives"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-006",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001",
+          "EVL-SEC-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-006",
+        "request_id": "ERQ-006",
+        "status": "FAIL",
+        "scores": {
+          "det": 1.0,
+          "sec": 0.0,
+          "primary": 0.0
+        },
+        "aggregation": "min",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-AGG-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "pass",
+            "authoritative_for_executable": true,
+            "score": 1.0
+          },
+          {
+            "evaluator_id": "EVL-SEC-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "FAIL",
+        "diagnostic_codes": [
+          "EVR-AGG-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "007",
+      "category": "negative",
+      "description": "evaluator unavailable not hidden",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-007",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-007",
+        "request_id": "ERQ-007",
+        "status": "UNAVAILABLE",
+        "scores": {
+          "primary": null
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-UNA-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "unavailable",
+            "authoritative_for_executable": true,
+            "score": null
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "UNAVAILABLE",
+        "diagnostic_codes": [
+          "EVR-UNA-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "008",
+      "category": "adversarial",
+      "description": "model judge disagreement cannot override deterministic pass",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        },
+        {
+          "evaluator_id": "EVL-MDL-001",
+          "evaluator_kind": "model_judge",
+          "version": "0.1.0",
+          "authority_rank": 7,
+          "inputs": [
+            "candidate"
+          ],
+          "outputs": [
+            "advisory_score"
+          ],
+          "confidence_scale": "0-1",
+          "provenance": "advisory_only"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-008",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001",
+          "EVL-MDL-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-008",
+        "request_id": "ERQ-008",
+        "status": "PASS",
+        "scores": {
+          "primary": 1.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-MDL-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "pass",
+            "authoritative_for_executable": true,
+            "score": 1.0
+          },
+          {
+            "evaluator_id": "EVL-MDL-001",
+            "outcome": "fail",
+            "authoritative_for_executable": false,
+            "score": 0.2,
+            "message": "advisory disagree"
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "PASS",
+        "diagnostic_codes": [
+          "EVR-MDL-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "009",
+      "category": "adversarial",
+      "description": "model judge cannot be authoritative for executable correctness",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-MDL-001",
+          "evaluator_kind": "model_judge",
+          "version": "0.1.0",
+          "authority_rank": 7,
+          "inputs": [
+            "candidate"
+          ],
+          "outputs": [
+            "advisory_score"
+          ],
+          "confidence_scale": "0-1",
+          "provenance": "advisory_only"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-009",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-MDL-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-009",
+        "request_id": "ERQ-009",
+        "status": "BLOCKED",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-AUT-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-MDL-001",
+            "outcome": "pass",
+            "authoritative_for_executable": true,
+            "score": 0.99
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "diagnostic_codes": [
+          "EVR-AUT-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "010",
+      "category": "positive",
+      "description": "repair budget 0 means no repair",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-010",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 0
+      },
+      "result": {
+        "result_id": "ERS-010",
+        "request_id": "ERQ-010",
+        "status": "FAIL",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-DET-0001",
+          "EVR-REP-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "FAIL",
+        "diagnostic_codes": [
+          "EVR-DET-0001",
+          "EVR-REP-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "repair_plan": {
+        "plan_id": "RPL-010",
+        "budget": 0,
+        "immutable_fields": [
+          "accepted_objectives",
+          "security_constraints",
+          "requirement_ids"
+        ],
+        "allowed_mutations": [
+          "artifact_surface",
+          "prompt_wording"
+        ],
+        "stop_states": [
+          "budget_exhausted",
+          "timeout",
+          "cost_exhausted",
+          "regression",
+          "unresolved_defect",
+          "immutable_violation",
+          "success"
+        ]
+      }
+    },
+    {
+      "case_id": "011",
+      "category": "positive",
+      "description": "repair budget 1 succeeds",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-011",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-011",
+        "request_id": "ERQ-011",
+        "status": "PASS",
+        "scores": {
+          "primary": 1.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "pass",
+            "authoritative_for_executable": true,
+            "score": 1.0
+          }
+        ],
+        "failed_attempts": [
+          {
+            "attempt_id": "RPA-011-0",
+            "attempt_index": 0,
+            "mutation_summary": "repair attempt 0",
+            "allowed_mutation": true,
+            "outcome": "improved",
+            "preserved_failed_evidence": true,
+            "weakened_security_or_objective": false,
+            "diagnostic_codes": []
+          }
+        ],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "PASS",
+        "diagnostic_codes": [],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "repair_plan": {
+        "plan_id": "RPL-011",
+        "budget": 1,
+        "immutable_fields": [
+          "accepted_objectives",
+          "security_constraints",
+          "requirement_ids"
+        ],
+        "allowed_mutations": [
+          "artifact_surface",
+          "prompt_wording"
+        ],
+        "stop_states": [
+          "budget_exhausted",
+          "timeout",
+          "cost_exhausted",
+          "regression",
+          "unresolved_defect",
+          "immutable_violation",
+          "success"
+        ]
+      }
+    },
+    {
+      "case_id": "012",
+      "category": "boundary",
+      "description": "repair budget 2 then unresolved",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-012",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 2
+      },
+      "result": {
+        "result_id": "ERS-012",
+        "request_id": "ERQ-012",
+        "status": "UNRESOLVED_DEFECT",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-REP-0002"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [
+          {
+            "attempt_id": "RPA-012-0",
+            "attempt_index": 0,
+            "mutation_summary": "repair attempt 0",
+            "allowed_mutation": true,
+            "outcome": "no_change",
+            "preserved_failed_evidence": true,
+            "weakened_security_or_objective": false,
+            "diagnostic_codes": [
+              "EVR-REP-0002"
+            ]
+          },
+          {
+            "attempt_id": "RPA-012-1",
+            "attempt_index": 1,
+            "mutation_summary": "repair attempt 1",
+            "allowed_mutation": true,
+            "outcome": "no_change",
+            "preserved_failed_evidence": true,
+            "weakened_security_or_objective": false,
+            "diagnostic_codes": [
+              "EVR-REP-0002"
+            ]
+          }
+        ],
+        "network_used": false,
+        "deterministic_repeatable": true,
+        "unresolved_defect_id": "UDF-012"
+      },
+      "expected": {
+        "status": "UNRESOLVED_DEFECT",
+        "diagnostic_codes": [
+          "EVR-REP-0002"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "unresolved_defect": {
+        "defect_id": "UDF-012",
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "failed_attempt_ids": [
+          "RPA-012-0",
+          "RPA-012-1"
+        ],
+        "terminal_reason": "budget exhausted without pass",
+        "discarded_attempts": false,
+        "diagnostic_codes": [
+          "EVR-REP-0002"
+        ]
+      },
+      "repair_plan": {
+        "plan_id": "RPL-012",
+        "budget": 2,
+        "immutable_fields": [
+          "accepted_objectives",
+          "security_constraints",
+          "requirement_ids"
+        ],
+        "allowed_mutations": [
+          "artifact_surface",
+          "prompt_wording"
+        ],
+        "stop_states": [
+          "budget_exhausted",
+          "timeout",
+          "cost_exhausted",
+          "regression",
+          "unresolved_defect",
+          "immutable_violation",
+          "success"
+        ]
+      }
+    },
+    {
+      "case_id": "013",
+      "category": "negative",
+      "description": "repair timeout",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-013",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-013",
+        "request_id": "ERQ-013",
+        "status": "ERROR",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-REP-0003"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [
+          {
+            "attempt_id": "RPA-013-0",
+            "attempt_index": 0,
+            "mutation_summary": "repair attempt 0",
+            "allowed_mutation": true,
+            "outcome": "timeout",
+            "preserved_failed_evidence": true,
+            "weakened_security_or_objective": false,
+            "diagnostic_codes": [
+              "EVR-REP-0003"
+            ]
+          }
+        ],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "ERROR",
+        "diagnostic_codes": [
+          "EVR-REP-0003"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "repair_plan": {
+        "plan_id": "RPL-013",
+        "budget": 1,
+        "immutable_fields": [
+          "accepted_objectives",
+          "security_constraints",
+          "requirement_ids"
+        ],
+        "allowed_mutations": [
+          "artifact_surface",
+          "prompt_wording"
+        ],
+        "stop_states": [
+          "budget_exhausted",
+          "timeout",
+          "cost_exhausted",
+          "regression",
+          "unresolved_defect",
+          "immutable_violation",
+          "success"
+        ]
+      }
+    },
+    {
+      "case_id": "014",
+      "category": "negative",
+      "description": "repair cost exhausted",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-014",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-014",
+        "request_id": "ERQ-014",
+        "status": "ERROR",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-REP-0004"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [
+          {
+            "attempt_id": "RPA-014-0",
+            "attempt_index": 0,
+            "mutation_summary": "repair attempt 0",
+            "allowed_mutation": true,
+            "outcome": "cost_exhausted",
+            "preserved_failed_evidence": true,
+            "weakened_security_or_objective": false,
+            "diagnostic_codes": [
+              "EVR-REP-0004"
+            ]
+          }
+        ],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "ERROR",
+        "diagnostic_codes": [
+          "EVR-REP-0004"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "repair_plan": {
+        "plan_id": "RPL-014",
+        "budget": 1,
+        "immutable_fields": [
+          "accepted_objectives",
+          "security_constraints",
+          "requirement_ids"
+        ],
+        "allowed_mutations": [
+          "artifact_surface",
+          "prompt_wording"
+        ],
+        "stop_states": [
+          "budget_exhausted",
+          "timeout",
+          "cost_exhausted",
+          "regression",
+          "unresolved_defect",
+          "immutable_violation",
+          "success"
+        ]
+      }
+    },
+    {
+      "case_id": "015",
+      "category": "adversarial",
+      "description": "repair regression preserved",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-015",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-015",
+        "request_id": "ERQ-015",
+        "status": "REGRESSION",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-REG-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [
+          {
+            "attempt_id": "RPA-015-0",
+            "attempt_index": 0,
+            "mutation_summary": "repair attempt 0",
+            "allowed_mutation": true,
+            "outcome": "regressed",
+            "preserved_failed_evidence": true,
+            "weakened_security_or_objective": false,
+            "diagnostic_codes": [
+              "EVR-REG-0001"
+            ]
+          }
+        ],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "REGRESSION",
+        "diagnostic_codes": [
+          "EVR-REG-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "repair_plan": {
+        "plan_id": "RPL-015",
+        "budget": 1,
+        "immutable_fields": [
+          "accepted_objectives",
+          "security_constraints",
+          "requirement_ids"
+        ],
+        "allowed_mutations": [
+          "artifact_surface",
+          "prompt_wording"
+        ],
+        "stop_states": [
+          "budget_exhausted",
+          "timeout",
+          "cost_exhausted",
+          "regression",
+          "unresolved_defect",
+          "immutable_violation",
+          "success"
+        ]
+      }
+    },
+    {
+      "case_id": "016",
+      "category": "adversarial",
+      "description": "repair cannot weaken security or accepted objectives",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        },
+        {
+          "evaluator_id": "EVL-SEC-001",
+          "evaluator_kind": "security_policy_check",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "accepted_objectives"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-016",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001",
+          "EVL-SEC-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-016",
+        "request_id": "ERQ-016",
+        "status": "BLOCKED",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-SEC-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [
+          {
+            "attempt_id": "RPA-016-0",
+            "attempt_index": 0,
+            "mutation_summary": "removed security constraint",
+            "allowed_mutation": false,
+            "outcome": "refused_immutable",
+            "preserved_failed_evidence": true,
+            "weakened_security_or_objective": true,
+            "diagnostic_codes": [
+              "EVR-SEC-0001"
+            ]
+          }
+        ],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "diagnostic_codes": [
+          "EVR-SEC-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "repair_plan": {
+        "plan_id": "RPL-016",
+        "budget": 1,
+        "immutable_fields": [
+          "accepted_objectives",
+          "security_constraints"
+        ],
+        "allowed_mutations": [
+          "artifact_surface"
+        ],
+        "stop_states": [
+          "immutable_violation",
+          "success"
+        ]
+      }
+    },
+    {
+      "case_id": "017",
+      "category": "adversarial",
+      "description": "discarding failed attempts is invalid",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-017",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-017",
+        "request_id": "ERQ-017",
+        "status": "BLOCKED",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-EVD-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "diagnostic_codes": [
+          "EVR-EVD-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "meta": {
+        "claimed_attempts": 2,
+        "recorded_attempts": 0
+      }
+    },
+    {
+      "case_id": "018",
+      "category": "adversarial",
+      "description": "no-network default violated",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-018",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-018",
+        "request_id": "ERQ-018",
+        "status": "BLOCKED",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-NET-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": true,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "diagnostic_codes": [
+          "EVR-NET-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "019",
+      "category": "adversarial",
+      "description": "scoring cannot hide evaluator errors",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-019",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-019",
+        "request_id": "ERQ-019",
+        "status": "BLOCKED",
+        "scores": {
+          "primary": 1.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-SCR-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "error",
+            "authoritative_for_executable": true,
+            "score": 1.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "diagnostic_codes": [
+          "EVR-SCR-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    },
+    {
+      "case_id": "020",
+      "category": "adversarial",
+      "description": "termination must not depend on model self-report",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-MDL-001",
+          "evaluator_kind": "model_judge",
+          "version": "0.1.0",
+          "authority_rank": 7,
+          "inputs": [
+            "candidate"
+          ],
+          "outputs": [
+            "advisory_score"
+          ],
+          "confidence_scale": "0-1",
+          "provenance": "advisory_only"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-020",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-MDL-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-020",
+        "request_id": "ERQ-020",
+        "status": "BLOCKED",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-TRM-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-MDL-001",
+            "outcome": "pass",
+            "authoritative_for_executable": false,
+            "score": 1.0,
+            "message": "model says done"
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "diagnostic_codes": [
+          "EVR-TRM-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "meta": {
+        "termination_source": "model_self_report"
+      }
+    },
+    {
+      "case_id": "021",
+      "category": "positive",
+      "description": "repeatable deterministic pass",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-021",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-021",
+        "request_id": "ERQ-021",
+        "status": "PASS",
+        "scores": {
+          "primary": 1.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "pass",
+            "authoritative_for_executable": true,
+            "score": 1.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "PASS",
+        "diagnostic_codes": [],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "determinism_pair": "pair-a"
+    },
+    {
+      "case_id": "022",
+      "category": "positive",
+      "description": "repeatable deterministic pass twin",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-022",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-022",
+        "request_id": "ERQ-022",
+        "status": "PASS",
+        "scores": {
+          "primary": 1.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "pass",
+            "authoritative_for_executable": true,
+            "score": 1.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "PASS",
+        "diagnostic_codes": [],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "determinism_pair": "pair-a"
+    },
+    {
+      "case_id": "023",
+      "category": "negative",
+      "description": "MISSION-008 requirement identity unavailable",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-023",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001"
+        ],
+        "requirement_ids": [
+          "REQ-MISSING-999"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-023",
+        "request_id": "ERQ-023",
+        "status": "BLOCKED",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-REQ-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "BLOCKED",
+        "diagnostic_codes": [
+          "EVR-REQ-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      },
+      "meta": {
+        "known_requirement_ids": [
+          "REQ-EVAL-001"
+        ]
+      }
+    },
+    {
+      "case_id": "024",
+      "category": "boundary",
+      "description": "deterministic/security precedence over model judge",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-DET-001",
+          "evaluator_kind": "deterministic_validator",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        },
+        {
+          "evaluator_id": "EVL-MDL-001",
+          "evaluator_kind": "model_judge",
+          "version": "0.1.0",
+          "authority_rank": 7,
+          "inputs": [
+            "candidate"
+          ],
+          "outputs": [
+            "advisory_score"
+          ],
+          "confidence_scale": "0-1",
+          "provenance": "advisory_only"
+        },
+        {
+          "evaluator_id": "EVL-SEC-001",
+          "evaluator_kind": "security_policy_check",
+          "version": "0.1.0",
+          "authority_rank": 1,
+          "inputs": [
+            "candidate",
+            "accepted_objectives"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "provenance": "contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-024",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-DET-001",
+          "EVL-MDL-001",
+          "EVL-SEC-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-024",
+        "request_id": "ERQ-024",
+        "status": "FAIL",
+        "scores": {
+          "primary": 0.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [
+          "EVR-PRC-0001"
+        ],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-SEC-001",
+            "outcome": "fail",
+            "authoritative_for_executable": true,
+            "score": 0.0
+          },
+          {
+            "evaluator_id": "EVL-MDL-001",
+            "outcome": "pass",
+            "authoritative_for_executable": false,
+            "score": 1.0
+          },
+          {
+            "evaluator_id": "EVL-DET-001",
+            "outcome": "pass",
+            "authoritative_for_executable": true,
+            "score": 1.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "FAIL",
+        "diagnostic_codes": [
+          "EVR-PRC-0001"
+        ],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
+    }
+  ]
+}
