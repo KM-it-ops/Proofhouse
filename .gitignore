@@ -31,3 +31,7 @@ Thumbs.db
 .cursor/hooks/state/
 .agents/
 skills-lock.json
+
+# SDD scratch
+.superpowers/
+
