@@ -1,0 +1,10 @@
+{
+  "contract_version": "0.1.0-draft",
+  "source": "MISSION-008 compatible REQ-* identities declared for eval/repair fixtures",
+  "requirement_ids": [
+    "REQ-EVAL-001",
+    "REQ-EVAL-SEC-001"
+  ],
+  "pattern": "^REQ-[A-Z0-9-]{3,64}$",
+  "note": "Engines must resolve these against MISSION-008 evidence bundles; unknown IDs fail closed."
+}

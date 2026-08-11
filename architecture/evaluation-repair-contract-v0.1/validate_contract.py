@@ -27,7 +27,6 @@ SCHEMA_NAMES = (
 )
 REQ_RE = re.compile(r"^REQ-[A-Z0-9-]{3,64}$")
 EVR_RE = re.compile(r"^EVR-[A-Z]+-[0-9]{4}$")
-KNOWN_REQS = {"REQ-EVAL-001"}
 
 
 def _read(path: Path) -> Any:
@@ -49,7 +48,19 @@ def _validator_for(schemas_dir: Path, name: str) -> Draft202012Validator:
     return Draft202012Validator(schema, registry=_registry(schemas_dir))
 
 
-def _oracle(case: dict[str, Any]) -> list[str]:
+def _known_reqs(package: Path) -> set[str]:
+    path = package / "evidence" / "known-requirement-ids.json"
+    data = _read(path)
+    ids = set(data.get("requirement_ids", []))
+    if not ids:
+        raise ValueError("known-requirement-ids.json must declare requirement_ids")
+    for req in ids:
+        if not REQ_RE.match(req):
+            raise ValueError(f"invalid known requirement id: {req}")
+    return ids
+
+
+def _oracle(case: dict[str, Any], known_reqs: set[str]) -> list[str]:
     """Return diagnostic codes the contract rules require for this case shape."""
     errors: list[str] = []
     request = case["request"]
@@ -60,7 +71,7 @@ def _oracle(case: dict[str, Any]) -> list[str]:
         errors.append("EVR-NET-0001")
 
     for req in request.get("requirement_ids", []):
-        known = set(case.get("meta", {}).get("known_requirement_ids", list(KNOWN_REQS)))
+        known = set(case.get("meta", {}).get("known_requirement_ids", list(known_reqs)))
         if req not in known:
             errors.append("EVR-REQ-0001")
 
@@ -143,7 +154,12 @@ def _oracle(case: dict[str, Any]) -> list[str]:
     return ordered
 
 
-def validate_case(case: dict[str, Any], schemas_dir: Path, registry_codes: set[str]) -> dict[str, Any]:
+def validate_case(
+    case: dict[str, Any],
+    schemas_dir: Path,
+    registry_codes: set[str],
+    known_reqs: set[str],
+) -> dict[str, Any]:
     problems: list[str] = []
     # schema-validate core records present
     for name, obj, schema in (
@@ -168,7 +184,7 @@ def validate_case(case: dict[str, Any], schemas_dir: Path, registry_codes: set[s
         for err in _validator_for(schemas_dir, "unresolved-defect.schema.json").iter_errors(case["unresolved_defect"]):
             problems.append(f"unresolved_defect schema: {err.message}")
 
-    derived = _oracle(case)
+    derived = _oracle(case, known_reqs)
     expected_codes = list(case.get("expected", {}).get("diagnostic_codes", []))
     expected_status = case.get("expected", {}).get("status")
     actual_status = case.get("result", {}).get("status")
@@ -215,9 +231,11 @@ def validate_package(package: Path) -> dict[str, Any]:
     fixtures = package / "fixtures"
     registry = _read(package / "evaluation-repair-diagnostic-registry.json")
     registry_codes = {d["code"] for d in registry["diagnostics"]}
+    known_reqs = _known_reqs(package)
     cases = _read(fixtures / "cases.json")["cases"]
     manifest = _read(fixtures / "manifest.json")
     schema_instances = _read(fixtures / "schema_instances.json")["instances"]
+    linked_sets = _read(fixtures / "linked_artifact_sets.json")["sets"]
 
     schema_ok = 0
     for name in SCHEMA_NAMES:
@@ -237,8 +255,20 @@ def validate_package(package: Path) -> dict[str, Any]:
         else:
             instance_problems.append(inst["id"])
 
-    case_results = [validate_case(case, schemas_dir, registry_codes) for case in cases]
+    case_results = [
+        validate_case(case, schemas_dir, registry_codes, known_reqs) for case in cases
+    ]
     case_pass = sum(1 for r in case_results if r["ok"])
+
+    linked_pass = 0
+    linked_problems: list[str] = []
+    bundle_validator = _validator_for(schemas_dir, "evaluation-evidence-bundle.schema.json")
+    for item in linked_sets:
+        errs = list(bundle_validator.iter_errors(item["bundle"]))
+        if item.get("expect") == "accept" and not errs:
+            linked_pass += 1
+        else:
+            linked_problems.append(item.get("set_id", "?"))
 
     # determinism pairs must match status+codes
     pairs: dict[str, list[dict[str, Any]]] = {}
@@ -248,17 +278,26 @@ def validate_package(package: Path) -> dict[str, Any]:
             pairs.setdefault(key, []).append(case)
     determinism_ok = True
     for key, group in pairs.items():
-        sigs = {(c["result"]["status"], tuple(sorted(c["result"]["diagnostic_codes"]))) for c in group}
+        sigs = {
+            (c["result"]["status"], tuple(sorted(c["result"]["diagnostic_codes"])))
+            for c in group
+        }
         if len(sigs) != 1:
             determinism_ok = False
 
-    status = "PASS" if (
-        schema_ok == len(SCHEMA_NAMES)
-        and case_pass == len(cases)
-        and instance_pass == len(schema_instances)
-        and case_pass == manifest["case_count"]
-        and determinism_ok
-    ) else "FAIL"
+    status = (
+        "PASS"
+        if (
+            schema_ok == len(SCHEMA_NAMES)
+            and case_pass == len(cases)
+            and instance_pass == len(schema_instances)
+            and case_pass == manifest["case_count"]
+            and determinism_ok
+            and linked_pass == len(linked_sets)
+            and len(linked_sets) >= 2
+        )
+        else "FAIL"
+    )
 
     return {
         "status": status,
@@ -268,9 +307,13 @@ def validate_package(package: Path) -> dict[str, Any]:
         "fixture_pass_count": case_pass,
         "schema_instance_count": len(schema_instances),
         "schema_instance_pass_count": instance_pass,
+        "linked_set_count": len(linked_sets),
+        "linked_set_pass_count": linked_pass,
+        "known_requirement_count": len(known_reqs),
         "determinism_ok": determinism_ok,
         "failed_cases": [r for r in case_results if not r["ok"]],
         "failed_instances": instance_problems,
+        "failed_linked_sets": linked_problems,
     }
 
 

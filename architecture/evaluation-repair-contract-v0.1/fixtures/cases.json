@@ -2491,6 +2491,93 @@
         "termination_depends_on_model_self_report": false,
         "repair_weakened_security_or_objective": false
       }
+    },
+    {
+      "case_id": "025",
+      "category": "positive",
+      "description": "fake_adapter_oracle authoritative offline path",
+      "evaluators": [
+        {
+          "evaluator_id": "EVL-FAK-001",
+          "evaluator_kind": "fake_adapter_oracle",
+          "version": "0.1.0",
+          "authority_rank": 2,
+          "inputs": [
+            "candidate",
+            "baseline"
+          ],
+          "outputs": [
+            "pass_fail"
+          ],
+          "confidence_scale": "none",
+          "cost_model": "zero",
+          "latency_budget_ms": 50,
+          "provenance": "fake_adapter_contract"
+        }
+      ],
+      "request": {
+        "request_id": "ERQ-025",
+        "contract_version": "0.1.0-draft",
+        "baseline": {
+          "baseline_id": "BSL-001",
+          "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:00:00Z",
+          "stale": false
+        },
+        "candidate": {
+          "candidate_id": "CND-001",
+          "artifact_digest": "sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "contract_version": "0.1.0-draft",
+          "requirement_ids": [
+            "REQ-EVAL-001"
+          ],
+          "created_at": "2026-08-11T00:01:00Z",
+          "parent_baseline_id": "BSL-001"
+        },
+        "evaluator_ids": [
+          "EVL-FAK-001"
+        ],
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "network_allowed": false,
+        "repair_budget": 1
+      },
+      "result": {
+        "result_id": "ERS-025",
+        "request_id": "ERQ-025",
+        "status": "PASS",
+        "scores": {
+          "primary": 1.0
+        },
+        "aggregation": "any_fail",
+        "threshold": 1.0,
+        "diagnostic_codes": [],
+        "evaluator_outcomes": [
+          {
+            "evaluator_id": "EVL-FAK-001",
+            "outcome": "pass",
+            "authoritative_for_executable": true,
+            "score": 1.0
+          }
+        ],
+        "failed_attempts": [],
+        "network_used": false,
+        "deterministic_repeatable": true
+      },
+      "expected": {
+        "status": "PASS",
+        "diagnostic_codes": [],
+        "model_judge_authoritative_for_executable": false,
+        "failed_attempts_discarded": false,
+        "network_used": false,
+        "termination_depends_on_model_self_report": false,
+        "repair_weakened_security_or_objective": false
+      }
     }
   ]
 }
