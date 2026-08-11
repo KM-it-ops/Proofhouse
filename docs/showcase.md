@@ -1,46 +1,68 @@
 # PromptRig Showcase
 
-PromptRig is for teams and solo builders who want prompt systems to feel less like sticky notes and more like maintained infrastructure.
+Prompt systems that feel like maintained infrastructure — not sticky notes.
 
-## The Pitch
+## Pitch
 
-Most prompts fail quietly: they miss context, drift from the product, overfit to a single model, or become too long to maintain. PromptRig gives prompts a small operating system:
+Most prompts fail quietly: they miss context, drift from the product, overfit to one model, or grow too long to maintain. PromptRig is a small operating system for prompts:
 
-- a core identity and mission,
-- modes for audit, rewriting, agentic workflows, and evaluation,
-- reusable modules for repeated work,
-- datasets and rubrics for regression testing,
-- a CLI that validates eval inputs without provider APIs.
+- Core identity and mission
+- Modes for audit, rewriting, agentic workflows, and evaluation
+- Reusable modules for repeated work
+- Datasets and rubrics for regression testing
+- A CLI that validates eval inputs **without** provider APIs
 
-## Demo Flow
+Built for builders who ship coding agents, Custom GPTs, and cyber×AI harnesses where inventing context is a defect.
 
-1. Paste a rough product or agent prompt into PromptRig.
-2. Run the Context Auditor module to separate confirmed facts from missing context.
-3. Pick the right mode: Audit, Meta-Prompting, Agentic, or Evaluator.
-4. Rewrite the prompt with safety and missing-context behavior preserved.
+## 60-second demo
+
+1. Paste a rough product or agent prompt.
+2. Run the Context Auditor — confirmed facts vs missing context.
+3. Pick a mode: **Audit** · **Meta-Prompting** · **Agentic** · **Evaluator**.
+4. Rewrite with safety and missing-context behavior preserved.
 5. Add or update JSONL eval cases.
 6. Run the CLI validator and generate a markdown report skeleton.
 
-## Example Outcomes
+```bash
+python -m pip install -e .
+python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
+python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+```
 
-| Input | PromptRig output |
+## Example outcomes
+
+| You bring | PromptRig returns |
 |---|---|
-| Rough Custom GPT instructions | Modular system prompt, missing-context policy, and safety boundaries. |
-| Coding-agent workflow prompt | Tool permission map, stop conditions, verification loop, and audit criteria. |
-| Prompt rewrite request | Rewritten prompt plus rationale and regression checks. |
-| Eval design request | JSONL cases, 1-5 rubric criteria, and report skeleton. |
+| Rough Custom GPT instructions | Modular system prompt, missing-context policy, safety boundaries |
+| Coding-agent workflow prompt | Tool permission map, stop conditions, verification loop, audit criteria |
+| Prompt rewrite request | Rewritten prompt + rationale + regression checks |
+| Eval design request | JSONL cases, 1–5 rubric criteria, report skeleton |
 
-## What Makes It Public-Ready
+## Why cyber×AI teams care
 
-- No secrets or provider credentials.
-- No runtime dependencies beyond Python standard library.
-- Defensive safety stance for security, automation, scraping, credentials, and sensitive-data work.
-- Clear source references in `references/current_sources.md`.
-- Local Codex skill source in `skills/promptrig/`.
+- Explicit missing-context labels instead of hallucinated “facts”
+- Agentic permission maps and stop conditions before tools run
+- Offline eval harness — inspectable, repeatable, no API keys required
+- Defensive default for security, automation, scraping, credentials, and sensitive data
 
-## What Comes Next
+## Public-ready posture
 
-- More real-world prompt packs.
-- Golden-output fixtures for common audits and rewrites.
-- Optional provider-specific runners after the offline harness stabilizes.
-- A small gallery of before/after prompt transformations.
+- No secrets or provider credentials in the repo
+- Runtime deps: Python standard library only
+- Defensive safety stance documented in `SECURITY.md`
+- Source policy notes in `references/current_sources.md`
+- Portable skill + framework spec in `skills/promptrig/` and `promptrig-framework.*`
+
+## What’s next
+
+- More real-world prompt packs
+- Golden-output fixtures for common audits and rewrites
+- Optional provider runners after the offline harness stays stable
+- A small gallery of before/after prompt transformations
+
+## Links
+
+- [README](../README.md)
+- [Quickstart](quickstart.md)
+- [Custom GPT setup](custom-gpt-setup.md)
+- Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/)

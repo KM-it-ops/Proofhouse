@@ -1,28 +1,41 @@
 # PromptRig
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)](https://www.python.org/)
-[![Runtime deps](https://img.shields.io/badge/runtime%20deps-stdlib%20only-2f855a)](#quick-start)
-[![PromptOps](https://img.shields.io/badge/promptops-modular%20%7C%20testable%20%7C%20safe-6b46c1)](#what-promptrig-does)
+[![Runtime deps](https://img.shields.io/badge/runtime%20deps-stdlib%20only-2f855a)](#30-second-start)
+[![PromptOps](https://img.shields.io/badge/promptops-modular%20%7C%20testable%20%7C%20safe-0f766e)](#what-you-get)
 [![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
 
-PromptRig is a lightweight prompt-operations framework for designing, auditing, rewriting, testing, and maintaining prompt systems across chatbots, coding agents, local LLMs, API agents, and autonomous workflows.
+**Prompt operations for agentic and security-minded builders.**
 
-Its Custom GPT interface is **PromptOps Architect powered by PromptRig**.
+PromptRig turns sticky-note prompts into inspectable infrastructure: modular architecture, missing-context audits, agent permission maps, offline evals, and a self-heal compile loop — without API keys or provider lock-in.
 
-PromptRig treats prompts like production infrastructure: modular, versioned, testable, grounded, safe, and reusable.
+Custom GPT surface: **PromptOps Architect powered by PromptRig**.
 
-## What PromptRig Does
+Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/) · Showcase: [docs/showcase.md](docs/showcase.md)
 
-| Capability | What you get |
+## Why it exists
+
+Most prompts fail quietly — missing context, model overfitting, no regression tests, no stop conditions. PromptRig gives prompt systems the same discipline you’d expect from production code:
+
+1. **Clarify** — batched, branching questions before you write
+2. **Compile** — model-specific prompt + settings + token rationale
+3. **Evaluate** — JSONL cases, YAML rubrics, stdlib CLI validation
+4. **Self-heal** — diagnose failures and revise without losing prior versions
+
+Built for coding agents, Custom GPTs, local LLMs, and cyber×AI workflows where inventing facts or skipping safety boundaries is unacceptable.
+
+## What you get
+
+| Capability | Outcome |
 |---|---|
-| Prompt architecture | Core prompt, mode prompts, reusable modules, and project context templates. |
-| Prompt audits | Missing-context checks, safety boundaries, rewrite recommendations, and changelog notes. |
-| Agentic mode design | Permission maps, tool boundaries, verification loops, and stop conditions. |
-| Prompt evals | JSONL datasets, YAML rubrics, schema validation, scoring helpers, and report skeletons. |
-| Custom GPT packaging | A ready instruction set for **PromptOps Architect powered by PromptRig**. |
-| Codex / Cursor / Claude adoption | PromptRig v1.2 skill bundle in `skills/promptrig/` plus portable framework spec at the repo root. |
+| Prompt architecture | Core prompt, modes, reusable modules, project context templates |
+| Audits | Missing-context labels, safety boundaries, rewrite notes, changelogs |
+| Agentic design | Permission maps, tool boundaries, verification loops, stop conditions |
+| Evals | JSONL datasets, YAML rubrics, schema checks, report skeletons |
+| Skill pack | Cursor / Codex / Claude skill in `skills/promptrig/` + portable `promptrig-framework.*` |
+| Custom GPT pack | Ready instruction set for PromptOps Architect |
 
-## Quick Start
+## 30-second start
 
 ```bash
 python -m pip install -e .
@@ -31,78 +44,72 @@ python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jso
 python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
 ```
 
-On Windows, if `python` points at a managed environment without `pip`, use the launcher form:
+Windows launcher form if needed:
 
 ```powershell
 py -3.14 -m pip install -e .
 py -3.14 -m pytest
 ```
 
-## Repository Map
+## Demo path
+
+1. Drop a rough agent or product prompt into PromptRig (skill, Custom GPT, or modules).
+2. Run Context Auditor — separate confirmed facts from `UNKNOWN` / `NOT SPECIFIED` / `NOT FOUND IN PROVIDED MATERIAL`.
+3. Choose mode: Audit · Meta-Prompting · Agentic · Evaluator.
+4. Rewrite with safety and missing-context behavior preserved.
+5. Add JSONL eval cases; validate with the CLI; generate a report skeleton.
+
+## Repository map
 
 ```text
-prompts/
-  custom_gpt/       PromptOps Architect Custom GPT instructions
-  core/             Universal PromptRig prompt, safety, reference, and context policies
-  modes/            Default, Audit, Meta-Prompting, Agentic, and Evaluator modes
-  modules/          Reusable audit, rewrite, safety, eval, and changelog modules
-  templates/        Versioned renderable prompt templates
-evals/
-  datasets/         JSONL prompt evaluation cases
-  rubrics/          Human-readable YAML rubrics
-  reports/          Generated reports, ignored except .gitkeep
-src/promptrig/      Standard-library eval harness and CLI
-tests/              Pytest coverage for schemas, scoring, and bundled datasets
-docs/               GitHub-facing quickstart, showcase, and Custom GPT setup
-skills/promptrig/   PromptRig v1.2 skill bundle (.skill, references, artifact JSX)
-apps/               Standalone interactive PromptRig artifact (`promptrig.jsx`)
-promptrig-framework.*  Portable human/JSON spec for the v1.2 meta-optimizer flow
-references/         Current and legacy source policy notes
+prompts/            Core, modes, modules, templates, Custom GPT pack
+evals/              JSONL datasets, YAML rubrics, report output
+src/promptrig/      Stdlib eval harness + CLI
+tests/              Pytest for schemas, scoring, bundled datasets
+docs/               Quickstart, showcase, Custom GPT setup
+skills/promptrig/   v1.2 skill bundle (.skill, framework refs, artifact JSX)
+apps/               Interactive PromptRig artifact (promptrig.jsx)
+promptrig-framework.*  Portable human/JSON meta-optimizer spec
 ```
 
-## CLI
-
-Validate a dataset:
+## CLI highlights
 
 ```bash
+# Validate eval dataset
 python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
-```
 
-Generate a markdown report skeleton:
-
-```bash
+# Report skeleton
 python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+
+# Render versioned prompt-architect templates
+python -m promptrig.cli generate --template prompt-architect \
+  --project-name "Incident Desk" \
+  --project-description "Build an internal incident review assistant." \
+  --platform web --stack "Next.js, Supabase" --scale M \
+  --out-dir exports/incident-desk
 ```
 
-Render both Agentic Prompt Architect prompt variants from versioned templates:
+## Design rules
 
-```bash
-python -m promptrig.cli generate --template prompt-architect --project-name "Incident Desk" --project-description "Build an internal incident review assistant." --platform web --stack "Next.js, Supabase" --scale M --out-dir exports/incident-desk
-```
+- Stay lightweight by default; tighten only for safety, agentic execution, repo work, evals, or missing context.
+- Never invent repository or project facts.
+- Use exact missing-context labels: `UNKNOWN`, `NOT SPECIFIED`, `NOT FOUND IN PROVIDED MATERIAL`.
+- Keep cybersecurity, automation, scraping, credentials, exploit research, malware analysis, and sensitive-data work defensive, authorized, educational, and privacy-preserving.
+- No private chain-of-thought dumps — concise rationales only.
 
-## Design Rules
+## Engineering methodology
 
-- Stay lightweight by default.
-- Become stricter only when safety, agentic execution, repo work, evals, or missing context require it.
-- Do not invent repository facts or project context.
-- Use exact missing-context labels: `UNKNOWN`, `NOT SPECIFIED`, and `NOT FOUND IN PROVIDED MATERIAL`.
-- Keep cybersecurity, automation, scraping, credentials, exploit research, malware analysis, and sensitive-data workflows defensive, authorized, educational, privacy-preserving, and compliance-oriented.
-- Do not expose private chain-of-thought; use concise reasoning summaries and audit rationales.
+[Architect Mode v1.2.0](docs/methodology/architect-mode/README.md) is the architecture-first, contract-first methodology snapshot retained in-repo for reviewability. Compiler Core work stays gated by the [v0.5 contract-freeze candidate](architecture/compiler-contract-freeze-v0.5/README.md).
 
-## Engineering Methodology
+## Start here
 
-[Architect Mode v1.2.0](docs/methodology/architect-mode/README.md) is PromptRig's official architecture-first, contract-first engineering methodology. The reusable canonical copy is installed at `C:\\AI\\skills\\architect-mode`; this repository retains a versioned snapshot for reviewability. Compiler Core work remains gated by the [v0.5 contract-freeze candidate](architecture/compiler-contract-freeze-v0.5/README.md) and its explicit open questions.
-
-## Start Here
-
+- [Showcase](docs/showcase.md) — pitch, demo flow, outcomes
 - [Quickstart](docs/quickstart.md)
-- [Showcase](docs/showcase.md)
 - [Custom GPT setup](docs/custom-gpt-setup.md)
 - [Prompt audit example](examples/prompt-audit-request.md)
 - [Security policy](SECURITY.md)
 - [Architecture governance](architecture/README.md)
-- [Compiler contract freeze v0.5](architecture/compiler-contract-freeze-v0.5/README.md)
 
 ## Status
 
-PromptRig is intentionally small right now: no provider adapters, no API keys, no account-specific configuration, and no network dependency in the eval harness. The next useful layer is richer eval fixtures and real-world prompt system examples.
+Intentionally small: no provider adapters, no API keys, no account-specific config, no network dependency in the eval harness. Next useful layer: richer eval fixtures and real-world prompt-system examples.
