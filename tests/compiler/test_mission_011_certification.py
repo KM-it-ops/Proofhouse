@@ -71,6 +71,13 @@ def test_compile_options_offline_default() -> None:
     assert CompileOptions().offline is True
 
 
+def test_maturity_map_reflects_oar005_headless_partial() -> None:
+    text = Path("architecture/strategy/CAPABILITY_MATURITY_MAP.md").read_text(encoding="utf-8")
+    assert "| Headless requirements/evaluation/repair loop | `NOT_STARTED`" not in text
+    assert "OAR-005" in text
+    assert "`PARTIAL`" in text or "`CERTIFIED`" in text
+
+
 def test_packaging_cli_entry_smoke() -> None:
     env = os.environ.copy()
     env["PYTHONPATH"] = str(ROOT / "src") + os.pathsep + env.get("PYTHONPATH", "")

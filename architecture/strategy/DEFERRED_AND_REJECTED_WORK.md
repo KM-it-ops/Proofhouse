@@ -59,9 +59,9 @@ No known unresolved correctness-critical defect is accepted at the MISSION-007 b
 
 ### Blocking
 
-- No accepted requirements/evidence contract exists for intent-to-IR compilation.
-- No accepted evaluation, baseline, scoring, repair-provenance, or regression contract exists.
-- No production-hardened or independently certified headless requirements/evaluation/repair boundary exists; MISSION-010 prototype evidence cannot promote it.
+- No production intent-to-IR compiler exists beyond OAR-005 narrow structured profiles; full MISSION-008 production graduation remains MISSION-012.
+- No production evaluation engine, baseline comparison, scoring aggregation, repair-provenance, or regression gate exists; closed-loop prototype engines are OAR-005 narrow only.
+- A narrow offline structured+fake headless boundary is accepted under OAR-005; full Phase 4B production graduation remains MISSION-012 and does not claim live providers, plain-language profiles, or production-hardened evaluation/repair engines.
 - ADR-007 remains Proposed; runtime state, replay, security, retention, and migration semantics are unresolved.
 - Provider schema-subset checkers are intentionally bounded and cannot support live-execution claims without refreshed authoritative provider evidence and failure semantics.
 - IR v0.1 has no machine-readable security/privacy policy grammar and fails closed on populated free-text policy blocks.
