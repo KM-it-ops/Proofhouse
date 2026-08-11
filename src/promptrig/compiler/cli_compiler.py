@@ -113,6 +113,36 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
     return _exit_code_for(envelope.diagnostics)
 
 
+def _cmd_closed_loop(args: argparse.Namespace) -> int:
+    from .closed_loop import ClosedLoopOptions, closed_loop_from_json
+
+    raw = _read_input(args.input)
+    result = closed_loop_from_json(
+        raw,
+        ClosedLoopOptions(repair_budget=args.repair_budget, network_allowed=False),
+    )
+    payload = {
+        "command": "closed-loop",
+        "status": result.status,
+        "diagnostics": result.diagnostics,
+        "evidence_bundle": result.evidence_bundle,
+    }
+    if args.json:
+        sys.stdout.write(json.dumps(payload, sort_keys=True))
+        sys.stdout.write("\n")
+    else:
+        print(f"closed-loop: {result.status}")
+        for code in result.diagnostics:
+            print(f"  [{code}]")
+        print(f"  requirements: {result.evidence_bundle.get('requirement_ids')}")
+        print(f"  failed_attempts: {len(result.failed_attempts)}")
+    if result.status == "PASS":
+        return EXIT_SUCCESS
+    if result.status in {"BLOCKED", "UNRESOLVED_DEFECT"}:
+        return EXIT_COMPILATION_FAILURE
+    return EXIT_VALIDATION_FAILURE
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="promptrig-compiler", description="PromptRig Compiler Core v0.1")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -142,6 +172,15 @@ def build_parser() -> argparse.ArgumentParser:
     p_doctor = subparsers.add_parser("doctor", help="Check the offline compiler environment.")
     p_doctor.add_argument("--json", action="store_true", help="Emit a single JSON result envelope.")
     p_doctor.set_defaults(func=_cmd_doctor)
+
+    p_loop = subparsers.add_parser(
+        "closed-loop",
+        help="MISSION-010 prototype: structured requirements → IR → fake adapter → eval/repair → evidence.",
+    )
+    p_loop.add_argument("input", help="Path to structured requirements JSON, or '-' for stdin.")
+    p_loop.add_argument("--repair-budget", type=int, choices=(0, 1, 2), default=1)
+    p_loop.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
+    p_loop.set_defaults(func=_cmd_closed_loop)
 
     return parser
 

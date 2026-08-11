@@ -1,0 +1,27 @@
+{
+  "profile": "structured_minimal_v0",
+  "contract_version": "0.1.0-draft",
+  "project_name": "incident-desk",
+  "network_allowed": false,
+  "repair_budget": 1,
+  "objective": {
+    "goal": "Summarize incidents without inventing facts.",
+    "target_users": ["soc_analysts"],
+    "success_criteria": ["no_invented_facts"],
+    "failure_conditions": ["hallucinated_iocs"]
+  },
+  "requirements": [
+    {
+      "id": "REQ-EVAL-001",
+      "statement": "Label missing context as UNKNOWN.",
+      "priority": "required",
+      "acceptance": ["unknown_label_present_when_missing"]
+    }
+  ],
+  "behavior": {
+    "instructions": ["Be concise.", "Prefer evidence over speculation."],
+    "constraints": ["No credential exfiltration.", "Defensive security posture only."],
+    "uncertainty_policy": "State uncertainty explicitly rather than guessing.",
+    "evidence_policy": "Cite sources when available."
+  }
+}
