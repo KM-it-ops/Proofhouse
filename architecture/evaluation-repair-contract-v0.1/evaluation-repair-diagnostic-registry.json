@@ -1,0 +1,111 @@
+{
+  "namespace": "EVR",
+  "version": "0.1.0-draft",
+  "diagnostics": [
+    {
+      "code": "EVR-DET-0001",
+      "severity": "deterministic",
+      "summary": "Deterministic validator failed"
+    },
+    {
+      "code": "EVR-DET-0002",
+      "severity": "deterministic",
+      "summary": "Deterministic validator error"
+    },
+    {
+      "code": "EVR-BSL-0001",
+      "severity": "baseline",
+      "summary": "Baseline absent or mismatched"
+    },
+    {
+      "code": "EVR-BSL-0002",
+      "severity": "baseline",
+      "summary": "Baseline stale"
+    },
+    {
+      "code": "EVR-AGG-0001",
+      "severity": "aggregation",
+      "summary": "Aggregation threshold failed"
+    },
+    {
+      "code": "EVR-UNA-0001",
+      "severity": "availability",
+      "summary": "Evaluator unavailable"
+    },
+    {
+      "code": "EVR-MDL-0001",
+      "severity": "model_judge",
+      "summary": "Advisory model judge disagreement"
+    },
+    {
+      "code": "EVR-AUT-0001",
+      "severity": "authority",
+      "summary": "Model judge claimed executable authority"
+    },
+    {
+      "code": "EVR-REP-0001",
+      "severity": "repair",
+      "summary": "Repair budget zero with failing candidate"
+    },
+    {
+      "code": "EVR-REP-0002",
+      "severity": "repair",
+      "summary": "Repair budget exhausted unresolved"
+    },
+    {
+      "code": "EVR-REP-0003",
+      "severity": "repair",
+      "summary": "Repair timeout"
+    },
+    {
+      "code": "EVR-REP-0004",
+      "family": "repair",
+      "summary": "Repair cost exhausted"
+    },
+    {
+      "code": "EVR-REG-0001",
+      "family": "regression",
+      "summary": "Repair introduced regression"
+    },
+    {
+      "code": "EVR-SEC-0001",
+      "family": "security",
+      "summary": "Repair attempted to weaken security/objectives"
+    },
+    {
+      "code": "EVR-EVD-0001",
+      "family": "evidence",
+      "summary": "Failed attempts discarded"
+    },
+    {
+      "code": "EVR-NET-0001",
+      "family": "network",
+      "summary": "Network used under no-network default"
+    },
+    {
+      "code": "EVR-SCR-0001",
+      "family": "scoring",
+      "summary": "Score hides evaluator error"
+    },
+    {
+      "code": "EVR-TRM-0001",
+      "family": "termination",
+      "summary": "Termination depended on model self-report"
+    },
+    {
+      "code": "EVR-REQ-0001",
+      "family": "requirements",
+      "summary": "Requirement identity unavailable"
+    },
+    {
+      "code": "EVR-PRC-0001",
+      "family": "precedence",
+      "summary": "Lower-authority evaluator cannot override"
+    },
+    {
+      "code": "EVR-SCH-0001",
+      "family": "schema",
+      "summary": "Schema validation failure"
+    }
+  ]
+}

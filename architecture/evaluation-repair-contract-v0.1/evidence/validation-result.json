@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "contract_version": "0.1.0-draft",
+  "schema_count": 9,
+  "fixture_count": 25,
+  "fixture_pass_count": 25,
+  "schema_instance_count": 6,
+  "schema_instance_pass_count": 6,
+  "linked_set_count": 2,
+  "linked_set_pass_count": 2,
+  "known_requirement_count": 2,
+  "determinism_ok": true,
+  "failed_cases": [],
+  "failed_instances": [],
+  "failed_linked_sets": []
+}

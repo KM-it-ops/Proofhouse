@@ -1,0 +1,55 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.local/schemas/evaluation-repair/evaluation-request.schema.json",
+  "title": "EvaluationRequest",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "request_id",
+    "contract_version",
+    "baseline",
+    "candidate",
+    "evaluator_ids",
+    "requirement_ids",
+    "network_allowed"
+  ],
+  "properties": {
+    "request_id": {
+      "type": "string",
+      "pattern": "^ERQ-[A-Z0-9-]{3,64}$"
+    },
+    "contract_version": {
+      "type": "string"
+    },
+    "baseline": {
+      "$ref": "baseline-identity.schema.json"
+    },
+    "candidate": {
+      "$ref": "candidate-identity.schema.json"
+    },
+    "evaluator_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^EVL-[A-Z0-9-]{3,64}$"
+      },
+      "minItems": 1
+    },
+    "requirement_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[A-Z0-9-]{3,64}$"
+      },
+      "minItems": 1
+    },
+    "network_allowed": {
+      "type": "boolean"
+    },
+    "repair_budget": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+    }
+  }
+}

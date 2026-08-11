@@ -1,0 +1,126 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.local/schemas/evaluation-repair/evaluation-result.schema.json",
+  "title": "EvaluationResult",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "result_id",
+    "request_id",
+    "status",
+    "scores",
+    "diagnostic_codes",
+    "evaluator_outcomes",
+    "failed_attempts",
+    "network_used"
+  ],
+  "properties": {
+    "result_id": {
+      "type": "string",
+      "pattern": "^ERS-[A-Z0-9-]{3,64}$"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^ERQ-[A-Z0-9-]{3,64}$"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "PASS",
+        "FAIL",
+        "ERROR",
+        "BLOCKED",
+        "UNAVAILABLE",
+        "REGRESSION",
+        "UNRESOLVED_DEFECT"
+      ]
+    },
+    "scores": {
+      "type": "object",
+      "additionalProperties": {
+        "type": [
+          "number",
+          "null"
+        ]
+      }
+    },
+    "aggregation": {
+      "type": "string",
+      "enum": [
+        "min",
+        "max",
+        "mean",
+        "any_fail",
+        "all_pass"
+      ]
+    },
+    "threshold": {
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "diagnostic_codes": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^EVR-[A-Z]+-[0-9]{4}$"
+      }
+    },
+    "evaluator_outcomes": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "evaluator_id",
+          "outcome",
+          "authoritative_for_executable"
+        ],
+        "properties": {
+          "evaluator_id": {
+            "type": "string"
+          },
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "pass",
+              "fail",
+              "error",
+              "unavailable",
+              "advisory"
+            ]
+          },
+          "authoritative_for_executable": {
+            "type": "boolean"
+          },
+          "score": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "message": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "failed_attempts": {
+      "type": "array",
+      "items": {
+        "$ref": "repair-attempt.schema.json"
+      }
+    },
+    "unresolved_defect_id": {
+      "type": "string",
+      "pattern": "^UDF-[A-Z0-9-]{3,64}$"
+    },
+    "network_used": {
+      "type": "boolean"
+    },
+    "deterministic_repeatable": {
+      "type": "boolean"
+    }
+  }
+}

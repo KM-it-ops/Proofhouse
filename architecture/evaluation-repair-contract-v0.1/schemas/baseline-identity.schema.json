@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.local/schemas/evaluation-repair/baseline-identity.schema.json",
+  "title": "BaselineIdentity",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "baseline_id",
+    "artifact_digest",
+    "contract_version",
+    "created_at"
+  ],
+  "properties": {
+    "baseline_id": {
+      "type": "string",
+      "pattern": "^BSL-[A-Z0-9-]{3,64}$"
+    },
+    "artifact_digest": {
+      "type": "string",
+      "pattern": "^sha256:[a-f0-9]{64}$"
+    },
+    "contract_version": {
+      "type": "string"
+    },
+    "requirement_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[A-Z0-9-]{3,64}$"
+      }
+    },
+    "created_at": {
+      "type": "string",
+      "minLength": 1
+    },
+    "stale": {
+      "type": "boolean"
+    }
+  }
+}

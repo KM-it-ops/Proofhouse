@@ -1,0 +1,73 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.local/schemas/evaluation-repair/evaluator-record.schema.json",
+  "title": "EvaluatorRecord",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "evaluator_id",
+    "evaluator_kind",
+    "version",
+    "authority_rank",
+    "inputs",
+    "outputs"
+  ],
+  "properties": {
+    "evaluator_id": {
+      "type": "string",
+      "pattern": "^EVL-[A-Z0-9-]{3,64}$"
+    },
+    "evaluator_kind": {
+      "type": "string",
+      "enum": [
+        "deterministic_validator",
+        "schema_validator",
+        "security_policy_check",
+        "score_aggregator",
+        "model_judge",
+        "fake_adapter_oracle"
+      ]
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "authority_rank": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9
+    },
+    "inputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "outputs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "confidence_scale": {
+      "type": "string",
+      "enum": [
+        "none",
+        "0-1",
+        "ordinal"
+      ]
+    },
+    "cost_model": {
+      "type": "string"
+    },
+    "latency_budget_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "provenance": {
+      "type": "string"
+    }
+  }
+}

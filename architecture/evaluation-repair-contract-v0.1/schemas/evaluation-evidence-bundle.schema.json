@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.local/schemas/evaluation-repair/evaluation-evidence-bundle.schema.json",
+  "title": "EvaluationEvidenceBundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "bundle_id",
+    "contract_version",
+    "request",
+    "result",
+    "evaluators",
+    "requirement_ids"
+  ],
+  "properties": {
+    "bundle_id": {
+      "type": "string",
+      "pattern": "^EEB-[A-Z0-9-]{3,64}$"
+    },
+    "contract_version": {
+      "type": "string"
+    },
+    "request": {
+      "$ref": "evaluation-request.schema.json"
+    },
+    "result": {
+      "$ref": "evaluation-result.schema.json"
+    },
+    "evaluators": {
+      "type": "array",
+      "items": {
+        "$ref": "evaluator-record.schema.json"
+      },
+      "minItems": 1
+    },
+    "repair_plan": {
+      "$ref": "repair-plan.schema.json"
+    },
+    "unresolved_defect": {
+      "$ref": "unresolved-defect.schema.json"
+    },
+    "requirement_ids": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "pattern": "^REQ-[A-Z0-9-]{3,64}$"
+      },
+      "minItems": 1
+    }
+  }
+}
