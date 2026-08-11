@@ -1,7 +1,8 @@
-"""MISSION-010 headless closed-loop prototype (fake adapter only).
+"""Headless closed-loop (fake adapter only) — OAR-005 narrow certification.
 
-Pipeline: structured requirements → IR → fake compile → evaluate → bounded repair → evidence.
-No network. No live providers. Not a production hardening boundary (see MISSION-011).
+Structured profiles → IR → fake compile → evaluate → bounded repair → evidence.
+No network. No live providers. MISSION-012 graduates evaluation/repair/evidence
+from MISSION-010 prototype semantics toward production-grade offline headless.
 """
 from __future__ import annotations
 
