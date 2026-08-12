@@ -35,6 +35,12 @@ from .passes import (
     SafetyPass,
     ValidationPass,
 )
+from .closed_loop import (
+    ClosedLoopOptions,
+    ClosedLoopResult,
+    closed_loop_from_json,
+    run_closed_loop,
+)
 from .pipeline import run_pipeline
 from .sink import ArtifactSink, InMemorySink
 from . import paths
