@@ -15,11 +15,14 @@ from . import api
 from .canonical import canonical_sha256, canonicalize
 from .contracts import CompileOptions, ResultEnvelope
 from .evaluation import EvaluationRequest, EvaluationResult, evaluate_deterministic
+from .evidence import (
+    DEFAULT_EVALUATOR_ID,
+    DEFAULT_EVALUATOR_VERSION,
+    build_evidence_bundle,
+)
 from .repair import ClosedLoopTestHooks, apply_instruction_repair, plan_repair
 
-CONTRACT_008 = "0.1.0-draft"
-CONTRACT_009 = "0.1.0-draft"
-PROTOTYPE_ID = "mission-010-closed-loop-v0.1"
+ACCEPTED_INPUT_CONTRACT_VERSIONS = frozenset({"0.1.0-draft", "0.1.0"})
 FAKE_ADAPTER_ID = "fake"
 FAKE_ADAPTER_VERSION = "0.1.0"
 IMMUTABLE_FIELDS = ("accepted_objectives", "security_constraints", "requirement_ids")
@@ -58,8 +61,11 @@ def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
         errors.append(
             "unsupported profile; approved headless profiles are structured_minimal_v0 and structured_developer_v0"
         )
-    if doc.get("contract_version") != CONTRACT_008:
-        errors.append("requirements contract_version must be 0.1.0-draft")
+    contract_version = doc.get("contract_version")
+    if contract_version not in ACCEPTED_INPUT_CONTRACT_VERSIONS:
+        errors.append(
+            "requirements contract_version must be one of: 0.1.0-draft, 0.1.0"
+        )
     reqs = doc.get("requirements")
     if not isinstance(reqs, list) or not reqs:
         errors.append("requirements must be a non-empty list")
@@ -195,6 +201,8 @@ def run_closed_loop(
     current_raw = ir_raw
     compile_env: ResultEnvelope | None = None
     final_eval: dict[str, Any] | None = None
+    final_evaluator_id = DEFAULT_EVALUATOR_ID
+    final_evaluator_version = DEFAULT_EVALUATOR_VERSION
 
     attempts_allowed = options.repair_budget
     # initial compile + eval counts as attempt 0 only when repair runs after failure
@@ -239,6 +247,8 @@ def run_closed_loop(
         )
         evaluation = _evaluation_result_to_evidence(eval_result)
         final_eval = evaluation
+        final_evaluator_id = eval_result.evaluator_id
+        final_evaluator_version = eval_result.evaluator_version
 
         if evaluation["status"] == "PASS":
             break
@@ -307,23 +317,22 @@ def run_closed_loop(
             "diagnostic_codes": final_eval.get("diagnostic_codes", []),
         }
 
-    evidence = {
-        "bundle_id": "EEB-CLOSED-LOOP",
-        "prototype_id": PROTOTYPE_ID,
-        "contract_versions": {"requirements": CONTRACT_008, "evaluation_repair": CONTRACT_009},
-        "requirement_ids": requirement_ids,
-        "immutable_fields": list(IMMUTABLE_FIELDS),
-        "adapter": {"id": FAKE_ADAPTER_ID, "version": FAKE_ADAPTER_VERSION},
-        "ir_sha256": canonical_sha256(current_ir),
-        "baseline_digest": baseline_digest,
-        "evaluation": final_eval,
-        "failed_attempts": failed_attempts,
-        "unresolved_defect": unresolved,
-        "network_allowed": False,
-        "network_used": False,
-        "repair_budget": options.repair_budget,
-        "compile_status": None if compile_env is None else compile_env.status,
-    }
+    evidence = build_evidence_bundle(
+        requirement_ids=requirement_ids,
+        immutable_fields=IMMUTABLE_FIELDS,
+        adapter={"id": FAKE_ADAPTER_ID, "version": FAKE_ADAPTER_VERSION},
+        ir_sha256=canonical_sha256(current_ir),
+        baseline_digest=baseline_digest,
+        evaluation=final_eval,
+        failed_attempts=failed_attempts,
+        unresolved_defect=unresolved,
+        network_allowed=False,
+        network_used=False,
+        repair_budget=options.repair_budget,
+        compile_status=None if compile_env is None else compile_env.status,
+        evaluator_id=final_evaluator_id,
+        evaluator_version=final_evaluator_version,
+    )
 
     return ClosedLoopResult(
         status=status,
