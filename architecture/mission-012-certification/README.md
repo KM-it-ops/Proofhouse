@@ -1,6 +1,6 @@
 # Headless Offline Graduation Package v0.1 (MISSION-012)
 
-**Status:** Graduation evidence for offline eval/repair/evidence promotion; OAR-006 ready for owner acceptance.  
+**Status:** OAR-006 Accepted 2026-08-12 — narrow offline eval/repair/evidence certified.  
 **Baseline:** MISSION-011 certification (`9d7321c`, OAR-005).  
 **Loop identity:** `mission-012-headless-closed-loop-v0.1` / `eeb-headless-v0.1`.
 
@@ -40,4 +40,4 @@ Plain-language / model-assisted Simple Mode is **not** implemented. See [PLAIN_L
 - Not full Roadmap Phase 4B exit (thin perf ceilings; single external-consumer smoke, not a full matrix).
 - Not a live-provider runtime, hosted UI, benchmark suite, MissionRig, or IR v0.2.
 - Evaluator is a deterministic fake-adapter oracle — not a full rubric/dataset product engine.
-- OAR-006 is draft until Boss accepts; maturity map rows are `IMPLEMENTED_NOT_CERTIFIED` until then.
+- OAR-006 Accepted certifies the narrow offline boundary only; full Phase 4B exit remains unauthorized.

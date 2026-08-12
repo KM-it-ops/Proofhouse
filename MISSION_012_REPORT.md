@@ -1,9 +1,9 @@
 # MISSION-012 Report — Offline Headless Eval/Repair/Evidence Graduation
 
-**Status:** Graduation package prepared; OAR-006 ready for owner acceptance (not Accepted).  
+**Status:** Graduation Accepted via OAR-006 (Boss, 2026-08-12).  
 **Baseline:** `9d7321c` (MISSION-011 certification).  
 **Branch:** `feature/mission-012-compiler-graduation`  
-**Commits:** `ce0c617` … `ffeadef`
+**Commits:** `ce0c617` … `26e50dc` (+ OAR-006 acceptance commit)
 
 ## Scope
 
@@ -51,7 +51,7 @@ MISSION-012 does **not** claim full Roadmap Phase 4B exit:
 - Requirements compiler remains structured profiles only (`PARTIAL`); plain-language (M1/M2) is out of scope.
 - No live providers, hosted UI, benchmarks, MissionRig, IR v0.2, or enterprise SAST.
 
-Owner acceptance via OAR-006 is required before treating this graduation as certified beyond `IMPLEMENTED_NOT_CERTIFIED`.
+OAR-006 Accepted 2026-08-12. Narrow offline headless eval/repair/evidence is `CERTIFIED` with the residual gaps above; full Phase 4B exit remains unauthorized.
 
 ## Non-claims
 
