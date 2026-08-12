@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import argparse
 import json
 from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.cli_compiler import main as compiler_main
+from promptrig.compiler.cli_compiler import build_parser, main as compiler_main
 from promptrig.compiler.closed_loop import ClosedLoopOptions, requirements_to_ir, run_closed_loop
+from promptrig.compiler.repair import ClosedLoopTestHooks
 
 FIXTURE = Path(__file__).parent / "fixtures" / "closed_loop_requirements_minimal.json"
 
@@ -35,7 +37,8 @@ def test_closed_loop_pass_no_repair_needed() -> None:
 def test_closed_loop_repair_budget_zero_unresolved_on_forced_fail() -> None:
     result = run_closed_loop(
         _doc(),
-        ClosedLoopOptions(repair_budget=0, force_fail_first_compile=True),
+        ClosedLoopOptions(repair_budget=0),
+        hooks=ClosedLoopTestHooks(force_fail_first_compile=True),
     )
     assert result.status == "FAIL"
     assert result.failed_attempts == []
@@ -44,7 +47,8 @@ def test_closed_loop_repair_budget_zero_unresolved_on_forced_fail() -> None:
 def test_closed_loop_repair_then_pass() -> None:
     result = run_closed_loop(
         _doc(),
-        ClosedLoopOptions(repair_budget=1, force_fail_first_compile=True),
+        ClosedLoopOptions(repair_budget=1),
+        hooks=ClosedLoopTestHooks(force_fail_first_compile=True),
     )
     assert result.status == "PASS"
     assert len(result.failed_attempts) == 1
@@ -54,8 +58,8 @@ def test_closed_loop_repair_then_pass() -> None:
 def test_closed_loop_refuses_security_weakening() -> None:
     result = run_closed_loop(
         _doc(),
-        ClosedLoopOptions(
-            repair_budget=1,
+        ClosedLoopOptions(repair_budget=1),
+        hooks=ClosedLoopTestHooks(
             force_fail_first_compile=True,
             force_security_weaken_repair=True,
         ),
@@ -70,7 +74,8 @@ def test_closed_loop_budget_two_unresolved() -> None:
     # simulate unresolved by budget 2 with persistent fail via security refuse then fail.
     result = run_closed_loop(
         _doc(),
-        ClosedLoopOptions(repair_budget=2, force_fail_first_compile=True),
+        ClosedLoopOptions(repair_budget=2),
+        hooks=ClosedLoopTestHooks(force_fail_first_compile=True),
     )
     # after first fail, repair improves and second compile succeeds → PASS
     assert result.status == "PASS"
@@ -96,3 +101,13 @@ def test_library_cli_closed_loop_parity(tmp_path: Path, capsys: pytest.CaptureFi
     cli = json.loads(capsys.readouterr().out)
     assert cli["status"] == lib.status
     assert cli["evidence_bundle"]["requirement_ids"] == lib.evidence_bundle["requirement_ids"]
+
+
+def test_cli_closed_loop_has_no_force_flags() -> None:
+    parser = build_parser()
+    subparsers = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
+    loop_parser = subparsers.choices["closed-loop"]
+    option_strings = [opt for action in loop_parser._actions for opt in (action.option_strings or [])]
+    dests = {action.dest for action in loop_parser._actions if action.dest not in (None, "help", "func")}
+    assert not any("force_" in opt for opt in option_strings)
+    assert not any(dest.startswith("force_") for dest in dests)

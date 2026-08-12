@@ -15,6 +15,7 @@ from . import api
 from .canonical import canonical_sha256, canonicalize
 from .contracts import CompileOptions, ResultEnvelope
 from .evaluation import EvaluationRequest, EvaluationResult, evaluate_deterministic
+from .repair import ClosedLoopTestHooks, apply_instruction_repair, plan_repair
 
 CONTRACT_008 = "0.1.0-draft"
 CONTRACT_009 = "0.1.0-draft"
@@ -28,8 +29,6 @@ IMMUTABLE_FIELDS = ("accepted_objectives", "security_constraints", "requirement_
 class ClosedLoopOptions:
     repair_budget: int = 1
     network_allowed: bool = False
-    force_fail_first_compile: bool = False
-    force_security_weaken_repair: bool = False
 
 
 @dataclass
@@ -160,7 +159,11 @@ def _evaluation_result_to_evidence(result: EvaluationResult) -> dict[str, Any]:
     }
 
 
-def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions | None = None) -> ClosedLoopResult:
+def run_closed_loop(
+    requirements_doc: dict[str, Any],
+    options: ClosedLoopOptions | None = None,
+    hooks: ClosedLoopTestHooks | None = None,
+) -> ClosedLoopResult:
     options = options or ClosedLoopOptions()
     if options.network_allowed:
         return ClosedLoopResult(
@@ -196,7 +199,7 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
     attempts_allowed = options.repair_budget
     # initial compile + eval counts as attempt 0 only when repair runs after failure
     for attempt_index in range(0, attempts_allowed + 1):
-        force_fail = options.force_fail_first_compile and attempt_index == 0
+        force_fail = hooks is not None and hooks.force_fail_first_compile and attempt_index == 0
         if force_fail:
             compile_ok = False
             candidate_digest = _digest({"failed": True, "attempt": attempt_index})
@@ -221,7 +224,7 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
             )
 
         security_ok = True
-        if options.force_security_weaken_repair and attempt_index > 0:
+        if hooks is not None and hooks.force_security_weaken_repair and attempt_index > 0:
             security_ok = False
 
         eval_result = evaluate_deterministic(
@@ -243,38 +246,29 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
         if attempt_index >= attempts_allowed:
             break
 
-        # bounded repair mutation (prototype): tweak instruction wording only
-        mutation = "tighten_instruction_wording"
-        weakened = False
-        if options.force_security_weaken_repair:
-            mutation = "remove_security_constraint"
-            weakened = True
-            # refused — do not apply
+        weaken_security = hooks is not None and hooks.force_security_weaken_repair
+        repair_plan = plan_repair(attempt_index=attempt_index, weaken_security=weaken_security)
+        if not repair_plan.allowed:
             failed_attempts.append(
                 {
                     "attempt_id": f"RPA-{attempt_index}",
                     "attempt_index": attempt_index,
-                    "mutation_summary": mutation,
+                    "mutation_summary": repair_plan.mutation_summary,
                     "allowed_mutation": False,
                     "outcome": "refused_immutable",
                     "preserved_failed_evidence": True,
                     "weakened_security_or_objective": True,
-                    "diagnostic_codes": ["EVR-SEC-0001"],
+                    "diagnostic_codes": list(repair_plan.diagnostic_codes),
                 }
             )
             final_eval = {
                 "status": "BLOCKED",
-                "diagnostic_codes": ["EVR-SEC-0001"],
+                "diagnostic_codes": list(repair_plan.diagnostic_codes),
                 "scores": {"primary": 0.0},
             }
             break
 
-        # apply allowed mutation
-        current_ir = json.loads(json.dumps(current_ir))
-        instructions = list(current_ir["behavior"]["instructions"])
-        instructions.append(f"Repair pass {attempt_index}: restate requirements without changing meaning.")
-        current_ir["behavior"]["instructions"] = instructions
-        # immutables unchanged
+        current_ir = apply_instruction_repair(current_ir, attempt_index)
         assert current_ir["objective"]["success_criteria"] == accepted_objectives
         assert current_ir["behavior"]["constraints"] == security_constraints
         assert [r["id"] for r in current_ir["requirements"]] == requirement_ids
@@ -283,7 +277,7 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
             {
                 "attempt_id": f"RPA-{attempt_index}",
                 "attempt_index": attempt_index,
-                "mutation_summary": mutation,
+                "mutation_summary": repair_plan.mutation_summary,
                 "allowed_mutation": True,
                 "outcome": "improved",
                 "preserved_failed_evidence": True,
@@ -340,10 +334,14 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
     )
 
 
-def closed_loop_from_json(raw: bytes | str, options: ClosedLoopOptions | None = None) -> ClosedLoopResult:
+def closed_loop_from_json(
+    raw: bytes | str,
+    options: ClosedLoopOptions | None = None,
+    hooks: ClosedLoopTestHooks | None = None,
+) -> ClosedLoopResult:
     if isinstance(raw, bytes):
         text = raw.decode("utf-8")
     else:
         text = raw
     doc = json.loads(text)
-    return run_closed_loop(doc, options)
+    return run_closed_loop(doc, options, hooks)
