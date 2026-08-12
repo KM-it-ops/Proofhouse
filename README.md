@@ -112,6 +112,6 @@ python -m promptrig.cli generate --template prompt-architect \
 
 ## Status
 
-**MISSION-012 graduated offline eval/repair/evidence** on the fake-adapter headless closed loop (`promptrig-compiler closed-loop`): deterministic evaluator, bounded repair (budgets `{0,1,2}`), versioned evidence (`eeb-headless-v0.1`). OAR-005 narrow certification (MISSION-011) and MISSION-008/009 contracts remain the baseline; OAR-006 is ready for owner acceptance — see `MISSION_012_REPORT.md` and `architecture/mission-012-certification/`.
+**MISSION-012 offline eval/repair/evidence certified (OAR-006 Accepted 2026-08-12)** on the fake-adapter headless closed loop (`promptrig-compiler closed-loop`): deterministic evaluator, bounded repair (budgets `{0,1,2}`), versioned evidence (`eeb-headless-v0.1`). Builds on OAR-005 (MISSION-011) and MISSION-008/009 contracts — see `MISSION_012_REPORT.md` and `architecture/mission-012-certification/`.
 
 Still intentionally offline: no live-provider execution, no API keys on the certified path, no hosted UI, no benchmark claims. Requirements remain structured profiles only; plain-language/Simple Mode is scheduled separately — see `architecture/mission-011-certification/PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md`.
