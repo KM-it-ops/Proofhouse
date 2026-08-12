@@ -14,6 +14,7 @@ from typing import Any
 from . import api
 from .canonical import canonical_sha256, canonicalize
 from .contracts import CompileOptions, ResultEnvelope
+from .evaluation import EvaluationRequest, EvaluationResult, evaluate_deterministic
 
 CONTRACT_008 = "0.1.0-draft"
 CONTRACT_009 = "0.1.0-draft"
@@ -151,31 +152,12 @@ def requirements_to_ir(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _evaluate_artifact(
-    *,
-    baseline_digest: str | None,
-    candidate_digest: str,
-    compile_ok: bool,
-    security_ok: bool,
-    network_used: bool,
-) -> dict[str, Any]:
-    codes: list[str] = []
-    if network_used:
-        return {
-            "status": "BLOCKED",
-            "diagnostic_codes": ["EVR-NET-0001"],
-            "scores": {"primary": None},
-        }
-    if not compile_ok:
-        codes.append("EVR-DET-0001")
-        return {"status": "FAIL", "diagnostic_codes": codes, "scores": {"primary": 0.0}}
-    if not security_ok:
-        codes.append("EVR-SEC-0001")
-        return {"status": "BLOCKED", "diagnostic_codes": codes, "scores": {"primary": 0.0}}
-    if baseline_digest and baseline_digest == candidate_digest:
-        # identical to failing baseline still fails if marked
-        pass
-    return {"status": "PASS", "diagnostic_codes": [], "scores": {"primary": 1.0}}
+def _evaluation_result_to_evidence(result: EvaluationResult) -> dict[str, Any]:
+    return {
+        "status": result.status,
+        "diagnostic_codes": list(result.diagnostic_codes),
+        "scores": dict(result.scores),
+    }
 
 
 def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions | None = None) -> ClosedLoopResult:
@@ -242,13 +224,17 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
         if options.force_security_weaken_repair and attempt_index > 0:
             security_ok = False
 
-        evaluation = _evaluate_artifact(
-            baseline_digest=baseline_digest,
-            candidate_digest=candidate_digest,
-            compile_ok=compile_ok,
-            security_ok=security_ok,
-            network_used=False,
+        eval_result = evaluate_deterministic(
+            EvaluationRequest(
+                baseline_digest=baseline_digest,
+                candidate_digest=candidate_digest,
+                compile_ok=compile_ok,
+                security_ok=security_ok,
+                network_used=False,
+                baseline_required=bool(current_ir["evaluation"].get("baseline_required", False)),
+            )
         )
+        evaluation = _evaluation_result_to_evidence(eval_result)
         final_eval = evaluation
 
         if evaluation["status"] == "PASS":
