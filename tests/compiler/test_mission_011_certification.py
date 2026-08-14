@@ -18,6 +18,9 @@ def test_plain_language_schedule_exists() -> None:
     text = path.read_text(encoding="utf-8")
     assert "MUST NOT be the first or only semantic implementation" in text
     assert "M1" in text and "M3" in text
+    assert "plain_language_v0" in text
+    assert "MISSION-013" in text
+    assert "structured_minimal_v0" in text
 
 
 def test_simple_ui_only_profile_rejected() -> None:
