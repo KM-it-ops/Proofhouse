@@ -175,9 +175,15 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_loop = subparsers.add_parser(
         "closed-loop",
-        help="MISSION-010 prototype: structured requirements → IR → fake adapter → eval/repair → evidence.",
+        help=(
+            "MISSION-010 prototype: structured requirements or plain_language_v0 envelope "
+            "→ IR → fake adapter → eval/repair → evidence."
+        ),
     )
-    p_loop.add_argument("input", help="Path to structured requirements JSON, or '-' for stdin.")
+    p_loop.add_argument(
+        "input",
+        help="Path to structured requirements JSON or plain_language_v0 envelope, or '-' for stdin.",
+    )
     p_loop.add_argument("--repair-budget", type=int, choices=(0, 1, 2), default=1)
     p_loop.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
     p_loop.set_defaults(func=_cmd_closed_loop)
