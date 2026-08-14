@@ -20,6 +20,7 @@ from .evidence import (
     DEFAULT_EVALUATOR_VERSION,
     build_evidence_bundle,
 )
+from .plain_language import PlainLanguageParseError, parse_plain_language_v0
 from .repair import ClosedLoopTestHooks, apply_instruction_repair, plan_repair
 
 ACCEPTED_INPUT_CONTRACT_VERSIONS = frozenset({"0.1.0-draft", "0.1.0"})
@@ -52,6 +53,10 @@ def _digest(payload: Any) -> str:
 
 
 APPROVED_PROFILES = frozenset({"structured_minimal_v0", "structured_developer_v0"})
+PLAIN_LANGUAGE_INTAKE_PROFILE = "plain_language_v0"
+SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC = (
+    "Simple Mode UI-only semantics are forbidden before plain-language headless milestone"
+)
 
 
 def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
@@ -87,7 +92,7 @@ def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
         if not doc.get("stop_conditions"):
             errors.append("structured_developer_v0 requires stop_conditions")
     if profile == "simple_mode_ui" or doc.get("authoring_mode") == "simple_ui_only":
-        errors.append("Simple Mode UI-only semantics are forbidden before plain-language headless milestone")
+        errors.append(SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC)
     return errors
 
 
@@ -169,6 +174,8 @@ def run_closed_loop(
     requirements_doc: dict[str, Any],
     options: ClosedLoopOptions | None = None,
     hooks: ClosedLoopTestHooks | None = None,
+    *,
+    intake_profile: str | None = None,
 ) -> ClosedLoopResult:
     options = options or ClosedLoopOptions()
     if options.network_allowed:
@@ -332,6 +339,7 @@ def run_closed_loop(
         compile_status=None if compile_env is None else compile_env.status,
         evaluator_id=final_evaluator_id,
         evaluator_version=final_evaluator_version,
+        intake_profile=intake_profile,
     )
 
     return ClosedLoopResult(
@@ -353,4 +361,46 @@ def closed_loop_from_json(
     else:
         text = raw
     doc = json.loads(text)
+    options = options or ClosedLoopOptions()
+
+    if options.network_allowed or doc.get("network_allowed") is True:
+        return ClosedLoopResult(
+            status="BLOCKED",
+            evidence_bundle={},
+            diagnostics=["EVR-NET-0001"],
+        )
+
+    if doc.get("authoring_mode") == "simple_ui_only" or doc.get("profile") == "simple_mode_ui":
+        return ClosedLoopResult(
+            status="BLOCKED",
+            evidence_bundle={},
+            diagnostics=[SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC],
+        )
+
+    profile = doc.get("profile")
+    if profile == PLAIN_LANGUAGE_INTAKE_PROFILE:
+        prose = doc.get("text")
+        if not isinstance(prose, str):
+            return ClosedLoopResult(
+                status="BLOCKED",
+                evidence_bundle={},
+                diagnostics=["PL-PARSE-0002"],
+            )
+        try:
+            structured = parse_plain_language_v0(prose)
+        except PlainLanguageParseError as exc:
+            return ClosedLoopResult(
+                status="BLOCKED",
+                evidence_bundle={},
+                diagnostics=[exc.code],
+            )
+        if "repair_budget" in doc:
+            structured["repair_budget"] = doc["repair_budget"]
+        return run_closed_loop(
+            structured,
+            options,
+            hooks,
+            intake_profile=PLAIN_LANGUAGE_INTAKE_PROFILE,
+        )
+
     return run_closed_loop(doc, options, hooks)

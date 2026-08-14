@@ -34,9 +34,10 @@ def build_evidence_bundle(
     compile_status: str | None,
     evaluator_id: str = DEFAULT_EVALUATOR_ID,
     evaluator_version: str = DEFAULT_EVALUATOR_VERSION,
+    intake_profile: str | None = None,
 ) -> dict[str, Any]:
     """Build a graduated headless evidence bundle with stable keys."""
-    return {
+    bundle: dict[str, Any] = {
         "bundle_id": BUNDLE_ID,
         "loop_id": HEADLESS_LOOP_ID,
         "prototype_id": HEADLESS_LOOP_ID,
@@ -62,3 +63,6 @@ def build_evidence_bundle(
             "version": evaluator_version,
         },
     }
+    if intake_profile is not None:
+        bundle["intake_profile"] = intake_profile
+    return bundle
