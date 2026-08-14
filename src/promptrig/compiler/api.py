@@ -53,6 +53,8 @@ if TYPE_CHECKING:
 _CLOSED_LOOP_EXPORTS = frozenset(
     {"ClosedLoopOptions", "ClosedLoopResult", "closed_loop_from_json", "run_closed_loop"}
 )
+_PLAIN_LANGUAGE_EXPORTS = frozenset({"parse_plain_language_v0"})
+_LAZY_EXPORTS = _CLOSED_LOOP_EXPORTS | _PLAIN_LANGUAGE_EXPORTS
 
 
 def __getattr__(name: str):
@@ -61,11 +63,15 @@ def __getattr__(name: str):
         from . import closed_loop
 
         return getattr(closed_loop, name)
+    if name in _PLAIN_LANGUAGE_EXPORTS:
+        from .plain_language import parse_plain_language_v0
+
+        return parse_plain_language_v0
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def __dir__() -> list[str]:
-    return sorted(set(globals()) | _CLOSED_LOOP_EXPORTS)
+    return sorted(set(globals()) | _LAZY_EXPORTS)
 
 
 def _diagnostic_factory() -> DiagnosticFactory:
