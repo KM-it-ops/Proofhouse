@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from . import COMPILER_ID, COMPILER_VERSION
 from .adapters import KNOWN_ADAPTER_IDS, get_adapter, list_registered_adapter_ids
@@ -35,17 +36,36 @@ from .passes import (
     SafetyPass,
     ValidationPass,
 )
-from .closed_loop import (
-    ClosedLoopOptions,
-    ClosedLoopResult,
-    closed_loop_from_json,
-    run_closed_loop,
-)
 from .pipeline import run_pipeline
 from .sink import ArtifactSink, InMemorySink
 from . import paths
 
 MIN_PYTHON = (3, 11)
+
+if TYPE_CHECKING:
+    from .closed_loop import (
+        ClosedLoopOptions,
+        ClosedLoopResult,
+        closed_loop_from_json,
+        run_closed_loop,
+    )
+
+_CLOSED_LOOP_EXPORTS = frozenset(
+    {"ClosedLoopOptions", "ClosedLoopResult", "closed_loop_from_json", "run_closed_loop"}
+)
+
+
+def __getattr__(name: str):
+    # Circular-dependency exception: closed_loop imports api at module load.
+    if name in _CLOSED_LOOP_EXPORTS:
+        from . import closed_loop
+
+        return getattr(closed_loop, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | _CLOSED_LOOP_EXPORTS)
 
 
 def _diagnostic_factory() -> DiagnosticFactory:
