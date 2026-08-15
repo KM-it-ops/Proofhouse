@@ -11,6 +11,9 @@ class ClosedLoopTestHooks:
 
     force_fail_first_compile: bool = False
     force_security_weaken_repair: bool = False
+    force_self_accept_proposal: bool = False
+    force_invent_owner_decision: bool = False
+    force_weaken_security_via_suggestion: bool = False
 
 
 @dataclass(frozen=True)
