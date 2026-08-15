@@ -33,7 +33,7 @@ MISSION-012 graduates MISSION-010 prototype closed-loop semantics:
 | `structured_minimal_v0` | Implemented in `closed_loop.requirements_to_ir` |
 | `structured_developer_v0` | Implemented (developer envelope → IR with tool/stop constraints) |
 
-Plain-language / model-assisted Simple Mode is **not** implemented. See [PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md](../mission-011-certification/PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md).
+M1 constrained `plain_language_v0` intake is certified under OAR-007 (MISSION-013). Freeform NLP, M2 model-assisted suggestion, and M3 / Simple Mode UI are **not** implemented. See [PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md](../mission-011-certification/PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md).
 
 ## Non-claims
 

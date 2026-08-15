@@ -1,9 +1,9 @@
 # MISSION-013 Report — Plain-Language Headless M1 (Constrained Prose)
 
-**Status:** Implemented; awaiting OAR-007 owner acceptance (not Accepted).  
+**Status:** M1 Accepted via OAR-007 (Boss, 2026-08-14).  
 **Baseline:** `9e5028d` (MISSION-012 HEAD).  
 **Branch:** `feature/mission-013-plain-language-m1`  
-**Commits:** `63ecc7a` … `0cd2629` (+ Task 6 docs commit)
+**Commits:** `63ecc7a` … `1b34ec0` (+ OAR-007 acceptance commit)
 
 ## Scope
 
@@ -14,7 +14,7 @@ Campaign COMPILER Phase A extends MISSION-012 offline headless closed loop with 
 3. Closed-loop JSON dispatch (`closed_loop_from_json`) with `intake_profile` evidence
 4. Library/CLI parity and external-consumer smoke for plain-language envelopes
 5. Certification tests (no provider imports, freeform rejection, Simple Mode still forbidden)
-6. This report, OAR-007 draft, maturity map updates (Requirements compiler stays `PARTIAL`)
+6. This report, OAR-007, maturity map updates (Requirements compiler stays `PARTIAL`)
 
 ## Deliverables
 
@@ -24,7 +24,7 @@ Campaign COMPILER Phase A extends MISSION-012 offline headless closed loop with 
 | Parser | `src/promptrig/compiler/plain_language.py` — `parse_plain_language_v0`, `PlainLanguageParseError` |
 | Closed loop | `closed_loop_from_json` accepts `profile: plain_language_v0` + `text`; threads `intake_profile` |
 | Public API | `promptrig.compiler.api` exports `parse_plain_language_v0` (lazy PEP 562) |
-| Governance | OAR-007 draft (Ready for owner acceptance), maturity map, certification README |
+| Governance | OAR-007 Accepted 2026-08-14, maturity map, certification README |
 
 ## Test evidence (branch HEAD before Task 6 commit)
 
@@ -55,8 +55,8 @@ MISSION-013 does **not** claim full Roadmap Phase 4B exit or CERTIFIED requireme
 - Performance/resource ceilings remain thin relative to full Phase 4B bar.
 - No live providers, hosted UI, benchmarks, MissionRig, IR v0.2, or enterprise SAST.
 
-OAR-007 is **Ready for owner acceptance** — Boss has not Accepted. Do not cite an acceptance date.
+OAR-007 Accepted 2026-08-14. Narrow M1 constrained-prose intake is certified with the residual gaps above; Requirements compiler remains `PARTIAL`; full Phase 4B exit remains unauthorized.
 
 ## Non-claims
 
-Live execution, API keys on the certified path, freeform NLP, model calls, Simple Mode UI semantics, benchmark results, CERTIFIED requirements compiler, and production hosted surfaces remain unauthorized or not yet owner-accepted.
+Live execution, API keys on the certified path, freeform NLP, model calls, Simple Mode UI semantics, benchmark results, CERTIFIED requirements compiler, and production hosted surfaces remain unauthorized.
