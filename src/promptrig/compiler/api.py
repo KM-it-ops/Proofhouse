@@ -54,7 +54,8 @@ _CLOSED_LOOP_EXPORTS = frozenset(
     {"ClosedLoopOptions", "ClosedLoopResult", "closed_loop_from_json", "run_closed_loop"}
 )
 _PLAIN_LANGUAGE_EXPORTS = frozenset({"parse_plain_language_v0"})
-_LAZY_EXPORTS = _CLOSED_LOOP_EXPORTS | _PLAIN_LANGUAGE_EXPORTS
+_MODEL_SUGGEST_EXPORTS = frozenset({"build_fake_model_proposal"})
+_LAZY_EXPORTS = _CLOSED_LOOP_EXPORTS | _PLAIN_LANGUAGE_EXPORTS | _MODEL_SUGGEST_EXPORTS
 
 
 def __getattr__(name: str):
@@ -67,6 +68,10 @@ def __getattr__(name: str):
         from .plain_language import parse_plain_language_v0
 
         return parse_plain_language_v0
+    if name in _MODEL_SUGGEST_EXPORTS:
+        from .model_suggest import build_fake_model_proposal
+
+        return build_fake_model_proposal
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
