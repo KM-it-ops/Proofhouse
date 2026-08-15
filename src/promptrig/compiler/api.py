@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from . import COMPILER_ID, COMPILER_VERSION
 from .adapters import KNOWN_ADAPTER_IDS, get_adapter, list_registered_adapter_ids
@@ -40,6 +41,37 @@ from .sink import ArtifactSink, InMemorySink
 from . import paths
 
 MIN_PYTHON = (3, 11)
+
+if TYPE_CHECKING:
+    from .closed_loop import (
+        ClosedLoopOptions,
+        ClosedLoopResult,
+        closed_loop_from_json,
+        run_closed_loop,
+    )
+
+_CLOSED_LOOP_EXPORTS = frozenset(
+    {"ClosedLoopOptions", "ClosedLoopResult", "closed_loop_from_json", "run_closed_loop"}
+)
+_PLAIN_LANGUAGE_EXPORTS = frozenset({"parse_plain_language_v0"})
+_LAZY_EXPORTS = _CLOSED_LOOP_EXPORTS | _PLAIN_LANGUAGE_EXPORTS
+
+
+def __getattr__(name: str):
+    # Circular-dependency exception: closed_loop imports api at module load.
+    if name in _CLOSED_LOOP_EXPORTS:
+        from . import closed_loop
+
+        return getattr(closed_loop, name)
+    if name in _PLAIN_LANGUAGE_EXPORTS:
+        from .plain_language import parse_plain_language_v0
+
+        return parse_plain_language_v0
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | _LAZY_EXPORTS)
 
 
 def _diagnostic_factory() -> DiagnosticFactory:

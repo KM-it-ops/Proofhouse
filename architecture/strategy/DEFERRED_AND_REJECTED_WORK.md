@@ -59,9 +59,9 @@ No known unresolved correctness-critical defect is accepted at the MISSION-007 b
 
 ### Blocking
 
-- No accepted requirements/evidence contract exists for intent-to-IR compilation.
-- No accepted evaluation, baseline, scoring, repair-provenance, or regression contract exists.
-- No production-hardened or independently certified headless requirements/evaluation/repair boundary exists; MISSION-010 prototype evidence cannot promote it.
+- No production intent-to-IR compiler exists beyond OAR-005/OAR-006 structured profiles (`structured_minimal_v0`, `structured_developer_v0`) plus OAR-007 M1 constrained `plain_language_v0` intake; full MISSION-008 production graduation remains unauthorized.
+- OAR-006 certified the narrow offline deterministic compile/security evaluator and bounded instruction-append repair (budgets `{0,1,2}`, `EVR-SEC-0001`). Still unauthorized: full rubric/dataset engine, baseline comparison product, scoring aggregation, and production regression gate.
+- OAR-006 accepted a narrow offline structured+fake headless boundary (fake adapter only, no network). OAR-007 Accepted 2026-08-14 certifies MISSION-013 M1 constrained prose intake (`plain_language_v0`) — not freeform NLP, not M2/M3, not full MISSION-008. Remaining Phase 4B (live providers, freeform plain-language, M2 model-assisted, M3/Simple Mode UI, full consumer matrix, perf/resource ceilings) stays unauthorized; do not claim production-hardened full Phase 4B engines.
 - ADR-007 remains Proposed; runtime state, replay, security, retention, and migration semantics are unresolved.
 - Provider schema-subset checkers are intentionally bounded and cannot support live-execution claims without refreshed authoritative provider evidence and failure semantics.
 - IR v0.1 has no machine-readable security/privacy policy grammar and fails closed on populated free-text policy blocks.

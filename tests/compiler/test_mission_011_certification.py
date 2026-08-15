@@ -18,6 +18,9 @@ def test_plain_language_schedule_exists() -> None:
     text = path.read_text(encoding="utf-8")
     assert "MUST NOT be the first or only semantic implementation" in text
     assert "M1" in text and "M3" in text
+    assert "plain_language_v0" in text
+    assert "MISSION-013" in text
+    assert "structured_minimal_v0" in text
 
 
 def test_simple_ui_only_profile_rejected() -> None:
@@ -69,6 +72,13 @@ def test_developer_profile_closed_loop() -> None:
 
 def test_compile_options_offline_default() -> None:
     assert CompileOptions().offline is True
+
+
+def test_maturity_map_reflects_oar005_headless_partial() -> None:
+    text = Path("architecture/strategy/CAPABILITY_MATURITY_MAP.md").read_text(encoding="utf-8")
+    assert "| Headless requirements/evaluation/repair loop | `NOT_STARTED`" not in text
+    assert "OAR-005" in text
+    assert "`PARTIAL`" in text or "`CERTIFIED`" in text
 
 
 def test_packaging_cli_entry_smoke() -> None:

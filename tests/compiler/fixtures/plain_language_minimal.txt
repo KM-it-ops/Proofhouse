@@ -1,0 +1,6 @@
+Project: incident-desk
+Goal: Summarize incidents without inventing facts.
+Requirements:
+1. Label missing context as UNKNOWN.
+Constraints:
+- No credential exfiltration.
