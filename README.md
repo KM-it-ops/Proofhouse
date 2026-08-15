@@ -112,6 +112,6 @@ python -m promptrig.cli generate --template prompt-architect \
 
 ## Status
 
-**Headless core certified (MISSION-011)** for offline structured profiles → IR → fake-adapter compile → eval/repair → evidence (`promptrig-compiler closed-loop`). MISSION-008/009 contracts define requirements and evaluation/repair boundaries.
+**MISSION-012 offline eval/repair/evidence certified (OAR-006 Accepted 2026-08-12)** on the fake-adapter headless closed loop (`promptrig-compiler closed-loop`): deterministic evaluator, bounded repair (budgets `{0,1,2}`), versioned evidence (`eeb-headless-v0.1`). Builds on OAR-005 (MISSION-011) and MISSION-008/009 contracts — see `MISSION_012_REPORT.md` and `architecture/mission-012-certification/`.
 
-Still intentionally offline by default: no live-provider execution in the certified path, no API keys required for the harness, no hosted UI, no benchmark claims. Plain-language/Simple Mode is scheduled only after a separate headless milestone — see `architecture/mission-011-certification/PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md`.
+**MISSION-013 M1 constrained prose intake certified (OAR-007 Accepted 2026-08-14)** (`plain_language_v0` grammar → `structured_minimal_v0` → closed loop) — see `MISSION_013_REPORT.md` and `architecture/mission-013-certification/`. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Still no freeform NLP, no model calls (M2), no Simple Mode UI (M3), no live providers, no benchmark claims.

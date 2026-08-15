@@ -1,7 +1,8 @@
-"""MISSION-010 headless closed-loop prototype (fake adapter only).
+"""Headless closed-loop (fake adapter only) — OAR-005 narrow certification.
 
-Pipeline: structured requirements → IR → fake compile → evaluate → bounded repair → evidence.
-No network. No live providers. Not a production hardening boundary (see MISSION-011).
+Structured profiles → IR → fake compile → evaluate → bounded repair → evidence.
+No network. No live providers. MISSION-012 graduates evaluation/repair/evidence
+from MISSION-010 prototype semantics toward production-grade offline headless.
 """
 from __future__ import annotations
 
@@ -13,10 +14,16 @@ from typing import Any
 from . import api
 from .canonical import canonical_sha256, canonicalize
 from .contracts import CompileOptions, ResultEnvelope
+from .evaluation import EvaluationRequest, EvaluationResult, evaluate_deterministic
+from .evidence import (
+    DEFAULT_EVALUATOR_ID,
+    DEFAULT_EVALUATOR_VERSION,
+    build_evidence_bundle,
+)
+from .plain_language import PlainLanguageParseError, parse_plain_language_v0
+from .repair import ClosedLoopTestHooks, apply_instruction_repair, plan_repair
 
-CONTRACT_008 = "0.1.0-draft"
-CONTRACT_009 = "0.1.0-draft"
-PROTOTYPE_ID = "mission-010-closed-loop-v0.1"
+ACCEPTED_INPUT_CONTRACT_VERSIONS = frozenset({"0.1.0-draft", "0.1.0"})
 FAKE_ADAPTER_ID = "fake"
 FAKE_ADAPTER_VERSION = "0.1.0"
 IMMUTABLE_FIELDS = ("accepted_objectives", "security_constraints", "requirement_ids")
@@ -26,8 +33,6 @@ IMMUTABLE_FIELDS = ("accepted_objectives", "security_constraints", "requirement_
 class ClosedLoopOptions:
     repair_budget: int = 1
     network_allowed: bool = False
-    force_fail_first_compile: bool = False
-    force_security_weaken_repair: bool = False
 
 
 @dataclass
@@ -48,6 +53,10 @@ def _digest(payload: Any) -> str:
 
 
 APPROVED_PROFILES = frozenset({"structured_minimal_v0", "structured_developer_v0"})
+PLAIN_LANGUAGE_INTAKE_PROFILE = "plain_language_v0"
+SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC = (
+    "Simple Mode UI-only semantics are forbidden before plain-language headless milestone"
+)
 
 
 def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
@@ -57,8 +66,11 @@ def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
         errors.append(
             "unsupported profile; approved headless profiles are structured_minimal_v0 and structured_developer_v0"
         )
-    if doc.get("contract_version") != CONTRACT_008:
-        errors.append("requirements contract_version must be 0.1.0-draft")
+    contract_version = doc.get("contract_version")
+    if contract_version not in ACCEPTED_INPUT_CONTRACT_VERSIONS:
+        errors.append(
+            "requirements contract_version must be one of: 0.1.0-draft, 0.1.0"
+        )
     reqs = doc.get("requirements")
     if not isinstance(reqs, list) or not reqs:
         errors.append("requirements must be a non-empty list")
@@ -80,7 +92,7 @@ def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
         if not doc.get("stop_conditions"):
             errors.append("structured_developer_v0 requires stop_conditions")
     if profile == "simple_mode_ui" or doc.get("authoring_mode") == "simple_ui_only":
-        errors.append("Simple Mode UI-only semantics are forbidden before plain-language headless milestone")
+        errors.append(SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC)
     return errors
 
 
@@ -150,34 +162,21 @@ def requirements_to_ir(doc: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _evaluate_artifact(
+def _evaluation_result_to_evidence(result: EvaluationResult) -> dict[str, Any]:
+    return {
+        "status": result.status,
+        "diagnostic_codes": list(result.diagnostic_codes),
+        "scores": dict(result.scores),
+    }
+
+
+def run_closed_loop(
+    requirements_doc: dict[str, Any],
+    options: ClosedLoopOptions | None = None,
+    hooks: ClosedLoopTestHooks | None = None,
     *,
-    baseline_digest: str | None,
-    candidate_digest: str,
-    compile_ok: bool,
-    security_ok: bool,
-    network_used: bool,
-) -> dict[str, Any]:
-    codes: list[str] = []
-    if network_used:
-        return {
-            "status": "BLOCKED",
-            "diagnostic_codes": ["EVR-NET-0001"],
-            "scores": {"primary": None},
-        }
-    if not compile_ok:
-        codes.append("EVR-DET-0001")
-        return {"status": "FAIL", "diagnostic_codes": codes, "scores": {"primary": 0.0}}
-    if not security_ok:
-        codes.append("EVR-SEC-0001")
-        return {"status": "BLOCKED", "diagnostic_codes": codes, "scores": {"primary": 0.0}}
-    if baseline_digest and baseline_digest == candidate_digest:
-        # identical to failing baseline still fails if marked
-        pass
-    return {"status": "PASS", "diagnostic_codes": [], "scores": {"primary": 1.0}}
-
-
-def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions | None = None) -> ClosedLoopResult:
+    intake_profile: str | None = None,
+) -> ClosedLoopResult:
     options = options or ClosedLoopOptions()
     if options.network_allowed:
         return ClosedLoopResult(
@@ -209,11 +208,13 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
     current_raw = ir_raw
     compile_env: ResultEnvelope | None = None
     final_eval: dict[str, Any] | None = None
+    final_evaluator_id = DEFAULT_EVALUATOR_ID
+    final_evaluator_version = DEFAULT_EVALUATOR_VERSION
 
     attempts_allowed = options.repair_budget
     # initial compile + eval counts as attempt 0 only when repair runs after failure
     for attempt_index in range(0, attempts_allowed + 1):
-        force_fail = options.force_fail_first_compile and attempt_index == 0
+        force_fail = hooks is not None and hooks.force_fail_first_compile and attempt_index == 0
         if force_fail:
             compile_ok = False
             candidate_digest = _digest({"failed": True, "attempt": attempt_index})
@@ -238,17 +239,23 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
             )
 
         security_ok = True
-        if options.force_security_weaken_repair and attempt_index > 0:
+        if hooks is not None and hooks.force_security_weaken_repair and attempt_index > 0:
             security_ok = False
 
-        evaluation = _evaluate_artifact(
-            baseline_digest=baseline_digest,
-            candidate_digest=candidate_digest,
-            compile_ok=compile_ok,
-            security_ok=security_ok,
-            network_used=False,
+        eval_result = evaluate_deterministic(
+            EvaluationRequest(
+                baseline_digest=baseline_digest,
+                candidate_digest=candidate_digest,
+                compile_ok=compile_ok,
+                security_ok=security_ok,
+                network_used=False,
+                baseline_required=bool(current_ir["evaluation"].get("baseline_required", False)),
+            )
         )
+        evaluation = _evaluation_result_to_evidence(eval_result)
         final_eval = evaluation
+        final_evaluator_id = eval_result.evaluator_id
+        final_evaluator_version = eval_result.evaluator_version
 
         if evaluation["status"] == "PASS":
             break
@@ -256,38 +263,29 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
         if attempt_index >= attempts_allowed:
             break
 
-        # bounded repair mutation (prototype): tweak instruction wording only
-        mutation = "tighten_instruction_wording"
-        weakened = False
-        if options.force_security_weaken_repair:
-            mutation = "remove_security_constraint"
-            weakened = True
-            # refused — do not apply
+        weaken_security = hooks is not None and hooks.force_security_weaken_repair
+        repair_plan = plan_repair(attempt_index=attempt_index, weaken_security=weaken_security)
+        if not repair_plan.allowed:
             failed_attempts.append(
                 {
                     "attempt_id": f"RPA-{attempt_index}",
                     "attempt_index": attempt_index,
-                    "mutation_summary": mutation,
+                    "mutation_summary": repair_plan.mutation_summary,
                     "allowed_mutation": False,
                     "outcome": "refused_immutable",
                     "preserved_failed_evidence": True,
                     "weakened_security_or_objective": True,
-                    "diagnostic_codes": ["EVR-SEC-0001"],
+                    "diagnostic_codes": list(repair_plan.diagnostic_codes),
                 }
             )
             final_eval = {
                 "status": "BLOCKED",
-                "diagnostic_codes": ["EVR-SEC-0001"],
+                "diagnostic_codes": list(repair_plan.diagnostic_codes),
                 "scores": {"primary": 0.0},
             }
             break
 
-        # apply allowed mutation
-        current_ir = json.loads(json.dumps(current_ir))
-        instructions = list(current_ir["behavior"]["instructions"])
-        instructions.append(f"Repair pass {attempt_index}: restate requirements without changing meaning.")
-        current_ir["behavior"]["instructions"] = instructions
-        # immutables unchanged
+        current_ir = apply_instruction_repair(current_ir, attempt_index)
         assert current_ir["objective"]["success_criteria"] == accepted_objectives
         assert current_ir["behavior"]["constraints"] == security_constraints
         assert [r["id"] for r in current_ir["requirements"]] == requirement_ids
@@ -296,7 +294,7 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
             {
                 "attempt_id": f"RPA-{attempt_index}",
                 "attempt_index": attempt_index,
-                "mutation_summary": mutation,
+                "mutation_summary": repair_plan.mutation_summary,
                 "allowed_mutation": True,
                 "outcome": "improved",
                 "preserved_failed_evidence": True,
@@ -326,23 +324,23 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
             "diagnostic_codes": final_eval.get("diagnostic_codes", []),
         }
 
-    evidence = {
-        "bundle_id": "EEB-CLOSED-LOOP",
-        "prototype_id": PROTOTYPE_ID,
-        "contract_versions": {"requirements": CONTRACT_008, "evaluation_repair": CONTRACT_009},
-        "requirement_ids": requirement_ids,
-        "immutable_fields": list(IMMUTABLE_FIELDS),
-        "adapter": {"id": FAKE_ADAPTER_ID, "version": FAKE_ADAPTER_VERSION},
-        "ir_sha256": canonical_sha256(current_ir),
-        "baseline_digest": baseline_digest,
-        "evaluation": final_eval,
-        "failed_attempts": failed_attempts,
-        "unresolved_defect": unresolved,
-        "network_allowed": False,
-        "network_used": False,
-        "repair_budget": options.repair_budget,
-        "compile_status": None if compile_env is None else compile_env.status,
-    }
+    evidence = build_evidence_bundle(
+        requirement_ids=requirement_ids,
+        immutable_fields=IMMUTABLE_FIELDS,
+        adapter={"id": FAKE_ADAPTER_ID, "version": FAKE_ADAPTER_VERSION},
+        ir_sha256=canonical_sha256(current_ir),
+        baseline_digest=baseline_digest,
+        evaluation=final_eval,
+        failed_attempts=failed_attempts,
+        unresolved_defect=unresolved,
+        network_allowed=False,
+        network_used=False,
+        repair_budget=options.repair_budget,
+        compile_status=None if compile_env is None else compile_env.status,
+        evaluator_id=final_evaluator_id,
+        evaluator_version=final_evaluator_version,
+        intake_profile=intake_profile,
+    )
 
     return ClosedLoopResult(
         status=status,
@@ -353,10 +351,56 @@ def run_closed_loop(requirements_doc: dict[str, Any], options: ClosedLoopOptions
     )
 
 
-def closed_loop_from_json(raw: bytes | str, options: ClosedLoopOptions | None = None) -> ClosedLoopResult:
+def closed_loop_from_json(
+    raw: bytes | str,
+    options: ClosedLoopOptions | None = None,
+    hooks: ClosedLoopTestHooks | None = None,
+) -> ClosedLoopResult:
     if isinstance(raw, bytes):
         text = raw.decode("utf-8")
     else:
         text = raw
     doc = json.loads(text)
-    return run_closed_loop(doc, options)
+    options = options or ClosedLoopOptions()
+
+    if options.network_allowed or doc.get("network_allowed") is True:
+        return ClosedLoopResult(
+            status="BLOCKED",
+            evidence_bundle={},
+            diagnostics=["EVR-NET-0001"],
+        )
+
+    if doc.get("authoring_mode") == "simple_ui_only" or doc.get("profile") == "simple_mode_ui":
+        return ClosedLoopResult(
+            status="BLOCKED",
+            evidence_bundle={},
+            diagnostics=[SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC],
+        )
+
+    profile = doc.get("profile")
+    if profile == PLAIN_LANGUAGE_INTAKE_PROFILE:
+        prose = doc.get("text")
+        if not isinstance(prose, str):
+            return ClosedLoopResult(
+                status="BLOCKED",
+                evidence_bundle={},
+                diagnostics=["PL-PARSE-0002"],
+            )
+        try:
+            structured = parse_plain_language_v0(prose)
+        except PlainLanguageParseError as exc:
+            return ClosedLoopResult(
+                status="BLOCKED",
+                evidence_bundle={},
+                diagnostics=[exc.code],
+            )
+        if "repair_budget" in doc:
+            structured["repair_budget"] = doc["repair_budget"]
+        return run_closed_loop(
+            structured,
+            options,
+            hooks,
+            intake_profile=PLAIN_LANGUAGE_INTAKE_PROFILE,
+        )
+
+    return run_closed_loop(doc, options, hooks)
