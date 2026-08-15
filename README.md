@@ -116,4 +116,6 @@ python -m promptrig.cli generate --template prompt-architect \
 
 **MISSION-013 M1 constrained prose intake certified (OAR-007 Accepted 2026-08-14)** (`plain_language_v0` grammar → `structured_minimal_v0` → closed loop) — see `MISSION_013_REPORT.md` and `architecture/mission-013-certification/`.
 
-**MISSION-014 M2 fake suggester sidecar certified (OAR-008 Accepted 2026-08-14)** — opt-in offline `fake-suggester-v0` proposals as sidecar evidence only (`enable_model_suggestions`; default off); see `MISSION_014_REPORT.md` and `architecture/mission-014-certification/`. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Still no live model assistance, no freeform NLP, no Simple Mode UI (M3), no live providers, no benchmark claims.
+**MISSION-014 M2 fake suggester sidecar certified (OAR-008 Accepted 2026-08-14)** — opt-in offline `fake-suggester-v0` proposals as sidecar evidence only (`enable_model_suggestions`; default off); see `MISSION_014_REPORT.md` and `architecture/mission-014-certification/`.
+
+**MISSION-015 Phase 4B residual evidence complete (OAR-009 Ready for owner acceptance)** — PEP 517 clean-install, installed-package consumer matrix, and operational resource ceilings for the offline fake closed loop; see `MISSION_015_REPORT.md` and `architecture/mission-015-certification/`. OAR-009 is not Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Still no full Roadmap Phase 4B exit, no live model assistance, no freeform NLP, no Simple Mode UI (M3), no live providers, no benchmark claims.
