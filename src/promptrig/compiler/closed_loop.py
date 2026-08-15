@@ -21,6 +21,11 @@ from .evidence import (
     build_evidence_bundle,
 )
 from .plain_language import PlainLanguageParseError, parse_plain_language_v0
+from .model_suggest import (
+    SUGGESTION_PROFILE,
+    build_fake_model_proposal,
+    validate_model_boundary,
+)
 from .repair import ClosedLoopTestHooks, apply_instruction_repair, plan_repair
 
 ACCEPTED_INPUT_CONTRACT_VERSIONS = frozenset({"0.1.0-draft", "0.1.0"})
@@ -33,6 +38,7 @@ IMMUTABLE_FIELDS = ("accepted_objectives", "security_constraints", "requirement_
 class ClosedLoopOptions:
     repair_budget: int = 1
     network_allowed: bool = False
+    enable_model_suggestions: bool = False
 
 
 @dataclass
@@ -42,6 +48,7 @@ class ClosedLoopResult:
     envelope: ResultEnvelope | None = None
     failed_attempts: list[dict[str, Any]] = field(default_factory=list)
     diagnostics: list[str] = field(default_factory=list)
+    model_proposal: dict[str, Any] | None = None
 
 
 def _digest(payload: Any) -> str:
@@ -186,6 +193,46 @@ def run_closed_loop(
         )
     if options.repair_budget not in (0, 1, 2):
         return ClosedLoopResult(status="BLOCKED", evidence_bundle={}, diagnostics=["EVR-REP-0001"])
+
+    if hooks is not None:
+        if hooks.force_self_accept_proposal:
+            return ClosedLoopResult(
+                status="INVALID_OUTPUT",
+                evidence_bundle={},
+                diagnostics=["MAS-GATE-0001"],
+            )
+        if hooks.force_invent_owner_decision:
+            return ClosedLoopResult(
+                status="INVALID_OUTPUT",
+                evidence_bundle={},
+                diagnostics=["MAS-GATE-0002"],
+            )
+        if hooks.force_weaken_security_via_suggestion:
+            return ClosedLoopResult(
+                status="INVALID_OUTPUT",
+                evidence_bundle={},
+                diagnostics=["MAS-GATE-0003"],
+            )
+
+    boundary_errors = validate_model_boundary(requirements_doc)
+    if boundary_errors:
+        return ClosedLoopResult(
+            status="INVALID_OUTPUT",
+            evidence_bundle={},
+            diagnostics=boundary_errors,
+        )
+
+    model_proposal: dict[str, Any] | None = None
+    if options.enable_model_suggestions:
+        proposal = build_fake_model_proposal(requirements_doc)
+        proposal_errors = validate_model_boundary(requirements_doc, proposal)
+        if proposal_errors:
+            return ClosedLoopResult(
+                status="INVALID_OUTPUT",
+                evidence_bundle={},
+                diagnostics=proposal_errors,
+            )
+        model_proposal = proposal
 
     try:
         ir_doc = requirements_to_ir(requirements_doc)
@@ -340,6 +387,8 @@ def run_closed_loop(
         evaluator_id=final_evaluator_id,
         evaluator_version=final_evaluator_version,
         intake_profile=intake_profile,
+        model_proposal=model_proposal,
+        suggestion_profile=SUGGESTION_PROFILE if model_proposal is not None else None,
     )
 
     return ClosedLoopResult(
@@ -348,6 +397,7 @@ def run_closed_loop(
         envelope=compile_env,
         failed_attempts=failed_attempts,
         diagnostics=list(final_eval.get("diagnostic_codes", [])),
+        model_proposal=model_proposal,
     )
 
 
@@ -362,6 +412,12 @@ def closed_loop_from_json(
         text = raw
     doc = json.loads(text)
     options = options or ClosedLoopOptions()
+    if doc.get("enable_model_suggestions") is True:
+        options = ClosedLoopOptions(
+            repair_budget=options.repair_budget,
+            network_allowed=options.network_allowed,
+            enable_model_suggestions=True,
+        )
 
     if options.network_allowed or doc.get("network_allowed") is True:
         return ClosedLoopResult(

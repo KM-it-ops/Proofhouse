@@ -35,6 +35,8 @@ def build_evidence_bundle(
     evaluator_id: str = DEFAULT_EVALUATOR_ID,
     evaluator_version: str = DEFAULT_EVALUATOR_VERSION,
     intake_profile: str | None = None,
+    model_proposal: dict[str, Any] | None = None,
+    suggestion_profile: str | None = None,
 ) -> dict[str, Any]:
     """Build a graduated headless evidence bundle with stable keys."""
     bundle: dict[str, Any] = {
@@ -65,4 +67,7 @@ def build_evidence_bundle(
     }
     if intake_profile is not None:
         bundle["intake_profile"] = intake_profile
+    if model_proposal is not None:
+        bundle["model_proposal"] = model_proposal
+        bundle["suggestion_profile"] = suggestion_profile or "fake_suggester_v0"
     return bundle
