@@ -6,17 +6,18 @@ from pathlib import Path
 from promptrig.compiler.closed_loop import ClosedLoopOptions, closed_loop_from_json, run_closed_loop
 from promptrig.compiler.repair import ClosedLoopTestHooks
 
+ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).parent / "fixtures" / "closed_loop_requirements_minimal.json"
 
 
 def test_model_suggest_module_has_no_provider_imports() -> None:
-    src = Path("src/promptrig/compiler/model_suggest.py").read_text(encoding="utf-8")
+    src = (ROOT / "src" / "promptrig" / "compiler" / "model_suggest.py").read_text(encoding="utf-8")
     for needle in ("openai", "anthropic", "google.generativeai", "httpx", "requests"):
         assert needle not in src.lower()
 
 
 def test_cli_compiler_has_no_force_hooks() -> None:
-    src = Path("src/promptrig/compiler/cli_compiler.py").read_text(encoding="utf-8")
+    src = (ROOT / "src" / "promptrig" / "compiler" / "cli_compiler.py").read_text(encoding="utf-8")
     assert "force_" not in src
 
 

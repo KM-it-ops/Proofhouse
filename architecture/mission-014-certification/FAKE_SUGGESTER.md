@@ -25,7 +25,7 @@ Each proposal emitted by `fake-suggester-v0` carries:
 | `proposed_records` | e.g. `["REQ-MS-001"]` |
 | `proposed_requirements` | structured records with `id` (e.g. `REQ-MS-001`), `statement`, `acceptance_state=proposed`, `authority_basis=model_suggested` |
 
-Proposals **cannot bypass** deterministic validation, authority/defaults rules, or evidence requirements. Gate diagnostics use prefix `MAS-GATE-` / `MAS-PARSE-` only.
+Proposals **cannot bypass** deterministic validation, authority/defaults rules, or evidence requirements. Gate diagnostics use prefix `MAS-GATE-` only (`MAS-PARSE-` is reserved and unused).
 
 ## Hard rules
 
