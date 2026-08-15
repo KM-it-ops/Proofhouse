@@ -37,7 +37,7 @@ M1 constrained `plain_language_v0` intake is certified under OAR-007 (MISSION-01
 
 ## Non-claims
 
-- Not full Roadmap Phase 4B exit (thin perf ceilings; single external-consumer smoke, not a full matrix).
+- Full Roadmap Phase 4B exit remains unauthorized. MISSION-015 adds installed-package consumer matrix and operational resource ceilings for this offline fake path (OAR-009).
 - Not a live-provider runtime, hosted UI, benchmark suite, MissionRig, or IR v0.2.
 - Evaluator is a deterministic fake-adapter oracle — not a full rubric/dataset product engine.
 - OAR-006 Accepted certifies the narrow offline boundary only; full Phase 4B exit remains unauthorized.

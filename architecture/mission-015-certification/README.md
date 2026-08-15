@@ -1,6 +1,6 @@
 # Phase 4B Residual Evidence Package (MISSION-015)
 
-**Status:** In progress — OAR-009 Ready for owner acceptance after Tasks 1–6 (not Accepted in this task).
+**Status:** Evidence complete — OAR-009 Ready for owner acceptance (not Accepted until Boss accepts).
 **Baseline:** `main` @ `8fc5c43` (PR #21 / OAR-008 Accepted).
 **Scope:** Residual packaging, installed-package consumer matrix, and operational resource bounds for the already-certified offline fake-adapter closed loop.
 

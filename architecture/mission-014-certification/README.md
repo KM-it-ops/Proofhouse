@@ -48,6 +48,6 @@ M3 Simple Mode UI remains future per [PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md](..
 - Not freeform NLP — suggestions are structured proposal records, not unconstrained language understanding.
 - Not M3 / Simple Mode UI semantics.
 - Not full MISSION-008 production requirements compiler; maturity map row stays `PARTIAL`.
-- Not full Roadmap Phase 4B exit (thin perf ceilings; smoke scripts, not full consumer matrix).
+- Full Roadmap Phase 4B exit remains unauthorized. MISSION-015 adds installed-package consumer matrix and operational resource ceilings for this offline fake path (OAR-009).
 - Not a live-provider runtime, hosted UI, benchmark suite, MissionRig, or IR v0.2.
 - OAR-008 Accepted certifies the fake sidecar only; evaluation/repair/headless loop OAR-006 `CERTIFIED` status is unchanged; Requirements compiler remains `PARTIAL`.
