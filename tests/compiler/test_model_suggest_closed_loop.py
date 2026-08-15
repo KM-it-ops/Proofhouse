@@ -55,7 +55,14 @@ def test_hook_self_accept_proposal() -> None:
 
 
 def test_json_enable_flag_turns_sidecar_on() -> None:
+    off = run_closed_loop(_doc(), ClosedLoopOptions(repair_budget=1))
+    via_opt = run_closed_loop(
+        _doc(),
+        ClosedLoopOptions(repair_budget=1, enable_model_suggestions=True),
+    )
     raw = json.dumps({**_doc(), "enable_model_suggestions": True}).encode()
     result = closed_loop_from_json(raw, ClosedLoopOptions(repair_budget=1))
     assert result.status == "PASS"
     assert result.evidence_bundle["suggestion_profile"] == "fake_suggester_v0"
+    assert result.evidence_bundle["ir_sha256"] == via_opt.evidence_bundle["ir_sha256"]
+    assert result.evidence_bundle["ir_sha256"] == off.evidence_bundle["ir_sha256"]

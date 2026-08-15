@@ -13,6 +13,9 @@ def test_m2_schedule_authorized_not_live_not_ui() -> None:
     assert note.is_file()
     body = note.read_text(encoding="utf-8")
     assert "fake-suggester-v0" in body
+    assert "REQ-MS-001" in body
     assert "not a live" in body.lower() or "no live" in body.lower()
+    assert "not freeform" in body.lower()
+    assert "not full mission-008" in body.lower()
     assert "proposed" in body.lower()
     assert "model_suggested" in body

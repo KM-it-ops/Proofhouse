@@ -20,12 +20,12 @@ from .evidence import (
     DEFAULT_EVALUATOR_VERSION,
     build_evidence_bundle,
 )
-from .plain_language import PlainLanguageParseError, parse_plain_language_v0
 from .model_suggest import (
     SUGGESTION_PROFILE,
     build_fake_model_proposal,
     validate_model_boundary,
 )
+from .plain_language import PlainLanguageParseError, parse_plain_language_v0
 from .repair import ClosedLoopTestHooks, apply_instruction_repair, plan_repair
 
 ACCEPTED_INPUT_CONTRACT_VERSIONS = frozenset({"0.1.0-draft", "0.1.0"})
@@ -412,7 +412,8 @@ def closed_loop_from_json(
         text = raw
     doc = json.loads(text)
     options = options or ClosedLoopOptions()
-    if doc.get("enable_model_suggestions") is True:
+    enable_from_doc = doc.pop("enable_model_suggestions", None) is True
+    if enable_from_doc:
         options = ClosedLoopOptions(
             repair_budget=options.repair_budget,
             network_allowed=options.network_allowed,

@@ -23,7 +23,7 @@ def test_model_suggest_public_api_exports() -> None:
     assert callable(api.closed_loop_from_json)
 
 
-def _parity_fields_from_result(result) -> dict[str, str]:
+def _parity_fields_from_result(result) -> dict[str, str | None]:
     evidence = result.evidence_bundle
     proposal = evidence["model_proposal"]
     return {
@@ -36,7 +36,7 @@ def _parity_fields_from_result(result) -> dict[str, str]:
     }
 
 
-def _parity_fields_from_cli(payload: dict) -> dict[str, str]:
+def _parity_fields_from_cli(payload: dict) -> dict[str, str | None]:
     evidence = payload["evidence_bundle"]
     proposal = evidence["model_proposal"]
     return {

@@ -11,6 +11,7 @@ from promptrig.compiler.model_suggest import (
     validate_model_boundary,
 )
 
+ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).parent / "fixtures" / "closed_loop_requirements_minimal.json"
 
 
@@ -40,7 +41,7 @@ def test_suggester_does_not_mutate_input() -> None:
 
 
 def test_module_has_no_provider_or_http_imports() -> None:
-    src = Path("src/promptrig/compiler/model_suggest.py").read_text(encoding="utf-8")
+    src = (ROOT / "src" / "promptrig" / "compiler" / "model_suggest.py").read_text(encoding="utf-8")
     for needle in ("openai", "anthropic", "google.generativeai", "httpx", "requests"):
         assert needle not in src.lower()
 
@@ -65,3 +66,17 @@ def test_validate_model_boundary_rejects_invented_owner_decision() -> None:
     proposal["authority_basis"] = "owner_decision"
     errors = validate_model_boundary(_doc(), proposal)
     assert "MAS-GATE-0002" in errors
+
+
+def test_validate_model_boundary_rejects_nested_invented_owner() -> None:
+    proposal = build_fake_model_proposal(_doc())
+    proposal["proposed_requirements"][0]["authority_basis"] = "owner_decision"
+    errors = validate_model_boundary(_doc(), proposal)
+    assert "MAS-GATE-0002" in errors
+
+
+def test_validate_model_boundary_rejects_nested_self_accept() -> None:
+    proposal = build_fake_model_proposal(_doc())
+    proposal["proposed_requirements"][0]["acceptance_state"] = "accepted"
+    errors = validate_model_boundary(_doc(), proposal)
+    assert "MAS-GATE-0001" in errors
