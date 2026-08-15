@@ -1,6 +1,6 @@
 # Fake Model-Assisted M2 Certification Package (MISSION-014)
 
-**Status:** OAR-008 Ready for owner acceptance — M2 fake suggester sidecar implemented; not Accepted.  
+**Status:** OAR-008 Accepted 2026-08-14 — M2 fake suggester sidecar certified.  
 **Baseline:** MISSION-013 M1 (`9e1afc9` branch point; OAR-007 Accepted 2026-08-14).  
 **Suggester profile:** `fake_suggester_v0` / producer `fake-suggester-v0` — optional sidecar on closed loop.
 
@@ -9,7 +9,7 @@
 MISSION-014 adds an optional evidence sidecar only:
 
 - Fake/scripted suggester contract (`FAKE_SUGGESTER.md`) — not a live model
-- Deterministic proposal builder (`model_suggest.py`) with `MAS-GATE-*` / `MAS-PARSE-*` fail-closed diagnostics
+- Deterministic proposal builder (`model_suggest.py`) with `MAS-GATE-*` fail-closed diagnostics
 - Opt-in `enable_model_suggestions` on `closed_loop_from_json` / CLI (default off); `012`/`013` keys unchanged
 - Library/CLI parity and minimal external-consumer smoke (public `promptrig.compiler.api` only)
 
@@ -38,7 +38,7 @@ Proposals are sidecar evidence with `acceptance_state=proposed` and `authority_b
 | `structured_minimal_v0` | Implemented in `closed_loop.requirements_to_ir` (OAR-005/OAR-006) |
 | `structured_developer_v0` | Implemented (developer envelope → IR) |
 | `plain_language_v0` | M1 intake only — parses to `structured_minimal_v0`; OAR-007 Accepted 2026-08-14 |
-| `fake_suggester_v0` | M2 sidecar only — proposals as evidence; OAR-008 Ready for owner acceptance |
+| `fake_suggester_v0` | M2 sidecar only — proposals as evidence; OAR-008 Accepted 2026-08-14 |
 
 M3 Simple Mode UI remains future per [PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md](../mission-011-certification/PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md).
 
@@ -50,4 +50,4 @@ M3 Simple Mode UI remains future per [PLAIN_LANGUAGE_COMPILATION_SCHEDULE.md](..
 - Not full MISSION-008 production requirements compiler; maturity map row stays `PARTIAL`.
 - Not full Roadmap Phase 4B exit (thin perf ceilings; smoke scripts, not full consumer matrix).
 - Not a live-provider runtime, hosted UI, benchmark suite, MissionRig, or IR v0.2.
-- OAR-008 Ready certifies M2 fake sidecar only if Boss accepts; evaluation/repair/headless loop OAR-006 `CERTIFIED` status is unchanged; Requirements compiler remains `PARTIAL`.
+- OAR-008 Accepted certifies the fake sidecar only; evaluation/repair/headless loop OAR-006 `CERTIFIED` status is unchanged; Requirements compiler remains `PARTIAL`.

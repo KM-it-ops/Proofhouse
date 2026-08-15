@@ -1,7 +1,7 @@
 # Fake Model-Assisted Suggester Contract (MISSION-014 M2)
 
 **Producer:** `fake-suggester-v0` / version `0.1.0`  
-**Mission:** MISSION-014 M2 (authorized, in progress)  
+**Mission:** MISSION-014 M2 (OAR-008 Accepted 2026-08-14)  
 **Profile key:** `fake_suggester_v0`
 
 ## Scope and non-claims
