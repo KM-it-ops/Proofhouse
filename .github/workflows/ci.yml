@@ -67,3 +67,31 @@ jobs:
         run: |
           python scripts/generate_typescript_contracts.py
           git diff --exit-code -- architecture/typescript
+
+  wheel-install:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Build wheel
+        run: |
+          python -m pip install build
+          python -m build
+
+      - name: Isolated venv install
+        run: |
+          python -m venv /tmp/pr-wheel
+          /tmp/pr-wheel/bin/pip install dist/*.whl
+
+      - name: Doctor on installed wheel
+        run: /tmp/pr-wheel/bin/promptrig-compiler doctor --json
+
+      - name: Installed consumer smoke
+        run: |
+          /tmp/pr-wheel/bin/python tests/compiler/fixtures/external_consumer_closed_loop.py tests/compiler/fixtures/closed_loop_requirements_minimal.json
