@@ -119,7 +119,11 @@ def _cmd_closed_loop(args: argparse.Namespace) -> int:
     raw = _read_input(args.input)
     result = closed_loop_from_json(
         raw,
-        ClosedLoopOptions(repair_budget=args.repair_budget, network_allowed=False),
+        ClosedLoopOptions(
+            repair_budget=args.repair_budget,
+            network_allowed=False,
+            enable_model_suggestions=args.enable_model_suggestions,
+        ),
     )
     payload = {
         "command": "closed-loop",
@@ -185,6 +189,12 @@ def build_parser() -> argparse.ArgumentParser:
         help="Path to structured requirements JSON or plain_language_v0 envelope, or '-' for stdin.",
     )
     p_loop.add_argument("--repair-budget", type=int, choices=(0, 1, 2), default=1)
+    p_loop.add_argument(
+        "--enable-model-suggestions",
+        action="store_true",
+        default=False,
+        help="Opt-in MISSION-014 fake-suggester-v0 sidecar (proposals are not canonical).",
+    )
     p_loop.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
     p_loop.set_defaults(func=_cmd_closed_loop)
 
