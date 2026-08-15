@@ -1,8 +1,13 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import pytest
+
+_COMPILER_TEST_DIR = Path(__file__).resolve().parent
+if str(_COMPILER_TEST_DIR) not in sys.path:
+    sys.path.insert(0, str(_COMPILER_TEST_DIR))
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 CONTRACT_DIR = REPO_ROOT / "architecture" / "compiler-contract-freeze-v0.5"
