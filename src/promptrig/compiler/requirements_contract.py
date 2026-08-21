@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from . import paths
+from .requirements_produce import produce_requirements
 
 REQUIREMENTS_CONTRACT_VERSION = "0.1.0-draft"
 STATUS_VALUES = {"SUCCESS", "PARTIAL", "BLOCKED", "REFUSED", "INVALID_OUTPUT"}
@@ -681,3 +682,13 @@ def compile_requirements(
         reason_codes=tuple(codes),
         contract_version=REQUIREMENTS_CONTRACT_VERSION,
     )
+
+
+def compile_requirements_input(
+    payload: Mapping[str, Any] | object,
+    *,
+    registry: Mapping[str, Any] | None = None,
+) -> RequirementsCompileResult:
+    if isinstance(payload, Mapping) and "requirements_document" in payload:
+        return compile_requirements(payload, registry=registry)
+    return compile_requirements(produce_requirements(payload), registry=registry)
