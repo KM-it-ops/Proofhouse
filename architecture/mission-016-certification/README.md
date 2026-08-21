@@ -1,6 +1,6 @@
 # MISSION-008 Production Engine Package (MISSION-016)
 
-**Status:** Evidence complete — awaiting OAR-010 (Ready for owner acceptance, not Accepted).
+**Status:** OAR-010 Accepted 2026-08-21. OAR-009 remains Ready (not Accepted).
 **Baseline:** local `main` @ `942a62d` (MISSION-015 residual evidence on local main; OAR-009 Ready, not Accepted).
 **Scope:** Shared contract-rule engine in `promptrig.compiler` for canonical MISSION-008 artifact sets. Public `compile_requirements` / `promptrig-compiler compile-requirements`. Existing M0/M1/M2 closed-loop profiles unchanged.
 
@@ -20,4 +20,4 @@
 - OQ-008-001 through OQ-008-009 remain open; this mission does not invent owner answers.
 - Requirements compiler maturity remains PARTIAL.
 - Ambition-gap C4 (IR v0.2 planning) is not this mission.
-- OAR-010 Ready for owner acceptance (not Accepted in this package until Boss accepts).
+- OAR-010 Accepted 2026-08-21. OAR-009 remains Ready (not Accepted).

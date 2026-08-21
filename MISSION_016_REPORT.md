@@ -1,6 +1,6 @@
 # MISSION-016 Report — MISSION-008 Production Engine (Shared Canonical-Record Engine)
 
-**Status:** OAR-010 Ready for owner acceptance (not Accepted).  
+**Status:** OAR-010 Accepted 2026-08-21.  
 **Baseline:** `942a62d` (`main`, MISSION-015 residual evidence / OAR-009 Ready).  
 **Branch:** `feature/mission-016-008-production-engine`
 
@@ -23,7 +23,7 @@ OAR-009 remains **Ready for owner acceptance** (not Accepted by this record).
 | 3 | `de922bb` | Public `compile_requirements` library API + `compile-requirements` CLI; `test_mission_016_api.py` |
 | 4 | `b7709ea` | Canonical 008 on `closed-loop` → `EVR-RQC-0001`; M0/M1/M2 unchanged; `test_mission_016_closed_loop.py` |
 | 5 | `36bec46` | Certification tests, OQ fail-closed scan, single-engine AST check, public-API consumer fixture; `test_mission_016_certification.py` |
-| 6 | this commit | This report, OAR-010 draft (Ready, not Accepted), maturity map, deferred registry, README Status |
+| 6 | `e72a8ed` | This report, OAR-010 draft (Ready, not Accepted), maturity map, deferred registry, README Status |
 
 ## Deliverables
 
@@ -34,7 +34,7 @@ OAR-009 remains **Ready for owner acceptance** (not Accepted by this record).
 | Public API / CLI | `compile_requirements` via `promptrig.compiler.api`; `promptrig-compiler compile-requirements` |
 | Closed-loop guard | `EVR-RQC-0001` for canonical 008 payloads; M0/M1/M2 profiles unchanged |
 | Consumer fixture | `tests/compiler/fixtures/external_consumer_requirements_contract.py` (public API only; no new CI job) |
-| Governance | OAR-010 Ready for owner acceptance (not Accepted); Requirements compiler stays `PARTIAL`; OAR-009 still Ready |
+| Governance | OAR-010 Accepted 2026-08-21; Requirements compiler stays `PARTIAL`; OAR-009 still Ready |
 
 ## Tests added
 
@@ -55,7 +55,7 @@ MISSION-016 does **not** claim full Roadmap Phase 4B exit, a CERTIFIED requireme
 - Shared engine for **canonical records only** — not an authoring-prose interpreter; compact `cases.json` stays test-only.
 - Requirements compiler maturity remains **`PARTIAL`** — structured profiles + M1 intake + M2 fake sidecar + this canonical-record engine; not CERTIFIED.
 - OQ-008-001 through OQ-008-009 remain **open** (fail closed; no invented owner answers).
-- OAR-006/007/008 **Accepted** boundaries unchanged; OAR-009 is still **Ready for owner acceptance**, not Accepted; OAR-010 is **Ready for owner acceptance**, not Accepted.
+- OAR-006/007/008 **Accepted** boundaries unchanged; OAR-009 is still **Ready for owner acceptance**, not Accepted; OAR-010 is **Accepted 2026-08-21**.
 - No live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, hosted UI, MissionRig, IR v0.2, or enterprise SAST.
 - Ambition-gap C4 (IR v0.2 planning) is not this mission.
 - This engine does **not** unblock M3. Next authorized step remains M3 per schedule **and** remaining 008 authoring envelopes / OQ decisions.
