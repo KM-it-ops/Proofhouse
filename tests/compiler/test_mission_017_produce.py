@@ -198,3 +198,36 @@ def test_harness_still_shares_evaluate_contract_rules() -> None:
     module = ModuleType("mission008_contract_validator")
     spec.loader.exec_module(module)
     assert module.evaluate_contract_rules is rc.evaluate_contract_rules
+
+
+def test_api_lazy_export_produce_and_compose() -> None:
+    from promptrig.compiler import api as compiler_api
+    from promptrig.compiler.requirements_contract import (
+        compile_requirements_input as direct_compose,
+    )
+    from promptrig.compiler.requirements_produce import produce_requirements as direct_produce
+
+    artifacts = _artifacts("LAS-POS-SUCCESS-001")
+    assert compiler_api.compile_requirements_input(artifacts).to_dict() == direct_compose(artifacts).to_dict()
+    envelope = _file_envelope()
+    assert compiler_api.produce_requirements(envelope) == direct_produce(envelope)
+
+
+def test_cli_file_envelope_json_parity(tmp_path, capsys) -> None:
+    from promptrig.compiler.requirements_contract import compile_requirements_input
+
+    envelope = _file_envelope()
+    path = tmp_path / "file-envelope.json"
+    path.write_text(json.dumps(envelope), encoding="utf-8")
+    code = compiler_main(["compile-requirements", str(path), "--json"])
+    payload = json.loads(capsys.readouterr().out)
+    lib = compile_requirements_input(envelope)
+    assert payload["status"] == lib.status
+    assert payload["reason_codes"] == list(lib.reason_codes)
+    assert payload["command"] == "compile-requirements"
+    if lib.status in {"SUCCESS", "PARTIAL"}:
+        assert code == 0
+    elif lib.status == "INVALID_OUTPUT":
+        assert code != 0
+    else:
+        assert code != 0
