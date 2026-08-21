@@ -282,3 +282,39 @@ def test_cli_file_envelope_json_parity(tmp_path, capsys) -> None:
         assert code != 0
     else:
         assert code != 0
+
+
+def test_producer_reuses_contract_version_constant() -> None:
+    from promptrig.compiler import requirements_contract
+    from promptrig.compiler import requirements_produce
+
+    assert (
+        requirements_produce.REQUIREMENTS_CONTRACT_VERSION
+        is requirements_contract.REQUIREMENTS_CONTRACT_VERSION
+    )
+
+
+def test_compile_requirements_input_help_names_envelope() -> None:
+    from promptrig.compiler.cli_compiler import build_parser
+
+    parser = build_parser()
+    req = None
+    for action in parser._subparsers._group_actions:
+        req = action.choices.get("compile-requirements")
+        if req is not None:
+            break
+    assert req is not None
+    help_text = req.format_help()
+    assert "file/api envelope" in help_text
+    input_action = next(a for a in req._actions if getattr(a, "dest", None) == "input")
+    assert input_action.help == (
+        "Path to canonical artifact JSON or file/api envelope, or '-' for stdin."
+    )
+
+
+def test_maturity_map_splits_produce_and_compose_files() -> None:
+    text = Path("architecture/strategy/CAPABILITY_MATURITY_MAP.md").read_text(encoding="utf-8")
+    assert "`produce_requirements` in `requirements_produce.py`" in text
+    assert "`compile_requirements_input` in `requirements_contract.py`" in text
+    assert "| Requirements compiler | `PARTIAL`" in text
+    assert "requirements_produce.py` / `requirements_contract.py`" not in text
