@@ -148,14 +148,14 @@ def _cmd_closed_loop(args: argparse.Namespace) -> int:
 
 
 def _cmd_compile_requirements(args: argparse.Namespace) -> int:
-    from .api import compile_requirements
+    from .api import compile_requirements_input
 
     raw = _read_input(args.input)
-    artifacts = json.loads(raw.decode("utf-8"))
-    result = compile_requirements(artifacts)
-    payload = result.to_dict()
+    payload = json.loads(raw.decode("utf-8"))
+    result = compile_requirements_input(payload)
+    payload_out = result.to_dict()
     if args.json:
-        sys.stdout.write(json.dumps(payload, sort_keys=True))
+        sys.stdout.write(json.dumps(payload_out, sort_keys=True))
         sys.stdout.write("\n")
     else:
         print(f"compile-requirements: {result.status}")
@@ -221,7 +221,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_req = subparsers.add_parser(
         "compile-requirements",
-        help="Evaluate canonical MISSION-008 artifact JSON (not authoring prose; not closed-loop).",
+        help="Evaluate canonical MISSION-008 artifact JSON or a file/api envelope (not authoring prose; not closed-loop).",
     )
     p_req.add_argument("input", help="Path to canonical artifact JSON, or '-' for stdin.")
     p_req.add_argument("--json", action="store_true", help="Emit a single JSON result object.")
