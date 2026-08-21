@@ -64,6 +64,7 @@ PLAIN_LANGUAGE_INTAKE_PROFILE = "plain_language_v0"
 SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC = (
     "Simple Mode UI-only semantics are forbidden before plain-language headless milestone"
 )
+REQUIREMENTS_CONTRACT_USE_COMPILE_COMMAND = "EVR-RQC-0001"
 
 
 def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
@@ -432,6 +433,13 @@ def closed_loop_from_json(
             status="BLOCKED",
             evidence_bundle={},
             diagnostics=[SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC],
+        )
+
+    if "requirements_document" in doc and "profile" not in doc:
+        return ClosedLoopResult(
+            status="BLOCKED",
+            evidence_bundle={},
+            diagnostics=[REQUIREMENTS_CONTRACT_USE_COMPILE_COMMAND],
         )
 
     profile = doc.get("profile")
