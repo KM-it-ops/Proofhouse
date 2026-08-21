@@ -14,7 +14,6 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from . import paths
-from .requirements_produce import produce_requirements
 
 REQUIREMENTS_CONTRACT_VERSION = "0.1.0-draft"
 STATUS_VALUES = {"SUCCESS", "PARTIAL", "BLOCKED", "REFUSED", "INVALID_OUTPUT"}
@@ -691,4 +690,7 @@ def compile_requirements_input(
 ) -> RequirementsCompileResult:
     if isinstance(payload, Mapping) and "requirements_document" in payload:
         return compile_requirements(payload, registry=registry)
+    # Local import avoids a cycle: produce_requirements imports REQUIREMENTS_CONTRACT_VERSION from this module.
+    from .requirements_produce import produce_requirements
+
     return compile_requirements(produce_requirements(payload), registry=registry)

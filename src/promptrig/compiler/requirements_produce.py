@@ -9,6 +9,8 @@ import hashlib
 import re
 from typing import Any, Mapping
 
+from .requirements_contract import REQUIREMENTS_CONTRACT_VERSION
+
 ALLOWED_ENVELOPE_KEYS = frozenset(
     {"intent_input", "sources", "claims", "mappings", "imports", "diagnostics"}
 )
@@ -36,7 +38,6 @@ REQUIRED_INTENT_KEYS = frozenset(
 FILE_SOURCE_KINDS = frozenset({"file", "decision", "contract"})
 API_SOURCE_KINDS = frozenset({"api_request", "decision", "contract"})
 PRODUCER_VAL_DIGEST = hashlib.sha256(b"promptrig-mission-017-producer").hexdigest()
-REQUIREMENTS_CONTRACT_VERSION = "0.1.0-draft"
 INPUT_ID_PATTERN = re.compile(r"^INP-[A-Z0-9-]+$")
 
 
