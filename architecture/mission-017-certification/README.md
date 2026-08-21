@@ -23,3 +23,4 @@ This is Campaign COMPILER remaining 008 producers. Historical ambition-gap P2 "M
 - Requirements compiler maturity remains PARTIAL.
 - Ambition-gap C4 (IR v0.2 planning) is not this mission.
 - OAR-011 Ready, not Accepted. OAR-009 remains Ready (not Accepted).
+- An envelope with no explicit mappings cannot reach SUCCESS: synthesized mappings are unresolved and non-emitting.
