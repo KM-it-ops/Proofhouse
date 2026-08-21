@@ -6,6 +6,7 @@ Does not evaluate RC-065. `compile_requirements` remains the sole rule engine.
 from __future__ import annotations
 
 import hashlib
+import re
 from typing import Any, Mapping
 
 ALLOWED_ENVELOPE_KEYS = frozenset(
@@ -36,6 +37,7 @@ FILE_SOURCE_KINDS = frozenset({"file", "decision", "contract"})
 API_SOURCE_KINDS = frozenset({"api_request", "decision", "contract"})
 PRODUCER_VAL_DIGEST = hashlib.sha256(b"promptrig-mission-017-producer").hexdigest()
 REQUIREMENTS_CONTRACT_VERSION = "0.1.0-draft"
+INPUT_ID_PATTERN = re.compile(r"^INP-[A-Z0-9-]+$")
 
 
 def produce_requirements(envelope: Mapping[str, Any] | object) -> dict[str, Any]:
@@ -53,11 +55,19 @@ def produce_requirements(envelope: Mapping[str, Any] | object) -> dict[str, Any]
         return {}
     if intent.get("contract_version") != REQUIREMENTS_CONTRACT_VERSION:
         return {}
+    input_id = intent.get("input_id")
+    if not isinstance(input_id, str) or not INPUT_ID_PATTERN.fullmatch(input_id):
+        return {}
     sources = envelope.get("sources")
     claims = envelope.get("claims")
     if not isinstance(sources, list) or not isinstance(claims, list) or not sources or not claims:
         return {}
     if any(not isinstance(item, Mapping) for item in sources + claims):
+        return {}
+    if any(
+        isinstance(source, Mapping) and source.get("fragment") and not source.get("fragment_digest")
+        for source in sources
+    ):
         return {}
     allowed_kinds = FILE_SOURCE_KINDS if mode == "file" else API_SOURCE_KINDS
     if any(source.get("kind") not in allowed_kinds for source in sources):
@@ -81,7 +91,7 @@ def produce_requirements(envelope: Mapping[str, Any] | object) -> dict[str, Any]
                 source = source_by_id.get(ref)
                 if not isinstance(source, Mapping) or source.get("kind") != "file":
                     continue
-                if source.get("fragment") and not source.get("sha256") and not source.get("fragment_digest"):
+                if not source.get("sha256") and not source.get("fragment_digest"):
                     ambiguous = True
                     break
             if ambiguous:
@@ -117,7 +127,6 @@ def produce_requirements(envelope: Mapping[str, Any] | object) -> dict[str, Any]
 
     produced_claims.sort(key=lambda item: str(item.get("id") or ""))
     sorted_sources = sorted(sources, key=lambda item: str(item.get("id") or ""))
-    input_id = str(intent["input_id"])
     document_id = "RQD-" + input_id.removeprefix("INP-")
 
     document: dict[str, Any] = {

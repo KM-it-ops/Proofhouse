@@ -95,7 +95,16 @@ def test_file_envelope_sources_are_file_kind() -> None:
     assert artifacts["requirements_document"]["sources"][0]["kind"] == "file"
     result = compile_requirements_input(_file_envelope())
     assert result.command == "compile-requirements"
-    assert result.status in {"SUCCESS", "PARTIAL", "BLOCKED", "REFUSED", "INVALID_OUTPUT"}
+    assert result.status == "BLOCKED"
+    assert result.reason_codes == ("RQC-AMB-0001",)
+
+
+def test_api_envelope_compile_is_blocked() -> None:
+    from promptrig.compiler.requirements_contract import compile_requirements_input
+
+    result = compile_requirements_input(_api_envelope())
+    assert result.status == "BLOCKED"
+    assert result.reason_codes == ("RQC-BLK-0001",)
 
 
 def test_api_envelope_sources_are_api_request_kind() -> None:
@@ -103,6 +112,36 @@ def test_api_envelope_sources_are_api_request_kind() -> None:
 
     artifacts = produce_requirements(_api_envelope())
     assert artifacts["requirements_document"]["sources"][0]["kind"] == "api_request"
+
+
+def test_illegal_source_kind_on_file_envelope_is_invalid_output() -> None:
+    from promptrig.compiler.requirements_contract import compile_requirements_input
+
+    envelope = _file_envelope()
+    envelope["sources"] = [_source(kind="api_request")]
+    result = compile_requirements_input(envelope)
+    assert result.status == "INVALID_OUTPUT"
+    assert "RQC-SCH-0001" in result.reason_codes
+
+
+def test_imports_on_api_envelope_is_invalid_output() -> None:
+    from promptrig.compiler.requirements_contract import compile_requirements_input
+
+    envelope = _api_envelope()
+    envelope["imports"] = ["some/path.txt"]
+    result = compile_requirements_input(envelope)
+    assert result.status == "INVALID_OUTPUT"
+    assert "RQC-SCH-0001" in result.reason_codes
+
+
+def test_invalid_input_id_is_invalid_output() -> None:
+    from promptrig.compiler.requirements_contract import compile_requirements_input
+
+    envelope = _file_envelope()
+    envelope["intent_input"]["input_id"] = "bad-input-id"
+    result = compile_requirements_input(envelope)
+    assert result.status == "INVALID_OUTPUT"
+    assert "RQC-SCH-0001" in result.reason_codes
 
 
 def test_simple_developer_prs_are_invalid_output() -> None:
@@ -176,14 +215,26 @@ def test_digest_ambiguity_records_oq_008_001() -> None:
     from promptrig.compiler.requirements_contract import compile_requirements_input
 
     envelope = _file_envelope()
-    envelope["sources"] = [_source(kind="file", fragment="Compile from an envelope.")]
     artifacts = produce_requirements(envelope)
     questions = artifacts["requirements_document"]["open_questions"]
     assert any("OQ-008-001" in q.get("text", "") for q in questions)
     claim = next(r for r in artifacts["requirements_document"]["requirements"] if r["id"] == "REQ-017-001")
     assert claim["acceptance_state"] == "unresolved"
     result = compile_requirements_input(envelope)
-    assert result.status != "SUCCESS"
+    assert result.status == "BLOCKED"
+    assert result.reason_codes == ("RQC-AMB-0001",)
+
+
+def test_fragment_without_digest_is_invalid_output() -> None:
+    from promptrig.compiler.requirements_contract import compile_requirements_input
+    from promptrig.compiler.requirements_produce import produce_requirements
+
+    envelope = _file_envelope()
+    envelope["sources"] = [_source(kind="file", fragment="Compile from an envelope.")]
+    assert produce_requirements(envelope) == {}
+    result = compile_requirements_input(envelope)
+    assert result.status == "INVALID_OUTPUT"
+    assert "RQC-SCH-0001" in result.reason_codes
 
 
 def test_harness_still_shares_evaluate_contract_rules() -> None:
