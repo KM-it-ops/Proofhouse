@@ -71,7 +71,7 @@ The envelope is self-contained. The CLI reads one path (or stdin). No filesystem
 
 `produce_requirements(envelope: Mapping) -> dict`
 
-1. If `envelope` is not a mapping, or `intent_input` missing, or `authoring_mode` not in `{file, api}`, or `intent_input` has unknown fields / unsupported `contract_version`, or `sources`/`claims` missing or empty: return `{}` (no `requirements_document`). `compile_requirements({})` is `INVALID_OUTPUT` + `RQC-SCH-0001`. Do not add a second trust-boundary status matrix. Canonical payloads with a bad version still hit existing engine `RQC-VER-0001`.
+1. Trust boundary — return `{}` if any of: envelope is not a mapping; extra top-level keys outside `{intent_input, sources, claims, mappings, imports, diagnostics}`; `intent_input` missing; `authoring_mode` not in `{file, api}`; `intent_input` extra keys outside `{contract_version, input_id, authoring_mode, intent, authoritative_inputs, non_authoritative_inputs, source_ids}`; `contract_version` not `0.1.0-draft`; `sources`/`claims` missing or empty; any source `kind` illegal for the mode (`file` allows `file|decision|contract`; `api` allows `api_request|decision|contract`); `imports` present on an `api` envelope. `compile_requirements({})` is `INVALID_OUTPUT` + `RQC-SCH-0001`. Canonical payloads with a bad version still hit existing engine `RQC-VER-0001`.
 2. Build `requirements_document`:
    - `contract_version` is `0.1.0-draft` (step 1 already rejected anything else).
    - `document_id` = `RQD-` + `intent_input.input_id` with leading `INP-` stripped.
@@ -79,21 +79,14 @@ The envelope is self-contained. The CLI reads one path (or stdin). No filesystem
    - `requirements` = `claims` in ID-sorted order (RC-015).
    - `sources` = envelope sources in ID-sorted order.
    - `assumptions` / `open_questions` / `conflicts` start empty except as synthesized below.
-3. Synthesize fail-closed records (do not invent OQ policy):
-   - Duplicate source IDs → keep both claims as-is and add a conflict (`RQC-SRC-0001` diagnostic record in artifacts).
-   - Duplicate requirement IDs → `RQC-IDN-0001`.
-   - Distinct sources, equivalent statements: **do not coalesce** (OQ-008-004 unanswered). Preserve separately.
-   - Source `lifecycle=missing` → `RQC-SRC-0002`.
-   - Invalid `location.json_pointer` → `RQC-SRC-0003`.
-   - Conflicting source claims (same requirement, contradictory statements) → conflict record `RQC-SRC-0004` / `RQC-CFL-0001`; do not pick a winner.
-   - `lifecycle=replaced` without usable `replaced_by` current source → preserve stale evidence (`RQC-SRC-0005`) plus unresolved required meaning if a claim still cites it.
-   - `imports` present → unsupported import records (`RQC-UNS-0002`); never follow the path.
-   - `authority_basis=model_suggested` with `acceptance_state=accepted` → copy the claim unchanged. Do not self-accept. Engine/schema fail-closed (`RQC-MDL-0001` or `INVALID_OUTPUT`); producer does not rewrite acceptance.
-   - Owner vs user unresolved conflict in claims/sources → conflict with `authority_ranks` spanning `owner` and `user` (`RQC-CFL-0002`).
-   - Digest ambiguity (byte-backed file source lacking `sha256`/`fragment_digest` while a `directly_stated` claim cites it) → add an **unresolved** open question whose `text` includes `OQ-008-001`; do not invent a digest. Do not resolve OQ-008-002–009 either; if a producer step would require one of those answers, emit an unresolved question naming that OQ id instead of choosing.
-   - Advisory-on-SUCCESS (OQ-008-006): producer emits no advisory-only diagnostics. Existing engine diagnostics only.
-4. Attach `intent_input` and `mappings` (given or synthesized unresolved mappings) on the artifacts dict.
-5. Return the artifacts dict. Never call `evaluate_contract_rules` from the producer.
+3. Copy claims/sources into the document. Do **not** stuff `artifacts.diagnostics` to force reason codes — `evaluate_contract_rules` derives codes from records; unknown/extra diagnostic codes only trigger `RQC-DIA-0001`. Duplicate IDs, invalid JSON pointers, missing/replaced lifecycle, and `model_suggested`+`accepted` are copied unchanged for the engine.
+4. Synthesize only what the engine will not derive from a raw copy:
+   - Distinct sources, equivalent statements: **do not coalesce** (OQ-008-004 unanswered).
+   - `imports` (file envelopes): never open those paths. For each string, append one required requirement `REQ-IMP-{NNN}` with `acceptance_state=unsupported`, `authority_basis=unsupported`, `source_refs` = first envelope source id. Canonical path has `unsupported_behavior=None`, so the engine yields `BLOCKED` + `RQC-UNS-0001` (not `RQC-UNS-0002`, which is the compact-oracle `recursive_import` signal). Do not text-match. Do not extend `context_from_artifacts`.
+   - Digest ambiguity: a `directly_stated` **accepted** claim cites a `kind=file` source that has `fragment` but neither `sha256` nor `fragment_digest`. Do not treat that as ephemeral SUCCESS (engine would). Copy the claim with `acceptance_state=unresolved` and append an open question whose `text` contains `OQ-008-001` (`impact=required`, `resolution_state=unresolved`). Engine: `BLOCKED` + `RQC-AMB-0001`. Do not invent a digest. Do not resolve OQ-008-002–009; if a later producer step would require one of those answers, stop that step and emit an unresolved question naming the OQ instead of choosing.
+   - Advisory-on-SUCCESS (OQ-008-006): producer emits no advisory-only diagnostics.
+5. Attach `intent_input`. Mappings: if envelope `mappings` present, copy. Else emit one `outcome=unresolved` mapping per claim (`authority_ref.kind=source`, `ref` = that claim’s first `source_refs` entry) plus one `validations` record `VAL-PROD-001` (`validator_version=0.1.0`, `result=PASS`, `content_digest` = SHA-256 UTF-8 of `promptrig-mission-017-producer`). Unresolved mappings are non-emitting; accepted claims without emitting mappings stay fail-closed via the engine (`RQC-BLK-0001`), not invented IR.
+6. Return the artifacts dict. Never call `evaluate_contract_rules` from the producer.
 
 `compile_requirements_input(payload)`:
 
@@ -132,11 +125,11 @@ Trust boundary is a real boundary: validate `authoring_mode`, schema, unknown fi
 - Minimal valid **api** envelope: sources `kind=api_request`.
 - `authoring_mode=simple` / `developer` / `prs` → `INVALID_OUTPUT`.
 - Unknown top-level field → `INVALID_OUTPUT` / `RQC-SCH-0001`.
-- Envelope unknown `contract_version` or unknown top-level field → `INVALID_OUTPUT` + `RQC-SCH-0001` (empty produce). Canonical 016 artifacts still own `RQC-VER-0001`.
-- File `imports` → `RQC-UNS-0002`; no file read of the import path (tmp path must not be opened).
-- Duplicate source IDs → `RQC-SRC-0001`.
-- Model self-accept claim → not `SUCCESS`; `RQC-MDL-0001` in reason codes or engine-equivalent fail closed.
-- Digest-ambiguous `directly_stated` file source → output `open_questions` text contains `OQ-008-001`; status is not an invented SUCCESS.
+- Envelope unknown `contract_version` → `INVALID_OUTPUT` + `RQC-SCH-0001`. Canonical 016 artifacts still own `RQC-VER-0001`.
+- File `imports` → `RQC-UNS-0001`; import path must not be opened (tmp file unread).
+- Duplicate source IDs copied through → engine `RQC-SRC-0001`.
+- Model self-accept claim copied through → not `SUCCESS`; `RQC-MDL-0001`.
+- Digest-ambiguous `directly_stated` file source → `open_questions` text contains `OQ-008-001`, citing claim is `unresolved`, status is not SUCCESS.
 - `evaluate_contract_rules` identity: `validate_contract.evaluate_contract_rules is requirements_contract.evaluate_contract_rules` still holds.
 
 Reuse 016 engine tests; do not duplicate RC-065 cases.
@@ -153,6 +146,20 @@ Reuse 016 engine tests; do not duplicate RC-065 cases.
 ## Non-claims
 
 Not a full MISSION-008 production compiler. Not authoring-prose / Simple / Developer / PRS producers. Not M3 / Simple Mode UI. Not freeform NLP. Not live model-assisted suggestion or live providers. Not CERTIFIED requirements compiler. Not full Roadmap Phase 4B exit. Not IR v0.2. Does not answer OQ-008-001–009. Does not Accept OAR-009. Does not unblock M3.
+
+## Adversarial audit (2026-08-21)
+
+Audited against `evaluate_contract_rules` / `context_from_artifacts` / `authority_backed` at `9b69729` and the 008 schemas. Findings folded into the algorithm above (not a second status matrix):
+
+| Finding | Severity | Resolution |
+|---------|----------|------------|
+| Stuffing `artifacts.diagnostics` does not set terminal status (engine only uses those codes for `RQC-DIA-0001`) | Critical | Copy records; engine owns codes |
+| Canonical `unsupported_behavior` is always `None`; `RQC-UNS-0002` never fires from artifacts | Critical | Imports become `unsupported` requirements → `RQC-UNS-0001` |
+| `open_questions` are not in RC-065; adding OQ text alone can still SUCCESS | Critical | Digest ambiguity also sets the claim `unresolved` |
+| Engine already treats no-digest sources as ephemeral SUCCESS for `directly_stated` | Important | Producer fail-closes that file+fragment case instead of inheriting ephemeral SUCCESS |
+| Synthesized mappings require `validation_ref` / `VAL-*` | Important | Emit `VAL-PROD-001` |
+
+No remaining Critical gaps vs the 016 engine. Spec is implementable.
 
 ## Success criteria
 
