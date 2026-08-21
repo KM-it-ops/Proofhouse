@@ -147,6 +147,27 @@ def _cmd_closed_loop(args: argparse.Namespace) -> int:
     return EXIT_VALIDATION_FAILURE
 
 
+def _cmd_compile_requirements(args: argparse.Namespace) -> int:
+    from .api import compile_requirements
+
+    raw = _read_input(args.input)
+    artifacts = json.loads(raw.decode("utf-8"))
+    result = compile_requirements(artifacts)
+    payload = result.to_dict()
+    if args.json:
+        sys.stdout.write(json.dumps(payload, sort_keys=True))
+        sys.stdout.write("\n")
+    else:
+        print(f"compile-requirements: {result.status}")
+        for code in result.reason_codes:
+            print(f"  [{code}]")
+    if result.status in {"SUCCESS", "PARTIAL"}:
+        return EXIT_SUCCESS
+    if result.status == "INVALID_OUTPUT":
+        return EXIT_VALIDATION_FAILURE
+    return EXIT_COMPILATION_FAILURE
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="promptrig-compiler", description="PromptRig Compiler Core v0.1")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -197,6 +218,14 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_loop.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
     p_loop.set_defaults(func=_cmd_closed_loop)
+
+    p_req = subparsers.add_parser(
+        "compile-requirements",
+        help="Evaluate canonical MISSION-008 artifact JSON (not authoring prose; not closed-loop).",
+    )
+    p_req.add_argument("input", help="Path to canonical artifact JSON, or '-' for stdin.")
+    p_req.add_argument("--json", action="store_true", help="Emit a single JSON result object.")
+    p_req.set_defaults(func=_cmd_compile_requirements)
 
     return parser
 
