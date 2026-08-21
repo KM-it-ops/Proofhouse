@@ -1,6 +1,6 @@
 # MISSION-008 Production Engine Package (MISSION-016)
 
-**Status:** In progress — OAR-010 Ready for owner acceptance after Tasks 1–6 (not Accepted in this task).
+**Status:** Evidence complete — awaiting OAR-010 (Ready for owner acceptance, not Accepted).
 **Baseline:** local `main` @ `942a62d` (MISSION-015 residual evidence on local main; OAR-009 Ready, not Accepted).
 **Scope:** Shared contract-rule engine in `promptrig.compiler` for canonical MISSION-008 artifact sets. Public `compile_requirements` / `promptrig-compiler compile-requirements`. Existing M0/M1/M2 closed-loop profiles unchanged.
 
