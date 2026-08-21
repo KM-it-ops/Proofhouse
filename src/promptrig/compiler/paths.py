@@ -16,6 +16,7 @@ _SCHEMAS_DIR = Path(__file__).resolve().parent / "schemas"
 IR_SCHEMA_PATH = _SCHEMAS_DIR / "promptrig_ir_v0_1.schema.json"
 DIAGNOSTIC_CONTRACT_SCHEMA_PATH = _SCHEMAS_DIR / "diagnostic_contract.schema.json"
 DIAGNOSTIC_REGISTRY_PATH = _SCHEMAS_DIR / "diagnostic_code_registry.json"
+REQUIREMENTS_DIAGNOSTIC_REGISTRY_PATH = _SCHEMAS_DIR / "requirements_diagnostic_registry.json"
 
 
 def escape_json_pointer_token(token: str) -> str:
