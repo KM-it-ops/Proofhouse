@@ -3,7 +3,7 @@
 **Status:** OAR-013 Ready for owner acceptance (not Accepted).  
 **Baseline:** local `main` @ `e64655e` (MISSION-019 worktree start).  
 **Branch:** `feature/mission-019-prs-envelope-producers`  
-**HEAD (Tasks 1–3):** `bd11457`
+**HEAD (Tasks 1–3):** `a048119` (docs/OAR-013; subsequent polish commits may follow)
 
 ## Scope
 
