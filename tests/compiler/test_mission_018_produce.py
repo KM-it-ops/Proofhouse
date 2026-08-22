@@ -98,3 +98,21 @@ def test_wrong_kind_for_simple_is_schema_invalid() -> None:
 def test_imports_rejected_on_simple() -> None:
     envelope = _simple_envelope(imports=["some/path.txt"])
     assert produce_requirements(envelope) == {}
+
+
+def test_compile_requirements_input_help_names_simple_developer() -> None:
+    from promptrig.compiler.cli_compiler import build_parser
+
+    parser = build_parser()
+    req = None
+    for action in parser._subparsers._group_actions:
+        req = action.choices.get("compile-requirements")
+        if req is not None:
+            break
+    assert req is not None
+    help_text = req.format_help()
+    lower = help_text.lower()
+    assert "simple" in lower and "developer" in lower
+    input_action = next(a for a in req._actions if getattr(a, "dest", None) == "input")
+    assert "simple" in (input_action.help or "").lower()
+    assert "developer" in (input_action.help or "").lower()

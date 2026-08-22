@@ -221,11 +221,17 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_req = subparsers.add_parser(
         "compile-requirements",
-        help="Evaluate canonical MISSION-008 artifact JSON or a file/api envelope (not authoring prose; not closed-loop).",
+        help=(
+            "Evaluate canonical MISSION-008 artifact JSON or a file/api/simple/developer "
+            "envelope (not authoring prose; not closed-loop)."
+        ),
     )
     p_req.add_argument(
         "input",
-        help="Path to canonical artifact JSON or file/api envelope, or '-' for stdin.",
+        help=(
+            "Path to canonical artifact JSON or file/api/simple/developer envelope, "
+            "or '-' for stdin."
+        ),
     )
     p_req.add_argument("--json", action="store_true", help="Emit a single JSON result object.")
     p_req.set_defaults(func=_cmd_compile_requirements)
