@@ -1,6 +1,6 @@
 # MISSION-008 Simple/Developer Envelope Producers (MISSION-018)
 
-**Status:** OAR-012 Ready (not Accepted). OAR-011 remains Accepted. OAR-009 remains Ready (not Accepted).
+**Status:** OAR-012 Ready (not Accepted). OAR-011 and OAR-010 remain Accepted. OAR-009 remains Ready (not Accepted).
 **Baseline:** local `main` @ `6c807b4` (MISSION-018 authorization).
 **Scope:** Extend `produce_requirements` so simple and developer authoring envelopes assemble canonical MISSION-008 artifact mappings and evaluate via the existing `compile_requirements` engine. File and api envelope producers from MISSION-017 remain unchanged.
 
