@@ -1,7 +1,7 @@
 # MISSION-008 Authoring-Prose Producers (MISSION-020)
 
-**Status:** OAR-014 Ready for owner acceptance. OAR-013, OAR-012, OAR-011, and OAR-010 remain Accepted. OAR-009 remains Ready (not Accepted).
-**Baseline:** local `main` @ `af40a53`.
+**Status:** OAR-014 Accepted 2026-08-22. OAR-013, OAR-012, OAR-011, and OAR-010 remain Accepted. OAR-009 remains Ready (not Accepted).
+**Baseline:** local `main` @ `bc4e7a0` (acceptance after MISSION-020 merge).
 **Scope:** Dispatch exact-key `plain_language_v0` text envelopes on `compile_requirements_input` / `promptrig-compiler compile-requirements` through existing `parse_plain_language_v0`, lower into canonical MISSION-008 artifacts via `produce_plain_language_requirements`, and evaluate with `compile_requirements`. File/api/simple/developer/prs envelope producers remain unchanged. Closed-loop `plain_language_v0` intake remains unchanged.
 
 This is Campaign COMPILER remaining 008 authoring-prose producers. Constrained interpreter, not another envelope.
@@ -24,4 +24,4 @@ This is Campaign COMPILER remaining 008 authoring-prose producers. Constrained i
 - PRS **language** (grammar, parser, CONTRACT_CANDIDATE) remains DEFERRED per `PRS_DISPOSITION.md`.
 - Requirements compiler maturity remains PARTIAL.
 - Ambition-gap C4 (IR v0.2 planning) is not this mission.
-- OAR-014 Ready (not Accepted). OAR-013, OAR-012, OAR-011, and OAR-010 Accepted. OAR-009 remains Ready (not Accepted).
+- OAR-014 Accepted. OAR-013, OAR-012, OAR-011, and OAR-010 Accepted. OAR-009 remains Ready (not Accepted).

@@ -1,9 +1,9 @@
 # MISSION-020 Report — Authoring-Prose Producers
 
-**Status:** OAR-014 Ready for owner acceptance.  
-**Baseline:** `af40a53`.  
-**Branch:** `feature/mission-020-authoring-prose-producers`  
-**HEAD (Tasks 1–3):** `881952a` (review fix: drop duplicate CLI help test; Task 3 docs `41c34cc` + report `339cb3d`)
+**Status:** OAR-014 Accepted 2026-08-22.  
+**Baseline:** local `main` @ `bc4e7a0` (post-merge acceptance).  
+**Branch:** merged to local `main`  
+**HEAD (Tasks 1–3 + polish):** `bc4e7a0`
 
 ## Scope
 
@@ -11,7 +11,7 @@ Campaign COMPILER constrained authoring-prose producers for **`plain_language_v0
 
 Does **not** claim full Roadmap Phase 4B exit, CERTIFIED requirements compiler, a full MISSION-008 production compiler, PRS **language** implementation (grammar/parser; RCD-008-009 remains DEFERRED), live providers, M3, freeform NLP, or benchmarks.
 
-OAR-009 remains **Ready for owner acceptance** (not Accepted). OAR-010, OAR-011, OAR-012, and OAR-013 remain **Accepted**. OAR-014 is **Ready for owner acceptance** (not Accepted).
+OAR-009 remains **Ready for owner acceptance** (not Accepted). OAR-010, OAR-011, OAR-012, and OAR-013 remain **Accepted**. OAR-014 is **Accepted 2026-08-22**.
 
 ## Tasks 1–3
 
@@ -30,7 +30,7 @@ OAR-009 remains **Ready for owner acceptance** (not Accepted). OAR-010, OAR-011,
 | Compose dispatch | `compile_requirements_input` third dispatch for `{profile, text}` prose envelopes |
 | CLI | `promptrig-compiler compile-requirements` help names `plain_language_v0` text envelope |
 | Shared engine | `evaluate_contract_rules` unchanged (MISSION-016) |
-| Governance | OAR-014 Ready for owner acceptance; Requirements compiler stays `PARTIAL`; OAR-009 still Ready; OAR-010/OAR-011/OAR-012/OAR-013 Accepted |
+| Governance | OAR-014 Accepted 2026-08-22; Requirements compiler stays `PARTIAL`; OAR-009 still Ready; OAR-010/OAR-011/OAR-012/OAR-013 Accepted |
 
 ## Tests added
 
@@ -50,10 +50,10 @@ MISSION-020 does **not** claim full Roadmap Phase 4B exit, a CERTIFIED requireme
 - Constrained `plain_language_v0` lowerer only — valid grammar yields BLOCKED not SUCCESS; not freeform NLP; PRS **language** (grammar, parser, CONTRACT_CANDIDATE) remains **DEFERRED** per `PRS_DISPOSITION.md`; compact `cases.json` stays test-only.
 - Requirements compiler maturity remains **`PARTIAL`** — structured profiles + M1 intake + M2 fake sidecar + MISSION-016 canonical-record engine + MISSION-017 file/api + MISSION-018 simple/developer + MISSION-019 prs + this authoring-prose lowerer; not CERTIFIED.
 - OQ-008-001 through OQ-008-010 remain owner-resolved policy only (fail closed; not implemented).
-- OAR-006/007/008 **Accepted** boundaries unchanged; OAR-009 is still **Ready for owner acceptance**, not Accepted; OAR-010, OAR-011, OAR-012, and OAR-013 are **Accepted**; OAR-014 is **Ready**, not Accepted.
+- OAR-006/007/008 **Accepted** boundaries unchanged; OAR-009 is still **Ready for owner acceptance**, not Accepted; OAR-010, OAR-011, OAR-012, OAR-013, and OAR-014 are **Accepted**.
 - No live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, hosted UI, MissionRig, IR v0.2, or enterprise SAST.
 - This mission does **not** unblock M3. Next authorized step remains M3 per schedule **and** OQ implementation (owner-resolved, not implemented).
 
 ## Non-claims
 
-Matching OAR-014: live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, PRS language/grammar/parser, full MISSION-008 production requirements compiler, full Roadmap Phase 4B exit, benchmarks/claims, hosted product surfaces, MissionRig, IR v0.2, enterprise SAST, and implementing OQ-008-001 through OQ-008-010 remain unauthorized. Requirements compiler stays `PARTIAL`. OAR-009 remains Ready (not Accepted by this record). OAR-010, OAR-011, OAR-012, and OAR-013 remain Accepted. OAR-014 is Ready (not Accepted).
+Matching OAR-014: live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, PRS language/grammar/parser, full MISSION-008 production requirements compiler, full Roadmap Phase 4B exit, benchmarks/claims, hosted product surfaces, MissionRig, IR v0.2, enterprise SAST, and implementing OQ-008-001 through OQ-008-010 remain unauthorized. Requirements compiler stays `PARTIAL`. OAR-009 remains Ready (not Accepted by this record). OAR-010, OAR-011, OAR-012, OAR-013, and OAR-014 remain Accepted.
