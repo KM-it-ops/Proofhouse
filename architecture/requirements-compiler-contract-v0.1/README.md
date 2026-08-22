@@ -1,6 +1,6 @@
 # Requirements Compiler Contract and Evidence Model v0.1
 
-**Status:** `RATIFIED DIRECTION` — `RCD-008-001` through `RCD-008-010` were approved by explicit owner decision on 2026-07-25, recorded in [OAR-002](../OWNER_ACCEPTANCE_RECORDS/OAR-002.md). This package is executable contract evidence; ratification accepts the **contract direction** only. It is **not** production-certified, not capability promotion, and not implementation authority, and it does not authorize merge, release, or tags. PRS remains `DEFERRED` and ADR-001 is unchanged. `OQ-008-001` through `OQ-008-009` remain open; `OQ-008-010` remains resolved as structured-only canonical assumption and question records.
+**Status:** `RATIFIED DIRECTION` — `RCD-008-001` through `RCD-008-010` were approved by explicit owner decision on 2026-07-25, recorded in [OAR-002](../OWNER_ACCEPTANCE_RECORDS/OAR-002.md). This package is executable contract evidence; ratification accepts the **contract direction** only. It is **not** production-certified, not capability promotion, and not implementation authority, and it does not authorize merge, release, or tags. PRS remains `DEFERRED` and ADR-001 is unchanged. `OQ-008-001` through `OQ-008-010` are owner-resolved in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) (policy only; no engine change).
 
 **Exact baseline:** `feature/promptrig-framework` at `b12b8262449d1a04cb3802f17f5f44f9a84de5d4`.
 
@@ -41,7 +41,7 @@ Out of scope:
 | [TRACEABILITY.md](TRACEABILITY.md) | Input-to-evidence-to-requirement-to-IR/gap/test chain |
 | [PRS_DISPOSITION.md](PRS_DISPOSITION.md) | Evidence-based PRS disposition recommendation |
 | [DECISION_LOG.md](DECISION_LOG.md) | MISSION-008 decisions — all ten `Accepted` per OAR-002 |
-| [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) | Unresolved semantics and evidence thresholds |
+| [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) | Owner-resolved OQ-008-001 through OQ-008-010 (policy only; no engine change) |
 | [OWNER_DECISION_REQUEST.md](OWNER_DECISION_REQUEST.md) | Exact owner choices and non-authorizations |
 | `schemas/` | Eight Draft 2020-12 proposed schemas |
 | `fixtures/cases.json` | 41 semantic-oracle cases. A **test-only semantic projection, not canonical requirements documents** |

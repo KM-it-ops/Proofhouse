@@ -10,8 +10,9 @@ unchanged and PRS is not accepted contract syntax.
 
 Ratification accepts the contract direction only. Every non-authorization below still stands, and merge,
 release, capability promotion, and MISSION-009 onward remain separate explicit gates. `OQ-008-001` through
-`OQ-008-009` remain open; `OQ-008-010` remains resolved as structured-only canonical assumption and
-question records, and ratification neither changes nor reopens that resolution.
+`OQ-008-010` are owner-resolved in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md) (001–009 on 2026-08-22; 010
+remains structured-only). Those resolutions settle policy only and authorize no engine change, and
+ratification of `RCD-008-*` neither changes nor reopens them.
 
 The recommendations below are retained as the record of what was requested and on what basis.
 

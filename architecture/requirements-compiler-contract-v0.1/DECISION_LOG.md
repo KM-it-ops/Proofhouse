@@ -35,10 +35,12 @@ contract syntax, and no grammar, parser, formatter, or language server is author
 
 ## Open items not resolved by ratification
 
-`OQ-008-001` through `OQ-008-009` remain open. `OQ-008-010` remains **resolved** as structured-only
-canonical assumption and question records; ratification neither changes nor reopens that resolution.
-`OQ-008-003` (approval-authority thresholds) is the
-operationally significant one: required authority continues to resolve from an accepted approval-threshold
-policy, and undeterminable authority remains `BLOCKED` rather than assumed. Semantic equivalence between a
-preserved source fragment and a requirement statement remains a manual review obligation; deterministic
-validation proves provenance, never equivalence.
+`OQ-008-001` through `OQ-008-010` are **owner-resolved** in [OPEN_QUESTIONS.md](OPEN_QUESTIONS.md)
+(2026-08-22 for 001–009; 010 remains structured-only). Ratification of `RCD-008-*` neither changes nor
+reopens those resolutions. Resolutions settle policy only and authorize no engine change.
+
+`OQ-008-003` remains the operationally significant authority rule: required authority continues to resolve
+from an accepted approval-threshold policy, and undeterminable authority remains `BLOCKED` rather than
+assumed. Semantic equivalence between a preserved source fragment and a requirement statement remains a
+manual review obligation until the OQ-008-004 alias-group study is implemented; deterministic validation
+proves provenance, never equivalence.
