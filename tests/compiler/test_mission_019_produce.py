@@ -72,3 +72,22 @@ def test_wrong_kind_for_prs_is_schema_invalid() -> None:
 def test_imports_rejected_on_prs() -> None:
     envelope = _prs_envelope(imports=["some/path.txt"])
     assert produce_requirements(envelope) == {}
+
+
+def test_compile_requirements_input_help_names_prs() -> None:
+    from promptrig.compiler.cli_compiler import build_parser
+
+    parser = build_parser()
+    req = None
+    for action in parser._subparsers._group_actions:
+        req = action.choices.get("compile-requirements")
+        if req is not None:
+            break
+    assert req is not None
+    help_text = req.format_help()
+    assert "file/api/simple/developer/prs" in help_text
+    input_action = next(a for a in req._actions if getattr(a, "dest", None) == "input")
+    assert input_action.help == (
+        "Path to canonical artifact JSON or file/api/simple/developer/prs envelope, "
+        "or '-' for stdin."
+    )

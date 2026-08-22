@@ -222,14 +222,14 @@ def build_parser() -> argparse.ArgumentParser:
     p_req = subparsers.add_parser(
         "compile-requirements",
         help=(
-            "Evaluate canonical MISSION-008 artifact JSON or a file/api/simple/developer "
+            "Evaluate canonical MISSION-008 artifact JSON or a file/api/simple/developer/prs "
             "envelope (not authoring prose; not closed-loop)."
         ),
     )
     p_req.add_argument(
         "input",
         help=(
-            "Path to canonical artifact JSON or file/api/simple/developer envelope, "
+            "Path to canonical artifact JSON or file/api/simple/developer/prs envelope, "
             "or '-' for stdin."
         ),
     )
