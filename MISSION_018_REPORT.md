@@ -3,7 +3,7 @@
 **Status:** OAR-012 Ready for owner acceptance (not Accepted).  
 **Baseline:** local `main` @ `6c807b4`.  
 **Branch:** `feature/mission-018-simple-developer-producers`  
-**HEAD (Tasks 1–3):** `5b5ddf9`
+**HEAD (Tasks 1–3):** `5943090`
 
 ## Scope
 
@@ -19,7 +19,7 @@ OAR-009 remains **Ready for owner acceptance** (not Accepted). OAR-010 and OAR-0
 |---|---|---|
 | 1 | `421b729` | Certification README + schedule honesty test (`test_mission_018_schedule.py`) |
 | 2 | `a6bf52e` | Simple/developer envelope producers in `requirements_produce.py`; `test_mission_018_produce.py` |
-| 3 | `5b5ddf9` | CLI help naming simple/developer; OAR-012 Ready; maturity/deferred/README; this report |
+| 3 | `5943090` | CLI help naming simple/developer; OAR-012 Ready; maturity/deferred/README; this report |
 
 ## Deliverables
 
