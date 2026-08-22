@@ -1,7 +1,7 @@
 # MISSION-008 Simple/Developer Envelope Producers (MISSION-018)
 
-**Status:** OAR-012 Ready (not Accepted). OAR-011 and OAR-010 remain Accepted. OAR-009 remains Ready (not Accepted).
-**Baseline:** local `main` @ `6c807b4` (MISSION-018 authorization).
+**Status:** OAR-012 Accepted 2026-08-22. OAR-011 and OAR-010 remain Accepted. OAR-009 remains Ready (not Accepted).
+**Baseline:** local `main` @ `06be61c` (acceptance after MISSION-018 merge).
 **Scope:** Extend `produce_requirements` so simple and developer authoring envelopes assemble canonical MISSION-008 artifact mappings and evaluate via the existing `compile_requirements` engine. File and api envelope producers from MISSION-017 remain unchanged.
 
 This is Campaign COMPILER remaining 008 producers. Historical ambition-gap P2 "MISSION-017 platform SPECs" is not this mission.
@@ -23,5 +23,5 @@ This is Campaign COMPILER remaining 008 producers. Historical ambition-gap P2 "M
 - OQ-008-001 through OQ-008-009 remain open; this mission does not invent owner answers.
 - Requirements compiler maturity remains PARTIAL.
 - Ambition-gap C4 (IR v0.2 planning) is not this mission.
-- OAR-012 Ready. OAR-011 Accepted. OAR-009 remains Ready (not Accepted).
+- OAR-012 Accepted. OAR-011 and OAR-010 Accepted. OAR-009 remains Ready (not Accepted).
 - An envelope with no explicit mappings cannot reach SUCCESS: synthesized mappings are unresolved and non-emitting.

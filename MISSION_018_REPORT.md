@@ -1,9 +1,9 @@
 # MISSION-018 Report — Simple/Developer Envelope Producers
 
-**Status:** OAR-012 Ready for owner acceptance (not Accepted).  
-**Baseline:** local `main` @ `6c807b4`.  
-**Branch:** `feature/mission-018-simple-developer-producers`  
-**HEAD (Tasks 1–3):** `5943090`
+**Status:** OAR-012 Accepted 2026-08-22.  
+**Baseline:** local `main` @ `06be61c` (post-merge acceptance).  
+**Branch:** merged to local `main`  
+**HEAD (Tasks 1–3 + polish):** `06be61c`
 
 ## Scope
 
@@ -11,7 +11,7 @@ Campaign COMPILER remaining MISSION-008 envelope producers for **simple and deve
 
 Does **not** claim full Roadmap Phase 4B exit, CERTIFIED requirements compiler, a full MISSION-008 production compiler (no prs/authoring-prose producers), live providers, M3, freeform NLP, or benchmarks.
 
-OAR-009 remains **Ready for owner acceptance** (not Accepted). OAR-010 and OAR-011 remain **Accepted**. OAR-012 is **Ready for owner acceptance** (not Accepted by this report).
+OAR-009 remains **Ready for owner acceptance** (not Accepted). OAR-010 and OAR-011 remain **Accepted**. OAR-012 is **Accepted 2026-08-22**.
 
 ## Tasks 1–3
 
@@ -29,7 +29,7 @@ OAR-009 remains **Ready for owner acceptance** (not Accepted). OAR-010 and OAR-0
 | Envelope producers | `src/promptrig/compiler/requirements_produce.py` (simple/developer modes + kinds) |
 | Compose dispatch | `compile_requirements_input` unchanged dispatch path; CLI `compile-requirements` help updated |
 | Shared engine | `evaluate_contract_rules` unchanged (MISSION-016) |
-| Governance | OAR-012 Ready for owner acceptance; Requirements compiler stays `PARTIAL`; OAR-009 still Ready; OAR-010/OAR-011 Accepted |
+| Governance | OAR-012 Accepted 2026-08-22; Requirements compiler stays `PARTIAL`; OAR-009 still Ready; OAR-010/OAR-011 Accepted |
 
 ## Tests added
 
@@ -49,10 +49,10 @@ MISSION-018 does **not** claim full Roadmap Phase 4B exit, a CERTIFIED requireme
 - Simple/developer envelope assembly only — not prs/authoring-prose producers; compact `cases.json` stays test-only.
 - Requirements compiler maturity remains **`PARTIAL`** — structured profiles + M1 intake + M2 fake sidecar + MISSION-016 canonical-record engine + MISSION-017 file/api + this simple/developer producer layer; not CERTIFIED.
 - OQ-008-001 through OQ-008-009 remain **open** (fail closed; no invented owner answers).
-- OAR-006/007/008 **Accepted** boundaries unchanged; OAR-009 is still **Ready for owner acceptance**, not Accepted; OAR-010 and OAR-011 are **Accepted**; OAR-012 is **Ready for owner acceptance**, not Accepted.
+- OAR-006/007/008 **Accepted** boundaries unchanged; OAR-009 is still **Ready for owner acceptance**, not Accepted; OAR-010, OAR-011, and OAR-012 are **Accepted**.
 - No live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, hosted UI, MissionRig, IR v0.2, or enterprise SAST.
 - This mission does **not** unblock M3. Next authorized step remains M3 per schedule **and** remaining 008 authoring envelopes / OQ decisions.
 
 ## Non-claims
 
-Matching OAR-012: live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, prs/authoring-prose producers, full MISSION-008 production requirements compiler, full Roadmap Phase 4B exit, benchmarks/claims, hosted product surfaces, MissionRig, IR v0.2, enterprise SAST, and resolving OQ-008-001 through OQ-008-009 remain unauthorized. Requirements compiler stays `PARTIAL`. OAR-009 remains Ready (not Accepted by this record). OAR-010 and OAR-011 remain Accepted.
+Matching OAR-012: live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, prs/authoring-prose producers, full MISSION-008 production requirements compiler, full Roadmap Phase 4B exit, benchmarks/claims, hosted product surfaces, MissionRig, IR v0.2, enterprise SAST, and resolving OQ-008-001 through OQ-008-009 remain unauthorized. Requirements compiler stays `PARTIAL`. OAR-009 remains Ready (not Accepted by this record). OAR-010, OAR-011, and OAR-012 remain Accepted.
