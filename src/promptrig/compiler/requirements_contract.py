@@ -690,7 +690,21 @@ def compile_requirements_input(
 ) -> RequirementsCompileResult:
     if isinstance(payload, Mapping) and "requirements_document" in payload:
         return compile_requirements(payload, registry=registry)
-    # Local import avoids a cycle: produce_requirements imports REQUIREMENTS_CONTRACT_VERSION from this module.
+    from .plain_language import PlainLanguageParseError
+    from .requirements_plain_produce import (
+        is_plain_language_compile_payload,
+        produce_plain_language_requirements,
+    )
     from .requirements_produce import produce_requirements
 
+    if is_plain_language_compile_payload(payload):
+        try:
+            artifacts = produce_plain_language_requirements(str(payload["text"]))
+        except PlainLanguageParseError as exc:
+            return RequirementsCompileResult(
+                status="BLOCKED",
+                reason_codes=(exc.code,),
+                contract_version=REQUIREMENTS_CONTRACT_VERSION,
+            )
+        return compile_requirements(artifacts, registry=registry)
     return compile_requirements(produce_requirements(payload), registry=registry)
