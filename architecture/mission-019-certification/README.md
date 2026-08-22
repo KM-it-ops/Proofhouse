@@ -1,7 +1,7 @@
 # MISSION-008 PRS Envelope Producers (MISSION-019)
 
-**Status:** OAR-013 Ready (not Accepted). OAR-012 Accepted 2026-08-22. OAR-011 and OAR-010 remain Accepted. OAR-009 remains Ready (not Accepted).
-**Baseline:** local `main` @ `e64655e` (MISSION-019 worktree start).
+**Status:** OAR-013 Accepted 2026-08-22. OAR-012 Accepted 2026-08-22. OAR-011 and OAR-010 remain Accepted. OAR-009 remains Ready (not Accepted).
+**Baseline:** local `main` @ `10a0449` (acceptance after MISSION-019 merge).
 **Scope:** Extend `produce_requirements` so structured `authoring_mode=prs` envelopes assemble canonical MISSION-008 artifact mappings and evaluate via the existing `compile_requirements` engine. File, api, simple, and developer envelope producers from MISSION-017/018 remain unchanged.
 
 This is Campaign COMPILER remaining 008 producers. Historical ambition-gap P2 "MISSION-017 platform SPECs" is not this mission.
@@ -24,5 +24,5 @@ This is Campaign COMPILER remaining 008 producers. Historical ambition-gap P2 "M
 - PRS **language** (grammar, parser, CONTRACT_CANDIDATE) remains DEFERRED per `PRS_DISPOSITION.md`; this mission implements only the structured envelope producer, not a PRS language implementation.
 - Requirements compiler maturity remains PARTIAL.
 - Ambition-gap C4 (IR v0.2 planning) is not this mission.
-- OAR-013 Ready (not Accepted). OAR-012 Accepted. OAR-011 and OAR-010 Accepted. OAR-009 remains Ready (not Accepted).
+- OAR-013 Accepted. OAR-012, OAR-011, and OAR-010 Accepted. OAR-009 remains Ready (not Accepted).
 - An envelope with no explicit mappings cannot reach SUCCESS: synthesized mappings are unresolved and non-emitting.
