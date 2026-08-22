@@ -1,4 +1,4 @@
-"""MISSION-017/018: file/api/simple/developer envelope → canonical MISSION-008 artifact mapping.
+"""MISSION-017/018/019: file/api/simple/developer/prs envelope → canonical MISSION-008 artifact mapping.
 
 Does not evaluate RC-065. `compile_requirements` remains the sole rule engine.
 """
@@ -40,6 +40,7 @@ MODE_SOURCE_KINDS = {
     "api": frozenset({"api_request", "decision", "contract"}),
     "simple": frozenset({"ordinary_language", "decision", "contract"}),
     "developer": frozenset({"developer_config", "decision", "contract"}),
+    "prs": frozenset({"prs", "decision", "contract"}),
 }
 PRODUCER_VAL_DIGEST = hashlib.sha256(b"promptrig-mission-017-producer").hexdigest()
 INPUT_ID_PATTERN = re.compile(r"^INP-[A-Z0-9-]+$")

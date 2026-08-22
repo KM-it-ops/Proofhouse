@@ -79,14 +79,6 @@ def test_developer_envelope_produces_developer_config_sources() -> None:
     assert result.status != "INVALID_OUTPUT"
 
 
-def test_prs_still_invalid_output() -> None:
-    envelope = _simple_envelope()
-    envelope["intent_input"]["authoring_mode"] = "prs"
-    result = compile_requirements_input(envelope)
-    assert result.status == "INVALID_OUTPUT"
-    assert "RQC-SCH-0001" in result.reason_codes
-
-
 def test_wrong_kind_for_simple_is_schema_invalid() -> None:
     envelope = _simple_envelope()
     envelope["sources"] = [_source(kind="file", source_id="SRC-018-SMP")]
