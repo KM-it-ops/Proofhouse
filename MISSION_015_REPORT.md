@@ -1,8 +1,8 @@
 # MISSION-015 Report — Phase 4B Residual Evidence
 
-**Status:** OAR-009 Ready for owner acceptance (not Accepted).  
-**Baseline:** `8fc5c43` (`main`, PR #21 merge / OAR-008 Accepted).  
-**Branch:** `feature/mission-015-phase4b-residual`
+**Status:** OAR-009 Accepted 2026-08-22.  
+**Baseline:** local `main` @ `7ea1b92` (post-merge acceptance).  
+**Branch:** merged to local `main`
 
 ## Scope
 
@@ -30,7 +30,7 @@ Ambition-gap C4 (IR v0.2 planning) is **not** this mission.
 | Consumer matrix | `tests/compiler/fixtures/external_consumer_matrix.py` |
 | Resource bounds | `src/promptrig/compiler/resource_bounds.py` |
 | CI | `.github/workflows/ci.yml` `wheel-install` job (eighth job) |
-| Governance | OAR-009 Ready for owner acceptance; maturity map; deferred registry; root README Status |
+| Governance | OAR-009 Accepted 2026-08-22; maturity map; deferred registry; root README Status |
 
 ## Test evidence
 
@@ -54,7 +54,7 @@ MISSION-015 does **not** claim full Roadmap Phase 4B exit or CERTIFIED requireme
 
 - Residual evidence only: PEP 517 clean-install, installed-package public-API consumer matrix, operational fail-closed resource ceilings for `closed_loop_requirements_minimal.json` + `repair_budget=1` — **not a benchmark** (REJ-005).
 - Requirements compiler maturity remains **`PARTIAL`** — structured profiles + M1 intake + M2 fake sidecar; not full MISSION-008 production compiler.
-- OAR-006/007/008 **Accepted** boundaries unchanged; OAR-009 is **Ready for owner acceptance**, not Accepted.
+- OAR-006/007/008 **Accepted** boundaries unchanged; OAR-009 is **Accepted 2026-08-22**.
 - No live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, hosted UI, MissionRig, IR v0.2, or enterprise SAST.
 - Ambition-gap C4 (IR v0.2 planning) is not this mission.
 
