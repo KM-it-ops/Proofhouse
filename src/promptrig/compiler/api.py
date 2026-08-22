@@ -61,6 +61,7 @@ _REQUIREMENTS_CONTRACT_EXPORTS = frozenset(
         "RequirementsCompileResult",
         "produce_requirements",
         "compile_requirements_input",
+        "produce_plain_language_requirements",
     }
 )
 _LAZY_EXPORTS = (
@@ -87,10 +88,13 @@ def __getattr__(name: str):
         return build_fake_model_proposal
     if name in _REQUIREMENTS_CONTRACT_EXPORTS:
         from . import requirements_contract
+        from . import requirements_plain_produce
         from . import requirements_produce
 
         if name == "produce_requirements":
             return requirements_produce.produce_requirements
+        if name == "produce_plain_language_requirements":
+            return requirements_plain_produce.produce_plain_language_requirements
         return getattr(requirements_contract, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
