@@ -297,8 +297,8 @@ def test_compile_requirements_input_help_names_envelope() -> None:
     assert "file/api/simple/developer/prs" in help_text
     input_action = next(a for a in req._actions if getattr(a, "dest", None) == "input")
     assert input_action.help == (
-        "Path to canonical artifact JSON or file/api/simple/developer/prs envelope, "
-        "or '-' for stdin."
+        "Path to canonical artifact JSON, file/api/simple/developer/prs envelope, "
+        "or plain_language_v0 text envelope, or '-' for stdin."
     )
 
 

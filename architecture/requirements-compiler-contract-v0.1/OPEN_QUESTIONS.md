@@ -88,4 +88,4 @@
 - **Fixture corpus:** the preserved 41-case semantic-oracle corpus is a **test-only semantic projection, not a canonical requirements document**. It was deliberately not rewritten into schema documents; its compact shorthand carries no canonical status and is not evidence of canonical record shape.
 - **Non-authorization:** this resolution settles record structure only. It authorizes no production implementation and approves no `RCD-008-*` decision.
 
-These resolutions do not authorize implementation. Engine and producer fail-closed behavior remains until a separately authorized campaign implements a named resolution. Authoring-prose producers, M3 / Simple Mode UI, live providers, full MISSION-008 production compiler, CERTIFIED maturity, and full Phase 4B exit remain unauthorized.
+These resolutions do not authorize implementation. Engine and producer fail-closed behavior remains until a separately authorized campaign implements a named resolution. M3 / Simple Mode UI, live providers, full MISSION-008 production compiler, CERTIFIED maturity, and full Phase 4B exit remain unauthorized.

@@ -222,15 +222,16 @@ def build_parser() -> argparse.ArgumentParser:
     p_req = subparsers.add_parser(
         "compile-requirements",
         help=(
-            "Evaluate canonical MISSION-008 artifact JSON or a file/api/simple/developer/prs "
-            "envelope (not authoring prose; not closed-loop)."
+            "Evaluate canonical MISSION-008 artifact JSON, a file/api/simple/developer/prs "
+            "envelope, or a plain_language_v0 text envelope (constrained prose; not freeform NLP; "
+            "not closed-loop)."
         ),
     )
     p_req.add_argument(
         "input",
         help=(
-            "Path to canonical artifact JSON or file/api/simple/developer/prs envelope, "
-            "or '-' for stdin."
+            "Path to canonical artifact JSON, file/api/simple/developer/prs envelope, "
+            "or plain_language_v0 text envelope, or '-' for stdin."
         ),
     )
     p_req.add_argument("--json", action="store_true", help="Emit a single JSON result object.")
