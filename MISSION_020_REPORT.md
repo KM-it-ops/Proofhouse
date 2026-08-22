@@ -3,7 +3,7 @@
 **Status:** OAR-014 Ready for owner acceptance.  
 **Baseline:** `af40a53`.  
 **Branch:** `feature/mission-020-authoring-prose-producers`  
-**HEAD (Tasks 1–3):** `41c34cc`
+**HEAD (Tasks 1–3):** `339cb3d` (Task 3 docs commit `41c34cc` + report `339cb3d`)
 
 ## Scope
 
