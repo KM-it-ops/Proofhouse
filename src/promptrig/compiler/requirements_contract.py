@@ -14,6 +14,7 @@ from dataclasses import dataclass
 from typing import Any, Mapping
 
 from . import paths
+from .plain_language import PlainLanguageParseError
 
 REQUIREMENTS_CONTRACT_VERSION = "0.1.0-draft"
 STATUS_VALUES = {"SUCCESS", "PARTIAL", "BLOCKED", "REFUSED", "INVALID_OUTPUT"}
@@ -690,7 +691,7 @@ def compile_requirements_input(
 ) -> RequirementsCompileResult:
     if isinstance(payload, Mapping) and "requirements_document" in payload:
         return compile_requirements(payload, registry=registry)
-    from .plain_language import PlainLanguageParseError
+    # Local imports avoid a cycle: produce modules import REQUIREMENTS_CONTRACT_VERSION from this module.
     from .requirements_plain_produce import (
         is_plain_language_compile_payload,
         produce_plain_language_requirements,

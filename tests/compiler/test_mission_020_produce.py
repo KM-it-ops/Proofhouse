@@ -42,6 +42,14 @@ def test_freeform_text_is_parse_blocked() -> None:
     assert "PL-PARSE-0001" in result.reason_codes
 
 
+def test_goal_only_plain_language_is_parse_blocked() -> None:
+    result = compile_requirements_input(
+        {"profile": "plain_language_v0", "text": "Goal: Only a goal.\n"}
+    )
+    assert result.status == "BLOCKED"
+    assert "PL-PARSE-0002" in result.reason_codes
+
+
 def test_extra_keys_are_schema_invalid() -> None:
     payload = _plain_payload()
     payload["repair_budget"] = 1
