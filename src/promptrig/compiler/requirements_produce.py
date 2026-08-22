@@ -1,4 +1,4 @@
-"""MISSION-017: file/api envelope → canonical MISSION-008 artifact mapping.
+"""MISSION-017/018: file/api/simple/developer envelope → canonical MISSION-008 artifact mapping.
 
 Does not evaluate RC-065. `compile_requirements` remains the sole rule engine.
 """
