@@ -3,7 +3,7 @@
 **Status:** OAR-013 Ready for owner acceptance (not Accepted).  
 **Baseline:** local `main` @ `e64655e` (MISSION-019 worktree start).  
 **Branch:** `feature/mission-019-prs-envelope-producers`  
-**HEAD (Tasks 1–3):** `329cdc7`
+**HEAD (Tasks 1–3):** `a048119`
 
 ## Scope
 
@@ -19,7 +19,7 @@ OAR-009 remains **Ready for owner acceptance** (not Accepted). OAR-010, OAR-011,
 |---|---|---|
 | 1 | `94df025` | Certification README + schedule honesty test (`test_mission_019_schedule.py`) |
 | 2 | `f22c801` | PRS envelope producer in `requirements_produce.py`; `test_mission_019_produce.py` |
-| 3 | `329cdc7` | CLI help naming prs; OAR-013 Ready; maturity/deferred/README; this report |
+| 3 | `a048119` | CLI help naming prs; OAR-013 Ready; maturity/deferred/README; this report |
 
 ## Deliverables
 
