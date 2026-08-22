@@ -35,8 +35,12 @@ REQUIRED_INTENT_KEYS = frozenset(
         "non_authoritative_inputs",
     }
 )
-FILE_SOURCE_KINDS = frozenset({"file", "decision", "contract"})
-API_SOURCE_KINDS = frozenset({"api_request", "decision", "contract"})
+MODE_SOURCE_KINDS = {
+    "file": frozenset({"file", "decision", "contract"}),
+    "api": frozenset({"api_request", "decision", "contract"}),
+    "simple": frozenset({"ordinary_language", "decision", "contract"}),
+    "developer": frozenset({"developer_config", "decision", "contract"}),
+}
 PRODUCER_VAL_DIGEST = hashlib.sha256(b"promptrig-mission-017-producer").hexdigest()
 INPUT_ID_PATTERN = re.compile(r"^INP-[A-Z0-9-]+$")
 
@@ -52,7 +56,7 @@ def produce_requirements(envelope: Mapping[str, Any] | object) -> dict[str, Any]
     if set(intent) - ALLOWED_INTENT_KEYS or not REQUIRED_INTENT_KEYS <= set(intent):
         return {}
     mode = intent.get("authoring_mode")
-    if mode not in {"file", "api"}:
+    if mode not in MODE_SOURCE_KINDS:
         return {}
     if intent.get("contract_version") != REQUIREMENTS_CONTRACT_VERSION:
         return {}
@@ -70,7 +74,7 @@ def produce_requirements(envelope: Mapping[str, Any] | object) -> dict[str, Any]
         for source in sources
     ):
         return {}
-    allowed_kinds = FILE_SOURCE_KINDS if mode == "file" else API_SOURCE_KINDS
+    allowed_kinds = MODE_SOURCE_KINDS[mode]
     if any(source.get("kind") not in allowed_kinds for source in sources):
         return {}
     imports = envelope.get("imports")

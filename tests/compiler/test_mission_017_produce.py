@@ -144,15 +144,14 @@ def test_invalid_input_id_is_invalid_output() -> None:
     assert "RQC-SCH-0001" in result.reason_codes
 
 
-def test_simple_developer_prs_are_invalid_output() -> None:
+def test_prs_is_invalid_output() -> None:
     from promptrig.compiler.requirements_contract import compile_requirements_input
 
-    for mode in ("simple", "developer", "prs"):
-        envelope = _file_envelope()
-        envelope["intent_input"]["authoring_mode"] = mode
-        result = compile_requirements_input(envelope)
-        assert result.status == "INVALID_OUTPUT"
-        assert "RQC-SCH-0001" in result.reason_codes
+    envelope = _file_envelope()
+    envelope["intent_input"]["authoring_mode"] = "prs"
+    result = compile_requirements_input(envelope)
+    assert result.status == "INVALID_OUTPUT"
+    assert "RQC-SCH-0001" in result.reason_codes
 
 
 def test_unknown_top_level_field_is_invalid_output() -> None:
