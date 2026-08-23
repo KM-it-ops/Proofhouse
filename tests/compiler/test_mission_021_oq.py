@@ -178,3 +178,67 @@ def test_valid_prose_stays_blocked() -> None:
     )
     assert result.status == "BLOCKED"
     assert "RQC-BLK-0001" in result.reason_codes
+
+
+def test_advisory_nonsemantic_diagnostic_can_coexist_with_success() -> None:
+    from promptrig.compiler.requirements_contract import compile_requirements
+
+    envelope = {
+        "intent_input": _intent(mode="developer", input_id="INP-021-020"),
+        "sources": [_source(kind="developer_config", source_id="SRC-021-020")],
+        "claims": [_claim(req_id="REQ-021-020", source_id="SRC-021-020")],
+        "mappings": [
+            {
+                "id": "MAP-021-020",
+                "requirement_id": "REQ-021-020",
+                "outcome": "direct",
+                "target_pointer": "/objective/goal",
+                "authority_ref": {"kind": "source", "ref": "SRC-021-020"},
+                "validation_ref": "VAL-PROD-001",
+            }
+        ],
+        "diagnostics": [
+            {
+                "id": "RQDIA-021-020",
+                "code": "RQC-ADV-0001",
+                "severity": "warning",
+                "message_key": "requirements.advisory_nonsemantic",
+                "parameters": {},
+                "source_refs": ["SRC-021-020"],
+                "requirement_refs": ["REQ-021-020"],
+            }
+        ],
+    }
+    artifacts = produce_requirements(envelope)
+    result = compile_requirements(artifacts)
+    assert result.status == "SUCCESS"
+    assert result.reason_codes == ("RQC-ADV-0001",)
+
+
+def test_replaced_source_stays_partial() -> None:
+    envelope = {
+        "intent_input": _intent(mode="developer", input_id="INP-021-021"),
+        "sources": [
+            _source(
+                kind="developer_config",
+                source_id="SRC-021-021",
+                lifecycle="replaced",
+                replaced_by="SRC-021-021B",
+            ),
+            _source(kind="developer_config", source_id="SRC-021-021B"),
+        ],
+        "claims": [_claim(req_id="REQ-021-021", source_id="SRC-021-021B")],
+        "mappings": [
+            {
+                "id": "MAP-021-021",
+                "requirement_id": "REQ-021-021",
+                "outcome": "direct",
+                "target_pointer": "/objective/goal",
+                "authority_ref": {"kind": "source", "ref": "SRC-021-021B"},
+                "validation_ref": "VAL-PROD-001",
+            }
+        ],
+    }
+    result = compile_requirements_input(envelope)
+    assert result.status == "PARTIAL"
+    assert "RQC-SRC-0005" in result.reason_codes
