@@ -106,7 +106,7 @@ def produce_requirements(envelope: Mapping[str, Any] | object) -> dict[str, Any]
                 open_questions.append(
                     {
                         "id": f"OQN-{rid}",
-                        "text": "OQ-008-001 unanswered: file fragment without digest; fail closed.",
+                        "text": "OQ-008-001: file source with stable bytes missing digest; fail closed.",
                         "affected_requirement_refs": [rid],
                         "impact": "required",
                         "resolution_state": "unresolved",
