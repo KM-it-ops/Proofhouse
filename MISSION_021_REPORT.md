@@ -3,7 +3,7 @@
 **Status:** OAR-015 Ready for owner acceptance (not Accepted).  
 **Baseline:** local `main` @ `ca888a8`.  
 **Branch:** `feature/mission-021-oq-implementation`.  
-**HEAD (Tasks 1–5 + docs):** `37bca50`
+**HEAD (Tasks 1–5 + docs):** `ad0a43a`
 
 ## Scope
 
@@ -22,6 +22,7 @@ OAR-009 through OAR-014 remain **Accepted**. OAR-015 is **Ready for owner accept
 | 3 | `52e99c3` | OQ-008-001 file digest fail-closed named policy |
 | 4 | `6eb1344` | OQ-008-002 optional unresolved meaning → PARTIAL with evidence |
 | 5 | `c1ef9f7` | OQ-008-006 SUCCESS advisory non-semantic diagnostics |
+| 5 (docs) | `ad0a43a` | MISSION-021 report, OAR-015 draft, honesty surfaces |
 
 ## Deliverables
 
