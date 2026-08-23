@@ -669,7 +669,14 @@ def evaluate_contract_rules(context: Mapping[str, Any], registry: Mapping[str, A
 
     # --- Class 8: complete success ---
     if requirements and all(requirement.get("acceptance_state") == "accepted" for requirement in requirements):
-        return "SUCCESS", []
+        advisory_codes = []
+        for code in context["emitted_diagnostic_codes"]:
+            if not code:
+                continue
+            entry = registry.get(code) or {}
+            if entry.get("class") == "advisory" and entry.get("semantic") is False:
+                advisory_codes.append(code)
+        return "SUCCESS", sorted(set(advisory_codes))
     return "INVALID_OUTPUT", ["RQC-SEM-0001"]
 
 

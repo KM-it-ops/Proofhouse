@@ -27,6 +27,7 @@
     {"code": "RQC-SRC-0003", "severity": "error", "class": "immutable", "message_key": "requirements.source_location_invalid"},
     {"code": "RQC-SRC-0004", "severity": "error", "class": "immutable", "message_key": "requirements.source_claims_conflict"},
     {"code": "RQC-SRC-0005", "severity": "warning", "class": "advisory", "message_key": "requirements.source_replaced"},
+    {"code": "RQC-ADV-0001", "severity": "warning", "class": "advisory", "semantic": false, "message_key": "requirements.advisory_nonsemantic"},
     {"code": "RQC-UNS-0001", "severity": "error", "class": "immutable", "message_key": "requirements.capability_unsupported"},
     {"code": "RQC-UNS-0002", "severity": "error", "class": "immutable", "message_key": "requirements.import_unsupported"},
     {"code": "RQC-VER-0001", "severity": "error", "class": "immutable", "message_key": "requirements.version_unsupported"}

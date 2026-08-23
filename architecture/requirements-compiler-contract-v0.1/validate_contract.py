@@ -670,8 +670,13 @@ def _classify_linked_set(
         return "semantic_status_mismatch"
     if sorted(derived_codes) != sorted(declared_reasons):
         return "reason_code_mismatch"
-    if derived_status == "SUCCESS" and (declared_reasons or any(d.get("severity") == "error" for d in diagnostics)):
-        return "success_with_error_evidence"
+    if derived_status == "SUCCESS":
+        if any(d.get("severity") == "error" for d in diagnostics):
+            return "success_with_error_evidence"
+        for code in declared_reasons:
+            entry = registry.get(code) or {}
+            if entry.get("class") != "advisory" or entry.get("semantic") is not False:
+                return "success_with_error_evidence"
     if derived_status != "SUCCESS" and not declared_reasons:
         return "missing_required_diagnostics"
     return "valid"
