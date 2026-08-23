@@ -3,7 +3,7 @@
 **Status:** OAR-015 Accepted 2026-08-23.  
 **Baseline:** local `main` @ `180b05c`.  
 **Branch:** `feature/mission-021-oq-implementation`.  
-**HEAD (OAR-015 Accept):** `eb01e89`
+**HEAD (OAR-015 Accept):** `79145dc`
 
 ## Scope
 
