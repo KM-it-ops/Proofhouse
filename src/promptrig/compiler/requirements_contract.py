@@ -474,6 +474,16 @@ def evaluate_contract_rules(context: Mapping[str, Any], registry: Mapping[str, A
     def has_emitting_mapping(rid: str) -> bool:
         return any(m.get("requirement_id") == rid and m.get("outcome") in _EMITTING_OUTCOMES for m in mappings)
 
+    def requirement_by_id(rid: str) -> Mapping[str, Any] | None:
+        for requirement in requirements:
+            if requirement.get("id") == rid:
+                return requirement
+        return None
+
+    def is_optional_requirement(rid: str) -> bool:
+        record = requirement_by_id(rid)
+        return bool(record) and record.get("priority") == "optional"
+
     # --- Class 0: structural / identity / version invalidity ---
     emitted = {code for code in context["emitted_diagnostic_codes"] if code}
     if emitted - set(registry):
@@ -611,7 +621,8 @@ def evaluate_contract_rules(context: Mapping[str, Any], registry: Mapping[str, A
     if no_ir_mappings:
         if any(mapping.get("diagnostic_code") != "RQC-IRG-0001" or not mapping.get("gap_id") for mapping in no_ir_mappings):
             return "INVALID_OUTPUT", ["RQC-EVD-0001"]
-        return "BLOCKED", ["RQC-BLK-0001", "RQC-IRG-0001"]
+        if any(not is_optional_requirement(mapping.get("requirement_id", "")) for mapping in no_ir_mappings):
+            return "BLOCKED", ["RQC-BLK-0001", "RQC-IRG-0001"]
     # 6g unsupported behaviour / capability.
     if context["unsupported_behavior"] == "recursive_import":
         return "BLOCKED", ["RQC-UNS-0002"]
@@ -627,11 +638,31 @@ def evaluate_contract_rules(context: Mapping[str, Any], registry: Mapping[str, A
             return "BLOCKED", ["RQC-BLK-0001", "RQC-CTX-0001"]
         return "BLOCKED", ["RQC-AMB-0001"]
     # 6j mapping completeness (B4): an accepted requirement without an emitting mapping is blocked.
-    if any(requirement.get("acceptance_state") == "accepted" and not has_emitting_mapping(requirement.get("id", "")) for requirement in requirements):
+    unmapped_accepted = [
+        requirement
+        for requirement in requirements
+        if requirement.get("acceptance_state") == "accepted" and not has_emitting_mapping(requirement.get("id", ""))
+    ]
+    if unmapped_accepted and any(requirement.get("priority") != "optional" for requirement in unmapped_accepted):
         return "BLOCKED", ["RQC-BLK-0001"]
 
     # --- Class 7: PARTIAL (optional-only remainder or advisory replaced source) ---
+    no_ir_remaining = [mapping for mapping in mappings if mapping.get("outcome") == "no_ir_representation"]
+    optional_unmapped_accepted = [
+        requirement
+        for requirement in requirements
+        if requirement.get("acceptance_state") == "accepted"
+        and not has_emitting_mapping(requirement.get("id", ""))
+        and requirement.get("priority") == "optional"
+    ]
     if unresolved and all(requirement.get("priority") == "optional" for requirement in unresolved):
+        codes = ["RQC-AMB-0001"]
+        if no_ir_remaining:
+            codes.append("RQC-IRG-0001")
+        return "PARTIAL", sorted(set(codes))
+    if no_ir_remaining:
+        return "PARTIAL", ["RQC-IRG-0001"]
+    if optional_unmapped_accepted:
         return "PARTIAL", ["RQC-AMB-0001"]
     if any(source.get("lifecycle") == "replaced" for source in source_list):
         return "PARTIAL", ["RQC-SRC-0005"]
