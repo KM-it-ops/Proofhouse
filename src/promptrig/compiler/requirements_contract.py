@@ -2,8 +2,9 @@
 
 This module is the single implementation of the requirements-compiler contract
 rule engine. It is not an authoring-prose compiler: it evaluates canonical
-artifact records only. Open questions OQ-008-001 through OQ-008-009 remain
-unresolved; unknown answers stay BLOCKED / PARTIAL / gap evidence.
+artifact records only. OQ-008-001, OQ-008-002, and OQ-008-006 are implemented;
+OQ-008-003 through OQ-008-005 and OQ-008-007 through OQ-008-010 remain
+unimplemented.
 """
 from __future__ import annotations
 
