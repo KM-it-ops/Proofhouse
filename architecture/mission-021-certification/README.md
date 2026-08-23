@@ -1,6 +1,6 @@
 # MISSION-008 OQ-008-001/002/006 Implementation (MISSION-021)
 
-**Status:** OAR-015 Ready for owner acceptance. OAR-014 through OAR-009 remain Accepted.
+**Status:** OAR-015 Accepted 2026-08-23. OAR-014 through OAR-009 remain Accepted.
 **Baseline:** local `main` @ `ca888a8`.
 **Scope:** Implement owner-resolved OQ-008-001 (file digest when stable bytes exist), OQ-008-002 (optional unresolved meaning → PARTIAL with evidence), and OQ-008-006 (SUCCESS may carry advisory non-semantic diagnostics) in the existing `evaluate_contract_rules` engine and file-envelope producer.
 
@@ -22,4 +22,4 @@ This is Campaign COMPILER remaining 008 policy implementation. Not a full produc
 - Not freeform NLP; not live model-assisted suggestion.
 - PRS **language** (grammar, parser, CONTRACT_CANDIDATE) remains DEFERRED per `PRS_DISPOSITION.md`.
 - Requirements compiler maturity remains PARTIAL.
-- OAR-015 Ready (not Accepted). OAR-014 through OAR-009 Accepted.
+- OAR-015 Accepted 2026-08-23. OAR-014 through OAR-009 Accepted.
