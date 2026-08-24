@@ -5,7 +5,8 @@ rule engine. It is not an authoring-prose compiler: it evaluates canonical
 artifact records only. OQ-008-001, OQ-008-002, and OQ-008-006 are implemented;
 OQ-008-005 (exact `0.1.0-draft` version gate) is implemented;
 OQ-008-003 (undeterminable required authority is BLOCKED) is implemented;
-OQ-008-004 and OQ-008-007 through OQ-008-010 remain unimplemented.
+OQ-008-010 (structured-only assumption and open-question records) is implemented;
+OQ-008-004 and OQ-008-007 through OQ-008-009 remain unimplemented.
 """
 from __future__ import annotations
 
@@ -149,6 +150,16 @@ CANONICAL_NAMESPACES = (
 def _records(container: Mapping[str, Any], key: str) -> list[dict[str, Any]]:
     value = container.get(key)
     return [record for record in value if isinstance(record, dict)] if isinstance(value, list) else []
+
+
+def _has_non_object_item(container: Mapping[str, Any], key: str) -> bool:
+    """True when a canonical list contains an item that is not a dict (OQ-008-010).
+
+    `_records` drops non-dicts, so this must inspect the raw list before filtering.
+    """
+
+    value = container.get(key)
+    return isinstance(value, list) and any(not isinstance(item, dict) for item in value)
 
 
 def find_duplicate_identities(context: Mapping[str, Any]) -> list[str]:
@@ -452,6 +463,9 @@ def context_from_artifacts(artifacts: Mapping[str, Any]) -> dict[str, Any]:
             for requirement in _records(document, "requirements")
         ),
         required_context_missing=False,
+        # Inspect raw lists before `_records` filtering so string items cannot vanish into SUCCESS.
+        non_object_assumption_or_question=_has_non_object_item(document, "assumptions")
+        or _has_non_object_item(document, "open_questions"),
     )
     return context
 
@@ -491,6 +505,8 @@ def evaluate_contract_rules(context: Mapping[str, Any], registry: Mapping[str, A
     if emitted - set(registry):
         return "INVALID_OUTPUT", ["RQC-DIA-0001"]
     if context["unknown_fields"]:
+        return "INVALID_OUTPUT", ["RQC-SCH-0001"]
+    if context.get("non_object_assumption_or_question"):
         return "INVALID_OUTPUT", ["RQC-SCH-0001"]
     if context["version"] != REQUIREMENTS_CONTRACT_VERSION:
         return "INVALID_OUTPUT", ["RQC-VER-0001"]

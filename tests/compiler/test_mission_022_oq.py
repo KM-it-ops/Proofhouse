@@ -8,6 +8,7 @@ from promptrig.compiler.requirements_contract import (
     REQUIREMENTS_CONTRACT_VERSION,
     compile_requirements,
 )
+from promptrig.compiler.requirements_produce import produce_requirements
 
 ROOT = Path(__file__).resolve().parents[2]
 LAS = ROOT / "architecture" / "requirements-compiler-contract-v0.1" / "fixtures" / "linked_artifact_sets.json"
@@ -157,4 +158,64 @@ def test_oq_008_003_does_not_freeze_owner_only_categories() -> None:
     source = Path("src/promptrig/compiler/requirements_contract.py").read_text(encoding="utf-8")
     assert "OWNER_ONLY" not in source
     assert "owner_only_categories" not in source
+
+
+def _file_envelope() -> dict:
+    return {
+        "intent_input": {
+            "contract_version": REQUIREMENTS_CONTRACT_VERSION,
+            "input_id": "INP-022-010",
+            "authoring_mode": "file",
+            "intent": "Compile from an envelope.",
+            "authoritative_inputs": ["file:envelope"],
+            "non_authoritative_inputs": [],
+        },
+        "sources": [
+            {
+                "id": "SRC-022-010",
+                "kind": "file",
+                "lifecycle": "current",
+                "authority_claim": "Envelope supplied the objective.",
+                "location": {"uri": "file://022-010", "json_pointer": "/claims/0"},
+            }
+        ],
+        "claims": [
+            {
+                "id": "REQ-022-010",
+                "type": "objective",
+                "statement": "Compile from an envelope.",
+                "priority": "required",
+                "acceptance_state": "accepted",
+                "authority_basis": "directly_stated",
+                "source_refs": ["SRC-022-010"],
+                "acceptance_criteria": ["Engine owns status."],
+                "consequential": False,
+            }
+        ],
+    }
+
+
+def test_oq_008_010_string_assumption_is_invalid_output() -> None:
+    artifacts = deepcopy(_set("LAS-POS-SUCCESS-001")["artifacts"])
+    artifacts["requirements_document"]["assumptions"] = ["bare string is not canonical"]
+    result = compile_requirements(artifacts)
+    assert result.status == "INVALID_OUTPUT"
+    assert "RQC-SCH-0001" in result.reason_codes
+
+
+def test_oq_008_010_string_open_question_is_invalid_output() -> None:
+    artifacts = deepcopy(_set("LAS-POS-SUCCESS-001")["artifacts"])
+    artifacts["requirements_document"]["open_questions"] = ["bare string is not canonical"]
+    result = compile_requirements(artifacts)
+    assert result.status == "INVALID_OUTPUT"
+    assert "RQC-SCH-0001" in result.reason_codes
+
+
+def test_oq_008_010_producer_emits_object_lists_not_strings() -> None:
+    artifacts = produce_requirements(_file_envelope())
+    document = artifacts["requirements_document"]
+    for key in ("assumptions", "open_questions"):
+        items = document[key]
+        assert isinstance(items, list)
+        assert all(isinstance(item, dict) for item in items)
 
