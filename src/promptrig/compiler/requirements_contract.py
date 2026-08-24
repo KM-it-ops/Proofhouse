@@ -3,8 +3,8 @@
 This module is the single implementation of the requirements-compiler contract
 rule engine. It is not an authoring-prose compiler: it evaluates canonical
 artifact records only. OQ-008-001, OQ-008-002, and OQ-008-006 are implemented;
-OQ-008-003 through OQ-008-005 and OQ-008-007 through OQ-008-010 remain
-unimplemented.
+OQ-008-005 (exact `0.1.0-draft` version gate) is implemented;
+OQ-008-003, OQ-008-004, and OQ-008-007 through OQ-008-010 remain unimplemented.
 """
 from __future__ import annotations
 
@@ -434,7 +434,7 @@ def context_from_artifacts(artifacts: Mapping[str, Any]) -> dict[str, Any]:
     context["questions"] = _records(document, "open_questions")
     context.update(
         canonical=True,
-        version=intent_input.get("contract_version", REQUIREMENTS_CONTRACT_VERSION),
+        version=intent_input.get("contract_version"),
         unknown_fields=[],
         semantically_empty=False,
         unsupported_behavior=None,
