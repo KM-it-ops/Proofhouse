@@ -1,9 +1,9 @@
 # MISSION-022 Report — Remaining OQ-008-003/005/010 Implementation
 
 **Status:** OAR-016 Accepted 2026-08-24.
-**Baseline:** local `main` @ `c1621b3`.
+**Baseline:** local `main` @ `6331287`.
 **Branch:** `feature/mission-022-remaining-oq`.
-**HEAD (OAR-016 Accept):** `c1621b3`
+**HEAD (OAR-016 Accept):** `7cc980f`
 
 ## Scope
 
