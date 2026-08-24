@@ -3,7 +3,7 @@
 **Status:** OAR-018 Ready (not Accepted).
 **Baseline:** local `main` @ `e9c7b0f`.
 **Branch:** `feature/mission-024-4b-certified-slice`.
-**HEAD (OAR-018 Ready):** this Task 2 commit
+**HEAD (OAR-018 Ready):** `c946215`
 
 ## Scope
 
@@ -18,7 +18,7 @@ OAR-009 through OAR-017 remain **Accepted**. OAR-018 is **Ready**, not Accepted.
 | Task | Commit | Deliverable |
 |---|---|---|
 | 1 | `8d17db5` | MISSION-024 remaining 4B honesty inventory README and schedule test |
-| 2 | this commit | OAR-018 Ready, current-state honesty docs, campaign report |
+| 2 | `c946215` | OAR-018 Ready, current-state honesty docs, campaign report |
 
 ## Deliverables
 
