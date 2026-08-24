@@ -79,13 +79,13 @@ All ten are decided on paper. Only some are in the engine.
                            9 thinking knobs      LOCKED (no IR knobs)
 ```
 
-After 023 the compiler is still PARTIAL. Numbered / constraint prose is mapped (OAR-017 Ready, not Accepted).
+After 023 the compiler is still PARTIAL. Numbered / constraint prose is mapped (OAR-017 Accepted 2026-08-24).
 
 ---
 
 ## Short answers
 
-**Where am I?** Phase 4B. Last closed code job: 023. Last Accepted OAR remains OAR-016 until Boss Accepts 017. Compiler still PARTIAL.
+**Where am I?** Phase 4B. Last closed job: 023 (OAR-017 Accepted 2026-08-24). Compiler still PARTIAL.
 
 **Is the product done?** No. Offline fake loop works. Compiler does not.
 
@@ -100,9 +100,8 @@ After 023 the compiler is still PARTIAL. Numbered / constraint prose is mapped (
 - Road: `architecture/strategy/ROADMAP_V1.md`
 - Done-or-not: `architecture/strategy/CAPABILITY_MATURITY_MAP.md`
 - Questions: `architecture/requirements-compiler-contract-v0.1/OPEN_QUESTIONS.md`
-- Last accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-016.md`
-- Prior accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-015.md`
-- Open job until Accepted: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-017.md` (Ready, not Accepted)
+- Last accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-017.md`
+- Prior accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-016.md`
 - 023 spec: `docs/superpowers/specs/2026-08-24-mission-023-plain-language-ir-mapping-design.md`
 - 023 plan: `docs/superpowers/plans/2026-08-24-mission-023-plain-language-ir-mapping.md`
 - 022 spec: `docs/superpowers/specs/2026-08-23-mission-022-008-remaining-oq-design.md`

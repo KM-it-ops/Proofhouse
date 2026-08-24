@@ -1,8 +1,8 @@
 # MISSION-023 Plain-Language IR Mapping (numbered + constraints)
 
-**Status:** OAR-017 Ready (not Accepted).
+**Status:** OAR-017 Accepted 2026-08-24.
 **Baseline:** Campaign COMPILER remaining work after MISSION-022.
-**Scope:** Map constrained `plain_language_v0` prose — Goal, numbered requirements, and optional constraint lines — to existing v0.1 IR pointers via `direct` outcome and `target_pointer` fields. No producer/engine changes in this honesty task; implementation follows in later tasks.
+**Scope:** Map constrained `plain_language_v0` prose — Goal, numbered requirements, and optional constraint lines — to existing v0.1 IR pointers via `direct` outcome and `target_pointer` fields.
 
 This is Campaign COMPILER plain-language mapping. Not a full production compiler.
 
@@ -25,4 +25,4 @@ This is Campaign COMPILER plain-language mapping. Not a full production compiler
 - **Not a live** provider path; no credentials; `network_allowed` remains false on the certified path.
 - **Not freeform** NLP; not live model-assisted suggestion; no PRS language/grammar unlock.
 - No IR v0.2 fields. No Phase 6–9 product surfaces.
-- OAR-014, OAR-015, and OAR-016 remain **Accepted** historical snapshots (including their prior “blocked” wording for earlier campaign scope). OAR-017 stays **Ready** until Boss accepts.
+- OAR-014, OAR-015, and OAR-016 remain **Accepted** historical snapshots (including their prior “blocked” wording for earlier campaign scope). OAR-017 Accepted 2026-08-24.
