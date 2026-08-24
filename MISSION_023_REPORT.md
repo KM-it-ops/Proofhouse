@@ -3,7 +3,7 @@
 **Status:** OAR-017 Accepted 2026-08-24.
 **Baseline:** local `main` @ `e2cc33b`.
 **Branch:** `feature/mission-023-plain-language-ir-mapping`.
-**HEAD (OAR-017 Accept):** `eccecd9`
+**HEAD (OAR-017 Accept):** `2e1da73`
 
 ## Scope
 
