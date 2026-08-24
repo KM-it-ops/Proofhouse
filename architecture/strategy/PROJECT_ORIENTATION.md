@@ -1,6 +1,6 @@
 # PromptRig — where you are
 
-**Date:** 2026-08-24. Local `main` is ahead of `origin/main`. Do not push `origin/main` unless you say to.
+**Date:** 2026-08-24. Laptop `main` matches `origin/main` at `e2cc33b`. Do not push unless you say to.
 
 Open the picture beside chat: Cursor canvas `promptrig-project-map.canvas.tsx`.
 
@@ -44,7 +44,8 @@ Phase 4B  (you live here)
 └── Compiler ................ NOT DONE / PARTIAL
       ├── Jobs 016–021 ...... done
       ├── Job 022 ........... done  (questions 3, 5, 10; 4/7/8/9 locked)
-      ├── M1 typing ......... in   (strict prose; numbered lines still blocked)
+      ├── Job 023 ........... done  (numbered + constraints map; Goal already mapped)
+      ├── M1 typing ......... in   (strict prose now compiles SUCCESS for valid grammar)
       └── M2 suggestions .... fake helper only (no live model)
 
 Phase 8  (later)
@@ -78,17 +79,17 @@ All ten are decided on paper. Only some are in the engine.
                            9 thinking knobs      LOCKED (no IR knobs)
 ```
 
-After 022 the compiler is still PARTIAL. Numbered / constraint prose is still blocked. That is a later job.
+After 023 the compiler is still PARTIAL. Numbered / constraint prose is mapped (OAR-017 Ready, not Accepted).
 
 ---
 
 ## Short answers
 
-**Where am I?** Phase 4B. Last closed job: 022 (OAR-016 Accepted 2026-08-24). Compiler still PARTIAL.
+**Where am I?** Phase 4B. Last closed code job: 023. Last Accepted OAR remains OAR-016 until Boss Accepts 017. Compiler still PARTIAL.
 
 **Is the product done?** No. Offline fake loop works. Compiler does not.
 
-**Should I start Simple Mode now?** No. That is Phase 8. Remaining compiler work (numbered/constraint prose, CERTIFIED, full 008) is still inside Phase 4B.
+**Should I start Simple Mode now?** No. That is Phase 8. Remaining compiler work (CERTIFIED, full 008, locked OQs) is still inside Phase 4B.
 
 **Can I push origin/main?** No, unless you explicitly ask.
 
@@ -101,5 +102,8 @@ After 022 the compiler is still PARTIAL. Numbered / constraint prose is still bl
 - Questions: `architecture/requirements-compiler-contract-v0.1/OPEN_QUESTIONS.md`
 - Last accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-016.md`
 - Prior accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-015.md`
+- Open job until Accepted: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-017.md` (Ready, not Accepted)
+- 023 spec: `docs/superpowers/specs/2026-08-24-mission-023-plain-language-ir-mapping-design.md`
+- 023 plan: `docs/superpowers/plans/2026-08-24-mission-023-plain-language-ir-mapping.md`
 - 022 spec: `docs/superpowers/specs/2026-08-23-mission-022-008-remaining-oq-design.md`
 - 022 plan: `docs/superpowers/plans/2026-08-23-mission-022-008-remaining-oq-implementation.md`
