@@ -3,7 +3,7 @@
 **Status:** OAR-016 Ready (not Accepted).
 **Baseline:** local `main` @ `6331287`.
 **Branch:** `feature/mission-022-remaining-oq`.
-**HEAD (this honesty pack):** `ef84532`
+**HEAD (this honesty pack):** `c80170a`
 
 ## Scope
 
@@ -22,7 +22,7 @@ OAR-009 through OAR-015 remain **Accepted**. OAR-016 is **Ready**, not Accepted.
 | 3 | `3368569` | OQ-008-003 fail-closed undeterminable approval authority |
 | 4 | `a70c92d` | OQ-008-010 reject string assumption and open-question records |
 | 5 | `65f7eed` | Lock OQ-008-004/007/008/009 as not-built |
-| 6 | `ef84532` | Honesty docs, OAR-016 Ready, campaign report |
+| 6 | `c80170a` | Honesty docs, OAR-016 Ready, campaign report |
 
 ## Deliverables
 
