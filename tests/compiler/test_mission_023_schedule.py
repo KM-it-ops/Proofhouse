@@ -40,3 +40,11 @@ def test_mission_023_maps_numbered_constraints_not_m3_still_partial() -> None:
         line for line in oar_text.splitlines() if line.lower().startswith("**status:**")
     )
     assert "accepted" in status_line.lower()
+    oar_017_path = Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-017.md")
+    assert oar_017_path.is_file()
+    oar_017_text = oar_017_path.read_text(encoding="utf-8")
+    status_017 = next(
+        line for line in oar_017_text.splitlines() if line.lower().startswith("**status:**")
+    )
+    assert "accepted" in status_017.lower()
+    assert "ready (not accepted)" not in status_017.lower()
