@@ -1,6 +1,6 @@
 # PromptRig — where you are
 
-**Date:** 2026-08-23. Local `main` is 61 commits ahead of `origin/main`. Do not push `origin/main` unless you say to.
+**Date:** 2026-08-24. Local `main` is ahead of `origin/main`. Do not push `origin/main` unless you say to.
 
 Open the picture beside chat: Cursor canvas `promptrig-project-map.canvas.tsx`.
 
@@ -84,7 +84,7 @@ After 022 the compiler is still PARTIAL. Numbered / constraint prose is still bl
 
 ## Short answers
 
-**Where am I?** Phase 4B. Last closed job: 022 (OAR-016 Ready, not Accepted). Compiler still PARTIAL.
+**Where am I?** Phase 4B. Last closed job: 022 (OAR-016 Accepted 2026-08-24). Compiler still PARTIAL.
 
 **Is the product done?** No. Offline fake loop works. Compiler does not.
 
@@ -99,7 +99,7 @@ After 022 the compiler is still PARTIAL. Numbered / constraint prose is still bl
 - Road: `architecture/strategy/ROADMAP_V1.md`
 - Done-or-not: `architecture/strategy/CAPABILITY_MATURITY_MAP.md`
 - Questions: `architecture/requirements-compiler-contract-v0.1/OPEN_QUESTIONS.md`
-- Last accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-015.md`
-- 022 Ready (not Accepted): `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-016.md`
+- Last accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-016.md`
+- Prior accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-015.md`
 - 022 spec: `docs/superpowers/specs/2026-08-23-mission-022-008-remaining-oq-design.md`
 - 022 plan: `docs/superpowers/plans/2026-08-23-mission-022-008-remaining-oq-implementation.md`

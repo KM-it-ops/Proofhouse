@@ -55,8 +55,8 @@ def test_mission_022_implements_003_005_010_locks_004_007_008_009_not_m3() -> No
     status_line = next(
         line for line in oar_text.splitlines() if line.lower().startswith("**status:**")
     )
-    assert "ready" in status_line.lower()
-    assert "accepted" not in status_line.lower()
+    assert "accepted" in status_line.lower()
+    assert "ready (not accepted)" not in status_line.lower()
     readme_021 = Path("architecture/mission-021-certification/README.md").read_text(encoding="utf-8")
     assert (
         "OQ-008-003 through OQ-008-005 and OQ-008-007 through OQ-008-010 remain unimplemented"

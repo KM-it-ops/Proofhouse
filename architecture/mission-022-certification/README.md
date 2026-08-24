@@ -1,6 +1,6 @@
 # MISSION-008 OQ-008-003/005/010 Implementation (MISSION-022)
 
-**Status:** OAR-016 Ready (not Accepted).
+**Status:** OAR-016 Accepted 2026-08-24.
 **Baseline:** local `main` @ `6331287`.
 **Scope:** Implement owner-resolved OQ-008-003 (policy-defined authority; undeterminable authority → BLOCKED), OQ-008-005 (exact `0.1.0-draft` contract version), and OQ-008-010 (structured-only assumption/open-question records). Lock OQ-008-004 (no identity merge / no alias-group object), OQ-008-007 (PRS language DEFERRED), OQ-008-008 (no continuation IR field), and OQ-008-009 (no reasoning IR field).
 
@@ -26,4 +26,4 @@ This is Campaign COMPILER remaining 008 policy implementation. Not a full produc
 - Not freeform NLP; not live model-assisted suggestion.
 - Valid constrained `plain_language_v0` grammar remains BLOCKED (`RQC-BLK-0001`).
 - No Phase 6 permission model. No frozen owner-only consequential category list.
-- OAR-016 Ready (not Accepted). OAR-015 through OAR-009 remain Accepted.
+- OAR-016 Accepted 2026-08-24. OAR-015 through OAR-009 remain Accepted.

@@ -1,9 +1,9 @@
 # MISSION-022 Report — Remaining OQ-008-003/005/010 Implementation
 
-**Status:** OAR-016 Ready (not Accepted).
-**Baseline:** local `main` @ `6331287`.
+**Status:** OAR-016 Accepted 2026-08-24.
+**Baseline:** local `main` @ `c1621b3`.
 **Branch:** `feature/mission-022-remaining-oq`.
-**HEAD (this honesty pack):** `c80170a`
+**HEAD (OAR-016 Accept):** `c1621b3`
 
 ## Scope
 
@@ -11,7 +11,7 @@ Campaign COMPILER implements owner-resolved OQ-008-003 (policy-defined authority
 
 Does **not** claim full Roadmap Phase 4B exit, CERTIFIED requirements compiler, a full MISSION-008 production compiler, PRS **language** implementation, live providers, M3, freeform NLP, IR v0.2, alias-group implementation, or dropping `-draft`.
 
-OAR-009 through OAR-015 remain **Accepted**. OAR-016 is **Ready**, not Accepted.
+OAR-009 through OAR-015 remain **Accepted**. OAR-016 is **Accepted 2026-08-24**.
 
 ## Tasks 1–6
 
@@ -34,7 +34,7 @@ OAR-009 through OAR-015 remain **Accepted**. OAR-016 is **Ready**, not Accepted.
 | OQ-008-010 policy | Structured-only assumption/open-question records |
 | Locks | OQ-008-004/007/008/009 not-built characterization tests |
 | Shared engine | `evaluate_contract_rules` sole RC-065 implementation |
-| Governance | OAR-016 Ready (not Accepted); Requirements compiler stays `PARTIAL`; OAR-009 through OAR-015 Accepted |
+| Governance | OAR-016 Accepted 2026-08-24; Requirements compiler stays `PARTIAL`; OAR-009 through OAR-015 Accepted |
 
 ## Tests added
 
@@ -54,10 +54,10 @@ MISSION-022 does **not** claim full Roadmap Phase 4B exit, a CERTIFIED requireme
 - Locked not-built: OQ-008-004, OQ-008-007, OQ-008-008, OQ-008-009.
 - Valid constrained `plain_language_v0` numbered/constraint records remain BLOCKED (`RQC-BLK-0001`); not freeform NLP; PRS **language** remains **DEFERRED** per `PRS_DISPOSITION.md`.
 - Requirements compiler maturity remains **`PARTIAL`** — not CERTIFIED.
-- OAR-016 Ready (not Accepted). OAR-009 through OAR-015 Accepted.
+- OAR-016 Accepted 2026-08-24. OAR-009 through OAR-015 Accepted.
 - No live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, hosted UI, MissionRig, IR v0.2, alias-group implementation, or enterprise SAST.
 - This mission does **not** unblock M3.
 
 ## Non-claims
 
-Matching OAR-016: live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, PRS language/grammar/parser, alias-group implementation, IR v0.2, full MISSION-008 production requirements compiler, full Roadmap Phase 4B exit, CERTIFIED, benchmarks/claims, hosted product surfaces, MissionRig, enterprise SAST, and dropping `-draft` remain unauthorized. Requirements compiler stays `PARTIAL`. OAR-016 Ready (not Accepted). OAR-009 through OAR-015 remain Accepted.
+Matching OAR-016: live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, PRS language/grammar/parser, alias-group implementation, IR v0.2, full MISSION-008 production requirements compiler, full Roadmap Phase 4B exit, CERTIFIED, benchmarks/claims, hosted product surfaces, MissionRig, enterprise SAST, and dropping `-draft` remain unauthorized. Requirements compiler stays `PARTIAL`. OAR-016 Accepted 2026-08-24. OAR-009 through OAR-015 remain Accepted.
