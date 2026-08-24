@@ -42,3 +42,11 @@ def test_mission_024_remaining_4b_inventory_not_certified_not_m3() -> None:
         encoding="utf-8"
     )
     assert "authorize no production implementation" in oq.lower() or "policy only" in oq.lower()
+    oar_018_path = Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-018.md")
+    assert oar_018_path.is_file()
+    oar_018_text = oar_018_path.read_text(encoding="utf-8")
+    status_018 = next(
+        line for line in oar_018_text.splitlines() if line.lower().startswith("**status:**")
+    )
+    assert "ready" in status_018.lower()
+    assert "accepted" not in status_018.lower()
