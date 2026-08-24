@@ -119,7 +119,7 @@ def produce_plain_language_requirements(text: str) -> dict[str, Any]:
         )
     )
 
-    for item in parsed["requirements"]:
+    for index, item in enumerate(parsed["requirements"]):
         rid = str(item["id"])
         statement = str(item["statement"])
         token = rid.removeprefix("REQ-")
@@ -129,23 +129,31 @@ def produce_plain_language_requirements(text: str) -> dict[str, Any]:
             _requirement(req_id=rid, req_type="behavior", statement=statement, source_id=src_id)
         )
         mappings.append(
-            _mapping(map_id=f"MAP-{token}", requirement_id=rid, source_id=src_id, outcome="unresolved")
+            _mapping(
+                map_id=f"MAP-{token}",
+                requirement_id=rid,
+                source_id=src_id,
+                outcome="direct",
+                target_pointer=f"/requirements/{index}/statement",
+            )
         )
 
     constraints = list(parsed.get("behavior", {}).get("constraints") or [])
-    for index, constraint in enumerate(constraints, start=1):
-        rid = f"REQ-PL-C{index:03d}"
-        src_id = f"SRC-PL-C{index:03d}"
+    for index, constraint in enumerate(constraints):
+        n = index + 1
+        rid = f"REQ-PL-C{n:03d}"
+        src_id = f"SRC-PL-C{n:03d}"
         sources.append(_source(source_id=src_id, fragment=constraint, pointer="/text"))
         requirements.append(
             _requirement(req_id=rid, req_type="constraint", statement=constraint, source_id=src_id)
         )
         mappings.append(
             _mapping(
-                map_id=f"MAP-PL-C{index:03d}",
+                map_id=f"MAP-PL-C{n:03d}",
                 requirement_id=rid,
                 source_id=src_id,
-                outcome="unresolved",
+                outcome="direct",
+                target_pointer=f"/behavior/constraints/{index}",
             )
         )
 

@@ -14,7 +14,7 @@ def _plain_payload(text: str | None = None) -> dict:
     }
 
 
-def test_valid_grammar_is_blocked_not_invalid_or_success() -> None:
+def test_valid_grammar_succeeds_with_direct_numbered_and_constraint_maps() -> None:
     from promptrig.compiler.requirements_plain_produce import produce_plain_language_requirements
 
     artifacts = produce_plain_language_requirements(FIXTURE.read_text(encoding="utf-8"))
@@ -27,11 +27,14 @@ def test_valid_grammar_is_blocked_not_invalid_or_success() -> None:
     assert goal_map["outcome"] == "direct"
     assert goal_map["target_pointer"] == "/objective/goal"
     numbered = next(item for item in artifacts["mappings"] if item["requirement_id"] == "REQ-PL-001")
-    assert numbered["outcome"] == "unresolved"
-    assert "target_pointer" not in numbered
+    assert numbered["outcome"] == "direct"
+    assert numbered["target_pointer"] == "/requirements/0/statement"
+    constraint = next(item for item in artifacts["mappings"] if item["requirement_id"] == "REQ-PL-C001")
+    assert constraint["outcome"] == "direct"
+    assert constraint["target_pointer"] == "/behavior/constraints/0"
     result = compile_requirements_input(_plain_payload())
-    assert result.status == "BLOCKED"
-    assert "RQC-BLK-0001" in result.reason_codes
+    assert result.status == "SUCCESS"
+    assert "RQC-BLK-0001" not in result.reason_codes
 
 
 def test_freeform_text_is_parse_blocked() -> None:
