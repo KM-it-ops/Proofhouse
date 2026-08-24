@@ -6,7 +6,7 @@ artifact records only. OQ-008-001, OQ-008-002, and OQ-008-006 are implemented;
 OQ-008-005 (exact `0.1.0-draft` version gate) is implemented;
 OQ-008-003 (undeterminable required authority is BLOCKED) is implemented;
 OQ-008-010 (structured-only assumption and open-question records) is implemented;
-OQ-008-004 and OQ-008-007 through OQ-008-009 remain unimplemented.
+OQ-008-004, OQ-008-007, OQ-008-008, and OQ-008-009 remain locked/not-built.
 """
 from __future__ import annotations
 

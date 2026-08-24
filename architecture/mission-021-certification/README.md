@@ -15,7 +15,7 @@ This is Campaign COMPILER remaining 008 policy implementation. Not a full produc
 
 ## Non-claims
 
-- Not full MISSION-008 production compiler (OQ-008-003 through OQ-008-005 and OQ-008-007 through OQ-008-010 remain unimplemented).
+- Not full MISSION-008 production compiler. Remaining executable OQs after 001/002/006 are MISSION-022 (003/005/010 implemented there; 004/007/008/009 locked-not-built).
 - Not full Roadmap Phase 4B exit (no rubric/dataset evaluation engine).
 - Not M3 / Simple Mode UI.
 - Not a live provider path; no credentials; network_allowed remains false on the certified path.
