@@ -315,7 +315,7 @@ def subject_authorized(
             continue
         policy = resolve_policy(context, approval.get("policy_ref"), kind="approval_threshold")
         if policy is None:
-            continue
+            return False
         if not _scope_covers(policy.get("scope"), subject_kind, subject_id):
             continue
         if not _evidence_resolves(context, approval.get("evidence_refs")):
