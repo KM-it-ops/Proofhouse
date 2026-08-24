@@ -141,6 +141,7 @@ def produce_requirements(envelope: Mapping[str, Any] | object) -> dict[str, Any]
         "input_ref": input_id,
         "requirements": produced_claims,
         "sources": sorted_sources,
+        # OQ-008-010: these namespaces are lists of objects only; never append raw strings.
         "assumptions": [],
         "open_questions": open_questions,
         "conflicts": [],
