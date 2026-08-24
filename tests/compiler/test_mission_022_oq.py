@@ -219,3 +219,27 @@ def test_oq_008_010_producer_emits_object_lists_not_strings() -> None:
         assert isinstance(items, list)
         assert all(isinstance(item, dict) for item in items)
 
+
+def test_oq_008_004_does_not_merge_requirement_identities() -> None:
+    source = Path("src/promptrig/compiler/requirements_contract.py").read_text(encoding="utf-8")
+    for banned in ("alias_group", "merge_identities", "coalesce_requirements"):
+        assert banned not in source
+
+
+def test_oq_008_007_prs_language_stays_deferred() -> None:
+    text = Path("architecture/requirements-compiler-contract-v0.1/PRS_DISPOSITION.md").read_text(
+        encoding="utf-8"
+    )
+    assert "DEFERRED" in text
+    assert not Path("src/promptrig/compiler/prs_parser.py").exists()
+
+
+def test_oq_008_008_009_ir_has_no_continuation_or_reasoning_fields() -> None:
+    schema_text = Path("src/promptrig/compiler/requirements_contract.py").read_text(encoding="utf-8")
+    assert "continuation_state" not in schema_text
+    assert "reasoning_controls" not in schema_text
+    ir_schema = Path("src/promptrig/compiler/schemas/promptrig_ir_v0_1.schema.json")
+    text = ir_schema.read_text(encoding="utf-8")
+    assert "thought_signature" not in text
+    assert "reasoning_effort" not in text
+
