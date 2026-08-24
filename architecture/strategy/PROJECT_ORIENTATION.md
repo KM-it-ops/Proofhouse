@@ -1,6 +1,6 @@
 # PromptRig — where you are
 
-**Date:** 2026-08-24. Laptop `main` matches `origin/main` at `e2cc33b`. Do not push unless you say to.
+**Date:** 2026-08-24. Laptop `main` is ahead of `origin/main`. Do not push unless you say to.
 
 Open the picture beside chat: Cursor canvas `promptrig-project-map.canvas.tsx`.
 
