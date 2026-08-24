@@ -45,6 +45,7 @@ Phase 4B  (you live here)
       ├── Jobs 016–021 ...... done
       ├── Job 022 ........... done  (questions 3, 5, 10; 4/7/8/9 locked)
       ├── Job 023 ........... done  (numbered + constraints map; Goal already mapped)
+      ├── Job 024 ........... in    (remaining 4B inventory; not CERTIFIED)
       ├── M1 typing ......... in   (strict prose now compiles SUCCESS for valid grammar)
       └── M2 suggestions .... fake helper only (no live model)
 
@@ -79,13 +80,13 @@ All ten are decided on paper. Only some are in the engine.
                            9 thinking knobs      LOCKED (no IR knobs)
 ```
 
-After 023 the compiler is still PARTIAL. Numbered / constraint prose is mapped (OAR-017 Accepted 2026-08-24).
+After 023 the compiler is still PARTIAL. Numbered / constraint prose is mapped (OAR-017 Accepted 2026-08-24). Job 024 inventories remaining 4B blockers (OAR-018 Ready, not Accepted). Not CERTIFIED.
 
 ---
 
 ## Short answers
 
-**Where am I?** Phase 4B. Last closed job: 023 (OAR-017 Accepted 2026-08-24). Compiler still PARTIAL.
+**Where am I?** Phase 4B. Last closed Accepted job: 023 (OAR-017 Accepted 2026-08-24). Last honesty job: 024 (OAR-018 Ready, not Accepted). Compiler still PARTIAL.
 
 **Is the product done?** No. Offline fake loop works. Compiler does not.
 
@@ -102,6 +103,9 @@ After 023 the compiler is still PARTIAL. Numbered / constraint prose is mapped (
 - Questions: `architecture/requirements-compiler-contract-v0.1/OPEN_QUESTIONS.md`
 - Last accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-017.md`
 - Prior accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-016.md`
+- Open job until Accepted: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-018.md` (Ready, not Accepted)
+- 024 spec: `docs/superpowers/specs/2026-08-24-mission-024-4b-honesty-design.md`
+- 024 plan: `docs/superpowers/plans/2026-08-24-mission-024-4b-honesty.md`
 - 023 spec: `docs/superpowers/specs/2026-08-24-mission-023-plain-language-ir-mapping-design.md`
 - 023 plan: `docs/superpowers/plans/2026-08-24-mission-023-plain-language-ir-mapping.md`
 - 022 spec: `docs/superpowers/specs/2026-08-23-mission-022-008-remaining-oq-design.md`
