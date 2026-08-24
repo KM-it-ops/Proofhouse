@@ -3,7 +3,7 @@
 **Status:** OAR-017 Ready (not Accepted).
 **Baseline:** local `main` @ `e2cc33b`.
 **Branch:** `feature/mission-023-plain-language-ir-mapping`.
-**HEAD (OAR-017 Ready):** this Task 3 commit
+**HEAD (OAR-017 Ready):** `3765965`
 
 ## Scope
 
@@ -19,7 +19,7 @@ OAR-009 through OAR-016 remain **Accepted**. OAR-017 is **Ready**, not Accepted.
 |---|---|---|
 | 1 | `fc94205` | MISSION-023 certification README and schedule honesty test |
 | 2 | `8cb7384` | Map plain-language numbered and constraint lines to IR leaves |
-| 3 | this commit | Honesty docs, OAR-017 Ready, campaign report |
+| 3 | `3765965` | Honesty docs, OAR-017 Ready, campaign report |
 
 ## Deliverables
 
