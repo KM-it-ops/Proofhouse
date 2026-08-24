@@ -8,7 +8,7 @@ This is Campaign COMPILER remaining 008 policy implementation. Not a full produc
 
 ## What this mission certifies (narrow)
 
-- OQ-008-003: policy-defined authority; when authority is undeterminable, outcome is BLOCKED (not silent success).
+- OQ-008-003: policy-defined authority; when authority is undeterminable, outcome is BLOCKED (not silent success). Mixed-chain fail-closed (one complete unique approval plus a missing/unaccepted `policy_ref`) landed as a whole-branch fix; the remaining token does not authorize.
 - OQ-008-005: contract version pinned to exact `0.1.0-draft` where the policy applies.
 - OQ-008-010: assumption and open-question records remain structured-only (no freeform NLP fields).
 - OQ-008-004 (locked): no identity merge; no alias-group object; alias resolution does not collapse distinct identities.

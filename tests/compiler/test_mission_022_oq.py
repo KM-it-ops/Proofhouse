@@ -95,6 +95,34 @@ def _contract_source() -> dict:
     }
 
 
+def _unique_authorized_chain_overlay() -> dict:
+    """Task 3 SUCCESS overlay: one consequential requirement with one complete unique chain."""
+
+    artifacts = _consequential_success_overlay()
+    document = artifacts["requirements_document"]
+    requirement = document["requirements"][0]
+    requirement_id = requirement["id"]
+    requirement["approval_refs"] = ["APR-LAS-OWNER"]
+    document["sources"].append(_contract_source())
+    document["policies"] = [
+        _policy(
+            policy_id="POL-LAS-OWNER",
+            requirement_id=requirement_id,
+            required_authority="owner",
+            source_ref="SRC-LAS-POLICY",
+        )
+    ]
+    document["approvals"] = [
+        _approval(
+            approval_id="APR-LAS-OWNER",
+            requirement_id=requirement_id,
+            policy_ref="POL-LAS-OWNER",
+            authority="owner",
+        )
+    ]
+    return artifacts
+
+
 def test_oq_008_003_unresolvable_policy_ref_is_blocked() -> None:
     artifacts = _consequential_success_overlay()
     document = artifacts["requirements_document"]
@@ -158,6 +186,25 @@ def test_oq_008_003_does_not_freeze_owner_only_categories() -> None:
     source = Path("src/promptrig/compiler/requirements_contract.py").read_text(encoding="utf-8")
     assert "OWNER_ONLY" not in source
     assert "owner_only_categories" not in source
+
+
+def test_oq_008_003_mixed_valid_and_dangling_policy_ref_is_blocked() -> None:
+    artifacts = _unique_authorized_chain_overlay()
+    document = artifacts["requirements_document"]
+    requirement = document["requirements"][0]
+    requirement_id = requirement["id"]
+    requirement["approval_refs"].append("APR-LAS-MISSING-POLICY")
+    document["approvals"].append(
+        _approval(
+            approval_id="APR-LAS-MISSING-POLICY",
+            requirement_id=requirement_id,
+            policy_ref="POL-DOES-NOT-EXIST",
+            authority="owner",
+        )
+    )
+    result = compile_requirements(artifacts)
+    assert result.status == "BLOCKED"
+    assert "RQC-APR-0001" in result.reason_codes
 
 
 def _file_envelope() -> dict:
