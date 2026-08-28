@@ -1,6 +1,6 @@
 # MISSION-024 Remaining Phase 4B Honesty Inventory
 
-**Status:** OAR-018 Ready (not Accepted).
+**Status:** OAR-018 Accepted 2026-08-28.
 **Baseline:** Campaign COMPILER remaining work after MISSION-023 / OAR-017 Accepted.
 **Scope:** Remaining-Phase-4B **inventory** of honesty blockers. Not a producer/engine change.
 
@@ -8,7 +8,7 @@ This is a remaining-Phase-4B inventory. It does not promote the requirements com
 
 ## What this mission inventories (narrow)
 
-- **OAR-018 Ready (not Accepted).** This record is inventory only until Boss Accepts.
+- **OAR-018 Accepted 2026-08-28.** This record is inventory only. It does not promote CERTIFIED.
 - Requirements compiler stays **PARTIAL**. **Not CERTIFIED**. **Not full** MISSION-008 production compiler. Not full Roadmap **Phase 4B** exit.
 - Remaining blockers:
   - No **independent** architecture and security **review** of the current PARTIAL compiler slice.
@@ -23,4 +23,4 @@ This is a remaining-Phase-4B inventory. It does not promote the requirements com
 - **Not a live** provider path; no credentials; `network_allowed` remains false on the certified path.
 - **Not freeform** NLP; not live model-assisted suggestion; no PRS language/grammar unlock.
 - No IR v0.2 fields. No Phase 6–9 product surfaces.
-- OAR-009 through OAR-017 stay **Accepted** historical snapshots.
+- OAR-009 through OAR-017 stay **Accepted** historical snapshots. OAR-018 Accepted 2026-08-28.

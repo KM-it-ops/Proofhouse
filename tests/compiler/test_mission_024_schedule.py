@@ -48,5 +48,5 @@ def test_mission_024_remaining_4b_inventory_not_certified_not_m3() -> None:
     status_018 = next(
         line for line in oar_018_text.splitlines() if line.lower().startswith("**status:**")
     )
-    assert "ready" in status_018.lower()
-    assert "accepted" not in status_018.lower()
+    assert "accepted" in status_018.lower()
+    assert "ready (not accepted)" not in status_018.lower()
