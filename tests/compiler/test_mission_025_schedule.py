@@ -43,3 +43,29 @@ def test_mission_025_same_host_review_not_certified_not_m3() -> None:
         encoding="utf-8"
     )
     assert "authorize no production implementation" in oq.lower() or "policy only" in oq.lower()
+
+    review = Path("architecture/mission-025-certification/REVIEW.md")
+    assert review.is_file()
+    review_text = review.read_text(encoding="utf-8")
+    review_lower = review_text.lower()
+    for heading in (
+        "## architecture",
+        "## security",
+        "## findings",
+        "## independence limit",
+        "## non-claims",
+    ):
+        assert heading in review_lower, heading
+    for token in (
+        "partial",
+        "same-host",
+        "evr-sec-0001",
+        "network_allowed",
+        "compile_requirements_input",
+        "evaluate_contract_rules",
+    ):
+        assert token in review_lower, token
+    assert "not certified" in review_lower or "not certif" in review_lower
+    assert "m3" in review_lower or "simple mode" in review_lower
+    assert "not a live" in review_lower or "no live" in review_lower
+    assert "named files read" in review_lower
