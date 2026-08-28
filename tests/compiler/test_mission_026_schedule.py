@@ -92,3 +92,13 @@ def test_mission_026_pack_not_certified_not_m3() -> None:
         assert heading in verdict_lower, heading
     assert "human fills" in verdict_lower
     assert "no material architecture/security defect" not in verdict_lower
+
+    oar_020_path = Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-020.md")
+    assert oar_020_path.is_file()
+    oar_020_text = oar_020_path.read_text(encoding="utf-8")
+    status_020 = next(
+        line for line in oar_020_text.splitlines() if line.lower().startswith("**status:**")
+    )
+    assert "ready" in status_020.lower()
+    assert "ready (not accepted)" in status_020.lower()
+    assert not status_020.lower().startswith("**status:** accepted")
