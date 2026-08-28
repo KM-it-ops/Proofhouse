@@ -3,7 +3,7 @@
 **Status:** OAR-019 Ready (not Accepted).
 **Baseline:** local `main` @ `56d484e`.
 **Branch:** `feature/mission-025-partial-slice-review`.
-**HEAD (Task 3):** `4b4a81a`
+**HEAD (Task 3):** `c7f14b8`
 
 ## Scope
 
@@ -19,7 +19,7 @@ OAR-009 through OAR-018 remain **Accepted**. OAR-019 is **Ready** (not Accepted)
 |---|---|---|
 | 1 | `d088779` | MISSION-025 same-host review honesty inventory README and schedule test |
 | 2 | `2ce30dd` | Same-host PARTIAL slice REVIEW.md and extended schedule test |
-| 3 | `4b4a81a` | OAR-019 Ready, current-state honesty docs, campaign report |
+| 3 | `c7f14b8` | OAR-019 Ready, current-state honesty docs, campaign report |
 
 ## Deliverables
 
