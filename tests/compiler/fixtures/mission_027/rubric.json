@@ -1,0 +1,8 @@
+{
+  "rubric_id": "evr-product-v1",
+  "version": "0.1.0",
+  "criteria": [
+    {"criterion_id": "compile", "field": "compile_ok", "expected": true},
+    {"criterion_id": "security", "field": "security_ok", "expected": true}
+  ]
+}
