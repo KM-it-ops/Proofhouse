@@ -76,5 +76,5 @@ def test_mission_025_same_host_review_not_certified_not_m3() -> None:
     status_019 = next(
         line for line in oar_019_text.splitlines() if line.lower().startswith("**status:**")
     )
-    assert "ready" in status_019.lower()
-    assert "ready (not accepted)" in status_019.lower()
+    assert "accepted" in status_019.lower()
+    assert "ready (not accepted)" not in status_019.lower()
