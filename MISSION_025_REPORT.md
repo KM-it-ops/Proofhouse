@@ -3,7 +3,7 @@
 **Status:** OAR-019 Accepted 2026-08-28.
 **Baseline:** local `main` @ `56d484e`.
 **Branch:** `feature/mission-025-partial-slice-review`.
-**HEAD (OAR-019 Accept):** `b3710d5`
+**HEAD (OAR-019 Accept):** `935cf82`
 
 ## Scope
 
