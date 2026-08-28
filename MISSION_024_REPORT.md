@@ -3,7 +3,7 @@
 **Status:** OAR-018 Accepted 2026-08-28.
 **Baseline:** local `main` @ `e9c7b0f`.
 **Branch:** `feature/mission-024-4b-certified-slice`.
-**HEAD (OAR-018 Accept):** `612f91f`
+**HEAD (OAR-018 Accept):** `8f858f9`
 
 ## Scope
 
