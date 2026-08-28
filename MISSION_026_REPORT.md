@@ -3,7 +3,7 @@
 **Status:** OAR-020 Ready (not Accepted).
 **Baseline:** local `main` after 026/027 spec (`9d606fd`); reviewed compiler tree pin `2831cda`.
 **Branch:** `feature/mission-026-independent-review-pack`.
-**HEAD:** `9a7e584`
+**Ready pack HEAD:** `e3ee060`
 
 ## Scope
 
@@ -19,7 +19,7 @@ OAR-009 through OAR-019 remain **Accepted**. OAR-020 is **Ready (not Accepted)**
 |---|---|---|
 | 1 | `baa1db1` | MISSION-026 independent-person pack honesty inventory README and schedule test |
 | 2 | `3bc6a0b` | PACK.md, INSTRUCTIONS.md, empty VERDICT.md, and extended schedule test |
-| 3 | Task 3 SHA | OAR-020 Ready, current-state honesty docs, campaign report |
+| 3 | `9a7e584` | OAR-020 Ready, current-state honesty docs, campaign report |
 
 ## Deliverables
 

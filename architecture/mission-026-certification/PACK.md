@@ -15,12 +15,12 @@ The fake closed loop (compile → check → bounded repair, offline only) is alr
 
 These files are the slice:
 
-- `requirements_contract.py` — `compile_requirements_input` and `evaluate_contract_rules` (the only RC-065 rule engine).
-- `requirements_plain_produce.py` — turns constrained `plain_language_v0` prose into the same canonical records.
-- `cli_compiler.py` — `promptrig-compiler compile-requirements`. Certified path sets `network_allowed=false`.
-- `closed_loop.py` — fake-adapter loop only. No live providers.
-- `evaluation.py` — `evaluate_deterministic`. Checks compile success, security, and whether the network was used. Scores are 0 or 1. This is the oracle, not a rubric/dataset product engine.
-- `repair.py` — at most 0, 1, or 2 repair tries. Must not weaken security (`EVR-SEC-0001`). Test-only hooks must not be reachable from production CLI.
+- `src/promptrig/compiler/requirements_contract.py` — `compile_requirements_input` and `evaluate_contract_rules` (the only RC-065 rule engine).
+- `src/promptrig/compiler/requirements_plain_produce.py` — turns constrained `plain_language_v0` prose into the same canonical records.
+- `src/promptrig/compiler/cli_compiler.py` — `promptrig-compiler compile-requirements`. Certified path sets `network_allowed=false`.
+- `src/promptrig/compiler/closed_loop.py` — fake-adapter loop only. No live providers. `ClosedLoopOptions.repair_budget` accepts only `{0,1,2}`.
+- `src/promptrig/compiler/evaluation.py` — `evaluate_deterministic`. Checks compile success, security, and whether the network was used. The primary score may be 0, 1, or absent (`None`). If `baseline_required` is true but its digest is missing, evaluation returns `BLOCKED` with `EVR-BSL-0001`. This is the oracle, not a rubric/dataset product engine.
+- `src/promptrig/compiler/repair.py` — `plan_repair` must not weaken security (`EVR-SEC-0001`). Test-only hooks must not be reachable from production CLI.
 
 Already on this snapshot: tests `test_mission_023_produce.py`, `test_mission_024_schedule.py`, `test_mission_025_schedule.py`.
 
@@ -31,7 +31,7 @@ A valid constrained Goal + numbered list can compile SUCCESS after OAR-017. Lock
 - No network on the certified path. `network_allowed=false`.
 - No credentials. No live model calls.
 - Repair must not drop security constraints (`EVR-SEC-0001`).
-- Repair budgets are only `{0,1,2}`.
+- `ClosedLoopOptions.repair_budget` in `src/promptrig/compiler/closed_loop.py` permits only `{0,1,2}`.
 - Production CLI must not expose `force_*` test hooks.
 - Freeform natural language is still blocked. Simple Mode UI (M3) is not this phase.
 
