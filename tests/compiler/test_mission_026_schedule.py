@@ -91,6 +91,9 @@ def test_mission_026_pack_not_certified_not_m3() -> None:
     ):
         assert heading in verdict_lower, heading
     assert "human fills" in verdict_lower
+    for heading in ("## Architecture", "## Security", "## Blockers"):
+        section_body = verdict_text.split(heading, maxsplit=1)[1].split("## ", maxsplit=1)[0]
+        assert section_body.strip() == "(human fills)", heading
     assert "no material architecture/security defect" not in verdict_lower
 
     oar_020_path = Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-020.md")
