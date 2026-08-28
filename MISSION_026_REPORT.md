@@ -3,7 +3,7 @@
 **Status:** OAR-020 Ready (not Accepted).
 **Baseline:** local `main` after 026/027 spec (`9d606fd`); reviewed compiler tree pin `2831cda`.
 **Branch:** `feature/mission-026-independent-review-pack`.
-**HEAD:** Task 3 SHA
+**HEAD:** `9a7e584`
 
 ## Scope
 
