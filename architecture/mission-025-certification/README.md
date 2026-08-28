@@ -1,6 +1,6 @@
 # MISSION-025 Same-Host PARTIAL Slice Review
 
-**Status:** OAR-019 Ready (not Accepted).
+**Status:** OAR-019 Accepted 2026-08-28.
 **Baseline:** Campaign COMPILER remaining work after MISSION-024 / OAR-018 Accepted.
 **Scope:** Same-host architecture and security **review** of the current PARTIAL compiler slice. Not a producer/engine change.
 
@@ -8,7 +8,7 @@ This is a remaining-Phase-4B review pack. It does not promote the requirements c
 
 ## What this mission records (narrow)
 
-- **OAR-019 Ready (not Accepted).** This record is a same-host review pack until Boss Accepts.
+- **OAR-019 Accepted 2026-08-28.** This record is a same-host review pack. It does not promote CERTIFIED.
 - Requirements compiler stays **PARTIAL**. **Not CERTIFIED**. **Not full** MISSION-008 production compiler. Not full Roadmap **Phase 4B** exit.
 - **Independence limit:** same-host separate reviewer pass. Not a third-party audit. Not enterprise SAST. Not independent architecture and security review that certifies the Phase 4B boundary.
 - Remaining blockers after this pack:
@@ -24,4 +24,4 @@ This is a remaining-Phase-4B review pack. It does not promote the requirements c
 - **Not a live** provider path; no credentials; `network_allowed` remains false on the certified path.
 - **Not freeform** NLP; not live model-assisted suggestion; no PRS language/grammar unlock.
 - No IR v0.2 fields. No Phase 6–9 product surfaces.
-- OAR-009 through OAR-018 stay **Accepted** historical snapshots.
+- OAR-009 through OAR-018 stay **Accepted** historical snapshots. OAR-019 Accepted 2026-08-28.

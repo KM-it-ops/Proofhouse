@@ -1,9 +1,9 @@
 # MISSION-025 Report — Same-Host PARTIAL Compiler Slice Review
 
-**Status:** OAR-019 Ready (not Accepted).
+**Status:** OAR-019 Accepted 2026-08-28.
 **Baseline:** local `main` @ `56d484e`.
 **Branch:** `feature/mission-025-partial-slice-review`.
-**HEAD (Task 3):** `c7f14b8`
+**HEAD (OAR-019 Accept):** `b3710d5`
 
 ## Scope
 
@@ -11,7 +11,7 @@ Campaign COMPILER records a same-host architecture and security review of the cu
 
 Does **not** claim full Roadmap Phase 4B exit, CERTIFIED requirements compiler, a full MISSION-008 production compiler, PRS **language** implementation, live providers, M3, freeform NLP, IR v0.2, alias-group implementation, or dropping `-draft`.
 
-OAR-009 through OAR-018 remain **Accepted**. OAR-019 is **Ready** (not Accepted). Requirements compiler stays `PARTIAL`.
+OAR-009 through OAR-018 remain **Accepted**. OAR-019 is **Accepted 2026-08-28**. Requirements compiler stays `PARTIAL`.
 
 ## Tasks 1–3
 
@@ -26,7 +26,7 @@ OAR-009 through OAR-018 remain **Accepted**. OAR-019 is **Ready** (not Accepted)
 | Area | Artifact |
 |---|---|
 | Certification package | `architecture/mission-025-certification/README.md`, `architecture/mission-025-certification/REVIEW.md` |
-| Governance | OAR-019 Ready; Requirements compiler stays `PARTIAL`; OAR-009 through OAR-018 Accepted |
+| Governance | OAR-019 Accepted 2026-08-28; Requirements compiler stays `PARTIAL`; OAR-009 through OAR-018 Accepted |
 | Current-state docs | PROJECT_ORIENTATION, CAPABILITY_MATURITY_MAP (requirements-compiler row), OPEN_QUESTIONS last paragraph, DEFERRED_AND_REJECTED_WORK blocking bullets, root README append |
 | Producer/engine | unchanged |
 
@@ -34,7 +34,7 @@ OAR-009 through OAR-018 remain **Accepted**. OAR-019 is **Ready** (not Accepted)
 
 | Suite | Coverage |
 |---|---|
-| `tests/compiler/test_mission_025_schedule.py` | Certification README honesty; REVIEW.md sections; PARTIAL; OAR-018 Accepted; OAR-019 Ready (not Accepted); OQ-008-004/007/008/009 locked; no CERTIFIED / no M3 |
+| `tests/compiler/test_mission_025_schedule.py` | Certification README honesty; REVIEW.md sections; PARTIAL; OAR-018 Accepted; OAR-019 Accepted; OQ-008-004/007/008/009 locked; no CERTIFIED / no M3 |
 | `tests/compiler/test_mission_024_schedule.py` | Regression: 024 honesty; PARTIAL; OAR-017 Accepted; OAR-018 Accepted |
 | `tests/compiler/test_mission_023_schedule.py` | Regression: 023 honesty; PARTIAL; OAR-017 Accepted |
 | `tests/compiler/test_mission_023_produce.py` | Regression: numbered/constraint mapping still SUCCESS |
@@ -53,10 +53,10 @@ MISSION-025 does **not** claim full Roadmap Phase 4B exit, a CERTIFIED requireme
 - Locked not-built: OQ-008-004, OQ-008-007, OQ-008-008, OQ-008-009.
 - Not freeform NLP; PRS **language** remains **DEFERRED** per `PRS_DISPOSITION.md`.
 - Requirements compiler maturity remains **`PARTIAL`** — not CERTIFIED.
-- OAR-019 Ready (not Accepted). OAR-009 through OAR-018 Accepted.
+- OAR-019 Accepted 2026-08-28. OAR-009 through OAR-018 Accepted.
 - No live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, hosted UI, MissionRig, IR v0.2, alias-group implementation, or enterprise SAST.
 - This mission does **not** unblock M3.
 
 ## Non-claims
 
-Matching OAR-019: live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, PRS language/grammar/parser, alias-group implementation, IR v0.2, full MISSION-008 production requirements compiler, full Roadmap Phase 4B exit, CERTIFIED, benchmarks/claims, hosted product surfaces, MissionRig, enterprise SAST, and dropping `-draft` remain unauthorized. Requirements compiler stays `PARTIAL`. OAR-019 Ready (not Accepted). OAR-009 through OAR-018 remain Accepted.
+Matching OAR-019: live model-assisted suggestion, freeform NLP, M3 / Simple Mode UI semantics, live providers, PRS language/grammar/parser, alias-group implementation, IR v0.2, full MISSION-008 production requirements compiler, full Roadmap Phase 4B exit, CERTIFIED, benchmarks/claims, hosted product surfaces, MissionRig, enterprise SAST, and dropping `-draft` remain unauthorized. Requirements compiler stays `PARTIAL`. OAR-019 Accepted 2026-08-28. OAR-009 through OAR-018 remain Accepted.
