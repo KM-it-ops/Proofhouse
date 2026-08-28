@@ -99,6 +99,4 @@ def test_mission_026_pack_not_certified_not_m3() -> None:
     status_020 = next(
         line for line in oar_020_text.splitlines() if line.lower().startswith("**status:**")
     )
-    assert "ready" in status_020.lower()
-    assert "ready (not accepted)" in status_020.lower()
-    assert not status_020.lower().startswith("**status:** accepted")
+    assert status_020.strip().lower() == "**status:** ready (not accepted)."
