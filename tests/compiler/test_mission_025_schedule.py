@@ -69,3 +69,12 @@ def test_mission_025_same_host_review_not_certified_not_m3() -> None:
     assert "m3" in review_lower or "simple mode" in review_lower
     assert "not a live" in review_lower or "no live" in review_lower
     assert "named files read" in review_lower
+
+    oar_019_path = Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-019.md")
+    assert oar_019_path.is_file()
+    oar_019_text = oar_019_path.read_text(encoding="utf-8")
+    status_019 = next(
+        line for line in oar_019_text.splitlines() if line.lower().startswith("**status:**")
+    )
+    assert "ready" in status_019.lower()
+    assert "ready (not accepted)" in status_019.lower()
