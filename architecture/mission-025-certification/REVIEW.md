@@ -20,7 +20,7 @@ Named files read:
 - `tests/compiler/test_mission_023_produce.py`
 - `tests/compiler/test_mission_024_schedule.py`
 
-No material architecture/security defect found inside the claimed PARTIAL slice (library/CLI/constrained plain_language_v0 SUCCESS path). Residual 4B holes remain: evaluation/repair product bar; OQ-008-004/007/008/009 locked; not CERTIFIED; not Phase 4B exit.
+No material architecture/security defect found inside the claimed PARTIAL slice (library/CLI/constrained plain_language_v0 SUCCESS path). `ClosedLoopTestHooks` lives in `repair.py` and is not instantiated by production CLI. `network_allowed=true` blocks with EVR-NET-0001. CLI exposes no `force_*` or credential surface. Residual 4B holes remain: evaluation/repair product bar; OQ-008-004/007/008/009 locked; not CERTIFIED; not Phase 4B exit.
 
 ## Independence limit
 
