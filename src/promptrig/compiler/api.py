@@ -65,12 +65,21 @@ _REQUIREMENTS_CONTRACT_EXPORTS = frozenset(
     }
 )
 _PRODUCT_EVAL_EXPORTS = frozenset({"evaluate_product", "ProductEvaluationResult"})
+_BRIDGE_EXPORTS = frozenset(
+    {
+        "bridge_008_to_structured",
+        "closed_loop_from_bridged_008",
+        "Bridge008Result",
+        "BridgedClosedLoopResult",
+    }
+)
 _LAZY_EXPORTS = (
     _CLOSED_LOOP_EXPORTS
     | _PLAIN_LANGUAGE_EXPORTS
     | _MODEL_SUGGEST_EXPORTS
     | _REQUIREMENTS_CONTRACT_EXPORTS
     | _PRODUCT_EVAL_EXPORTS
+    | _BRIDGE_EXPORTS
 )
 
 
@@ -102,6 +111,10 @@ def __getattr__(name: str):
         from . import eval_product
 
         return getattr(eval_product, name)
+    if name in _BRIDGE_EXPORTS:
+        from . import requirements_ir_bridge
+
+        return getattr(requirements_ir_bridge, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
