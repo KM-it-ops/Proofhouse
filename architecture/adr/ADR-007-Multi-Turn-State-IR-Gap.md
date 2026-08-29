@@ -46,3 +46,9 @@ Any of these requires its own SPEC, an accepted ADR, and explicit owner ratifica
 - Anthropic official documentation: extended-thinking blocks and signatures must be preserved when continuing tool-use context.
 - OpenAI official Responses API reference: reasoning items, including optional encrypted content, must be supplied in subsequent input when callers manage context manually.
 - Gemini official Thought Signatures documentation: signatures must be returned exactly as received for relevant multi-turn/function-calling flows.
+
+## MISSION-031 planning package (still Proposed)
+
+MISSION-031 added `architecture/ir-v0.2-planning/` so the owner can pick Q4 (continuation vs reasoning shapes) later. This ADR remains **Proposed**. It is not Accepted. It still does not authorize any action against frozen `PROMPTRIG_IR_V0_1.schema.json`.
+
+The planning package recommends **evidence-only continuation** for the U6 live path (artifact/evidence, not an IR field). Live in this campaign stays single-request. A later production schema, if any, requires owner Q4 plus a separately accepted ADR revision. Reasoning remains the ADR-006 gap and is unsupported in IR v0.1; this update does not change ADR-006 status.

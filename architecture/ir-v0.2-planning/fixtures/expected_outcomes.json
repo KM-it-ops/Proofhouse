@@ -1,0 +1,27 @@
+{
+  "package": "ir-v0.2-planning",
+  "schema": "architecture/compiler-contract-freeze-v0.5/PROMPTRIG_IR_V0_1.schema.json",
+  "note": "These fixtures are planning evidence. They are not a production IR v0.2 schema. v0.1 inputs retain defined behavior; unknown-version and downgrade fail closed.",
+  "cases": [
+    {
+      "id": "V01-RETAIN-001",
+      "fixture": "v0_1_valid.json",
+      "expected": "schema_valid",
+      "behavior": "v0.1 inputs retain defined behavior"
+    },
+    {
+      "id": "UNK-UNKNOWN-VERSION-001",
+      "fixture": "unknown_version.json",
+      "expected": "fail_closed",
+      "pointer": "/spec_version",
+      "behavior": "unknown spec_version fails closed"
+    },
+    {
+      "id": "DOWNGRADE-001",
+      "fixture": "downgrade_v0_2_shape.json",
+      "expected": "fail_closed",
+      "pointer": "/spec_version",
+      "behavior": "declared later version plus extra continuation key is not silently stripped to v0.1"
+    }
+  ]
+}

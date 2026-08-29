@@ -1,0 +1,42 @@
+{
+  "spec_version": "0.2.0",
+  "project": {
+    "name": "demo",
+    "mode": "balanced",
+    "compilation_level": "prompt"
+  },
+  "objective": {
+    "goal": "Answer user questions accurately and concisely.",
+    "target_users": ["general_users"],
+    "success_criteria": ["accurate_answer"],
+    "failure_conditions": ["hallucination"]
+  },
+  "requirements": [
+    {
+      "id": "REQ-001",
+      "statement": "Responses must be in English.",
+      "priority": "p0",
+      "mandatory": true,
+      "acceptance": ["response_language_is_english"]
+    }
+  ],
+  "behavior": {
+    "instructions": ["Be concise."],
+    "constraints": ["No profanity."],
+    "uncertainty_policy": "State uncertainty explicitly rather than guessing.",
+    "evidence_policy": "Cite sources when available."
+  },
+  "evaluation": {
+    "dimensions": ["accuracy"],
+    "repair_limit": 1,
+    "baseline_required": false,
+    "test_categories": ["smoke"]
+  },
+  "provenance": {
+    "source_id": "demo-source",
+    "source_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "continuation": {
+    "opaque_state": "not-a-canonical-owner"
+  }
+}

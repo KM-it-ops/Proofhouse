@@ -1,0 +1,76 @@
+{
+  "package": "ir-v0.2-planning",
+  "mission": "MISSION-031",
+  "q4": "IR v0.2 field shapes for continuation and reasoning; owner decides later",
+  "live_campaign": "single-request",
+  "production_schema": false,
+  "u6_recommendation": "evidence-only continuation (artifact/evidence, not an IR field)",
+  "reasoning_v0_1": "unsupported (ADR-006 gap; no schema shape)",
+  "invalid_field_rule": "A proposed field without a provider-neutral owner is invalid.",
+  "options": [
+    {
+      "id": "CONT-EVIDENCE-ONLY",
+      "kind": "continuation",
+      "disposition": "recommended_for_u6",
+      "canonical_ir_field": false,
+      "explicitly_rejected": false,
+      "provider_neutral_owner": "execution artifact / evidence bundle (not IR)",
+      "notes": "Recommended for the U6 live path. Live stays single-request. Opaque provider-returned state may be recorded beside the request; it is not an IR field."
+    },
+    {
+      "id": "CONT-IR-FIELD",
+      "kind": "continuation",
+      "disposition": "option_for_q4",
+      "canonical_ir_field": true,
+      "explicitly_rejected": false,
+      "provider_neutral_owner": "session/turn continuation state: opaque bytes plus provenance, integrity, and retention class",
+      "notes": "Requires a future conversation/session IR concept. Not authorized by this planning package. Owner pick (Q4) plus a later schema mission required."
+    },
+    {
+      "id": "CONT-PROHIBIT-CANONICAL",
+      "kind": "continuation",
+      "disposition": "option_for_q4",
+      "canonical_ir_field": false,
+      "explicitly_rejected": true,
+      "provider_neutral_owner": "",
+      "notes": "Explicitly rejected as canonical PromptRig storage (IR or evidence). Callers hold continuation out-of-band."
+    },
+    {
+      "id": "REASONING-UNSUPPORTED-V01",
+      "kind": "reasoning",
+      "disposition": "current_v0_1",
+      "canonical_ir_field": false,
+      "explicitly_rejected": true,
+      "provider_neutral_owner": "",
+      "notes": "Explicitly rejected for frozen IR v0.1. ADR-006 remains the accepted gap; no schema shape."
+    },
+    {
+      "id": "REASONING-NEUTRAL-BLOCK",
+      "kind": "reasoning",
+      "disposition": "option_for_q4",
+      "canonical_ir_field": true,
+      "explicitly_rejected": false,
+      "provider_neutral_owner": "caller-chosen reasoning configuration (effort plus optional numeric budget), capability-resolved",
+      "notes": "Q4 option only. Not authorized here. Must not copy vendor vocabulary into durable IR."
+    },
+    {
+      "id": "REASONING-ADAPTER-PASSTHROUGH",
+      "kind": "reasoning",
+      "disposition": "explicitly_rejected",
+      "canonical_ir_field": false,
+      "explicitly_rejected": true,
+      "provider_neutral_owner": "",
+      "notes": "Explicitly rejected as canonical IR: per-adapter passthrough has no provider-neutral owner."
+    },
+    {
+      "id": "INV-PROVIDER-SHAPED-THOUGHT-SIGNATURE",
+      "kind": "invalid_example",
+      "disposition": "invalid",
+      "proposed_field": "gemini_thought_signature",
+      "canonical_ir_field": false,
+      "explicitly_rejected": true,
+      "provider_neutral_owner": null,
+      "invalid_reason": "A proposed field without a provider-neutral owner is invalid. Vendor-shaped IR keys cannot become canonical."
+    }
+  ]
+}
