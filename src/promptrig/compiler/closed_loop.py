@@ -8,12 +8,13 @@ from __future__ import annotations
 
 import hashlib
 import json
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import Any
 
 from . import api
 from .canonical import canonical_sha256, canonicalize
 from .contracts import CompileOptions, ResultEnvelope
+from .eval_product import ProductEvalRequest, evaluate_product
 from .evaluation import EvaluationRequest, EvaluationResult, evaluate_deterministic
 from .evidence import (
     DEFAULT_EVALUATOR_ID,
@@ -39,6 +40,7 @@ class ClosedLoopOptions:
     repair_budget: int = 1
     network_allowed: bool = False
     enable_model_suggestions: bool = False
+    product_eval: ProductEvalRequest | None = None
 
 
 @dataclass
@@ -306,6 +308,17 @@ def run_closed_loop(
         final_evaluator_version = eval_result.evaluator_version
 
         if evaluation["status"] == "PASS":
+            if options.product_eval is not None:
+                product_result = evaluate_product(
+                    replace(options.product_eval, candidate_digest=candidate_digest)
+                )
+                if product_result.status != "PASS":
+                    evaluation = {
+                        "status": product_result.status,
+                        "diagnostic_codes": list(product_result.diagnostic_codes),
+                        "scores": dict(product_result.scores),
+                    }
+                    final_eval = evaluation
             break
 
         if attempt_index >= attempts_allowed:
@@ -419,6 +432,7 @@ def closed_loop_from_json(
             repair_budget=options.repair_budget,
             network_allowed=options.network_allowed,
             enable_model_suggestions=True,
+            product_eval=options.product_eval,
         )
 
     if options.network_allowed or doc.get("network_allowed") is True:

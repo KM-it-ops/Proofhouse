@@ -1,5 +1,7 @@
+import json
 from pathlib import Path
 
+from promptrig.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
 from promptrig.compiler.eval_product import ProductEvalRequest, evaluate_product
 
 
@@ -62,3 +64,30 @@ def test_error_score_does_not_pass(tmp_path: Path) -> None:
     assert result.status == "ERROR"
     assert "EVR-SCR-0001" in result.diagnostic_codes
     assert result.scores["primary"] is None
+
+
+def _closed_loop_doc() -> dict:
+    fixture = Path("tests/compiler/fixtures/closed_loop_requirements_minimal.json")
+    return json.loads(fixture.read_text(encoding="utf-8"))
+
+
+def test_closed_loop_default_ignores_product() -> None:
+    result = run_closed_loop(_closed_loop_doc(), ClosedLoopOptions())
+    assert result.status == "PASS"
+
+
+def test_closed_loop_product_regression_surface() -> None:
+    product = ProductEvalRequest(
+        baseline_digest="sha256:base",
+        candidate_digest="sha256:cand",
+        dataset_path=CASES,
+        rubric_path=RUBRIC,
+        aggregation="any_fail",
+        baseline_required=True,
+        baseline_primary=1.0,
+        network_used=False,
+        compile_ok=True,
+        security_ok=True,
+    )
+    result = run_closed_loop(_closed_loop_doc(), ClosedLoopOptions(product_eval=product))
+    assert result.status == "REGRESSION"
