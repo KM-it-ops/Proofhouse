@@ -210,15 +210,15 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 - deterministic repeatability and stable library/CLI deep parity pass;
 - package build, clean install, installed CLI, external-consumer smoke tests, and supported cross-platform CI pass;
 - explicit performance/resource ceilings or measured bounds exist where meaningful;
-- independent architecture and security review certify the boundary, and the owner explicitly approves promotion.
+- remaining 4B engineering (product eval/repair bar, library/CLI product-eval parity, 008 SUCCESS/PARTIAL join) is complete and the owner Accepts; peer-review CERTIFIED promotion of the requirements compiler is not a gate.
 
-**Owner decisions:** Approve the production authoring profiles, plain-language/model-assisted headless schedule, stable API/CLI and evidence contracts, operational/resource limits, supported platforms, certification evidence, and promotion of the headless core for downstream reliance.
+**Owner decisions:** Approve the production authoring profiles, plain-language/model-assisted headless schedule, stable API/CLI and evidence contracts, operational/resource limits, supported platforms, remaining 4B engineering evidence, and owner Accept of that engineering for downstream reliance. Peer review is not a gate.
 
-**Prohibited shortcuts:** No live provider execution, credentials, hosted API or UI, persistence, tenancy, fifth adapter, benchmark runner or public claim, MissionRig, Workspace integration, unauthorized IR v0.2 change, model-output trust, UI-owned requirements semantics, or promotion from green CI alone.
+**Prohibited shortcuts:** No live provider execution, credentials, hosted API or UI, persistence, tenancy, fifth adapter, benchmark runner or public claim, MissionRig, Workspace integration, unauthorized IR v0.2 change, model-output trust, UI-owned requirements semantics, promotion from green CI alone, or labeling the requirements compiler CERTIFIED.
 
-**Exit criteria:** Independent architectural and security certification plus explicit owner approval establish production-grade headless requirements, evaluation, repair, evidence, library, CLI, packaging, installed-consumer, and cross-platform boundaries with no unresolved correctness or security blocker.
+**Exit criteria:** Remaining 4B engineering (product eval, CLI parity, 008 join) plus owner Accept establish the headless remainder later phases consume. The fake-adapter eval/repair oracle stays CERTIFIED. The requirements compiler stays PARTIAL. Independent 4B-exit certification and peer-review CERTIFIED promotion are not a gate.
 
-**Downstream dependencies:** Phase 6 live execution, Phase 7 benchmark construction or claims, and Phase 8 product entry all require this exit. Phase 5 planning may begin earlier from Phase 4 evidence only when separately authorized, but IR implementation or downstream runtime reliance cannot bypass Phase 4B and separately ratified compatibility decisions.
+**Downstream dependencies:** Phase 6 live execution, Phase 7 benchmark construction or claims, and Phase 8 product entry require remaining 4B engineering complete and owner Accept, not independent 4B-exit certification. Phase 5 planning may overlap. Production IR implementation still needs owner-ratified compatibility (U5 + shape pick), not peer-review CERTIFIED promotion.
 
 ## Phase 5 — IR v0.2 Planning and Migration Design
 
@@ -227,7 +227,8 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 **Entry criteria**
 
 - Phase 4 evidence exists.
-- Phase 5 planning may proceed before Phase 4B exits only under separate authorization; production IR implementation and downstream runtime reliance remain blocked by Phase 4B and ratified compatibility decisions.
+- Phase 5 planning is authorized. Production IR implementation remains blocked until owner-ratified compatibility and shape (planning package plus owner pick), not peer-review CERTIFIED promotion. Peer review is not a gate.
+- Remaining 4B engineering plus owner Accept is the gate for downstream runtime reliance.
 - ADR-006 inputs and ADR-007 evidence are current.
 - Requirements, evaluation, repair, server-tool, output-cardinality, and runtime-state needs are traceable to executable cases.
 
@@ -263,8 +264,8 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Entry criteria**
 
-- Phase 4B headless-core hardening and certification has exited with explicit owner approval; prototype evidence alone is insufficient.
-- Relevant Phase 5 IR/runtime decisions are ratified.
+- Remaining Phase 4B engineering (product eval engines, CLI parity, 008 join) is complete and owner Accepted. Independent 4B-exit certification is not a gate. Peer-review CERTIFIED promotion of the requirements compiler is not a prerequisite.
+- Relevant Phase 5 IR/runtime decisions are ratified when live needs a continuation field; single-request live may proceed without one.
 - Current provider documentation and security assumptions are refreshed.
 
 **Normative deliverables**
@@ -305,7 +306,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Entry criteria**
 
-- Phase 4B has certified the production evaluation, bounded-repair, evidence, library/CLI, packaging, and consumer boundaries; the Phase 4 prototype alone is insufficient.
+- Remaining Phase 4B engineering (product eval as scorer, 008 join) is complete and owner Accepted. Independent 4B-exit certification is not a gate. The Phase 4 prototype alone is insufficient.
 - Any live track uses the accepted Phase 6 boundary.
 - Source snapshots, resource budgets, network modes, repetition policy, and scoring are frozen before competitors run.
 
@@ -344,7 +345,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Entry criteria**
 
-- Phase 4B has certified the headless requirements, evaluation, bounded-repair, evidence, library, and CLI boundaries; Simple Mode and Developer Mode consume those boundaries and cannot become their first production implementation.
+- Remaining Phase 4B engineering (product eval, 008 join) is complete and owner Accepted. Independent 4B-exit certification is not a gate. Simple Mode and Developer Mode consume the headless library/CLI and cannot become their first production implementation.
 - Platform, persistence, identity, tenancy, storage, retention, deletion, and secrets decisions are ratified.
 - FastAPI, Next.js, and Supabase/alternatives are reevaluated with current evidence.
 
@@ -387,7 +388,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Entry criteria**
 
-- PromptRig can compile, evaluate, repair, benchmark, and expose a stable product boundary.
+- PromptRig can compile, evaluate, repair, benchmark, and expose a stable product boundary. Independent 4B-exit certification is not a gate.
 - MissionRig and Workspace SPECs define ownership, versioning, portability, and failure isolation.
 
 **Normative deliverables**
@@ -433,7 +434,7 @@ Phase 1
 → Phase 9
 ```
 
-The dependency is semantic, not merely chronological. Requirements identity feeds evaluation evidence; both feed the prototype; Phase 4B converts the prototype into a certified production headless core; stable headless and IR/runtime boundaries precede live execution; certified executable behavior precedes benchmark construction or claims; hardened headless requirements/evaluation/repair precede product UI; and PromptRig product capability precedes MissionRig/Workspace expansion. Separately authorized Phase 5 planning may overlap Phase 4B using prototype evidence, but production IR implementation or downstream runtime reliance cannot bypass either Phase 4B or ratified compatibility decisions.
+The dependency is semantic, not merely chronological. Requirements identity feeds evaluation evidence; both feed the prototype; remaining Phase 4B engineering plus owner Accept is what later phases consume; peer-review CERTIFIED promotion of the requirements compiler is not a gate. Stable headless and IR/runtime boundaries precede live execution; executable behavior precedes benchmark construction or claims; hardened headless requirements/evaluation/repair precede product UI; and PromptRig product capability precedes MissionRig/Workspace expansion. Phase 5 planning may overlap remaining 4B engineering. Production IR implementation still needs owner-ratified compatibility, not independent 4B-exit certification.
 
 ## Safe parallel work
 

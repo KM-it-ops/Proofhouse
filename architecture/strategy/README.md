@@ -77,7 +77,7 @@ Conflicting historical statements remain available for audit and must be describ
 
 ## Future update contract
 
-A mission that changes product identity, phase order, entry/exit criteria, capability status, a strategic-law mapping, or a deferred/rejected disposition must update all affected package documents and append a decision-log entry in the same PR. Evidence must name exact contracts, code, tests, artifacts, and CI results. New roadmap versions remain proposed until independent review and explicit owner acceptance.
+A mission that changes product identity, phase order, entry/exit criteria, capability status, a strategic-law mapping, or a deferred/rejected disposition must update all affected package documents and append a decision-log entry in the same PR. Evidence must name exact contracts, code, tests, artifacts, and CI results. New roadmap versions remain proposed until explicit owner acceptance. Independent review may inform that decision; it is not a Phase 5–9 entry gate (OAR-022).
 
 No future mission may call a phase complete from test counts alone. The manual review must confirm current meaning, non-claims, deferred boundaries, and requirement-to-evidence coverage.
 
