@@ -1,5 +1,5 @@
 """Compiler Core v0.1 CLI: compile, validate, inspect, adapters, doctor,
-evaluate-product, closed-loop-bridged-008.
+evaluate-product, closed-loop-bridged-008, execute-openai.
 
 The CLI owns argument parsing, file/stdin/stdout handling, envelope
 serialization, and exit-code mapping only. All parsing, normalization,
@@ -7,6 +7,7 @@ validation, compilation, capability resolution, and environment checks
 live in `api.py`; this module never duplicates that logic
 (Compiler Invariant #13). Legacy PromptOps commands (`report`, `loadouts`,
 `compile-loadout`, `generate`) are untouched and live in `cli.py`.
+`execute-openai` is fail-closed opt-in live execution, not closed-loop.
 """
 from __future__ import annotations
 
@@ -21,6 +22,7 @@ from .contracts import CONTRACT_VERSION, CompileOptions, Diagnostic, ResultEnvel
 from .diagnostics import DiagnosticFactory, DiagnosticRegistry
 from .eval_aggregate import Aggregation
 from .eval_product import ProductEvalRequest, evaluate_product
+from .execution import LiveOpenAIRequest, execute_openai
 from .sink import DirectorySink, InMemorySink
 
 EXIT_SUCCESS = 0
@@ -337,6 +339,32 @@ def _cmd_evaluate_product(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_execute_openai(args: argparse.Namespace) -> int:
+    raw = _read_input(args.input)
+    result = execute_openai(
+        raw,
+        LiveOpenAIRequest(
+            opt_in=bool(args.opt_in),
+            model=args.model,
+            credential_env_name=args.credential_env,
+            max_output_tokens=args.max_output_tokens,
+            max_cost_usd=args.max_cost_usd,
+            target_url=args.target_url,
+        ),
+    )
+    payload = result.to_dict()
+    if args.json:
+        sys.stdout.write(json.dumps(payload, sort_keys=True))
+        sys.stdout.write("\n")
+    else:
+        print(f"execute-openai: {result.status}", file=sys.stdout)
+        for code in result.diagnostics:
+            print(f"  [{code}]", file=sys.stdout)
+    if result.status == "success":
+        return EXIT_SUCCESS
+    return EXIT_ENVIRONMENT_FAILURE
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="promptrig-compiler", description="PromptRig Compiler Core v0.1")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -458,6 +486,51 @@ def build_parser() -> argparse.ArgumentParser:
     p_bridge.add_argument("--repair-budget", type=int, choices=(0, 1, 2), default=1)
     p_bridge.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
     p_bridge.set_defaults(func=_cmd_closed_loop_bridged_008)
+
+    p_exec = subparsers.add_parser(
+        "execute-openai",
+        help=(
+            "Fail-closed opt-in single-request live OpenAI execution. "
+            "Not closed-loop. Model, ceilings, and credential env name are "
+            "required at call time. Q1 is unpicked: no ratified first live model."
+        ),
+    )
+    p_exec.add_argument("input", help="Path to an IR JSON file, or '-' for stdin.")
+    p_exec.add_argument(
+        "--opt-in",
+        action="store_true",
+        default=False,
+        help="Required opt-in. Without this flag the command fail-closes.",
+    )
+    p_exec.add_argument(
+        "--model",
+        default=None,
+        help="Caller-supplied model id (required at call time; no default).",
+    )
+    p_exec.add_argument(
+        "--credential-env",
+        default=None,
+        dest="credential_env",
+        help="Caller-supplied env var name holding the credential (not a vault).",
+    )
+    p_exec.add_argument(
+        "--max-output-tokens",
+        type=int,
+        default=None,
+        help="Caller-supplied output token ceiling (required at call time).",
+    )
+    p_exec.add_argument(
+        "--max-cost-usd",
+        default=None,
+        help="Caller-supplied cost ceiling as a decimal string (required at call time).",
+    )
+    p_exec.add_argument(
+        "--target-url",
+        default=None,
+        help="Optional URL; must be an allowlisted OpenAI API URL.",
+    )
+    p_exec.add_argument("--json", action="store_true", help="Emit a JSON execution envelope.")
+    p_exec.set_defaults(func=_cmd_execute_openai)
 
     return parser
 

@@ -49,6 +49,7 @@ if TYPE_CHECKING:
         closed_loop_from_json,
         run_closed_loop,
     )
+    from .execution import ExecutionResult, LiveOpenAIRequest, execute_openai
 
 _CLOSED_LOOP_EXPORTS = frozenset(
     {"ClosedLoopOptions", "ClosedLoopResult", "closed_loop_from_json", "run_closed_loop"}
@@ -73,6 +74,7 @@ _BRIDGE_EXPORTS = frozenset(
         "BridgedClosedLoopResult",
     }
 )
+_EXECUTION_EXPORTS = frozenset({"ExecutionResult", "LiveOpenAIRequest", "execute_openai"})
 _LAZY_EXPORTS = (
     _CLOSED_LOOP_EXPORTS
     | _PLAIN_LANGUAGE_EXPORTS
@@ -80,6 +82,7 @@ _LAZY_EXPORTS = (
     | _REQUIREMENTS_CONTRACT_EXPORTS
     | _PRODUCT_EVAL_EXPORTS
     | _BRIDGE_EXPORTS
+    | _EXECUTION_EXPORTS
 )
 
 
@@ -115,6 +118,10 @@ def __getattr__(name: str):
         from . import requirements_ir_bridge
 
         return getattr(requirements_ir_bridge, name)
+    if name in _EXECUTION_EXPORTS:
+        from . import execution
+
+        return getattr(execution, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
