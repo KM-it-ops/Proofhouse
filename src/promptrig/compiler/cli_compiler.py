@@ -1,4 +1,5 @@
-"""Compiler Core v0.1 CLI: compile, validate, inspect, adapters, doctor.
+"""Compiler Core v0.1 CLI: compile, validate, inspect, adapters, doctor,
+evaluate-product.
 
 The CLI owns argument parsing, file/stdin/stdout handling, envelope
 serialization, and exit-code mapping only. All parsing, normalization,
@@ -12,10 +13,14 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from dataclasses import asdict
 from pathlib import Path
 
-from . import api
-from .contracts import CompileOptions, Diagnostic, ResultEnvelope
+from . import api, paths
+from .contracts import CONTRACT_VERSION, CompileOptions, Diagnostic, ResultEnvelope
+from .diagnostics import DiagnosticFactory, DiagnosticRegistry
+from .eval_aggregate import Aggregation
+from .eval_product import ProductEvalRequest, evaluate_product
 from .sink import DirectorySink, InMemorySink
 
 EXIT_SUCCESS = 0
@@ -72,6 +77,81 @@ def _emit(envelope: ResultEnvelope, *, as_json: bool) -> None:
             print(f"  artifact: {artifact['name']} -> {location}", file=sys.stdout)
 
 
+def _cli_diagnostic(message: str, document: str) -> Diagnostic:
+    factory = DiagnosticFactory(
+        DiagnosticRegistry(paths.DIAGNOSTIC_REGISTRY_PATH),
+        paths.DIAGNOSTIC_CONTRACT_SCHEMA_PATH,
+    )
+    return factory.emit(
+        code="PRG-CLI-0001",
+        phase="cli",
+        message=message,
+        document=document,
+        json_pointer="",
+    )
+
+
+def _cli_error(command: str, message: str, document: str, *, as_json: bool) -> int:
+    diagnostic = _cli_diagnostic(message, document)
+    envelope = ResultEnvelope(
+        contract_version=CONTRACT_VERSION,
+        command=command,
+        status="error",
+        data={},
+        diagnostics=(diagnostic,),
+    )
+    _emit(envelope, as_json=as_json)
+    return _exit_code_for(envelope.diagnostics)
+
+
+def _product_result_to_data(result: object) -> dict:
+    return json.loads(json.dumps(asdict(result)))
+
+
+def _closed_loop_product_eval(args: argparse.Namespace) -> ProductEvalRequest | int | None:
+    dataset = args.product_eval_dataset
+    rubric = args.product_eval_rubric
+    if dataset is None and rubric is None:
+        return None
+    if dataset is None or rubric is None:
+        present = dataset if dataset is not None else rubric
+        return _cli_error(
+            "closed-loop",
+            "closed-loop product eval requires both --product-eval-dataset and --product-eval-rubric",
+            str(present),
+            as_json=args.json,
+        )
+    dataset_path = Path(dataset)
+    rubric_path = Path(rubric)
+    if not dataset_path.is_file():
+        return _cli_error(
+            "closed-loop",
+            f"product-eval dataset not found: {dataset_path}",
+            str(dataset_path),
+            as_json=args.json,
+        )
+    if not rubric_path.is_file():
+        return _cli_error(
+            "closed-loop",
+            f"product-eval rubric not found: {rubric_path}",
+            str(rubric_path),
+            as_json=args.json,
+        )
+    aggregation: Aggregation = "any_fail"
+    return ProductEvalRequest(
+        baseline_digest=None,
+        candidate_digest="sha256:pending",
+        dataset_path=dataset_path,
+        rubric_path=rubric_path,
+        aggregation=aggregation,
+        baseline_required=False,
+        baseline_primary=None,
+        network_used=False,
+        compile_ok=True,
+        security_ok=True,
+    )
+
+
 def _cmd_validate(args: argparse.Namespace) -> int:
     raw = _read_input(args.input)
     envelope = api.validate(raw, source_document=args.input)
@@ -116,6 +196,10 @@ def _cmd_doctor(args: argparse.Namespace) -> int:
 def _cmd_closed_loop(args: argparse.Namespace) -> int:
     from .closed_loop import ClosedLoopOptions, closed_loop_from_json
 
+    product_eval = _closed_loop_product_eval(args)
+    if isinstance(product_eval, int):
+        return product_eval
+
     raw = _read_input(args.input)
     result = closed_loop_from_json(
         raw,
@@ -123,6 +207,7 @@ def _cmd_closed_loop(args: argparse.Namespace) -> int:
             repair_budget=args.repair_budget,
             network_allowed=False,
             enable_model_suggestions=args.enable_model_suggestions,
+            product_eval=product_eval,
         ),
     )
     payload = {
@@ -166,6 +251,57 @@ def _cmd_compile_requirements(args: argparse.Namespace) -> int:
     if result.status == "INVALID_OUTPUT":
         return EXIT_VALIDATION_FAILURE
     return EXIT_COMPILATION_FAILURE
+
+
+def _cmd_evaluate_product(args: argparse.Namespace) -> int:
+    dataset_path = Path(args.dataset)
+    rubric_path = Path(args.rubric)
+    if not dataset_path.is_file():
+        return _cli_error(
+            "evaluate-product",
+            f"dataset not found: {dataset_path}",
+            str(dataset_path),
+            as_json=args.json,
+        )
+    if not rubric_path.is_file():
+        return _cli_error(
+            "evaluate-product",
+            f"rubric not found: {rubric_path}",
+            str(rubric_path),
+            as_json=args.json,
+        )
+    aggregation: Aggregation = args.aggregation
+    request = ProductEvalRequest(
+        baseline_digest=args.baseline_digest,
+        candidate_digest=args.candidate_digest,
+        dataset_path=dataset_path,
+        rubric_path=rubric_path,
+        aggregation=aggregation,
+        baseline_required=args.baseline_digest is not None or args.baseline_primary is not None,
+        baseline_primary=args.baseline_primary,
+        network_used=False,
+        compile_ok=True,
+        security_ok=True,
+    )
+    try:
+        result = evaluate_product(request)
+    except (OSError, ValueError) as exc:
+        return _cli_error(
+            "evaluate-product",
+            str(exc),
+            str(dataset_path),
+            as_json=args.json,
+        )
+    data = _product_result_to_data(result)
+    envelope = ResultEnvelope(
+        contract_version=CONTRACT_VERSION,
+        command="evaluate-product",
+        status="success",
+        data=data,
+        diagnostics=(),
+    )
+    _emit(envelope, as_json=args.json)
+    return EXIT_SUCCESS
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -217,6 +353,16 @@ def build_parser() -> argparse.ArgumentParser:
         help="Opt-in MISSION-014 fake-suggester-v0 sidecar (proposals are not canonical).",
     )
     p_loop.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
+    p_loop.add_argument(
+        "--product-eval-dataset",
+        default=None,
+        help="Opt-in product-eval JSONL dataset (requires --product-eval-rubric).",
+    )
+    p_loop.add_argument(
+        "--product-eval-rubric",
+        default=None,
+        help="Opt-in product-eval JSON rubric (requires --product-eval-dataset).",
+    )
     p_loop.set_defaults(func=_cmd_closed_loop)
 
     p_req = subparsers.add_parser(
@@ -236,6 +382,32 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_req.add_argument("--json", action="store_true", help="Emit a single JSON result object.")
     p_req.set_defaults(func=_cmd_compile_requirements)
+
+    p_pe = subparsers.add_parser(
+        "evaluate-product",
+        help=(
+            "Run the opt-in evaluation/repair product bar (not CERTIFIED). "
+            "Oracle compile/security/network checks still rank first."
+        ),
+    )
+    p_pe.add_argument("--dataset", required=True, help="Path to JSONL dataset.")
+    p_pe.add_argument("--rubric", required=True, help="Path to JSON rubric.")
+    p_pe.add_argument("--candidate-digest", required=True, help="Candidate digest (sha256:...).")
+    p_pe.add_argument("--baseline-digest", default=None, help="Optional baseline digest.")
+    p_pe.add_argument(
+        "--baseline-primary",
+        type=float,
+        default=None,
+        help="Optional baseline primary score for regression comparison.",
+    )
+    p_pe.add_argument(
+        "--aggregation",
+        default="any_fail",
+        choices=("min", "max", "mean", "any_fail", "all_pass"),
+        help="Score aggregation (default: any_fail).",
+    )
+    p_pe.add_argument("--json", action="store_true", help="Emit a single JSON result envelope.")
+    p_pe.set_defaults(func=_cmd_evaluate_product)
 
     return parser
 
