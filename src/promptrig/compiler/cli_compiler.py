@@ -1,5 +1,5 @@
 """Compiler Core v0.1 CLI: compile, validate, inspect, adapters, doctor,
-evaluate-product.
+evaluate-product, closed-loop-bridged-008.
 
 The CLI owns argument parsing, file/stdin/stdout handling, envelope
 serialization, and exit-code mapping only. All parsing, normalization,
@@ -232,6 +232,39 @@ def _cmd_closed_loop(args: argparse.Namespace) -> int:
     return EXIT_VALIDATION_FAILURE
 
 
+def _cmd_closed_loop_bridged_008(args: argparse.Namespace) -> int:
+    from .closed_loop import ClosedLoopOptions
+    from .requirements_ir_bridge import closed_loop_from_bridged_008
+
+    raw = _read_input(args.input)
+    artifacts = json.loads(raw.decode("utf-8"))
+    result = closed_loop_from_bridged_008(
+        artifacts,
+        ClosedLoopOptions(repair_budget=args.repair_budget, network_allowed=False),
+    )
+    payload = {
+        "command": "closed-loop-bridged-008",
+        "status": result.status,
+        "requirements_compile_status": result.requirements_compile_status,
+        "diagnostics": result.diagnostics,
+        "evidence_bundle": result.evidence_bundle,
+    }
+    if args.json:
+        sys.stdout.write(json.dumps(payload, sort_keys=True))
+        sys.stdout.write("\n")
+    else:
+        print(f"closed-loop-bridged-008: {result.status}")
+        print(f"  requirements_compile_status: {result.requirements_compile_status}")
+        for code in result.diagnostics:
+            print(f"  [{code}]")
+        print(f"  requirements: {result.evidence_bundle.get('requirement_ids')}")
+    if result.status == "PASS":
+        return EXIT_SUCCESS
+    if result.status in {"BLOCKED", "UNRESOLVED_DEFECT", "REFUSED"}:
+        return EXIT_COMPILATION_FAILURE
+    return EXIT_VALIDATION_FAILURE
+
+
 def _cmd_compile_requirements(args: argparse.Namespace) -> int:
     from .api import compile_requirements_input
 
@@ -408,6 +441,23 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_pe.add_argument("--json", action="store_true", help="Emit a single JSON result envelope.")
     p_pe.set_defaults(func=_cmd_evaluate_product)
+
+    p_bridge = subparsers.add_parser(
+        "closed-loop-bridged-008",
+        help=(
+            "Bridge canonical MISSION-008 artifact JSON (compile-requirements SUCCESS "
+            "or representable PARTIAL) into structured_minimal_v0, then fake closed-loop. "
+            "Does not teach closed-loop to parse 008 envelopes; unbridged closed-loop "
+            "stays EVR-RQC-0001."
+        ),
+    )
+    p_bridge.add_argument(
+        "input",
+        help="Path to canonical MISSION-008 artifact JSON, or '-' for stdin.",
+    )
+    p_bridge.add_argument("--repair-budget", type=int, choices=(0, 1, 2), default=1)
+    p_bridge.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
+    p_bridge.set_defaults(func=_cmd_closed_loop_bridged_008)
 
     return parser
 
