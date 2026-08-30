@@ -1,0 +1,10 @@
+{
+  "mission": "MISSION-035",
+  "q2_ratified": true,
+  "owner_pick": "STACK-OWNER-SELECTED",
+  "transport": "stdlib HostedSlice.dispatch / file store (not FastAPI)",
+  "ui": "Simple and Developer JSON views of one compiler project (not Next.js, not apps/dashboard, not apps/promptrig.jsx)",
+  "scaffolding_authorized": true,
+  "production_service": false,
+  "notes": "Campaign finish pick. FastAPI and Next.js remain available future options. This runtime is not CERTIFIED hosted product."
+}

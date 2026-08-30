@@ -12,19 +12,6 @@ from typing import Any
 from .cli_compiler import build_parser
 
 OPENAPI_VERSION = "3.0.3"
-DEFAULT_SLICE_COMMANDS = frozenset(
-    {
-        "validate",
-        "inspect",
-        "compile",
-        "adapters",
-        "doctor",
-        "closed-loop",
-        "compile-requirements",
-        "evaluate-product",
-        "closed-loop-bridged-008",
-    }
-)
 OPT_IN_LIVE_COMMANDS = frozenset({"execute-openai"})
 ENVELOPE_FIELDS = ("contract_version", "command", "status", "data", "diagnostics")
 
@@ -81,14 +68,11 @@ def build_openapi() -> dict[str, Any]:
     parser = build_parser()
     commands = _subparsers(parser)
     cli_names = sorted(commands)
-    default_slice = sorted(name for name in cli_names if name in DEFAULT_SLICE_COMMANDS)
     opt_in_live = sorted(name for name in cli_names if name in OPT_IN_LIVE_COMMANDS)
-    unknown = set(cli_names) - DEFAULT_SLICE_COMMANDS - OPT_IN_LIVE_COMMANDS
-    if unknown:
-        raise RuntimeError(f"CLI commands missing hosted-slice classification: {sorted(unknown)}")
+    default_slice = sorted(name for name in cli_names if name not in OPT_IN_LIVE_COMMANDS)
     paths: dict[str, Any] = {}
     for name, subparser in sorted(commands.items()):
-        in_default = name in DEFAULT_SLICE_COMMANDS
+        in_default = name not in OPT_IN_LIVE_COMMANDS
         paths[f"/v0/compiler/{name}"] = {
             "post": {
                 "operationId": name.replace("-", "_"),

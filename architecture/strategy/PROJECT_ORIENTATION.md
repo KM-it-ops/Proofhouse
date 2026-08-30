@@ -90,11 +90,11 @@ After 028 the compiler is still PARTIAL. Numbered / constraint prose is mapped (
 
 ## Short answers
 
-**Where am I?** Remaining-product campaign after MISSION-033 (OAR-026 Ready). MISSION-034 hosted contracts are OAR-027 Ready. Q2 unpicked. Last closed Accepted job: 025 (OAR-019 Accepted 2026-08-28). Compiler still PARTIAL.
+**Where am I?** Remaining-product campaign through MISSION-036 (OAR-029 Ready). Compiler still PARTIAL.
 
-**Is the product done?** No. Offline fake loop works. Compiler does not. Hosted UI is not started.
+**Is the product done?** Headless compile-eval-repair, stdlib Simple/Developer slice, sealed benchmark, and MissionRig consume exist as Ready OARs. The compiler is still PARTIAL. Owner Accept is outstanding.
 
-**Should I start Simple Mode now?** No. That is Phase 8. Q2 is unpicked. MISSION-034 is contracts only — do not scaffold FastAPI or Next.js, and do not extend apps/dashboard or apps/promptrig.jsx. Independent review is not a gate. The UI must not own semantics.
+**Should I start Simple Mode now?** Phase 8 stdlib slice exists (MISSION-035). Q2 pick is STACK-OWNER-SELECTED — do not scaffold FastAPI or Next.js, and do not extend apps/dashboard or apps/promptrig.jsx. Independent review is not a gate. The UI must not own semantics.
 
 **Can I push origin/main?** No, unless you explicitly ask.
 

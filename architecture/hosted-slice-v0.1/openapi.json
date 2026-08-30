@@ -497,6 +497,231 @@
         "x-default-hosted-slice": false
       }
     },
+    "/v0/compiler/hosted-compile": {
+      "post": {
+        "operationId": "hosted_compile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "description": "Path to structured intake JSON, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit JSON.",
+                    "type": "boolean"
+                  },
+                  "store": {
+                    "description": "Hosted project store directory.",
+                    "type": "string"
+                  },
+                  "tenant": {
+                    "description": "Tenant id (single-tenant alpha default).",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "input",
+                  "store"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "hosted-compile",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "hosted-compile",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/hosted-delete": {
+      "post": {
+        "operationId": "hosted_delete",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "json": {
+                    "description": "Emit JSON.",
+                    "type": "boolean"
+                  },
+                  "project-id": {
+                    "type": "string"
+                  },
+                  "store": {
+                    "type": "string"
+                  },
+                  "tenant": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "project-id",
+                  "store"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "hosted-delete",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "hosted-delete",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/hosted-export": {
+      "post": {
+        "operationId": "hosted_export",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "json": {
+                    "description": "Emit JSON.",
+                    "type": "boolean"
+                  },
+                  "project-id": {
+                    "type": "string"
+                  },
+                  "store": {
+                    "type": "string"
+                  },
+                  "tenant": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "project-id",
+                  "store"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "hosted-export",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "hosted-export",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/hosted-view": {
+      "post": {
+        "operationId": "hosted_view",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "json": {
+                    "description": "Emit JSON.",
+                    "type": "boolean"
+                  },
+                  "mode": {
+                    "enum": [
+                      "simple",
+                      "developer"
+                    ],
+                    "type": "string"
+                  },
+                  "project-id": {
+                    "description": "Hosted project id.",
+                    "type": "string"
+                  },
+                  "store": {
+                    "description": "Hosted project store directory.",
+                    "type": "string"
+                  },
+                  "tenant": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "project-id",
+                  "mode",
+                  "store"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "hosted-view",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "hosted-view",
+        "x-default-hosted-slice": true
+      }
+    },
     "/v0/compiler/inspect": {
       "post": {
         "operationId": "inspect",
@@ -541,6 +766,62 @@
           "default-hosted-slice"
         ],
         "x-cli-command": "inspect",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/missionrig-generate": {
+      "post": {
+        "operationId": "missionrig_generate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "evidence": {
+                    "description": "Path to evidence bundle JSON.",
+                    "type": "string"
+                  },
+                  "intake": {
+                    "description": "Path to intake JSON.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit JSON instead of markdown.",
+                    "type": "boolean"
+                  },
+                  "output": {
+                    "description": "Optional mission JSON output path.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "evidence",
+                  "intake"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "missionrig-generate",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "missionrig-generate",
         "x-default-hosted-slice": true
       }
     },
@@ -590,6 +871,57 @@
         "x-cli-command": "validate",
         "x-default-hosted-slice": true
       }
+    },
+    "/v0/compiler/workspace-consume": {
+      "post": {
+        "operationId": "workspace_consume",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "json": {
+                    "description": "Emit JSON.",
+                    "type": "boolean"
+                  },
+                  "mission": {
+                    "description": "Path to mission JSON.",
+                    "type": "string"
+                  },
+                  "writeback-ir": {
+                    "description": "If set, fail closed.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "mission"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "workspace-consume",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "workspace-consume",
+        "x-default-hosted-slice": true
+      }
     }
   },
   "x-cli-commands": [
@@ -601,8 +933,14 @@
     "doctor",
     "evaluate-product",
     "execute-openai",
+    "hosted-compile",
+    "hosted-delete",
+    "hosted-export",
+    "hosted-view",
     "inspect",
-    "validate"
+    "missionrig-generate",
+    "validate",
+    "workspace-consume"
   ],
   "x-default-hosted-slice": [
     "adapters",
@@ -612,8 +950,14 @@
     "compile-requirements",
     "doctor",
     "evaluate-product",
+    "hosted-compile",
+    "hosted-delete",
+    "hosted-export",
+    "hosted-view",
     "inspect",
-    "validate"
+    "missionrig-generate",
+    "validate",
+    "workspace-consume"
   ],
   "x-opt-in-live": [
     "execute-openai"

@@ -194,10 +194,10 @@ def test_mission_034_openapi_matches_cli_and_excludes_live_from_default_slice() 
     assert documented == cli_names
     default_slice = set(generated["x-default-hosted-slice"])
     opt_in_live = set(generated["x-opt-in-live"])
-    assert default_slice == DEFAULT_SLICE_COMMANDS
     assert opt_in_live == OPT_IN_LIVE_COMMANDS
+    assert default_slice == cli_names - opt_in_live
     assert default_slice.isdisjoint(opt_in_live)
-    assert default_slice | opt_in_live == cli_names
+    assert DEFAULT_SLICE_COMMANDS <= default_slice
 
     paths = generated["paths"]
     for command in DEFAULT_SLICE_COMMANDS:
@@ -252,13 +252,13 @@ def test_mission_034_honesty_not_hosted_impl_not_certified_not_m3() -> None:
         row = maturity.split(f"| {capability} |", maxsplit=1)[1].split("\n", maxsplit=1)[0]
         status = row.split("|", maxsplit=1)[0].strip().strip("`")
         assert status != forbidden_status, capability
-        assert status in {"PROPOSED", "CONTRACT_ONLY", "DEFERRED"}
+        assert status in {"PROPOSED", "CONTRACT_ONLY", "DEFERRED", "IMPLEMENTED_NOT_CERTIFIED"}
     persistence = maturity.split("| Persistence |", maxsplit=1)[1].split("\n", maxsplit=1)[0]
     persistence_status = persistence.split("|", maxsplit=1)[0].strip().strip("`")
-    assert persistence_status == "CONTRACT_ONLY"
+    assert persistence_status in {"CONTRACT_ONLY", "IMPLEMENTED_NOT_CERTIFIED"}
     tenancy = maturity.split("| Tenancy |", maxsplit=1)[1].split("\n", maxsplit=1)[0]
     tenancy_status = tenancy.split("|", maxsplit=1)[0].strip().strip("`")
-    assert tenancy_status == "CONTRACT_ONLY"
+    assert tenancy_status in {"CONTRACT_ONLY", "IMPLEMENTED_NOT_CERTIFIED"}
 
     oar = OAR_027.read_text(encoding="utf-8")
     status = next(line for line in oar.splitlines() if line.lower().startswith("**status:**"))

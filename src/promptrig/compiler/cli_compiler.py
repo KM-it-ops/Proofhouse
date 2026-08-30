@@ -23,6 +23,14 @@ from .diagnostics import DiagnosticFactory, DiagnosticRegistry
 from .eval_aggregate import Aggregation
 from .eval_product import ProductEvalRequest, evaluate_product
 from .execution import LiveOpenAIRequest, execute_openai
+from .hosted_slice import HostedSlice, HostedSliceError, HostedStore, ViewMode
+from .missionrig import (
+    WorkspaceWritebackError,
+    generate_mission,
+    render_mission,
+    workspace_consume,
+    workspace_writeback_ir,
+)
 from .sink import DirectorySink, InMemorySink
 
 EXIT_SUCCESS = 0
@@ -339,6 +347,94 @@ def _cmd_evaluate_product(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+def _cmd_hosted_compile(args: argparse.Namespace) -> int:
+    raw = _read_input(args.input)
+    intake = json.loads(raw.decode("utf-8"))
+    store = HostedStore(Path(args.store), tenant_id=args.tenant)
+    slice_ = HostedSlice(store)
+    try:
+        record = slice_.compile_intake(intake, tenant_id=args.tenant)
+    except HostedSliceError as exc:
+        return _cli_error("hosted-compile", f"{exc.code}: {exc.message}", args.input, as_json=args.json)
+    payload = record.to_dict()
+    if args.json:
+        sys.stdout.write(json.dumps(payload, sort_keys=True) + "\n")
+    else:
+        print(f"hosted-compile: {record.status} {record.project_id}")
+    return EXIT_SUCCESS if record.status == "PASS" else EXIT_COMPILATION_FAILURE
+
+
+def _cmd_hosted_view(args: argparse.Namespace) -> int:
+    mode: ViewMode = args.mode
+    store = HostedStore(Path(args.store), tenant_id=args.tenant)
+    slice_ = HostedSlice(store)
+    try:
+        view = slice_.view(args.project_id, mode, tenant_id=args.tenant)
+    except HostedSliceError as exc:
+        return _cli_error("hosted-view", f"{exc.code}: {exc.message}", args.project_id, as_json=args.json)
+    if args.json:
+        sys.stdout.write(json.dumps(view, sort_keys=True) + "\n")
+    else:
+        print(f"hosted-view: {view['mode']} {view['project_id']} {view.get('ir_sha256')}")
+    return EXIT_SUCCESS
+
+
+def _cmd_hosted_export(args: argparse.Namespace) -> int:
+    store = HostedStore(Path(args.store), tenant_id=args.tenant)
+    slice_ = HostedSlice(store)
+    try:
+        package = slice_.export_project(args.project_id, tenant_id=args.tenant)
+    except HostedSliceError as exc:
+        return _cli_error("hosted-export", f"{exc.code}: {exc.message}", args.project_id, as_json=args.json)
+    if args.json:
+        sys.stdout.write(json.dumps(package, sort_keys=True) + "\n")
+    else:
+        print(f"hosted-export: {package['project_id']}")
+    return EXIT_SUCCESS
+
+
+def _cmd_hosted_delete(args: argparse.Namespace) -> int:
+    store = HostedStore(Path(args.store), tenant_id=args.tenant)
+    slice_ = HostedSlice(store)
+    try:
+        slice_.delete_project(args.project_id, tenant_id=args.tenant)
+    except HostedSliceError as exc:
+        return _cli_error("hosted-delete", f"{exc.code}: {exc.message}", args.project_id, as_json=args.json)
+    if args.json:
+        sys.stdout.write(json.dumps({"status": "DELETED", "project_id": args.project_id}, sort_keys=True) + "\n")
+    else:
+        print(f"hosted-delete: {args.project_id}")
+    return EXIT_SUCCESS
+
+
+def _cmd_missionrig_generate(args: argparse.Namespace) -> int:
+    evidence = json.loads(Path(args.evidence).read_text(encoding="utf-8"))
+    intake = json.loads(Path(args.intake).read_text(encoding="utf-8"))
+    mission = generate_mission(evidence, intake)
+    if args.output:
+        Path(args.output).write_text(json.dumps(mission, sort_keys=True, indent=2) + "\n", encoding="utf-8")
+    if args.json:
+        sys.stdout.write(json.dumps(mission, sort_keys=True) + "\n")
+    else:
+        sys.stdout.write(render_mission(mission))
+    return EXIT_SUCCESS
+
+
+def _cmd_workspace_consume(args: argparse.Namespace) -> int:
+    mission = json.loads(Path(args.mission).read_text(encoding="utf-8"))
+    if args.writeback_ir:
+        try:
+            workspace_writeback_ir({}, {})
+        except WorkspaceWritebackError as exc:
+            return _cli_error("workspace-consume", f"{exc.code}: {exc.message}", args.mission, as_json=args.json)
+    consumed = workspace_consume(mission)
+    if args.json:
+        sys.stdout.write(json.dumps(consumed, sort_keys=True) + "\n")
+    else:
+        print(f"workspace-consume: {consumed['status']} mutate_ir={consumed['may_mutate_ir']}")
+    return EXIT_SUCCESS
+
+
 def _cmd_execute_openai(args: argparse.Namespace) -> int:
     raw = _read_input(args.input)
     result = execute_openai(
@@ -531,6 +627,60 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_exec.add_argument("--json", action="store_true", help="Emit a JSON execution envelope.")
     p_exec.set_defaults(func=_cmd_execute_openai)
+
+    p_hc = subparsers.add_parser(
+        "hosted-compile",
+        help="Compile intake through the hosted slice store (stdlib transport; not FastAPI/Next.js).",
+    )
+    p_hc.add_argument("input", help="Path to structured intake JSON, or '-' for stdin.")
+    p_hc.add_argument("--store", required=True, help="Hosted project store directory.")
+    p_hc.add_argument("--tenant", default="alpha", help="Tenant id (single-tenant alpha default).")
+    p_hc.add_argument("--json", action="store_true", help="Emit JSON.")
+    p_hc.set_defaults(func=_cmd_hosted_compile)
+
+    p_hv = subparsers.add_parser(
+        "hosted-view",
+        help="Simple or Developer view of one hosted project. Same IR digest as CLI closed-loop.",
+    )
+    p_hv.add_argument("project_id", help="Hosted project id.")
+    p_hv.add_argument("--mode", required=True, choices=("simple", "developer"))
+    p_hv.add_argument("--store", required=True, help="Hosted project store directory.")
+    p_hv.add_argument("--tenant", default="alpha")
+    p_hv.add_argument("--json", action="store_true", help="Emit JSON.")
+    p_hv.set_defaults(func=_cmd_hosted_view)
+
+    p_he = subparsers.add_parser("hosted-export", help="Export a hosted project package.")
+    p_he.add_argument("project_id")
+    p_he.add_argument("--store", required=True)
+    p_he.add_argument("--tenant", default="alpha")
+    p_he.add_argument("--json", action="store_true", help="Emit JSON.")
+    p_he.set_defaults(func=_cmd_hosted_export)
+
+    p_hd = subparsers.add_parser("hosted-delete", help="Delete a hosted project so the compiler cannot see it.")
+    p_hd.add_argument("project_id")
+    p_hd.add_argument("--store", required=True)
+    p_hd.add_argument("--tenant", default="alpha")
+    p_hd.add_argument("--json", action="store_true", help="Emit JSON.")
+    p_hd.set_defaults(func=_cmd_hosted_delete)
+
+    p_mg = subparsers.add_parser(
+        "missionrig-generate",
+        help="Generate a MissionRig mission from PromptRig evidence (read-only; one profile).",
+    )
+    p_mg.add_argument("--evidence", required=True, help="Path to evidence bundle JSON.")
+    p_mg.add_argument("--intake", required=True, help="Path to intake JSON.")
+    p_mg.add_argument("--output", default=None, help="Optional mission JSON output path.")
+    p_mg.add_argument("--json", action="store_true", help="Emit JSON instead of markdown.")
+    p_mg.set_defaults(func=_cmd_missionrig_generate)
+
+    p_ws = subparsers.add_parser(
+        "workspace-consume",
+        help="Read-only workspace consume of a MissionRig mission. --writeback-ir fails closed.",
+    )
+    p_ws.add_argument("--mission", required=True, help="Path to mission JSON.")
+    p_ws.add_argument("--writeback-ir", action="store_true", default=False, help="If set, fail closed.")
+    p_ws.add_argument("--json", action="store_true", help="Emit JSON.")
+    p_ws.set_defaults(func=_cmd_workspace_consume)
 
     return parser
 
