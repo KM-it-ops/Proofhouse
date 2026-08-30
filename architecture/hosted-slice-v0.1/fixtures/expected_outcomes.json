@@ -1,0 +1,29 @@
+{
+  "cases": [
+    {
+      "id": "mode-parity-same-digest",
+      "fixture": "mode_parity_project.json",
+      "expected": "same_ir_digest"
+    },
+    {
+      "id": "ae5-simple-mode-ui-forbidden",
+      "fixture": "simple_mode_ui_forbidden.json",
+      "expected": "fail_closed"
+    },
+    {
+      "id": "empty-project",
+      "fixture": "empty_project.json",
+      "expected": "fail_closed"
+    },
+    {
+      "id": "partial-visible-both-modes",
+      "fixture": "partial_project.json",
+      "expected": "partial_visible_in_both_modes"
+    },
+    {
+      "id": "hidden-ui-config-rej-007",
+      "fixture": "hidden_ui_config_rejected.json",
+      "expected": "fail_closed"
+    }
+  ]
+}

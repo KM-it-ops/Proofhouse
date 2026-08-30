@@ -1,0 +1,103 @@
+{
+  "package": "hosted-slice-v0.1",
+  "mission": "MISSION-034",
+  "q2": "Phase 8 transport and UI stack (FastAPI, Next.js, or owner-selected alternatives)",
+  "q2_ratified": false,
+  "owner_pick": "",
+  "scaffolding_authorized": false,
+  "production_service": false,
+  "u8_recommendation": "Keep Q2 unpicked. Record stack-agnostic contracts. Do not scaffold FastAPI or Next.js. Do not extend apps/dashboard or apps/promptrig.jsx.",
+  "invalid_field_rule": "Scaffolding a stack or extending Vite/JSX before a ratified Q2 pick is invalid.",
+  "options": [
+    {
+      "id": "STACK-FASTAPI-NEXTJS",
+      "kind": "q2-stack",
+      "disposition": "option_for_q2",
+      "explicitly_rejected": false,
+      "decision_owner": "A1 owner pick for transport plus UI",
+      "notes": "v0.4 proposed direction, currently CURRENT_BUT_INCOMPLETE. May be picked later. Not ratified here."
+    },
+    {
+      "id": "STACK-FASTAPI-OTHER-UI",
+      "kind": "q2-stack",
+      "disposition": "option_for_q2",
+      "explicitly_rejected": false,
+      "decision_owner": "A1 owner pick for transport plus a non-Next UI",
+      "notes": "FastAPI transport with an owner-selected UI that is not apps/dashboard and not apps/promptrig.jsx."
+    },
+    {
+      "id": "STACK-OWNER-SELECTED",
+      "kind": "q2-stack",
+      "disposition": "option_for_q2",
+      "explicitly_rejected": false,
+      "decision_owner": "A1 owner pick naming both transport and UI",
+      "notes": "Owner-selected alternatives. Must still wrap the headless compiler and pass mode-parity."
+    },
+    {
+      "id": "STACK-UNPICKED",
+      "kind": "q2-stack",
+      "disposition": "current",
+      "explicitly_rejected": false,
+      "decision_owner": "A1 — no pick yet",
+      "notes": "Current state. Contracts exist. No service or UI tree is authorized."
+    },
+    {
+      "id": "AUTH-SINGLE-USER-ALPHA",
+      "kind": "identity",
+      "disposition": "recommended_for_first_slice",
+      "explicitly_rejected": false,
+      "decision_owner": "closed-alpha identity: one operator, local credential, no multi-tenant SaaS",
+      "notes": "Recommended for the first slice. Multi-tenant DFR-006 stays deferred for full SaaS."
+    },
+    {
+      "id": "AUTH-OIDC",
+      "kind": "identity",
+      "disposition": "option_for_later",
+      "explicitly_rejected": false,
+      "decision_owner": "external identity provider plus tenant mapping",
+      "notes": "Not authorized by this package. Requires a later identity mission after Q2."
+    },
+    {
+      "id": "PERS-SQLITE-PORTABLE",
+      "kind": "persistence",
+      "disposition": "recommended_for_first_slice",
+      "explicitly_rejected": false,
+      "decision_owner": "portable local store with export/deletion; not canonical IR",
+      "notes": "Recommended closed-alpha store. Browser storage is not product persistence. Directory artifacts are not the store."
+    },
+    {
+      "id": "PERS-POSTGRES",
+      "kind": "persistence",
+      "disposition": "option_for_q2",
+      "explicitly_rejected": false,
+      "decision_owner": "portable Postgres-first hosted store",
+      "notes": "Competes after Q2. Not inherited."
+    },
+    {
+      "id": "PERS-SUPABASE-INHERITED",
+      "kind": "persistence",
+      "disposition": "explicitly_rejected",
+      "explicitly_rejected": true,
+      "decision_owner": "",
+      "notes": "REJ-001: inherited Supabase commitment is rejected. Supabase may compete later without presumption."
+    },
+    {
+      "id": "INV-SCAFFOLD-BEFORE-Q2",
+      "kind": "invalid_example",
+      "disposition": "invalid",
+      "explicitly_rejected": true,
+      "decision_owner": "",
+      "proposed_field": "apps/hosted-fastapi",
+      "invalid_reason": "Scaffolding FastAPI or Next.js before a ratified Q2 pick is invalid."
+    },
+    {
+      "id": "INV-EXTEND-VITE-DASHBOARD",
+      "kind": "invalid_example",
+      "disposition": "invalid",
+      "explicitly_rejected": true,
+      "decision_owner": "",
+      "proposed_field": "apps/dashboard",
+      "invalid_reason": "Extending apps/dashboard or apps/promptrig.jsx as Simple or Developer Mode is invalid. Q2 requires a new UI tree."
+    }
+  ]
+}

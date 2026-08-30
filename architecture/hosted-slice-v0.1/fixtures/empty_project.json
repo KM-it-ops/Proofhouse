@@ -1,0 +1,15 @@
+{
+  "id": "empty-project",
+  "project_id": "proj-034-empty",
+  "simple_view": {"canonical_project_id": "proj-034-empty", "visible": true},
+  "developer_view": {"canonical_project_id": "proj-034-empty", "visible": true},
+  "intake": {
+    "profile": "structured_minimal_v0",
+    "contract_version": "0.1.0-draft",
+    "project_name": "empty",
+    "network_allowed": false,
+    "objective": {"goal": ""},
+    "requirements": []
+  },
+  "expected": "fail_closed"
+}

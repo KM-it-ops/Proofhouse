@@ -1,0 +1,622 @@
+{
+  "components": {
+    "schemas": {
+      "ResultEnvelope": {
+        "additionalProperties": false,
+        "properties": {
+          "command": {
+            "type": "string"
+          },
+          "contract_version": {
+            "type": "string"
+          },
+          "data": {
+            "type": "object"
+          },
+          "diagnostics": {
+            "items": {
+              "type": "object"
+            },
+            "type": "array"
+          },
+          "status": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "contract_version",
+          "command",
+          "status",
+          "data",
+          "diagnostics"
+        ],
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "description": "Generated from promptrig-compiler CLI. Not a hosted implementation. Q2 is unpicked. execute-openai is opt-in live and is not on the default hosted path. UI must not own semantics.",
+    "title": "PromptRig hosted-slice compiler transport",
+    "version": "0.1.0-draft"
+  },
+  "openapi": "3.0.3",
+  "paths": {
+    "/v0/compiler/adapters": {
+      "post": {
+        "operationId": "adapters",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "json": {
+                    "description": "Emit a single JSON result envelope.",
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "adapters",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "adapters",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/closed-loop": {
+      "post": {
+        "operationId": "closed_loop",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "enable-model-suggestions": {
+                    "description": "Opt-in MISSION-014 fake-suggester-v0 sidecar (proposals are not canonical).",
+                    "type": "boolean"
+                  },
+                  "input": {
+                    "description": "Path to structured requirements JSON or plain_language_v0 envelope, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit a single JSON evidence envelope.",
+                    "type": "boolean"
+                  },
+                  "product-eval-dataset": {
+                    "description": "Opt-in product-eval JSONL dataset (requires --product-eval-rubric).",
+                    "type": "string"
+                  },
+                  "product-eval-rubric": {
+                    "description": "Opt-in product-eval JSON rubric (requires --product-eval-dataset).",
+                    "type": "string"
+                  },
+                  "repair-budget": {
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "closed-loop",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "closed-loop",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/closed-loop-bridged-008": {
+      "post": {
+        "operationId": "closed_loop_bridged_008",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "description": "Path to canonical MISSION-008 artifact JSON, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit a single JSON evidence envelope.",
+                    "type": "boolean"
+                  },
+                  "repair-budget": {
+                    "enum": [
+                      0,
+                      1,
+                      2
+                    ],
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "closed-loop-bridged-008",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "closed-loop-bridged-008",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/compile": {
+      "post": {
+        "operationId": "compile",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "adapter": {
+                    "description": "Adapter id to compile with (default: fake).",
+                    "type": "string"
+                  },
+                  "adapter-version": {
+                    "description": "Exact registered adapter version.",
+                    "type": "string"
+                  },
+                  "input": {
+                    "description": "Path to an IR JSON file, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit a single JSON result envelope.",
+                    "type": "boolean"
+                  },
+                  "output": {
+                    "description": "Directory to write artifacts into (default: in-memory).",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "input",
+                  "adapter-version"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "compile",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "compile",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/compile-requirements": {
+      "post": {
+        "operationId": "compile_requirements",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "description": "Path to canonical artifact JSON, file/api/simple/developer/prs envelope, or plain_language_v0 text envelope, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit a single JSON result object.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "compile-requirements",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "compile-requirements",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/doctor": {
+      "post": {
+        "operationId": "doctor",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "json": {
+                    "description": "Emit a single JSON result envelope.",
+                    "type": "boolean"
+                  }
+                },
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "doctor",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "doctor",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/evaluate-product": {
+      "post": {
+        "operationId": "evaluate_product",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "aggregation": {
+                    "description": "Score aggregation (default: any_fail).",
+                    "enum": [
+                      "min",
+                      "max",
+                      "mean",
+                      "any_fail",
+                      "all_pass"
+                    ],
+                    "type": "string"
+                  },
+                  "baseline-digest": {
+                    "description": "Optional baseline digest.",
+                    "type": "string"
+                  },
+                  "baseline-primary": {
+                    "description": "Optional baseline primary score for regression comparison.",
+                    "type": "number"
+                  },
+                  "candidate-digest": {
+                    "description": "Candidate digest (sha256:...).",
+                    "type": "string"
+                  },
+                  "dataset": {
+                    "description": "Path to JSONL dataset.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit a single JSON result envelope.",
+                    "type": "boolean"
+                  },
+                  "rubric": {
+                    "description": "Path to JSON rubric.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "dataset",
+                  "rubric",
+                  "candidate-digest"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "evaluate-product",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "evaluate-product",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/execute-openai": {
+      "post": {
+        "operationId": "execute_openai",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "credential-env": {
+                    "description": "Caller-supplied env var name holding the credential (not a vault).",
+                    "type": "string"
+                  },
+                  "input": {
+                    "description": "Path to an IR JSON file, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit a JSON execution envelope.",
+                    "type": "boolean"
+                  },
+                  "max-cost-usd": {
+                    "description": "Caller-supplied cost ceiling as a decimal string (required at call time).",
+                    "type": "string"
+                  },
+                  "max-output-tokens": {
+                    "description": "Caller-supplied output token ceiling (required at call time).",
+                    "type": "integer"
+                  },
+                  "model": {
+                    "description": "Caller-supplied model id (required at call time; no default).",
+                    "type": "string"
+                  },
+                  "opt-in": {
+                    "description": "Required opt-in. Without this flag the command fail-closes.",
+                    "type": "boolean"
+                  },
+                  "target-url": {
+                    "description": "Optional URL; must be an allowlisted OpenAI API URL.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "execute-openai",
+        "tags": [
+          "opt-in-live"
+        ],
+        "x-cli-command": "execute-openai",
+        "x-default-hosted-slice": false
+      }
+    },
+    "/v0/compiler/inspect": {
+      "post": {
+        "operationId": "inspect",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "description": "Path to an IR JSON file, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit a single JSON result envelope.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "inspect",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "inspect",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/validate": {
+      "post": {
+        "operationId": "validate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "description": "Path to an IR JSON file, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit a single JSON result envelope.",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "input"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "validate",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "validate",
+        "x-default-hosted-slice": true
+      }
+    }
+  },
+  "x-cli-commands": [
+    "adapters",
+    "closed-loop",
+    "closed-loop-bridged-008",
+    "compile",
+    "compile-requirements",
+    "doctor",
+    "evaluate-product",
+    "execute-openai",
+    "inspect",
+    "validate"
+  ],
+  "x-default-hosted-slice": [
+    "adapters",
+    "closed-loop",
+    "closed-loop-bridged-008",
+    "compile",
+    "compile-requirements",
+    "doctor",
+    "evaluate-product",
+    "inspect",
+    "validate"
+  ],
+  "x-opt-in-live": [
+    "execute-openai"
+  ],
+  "x-q2-ratified": false
+}

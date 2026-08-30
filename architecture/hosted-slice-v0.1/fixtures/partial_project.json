@@ -1,0 +1,17 @@
+{
+  "id": "partial-visible-both-modes",
+  "project_id": "proj-034-partial",
+  "compiler_status": "PARTIAL",
+  "unresolved_defects": ["UDF-CLOSED-LOOP"],
+  "simple_view": {
+    "canonical_project_id": "proj-034-partial",
+    "shows_unresolved": true,
+    "restated_as_success": false
+  },
+  "developer_view": {
+    "canonical_project_id": "proj-034-partial",
+    "shows_unresolved": true,
+    "restated_as_success": false
+  },
+  "expected": "partial_visible_in_both_modes"
+}

@@ -1,0 +1,8 @@
+{
+  "id": "hidden-ui-config-rej-007",
+  "canonical_owned": false,
+  "rej_007": true,
+  "ui_only_fields": ["hidden_model_override", "silent_temperature"],
+  "expected": "fail_closed",
+  "notes": "UI state may only be presentation chrome. It must not become canonical configuration."
+}

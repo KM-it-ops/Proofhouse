@@ -348,6 +348,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 - Remaining Phase 4B engineering (product eval, 008 join) is complete and owner Accepted. Independent 4B-exit certification is not a gate. Simple Mode and Developer Mode consume the headless library/CLI and cannot become their first production implementation.
 - Platform, persistence, identity, tenancy, storage, retention, deletion, and secrets decisions are ratified.
 - FastAPI, Next.js, and Supabase/alternatives are reevaluated with current evidence.
+- MISSION-034 records stack-agnostic contracts (OAR-027 Ready). Q2 remains an owner gate; scaffolding FastAPI or Next.js is not authorized until that pick.
 
 **Normative deliverables**
 
@@ -358,6 +359,7 @@ A phase number expresses dependency order, not a calendar promise. Owner approva
 
 **Implementation deliverables**
 
+- stack-agnostic contracts and generated OpenAPI (MISSION-034); service/UI trees only after Q2;
 - minimal FastAPI or owner-selected transport;
 - minimal Next.js or owner-selected UI;
 - one Simple Mode intent-to-evidence workflow;

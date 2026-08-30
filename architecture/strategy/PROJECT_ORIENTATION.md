@@ -90,11 +90,11 @@ After 028 the compiler is still PARTIAL. Numbered / constraint prose is mapped (
 
 ## Short answers
 
-**Where am I?** Phase 4B. Last closed Accepted job: 025 (OAR-019 Accepted 2026-08-28). Last honesty job: 026 (OAR-020 Ready, not Accepted). Product eval bar: 027 (OAR-021 Ready; product surface not CERTIFIED). Skip-cert law: 028 (OAR-022 Ready, not Accepted). Compiler still PARTIAL.
+**Where am I?** Remaining-product campaign after MISSION-033 (OAR-026 Ready). MISSION-034 hosted contracts are OAR-027 Ready. Q2 unpicked. Last closed Accepted job: 025 (OAR-019 Accepted 2026-08-28). Compiler still PARTIAL.
 
-**Is the product done?** No. Offline fake loop works. Compiler does not.
+**Is the product done?** No. Offline fake loop works. Compiler does not. Hosted UI is not started.
 
-**Should I start Simple Mode now?** No. That is Phase 8. Remaining compiler work (008 join, owner Accept) is still inside Phase 4B. Independent review is not a gate. The UI must not own semantics.
+**Should I start Simple Mode now?** No. That is Phase 8. Q2 is unpicked. MISSION-034 is contracts only — do not scaffold FastAPI or Next.js, and do not extend apps/dashboard or apps/promptrig.jsx. Independent review is not a gate. The UI must not own semantics.
 
 **Can I push origin/main?** No, unless you explicitly ask.
 
