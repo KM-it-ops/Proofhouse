@@ -1,6 +1,11 @@
 from __future__ import annotations
 
-from promptrig.compiler.requirements_contract import compile_requirements_input
+from pathlib import Path
+
+from promptrig.compiler.requirements_contract import (
+    compile_requirements,
+    compile_requirements_input,
+)
 from promptrig.compiler.requirements_produce import produce_requirements
 
 
@@ -169,20 +174,16 @@ def test_optional_no_ir_representation_is_partial() -> None:
     assert "RQC-BLK-0001" not in result.reason_codes
 
 
-def test_valid_prose_stays_blocked() -> None:
-    from pathlib import Path
-
+def test_valid_numbered_constraint_prose_is_success() -> None:
     fixture = Path("tests/compiler/fixtures/plain_language_minimal.txt")
     result = compile_requirements_input(
         {"profile": "plain_language_v0", "text": fixture.read_text(encoding="utf-8")}
     )
-    assert result.status == "BLOCKED"
-    assert "RQC-BLK-0001" in result.reason_codes
+    assert result.status == "SUCCESS"
+    assert "RQC-BLK-0001" not in result.reason_codes
 
 
 def test_advisory_nonsemantic_diagnostic_can_coexist_with_success() -> None:
-    from promptrig.compiler.requirements_contract import compile_requirements
-
     envelope = {
         "intent_input": _intent(mode="developer", input_id="INP-021-020"),
         "sources": [_source(kind="developer_config", source_id="SRC-021-020")],
