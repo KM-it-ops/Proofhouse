@@ -49,6 +49,7 @@ if TYPE_CHECKING:
         closed_loop_from_json,
         run_closed_loop,
     )
+    from .execution import ExecutionResult, LiveOpenAIRequest, execute_openai
 
 _CLOSED_LOOP_EXPORTS = frozenset(
     {"ClosedLoopOptions", "ClosedLoopResult", "closed_loop_from_json", "run_closed_loop"}
@@ -64,11 +65,24 @@ _REQUIREMENTS_CONTRACT_EXPORTS = frozenset(
         "produce_plain_language_requirements",
     }
 )
+_PRODUCT_EVAL_EXPORTS = frozenset({"evaluate_product", "ProductEvaluationResult"})
+_BRIDGE_EXPORTS = frozenset(
+    {
+        "bridge_008_to_structured",
+        "closed_loop_from_bridged_008",
+        "Bridge008Result",
+        "BridgedClosedLoopResult",
+    }
+)
+_EXECUTION_EXPORTS = frozenset({"ExecutionResult", "LiveOpenAIRequest", "execute_openai"})
 _LAZY_EXPORTS = (
     _CLOSED_LOOP_EXPORTS
     | _PLAIN_LANGUAGE_EXPORTS
     | _MODEL_SUGGEST_EXPORTS
     | _REQUIREMENTS_CONTRACT_EXPORTS
+    | _PRODUCT_EVAL_EXPORTS
+    | _BRIDGE_EXPORTS
+    | _EXECUTION_EXPORTS
 )
 
 
@@ -96,6 +110,18 @@ def __getattr__(name: str):
         if name == "produce_plain_language_requirements":
             return requirements_plain_produce.produce_plain_language_requirements
         return getattr(requirements_contract, name)
+    if name in _PRODUCT_EVAL_EXPORTS:
+        from . import eval_product
+
+        return getattr(eval_product, name)
+    if name in _BRIDGE_EXPORTS:
+        from . import requirements_ir_bridge
+
+        return getattr(requirements_ir_bridge, name)
+    if name in _EXECUTION_EXPORTS:
+        from . import execution
+
+        return getattr(execution, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

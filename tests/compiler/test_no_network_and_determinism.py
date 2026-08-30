@@ -6,6 +6,7 @@ import socket
 import pytest
 
 from promptrig.compiler import api
+from promptrig.compiler.execution import LiveOpenAIRequest, execute_openai
 
 from .fixtures.ir_fixtures import (
     ir_with_anthropic_structured_output,
@@ -73,6 +74,21 @@ def test_list_adapters_makes_no_network_access(forbid_network):
 def test_doctor_makes_no_network_access(forbid_network):
     env = api.doctor()
     assert env.status == "success"
+
+
+def test_execute_openai_without_opt_in_makes_no_network_access(forbid_network):
+    result = execute_openai(
+        json.dumps(ir_with_openai_structured_output(compliant=True)).encode("utf-8"),
+        LiveOpenAIRequest(
+            opt_in=False,
+            model="caller-supplied-unratified-model",
+            credential_value="sk-not-a-real-key",
+            max_output_tokens=8,
+            max_cost_usd="0.01",
+        ),
+    )
+    assert result.status == "error"
+    assert "EXE-OPT-0001" in result.diagnostics
 
 
 def _strip_volatile(data: dict) -> dict:

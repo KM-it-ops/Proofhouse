@@ -12,6 +12,9 @@ authors = [{ name = "PromptRig Maintainers" }]
 license = { text = "MIT" }
 dependencies = ["jsonschema>=4.18", "rfc8785==0.1.4"]
 
+[project.optional-dependencies]
+live = ["httpx>=0.27"]
+
 [project.scripts]
 promptrig = "promptrig.cli:main"
 promptrig-compiler = "promptrig.compiler.cli_compiler:main"
@@ -19,6 +22,8 @@ promptrig-compiler = "promptrig.compiler.cli_compiler:main"
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+markers = ["live: real or optional live-path tests; not collected by default"]
+addopts = "-m \"not live\""
 
 [tool.setuptools.package-data]
 "promptrig.compiler" = ["schemas/*.json"]

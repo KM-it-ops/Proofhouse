@@ -1,0 +1,2 @@
+{"case_id": "EVC-001", "req_ids": ["REQ-EVAL-001"], "observations": {"compile_ok": true, "security_ok": true}}
+{"case_id": "EVC-002", "req_ids": ["REQ-EVAL-001"], "observations": {"compile_ok": false, "security_ok": true}}
