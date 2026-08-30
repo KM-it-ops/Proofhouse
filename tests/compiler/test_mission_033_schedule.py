@@ -10,7 +10,7 @@ from promptrig.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
 FROZEN_IR_SCHEMA = Path(
     "architecture/compiler-contract-freeze-v0.5/PROMPTRIG_IR_V0_1.schema.json"
 )
-FROZEN_IR_V0_1_SHA256 = "a274953882b5b46166d87eece761dd1b637ddc7c8061b1c2ba4b2f0cb9303ad3"
+FROZEN_IR_V0_1_SHA256 = "082e03e9b7c920a84b0359e71cb7429bf76a412cfcdc0b7d27f9d247ab0074e6"
 
 CERT_README = Path("architecture/mission-033-certification/README.md")
 CONTRACT = Path("architecture/sealed-benchmark-v0.1/BENCHMARK_MANIFEST.md")

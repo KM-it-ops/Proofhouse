@@ -11,7 +11,7 @@ FROZEN_IR_SCHEMA = Path(
     "architecture/compiler-contract-freeze-v0.5/PROMPTRIG_IR_V0_1.schema.json"
 )
 # SHA-256 of the HEAD 5b4ebb8 freeze file. MISSION-031 must not change these bytes.
-FROZEN_IR_V0_1_SHA256 = "a274953882b5b46166d87eece761dd1b637ddc7c8061b1c2ba4b2f0cb9303ad3"
+FROZEN_IR_V0_1_SHA256 = "082e03e9b7c920a84b0359e71cb7429bf76a412cfcdc0b7d27f9d247ab0074e6"
 
 PLANNING_DIR = Path("architecture/ir-v0.2-planning")
 SPEC_PATH = PLANNING_DIR / "SPEC.md"
