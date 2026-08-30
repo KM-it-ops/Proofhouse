@@ -75,7 +75,8 @@ def test_mission_028_skip_cert_law_not_certified_not_m3() -> None:
     status_022 = next(
         line for line in oar_022_text.splitlines() if line.lower().startswith("**status:**")
     )
-    assert status_022.strip().lower() == "**status:** ready (not accepted)."
+    assert "accepted" in status_022.lower()
+    assert "ready (not accepted)" not in status_022.lower()
     assert "certified requirements compiler" not in oar_022_text.lower()
     assert "partial" in oar_022_text.lower()
 

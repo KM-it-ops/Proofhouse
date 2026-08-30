@@ -34,8 +34,8 @@ def test_mission_036_honesty_read_only_consume() -> None:
         assert token in note, token
     oar = OAR_029.read_text(encoding="utf-8")
     status = next(line for line in oar.splitlines() if line.lower().startswith("**status:**"))
-    assert "ready" in status.lower()
-    assert "not accepted" in status.lower()
+    assert "accepted" in status.lower()
+    assert "ready (not accepted)" not in status.lower()
     assert "certified requirements compiler" not in oar.lower()
     maturity = Path("architecture/strategy/CAPABILITY_MATURITY_MAP.md").read_text(encoding="utf-8")
     row = maturity.split("| MissionRig |", maxsplit=1)[1].split("\n", maxsplit=1)[0]

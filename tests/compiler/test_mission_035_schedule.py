@@ -37,8 +37,8 @@ def test_mission_035_honesty_not_certified_owner_selected_stack() -> None:
     assert "m3" in note or "simple mode" in note
     oar = OAR_028.read_text(encoding="utf-8")
     status = next(line for line in oar.splitlines() if line.lower().startswith("**status:**"))
-    assert "ready" in status.lower()
-    assert "not accepted" in status.lower()
+    assert "accepted" in status.lower()
+    assert "ready (not accepted)" not in status.lower()
     assert "certified requirements compiler" not in oar.lower()
     pick = PICK.read_text(encoding="utf-8").lower()
     assert "stack-owner-selected" in pick
@@ -53,5 +53,6 @@ def test_mission_035_honesty_not_certified_owner_selected_stack() -> None:
 def test_mission_035_skip_cert_not_undone() -> None:
     oar = Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-022.md").read_text(encoding="utf-8")
     status = next(line for line in oar.splitlines() if line.lower().startswith("**status:**"))
-    assert "ready" in status.lower()
+    assert "accepted" in status.lower()
+    assert "ready (not accepted)" not in status.lower()
     assert "skip-cert" in CERT_README.read_text(encoding="utf-8").lower()

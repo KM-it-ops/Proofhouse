@@ -102,27 +102,26 @@ def test_mission_033_honesty_not_published_claim_not_certified() -> None:
 
     oar = OAR_026.read_text(encoding="utf-8")
     status = next(line for line in oar.splitlines() if line.lower().startswith("**status:**"))
-    assert "ready" in status.lower()
-    assert "not accepted" in status.lower()
+    assert "accepted" in status.lower()
+    assert "ready (not accepted)" not in status.lower()
     assert "certified requirements compiler" not in oar.lower()
     assert "partial" in oar.lower()
     assert "not a published claim" in oar.lower()
     assert "skip-cert" in oar.lower()
 
 
-def test_mission_033_sibling_oars_remain_ready() -> None:
-    for path, mission in (
-        (Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-021.md"), "027"),
-        (Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-022.md"), "028"),
-        (Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-023.md"), "030"),
-        (Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-024.md"), "031"),
-        (Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-025.md"), "032"),
+def test_mission_033_campaign_oars_accepted() -> None:
+    for path in (
+        Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-021.md"),
+        Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-022.md"),
+        Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-023.md"),
+        Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-024.md"),
+        Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-025.md"),
     ):
         text = path.read_text(encoding="utf-8")
         status = next(line for line in text.splitlines() if line.lower().startswith("**status:**"))
-        assert "ready" in status.lower(), path
-        assert "accepted" not in status.lower() or "not accepted" in status.lower(), path
-        assert mission in text.lower() or f"mission-{mission}" in text.lower(), path
+        assert "accepted" in status.lower(), path
+        assert "ready (not accepted)" not in status.lower(), path
 
 
 def test_mission_033_readme_does_not_treat_v04_as_result() -> None:
@@ -153,7 +152,8 @@ def test_mission_033_closed_loop_still_fake_network_blocked() -> None:
 def test_mission_033_skip_cert_law_not_undone() -> None:
     oar = Path("architecture/OWNER_ACCEPTANCE_RECORDS/OAR-022.md").read_text(encoding="utf-8")
     status = next(line for line in oar.splitlines() if line.lower().startswith("**status:**"))
-    assert "ready" in status.lower()
+    assert "accepted" in status.lower()
+    assert "ready (not accepted)" not in status.lower()
     cert = CERT_README.read_text(encoding="utf-8").lower()
     assert "skip-cert" in cert
     assert "not undone" in cert

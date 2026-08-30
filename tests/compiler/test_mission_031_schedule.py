@@ -140,8 +140,8 @@ def test_mission_031_honesty_not_certified_not_m3_not_live() -> None:
 
     oar = OAR_024.read_text(encoding="utf-8")
     status = next(line for line in oar.splitlines() if line.lower().startswith("**status:**"))
-    assert "ready" in status.lower()
-    assert "accepted" not in status.lower() or "not accepted" in status.lower()
+    assert "accepted" in status.lower()
+    assert "ready (not accepted)" not in status.lower()
     assert "certified requirements compiler" not in oar.lower()
     assert "partial" in oar.lower()
     assert "not certified ir v0.2" in oar.lower()

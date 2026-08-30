@@ -36,8 +36,8 @@ def test_mission_030_008_bridge_not_certified_not_m3() -> None:
     status = next(
         line for line in oar_text.splitlines() if line.lower().startswith("**status:**")
     )
-    assert "ready" in status.lower()
-    assert "accepted" not in status.lower()
+    assert "accepted" in status.lower()
+    assert "ready (not accepted)" not in status.lower()
     assert "certified requirements compiler" not in oar_text.lower()
     assert "partial" in oar_text.lower()
 
@@ -47,8 +47,8 @@ def test_mission_030_008_bridge_not_certified_not_m3() -> None:
     status_022 = next(
         line for line in oar_022_text.splitlines() if line.lower().startswith("**status:**")
     )
-    assert "ready" in status_022.lower()
-    assert "accepted" not in status_022.lower() or "not accepted" in status_022.lower()
+    assert "accepted" in status_022.lower()
+    assert "ready (not accepted)" not in status_022.lower()
     assert "skip-cert" in oar_022_text.lower() or "not a gate" in oar_022_text.lower()
 
     las = Path(
