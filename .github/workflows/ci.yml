@@ -1,10 +1,14 @@
 name: CI
 
+# Push CI is main-only so feature/docs/fix branch pushes do not burn
+# Actions minutes. Exercise the matrix via a pull_request into main or
+# feature/promptrig-framework, or via workflow_dispatch.
 on:
   push:
-    branches: ["main", "feature/**", "docs/**", "fix/**"]
+    branches: ["main"]
   pull_request:
     branches: ["main", "feature/promptrig-framework"]
+  workflow_dispatch:
 
 jobs:
   test:
