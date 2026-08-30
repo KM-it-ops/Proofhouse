@@ -3,7 +3,7 @@
 **Status:** OAR-029 Accepted 2026-08-30.
 **Baseline:** `feature/mission-035-product-finish` @ `71aadb8`.
 **Branch:** `cursor/ce-work-product-accept-d6f7`.
-**HEAD (Accept):** pending commit.
+**HEAD (Accept):** `de25fb0`
 
 ## Scope
 
