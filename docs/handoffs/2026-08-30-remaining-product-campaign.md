@@ -5,7 +5,7 @@ title: "PromptRig remaining-product campaign, local finish"
 summary: "U1-U9 implemented on feature/mission-035-product-finish; do not burn GitHub Actions; owner Accept still outstanding. Canonical handoff lives in-repo because /tmp scratch is not visible on a new VM."
 keywords: ["promptrig", "ce-work", "remaining-product-campaign", "mission-034", "mission-035", "mission-036", "hosted-slice", "missionrig", "github-actions", "stay-local", "ce-handoff"]
 cwd: "."
-resume_focus: "Owner Accept of Ready OARs, then one PR into main if Boss wants GitHub Actions. Do not restore feature/** push CI. Do not treat Ready as Accepted or the compiler as CERTIFIED."
+resume_focus: "PR into main if Boss wants GitHub Actions. OAR-021 through OAR-029 Accepted 2026-08-30. Do not restore feature/** push CI. Do not treat Accepted as CERTIFIED."
 repository: "km-it-ops/promptrig"
 repo_root_sha: "5210cf3892e6d680e1ad1c90db769af4a4243e05"
 branch: "feature/mission-035-product-finish"
@@ -98,8 +98,9 @@ GitHub Actions were not re-run after the cheap fix. Earlier origin pushes of mis
 
 ## Unfinished / blockers
 
-- Boss Accept of OAR-021 through OAR-029 (human gate). Do not fill Accept yourself.
-- A PR into `main` will run the eight-job matrix; that is the appropriate Actions spend; ask first. Do not restore `feature/**` push CI.
+- OAR-021 through OAR-029 **Accepted 2026-08-30** by Boss.
+- OAR-020 remains Ready (not Accepted).
+- A PR into `main` will run the eight-job matrix; ask first. Do not restore `feature/**` push CI.
 - Q1 unpicked: no real-network live tests.
 - Q4 unpicked: no IR v0.2 production schema.
 - FastAPI/Next.js not implemented (explicit non-pick).

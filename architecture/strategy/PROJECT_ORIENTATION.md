@@ -1,6 +1,6 @@
 # PromptRig — where you are
 
-**Date:** 2026-08-29. Laptop `main` is ahead of `origin/main`. Do not push unless you say to.
+**Date:** 2026-08-30. Campaign branch ahead of `origin/main`. Do not push `origin/main` unless you say to.
 
 Open the picture beside chat: Cursor canvas `promptrig-project-map.canvas.tsx`.
 
@@ -12,89 +12,59 @@ If this file fights an Accepted OAR or the maturity map, those win.
 
 ```text
 want  →  compiler  →  IR  →  fake run  →  score  →  fix
-              ↑
-         you are here
-         (still holes)
+              ↑                              ↑
+         PARTIAL                         product bar
+         (008 bridged)                   + hosted slice
 ```
 
-The right side (fake run / score / fix) already works offline. That loop is CERTIFIED.
-
-The compiler is the weak link. It is PARTIAL. Not CERTIFIED.
+The offline fake loop is CERTIFIED. Product eval/repair bar, 008 bridge, sealed benchmark, stdlib hosted Simple/Developer slice, and MissionRig consume are Accepted (OAR-021 through OAR-029) but mostly **not CERTIFIED** product surfaces. The requirements compiler stays **PARTIAL**.
 
 ---
 
 ## Picture 2 — the road (phases)
 
-Phases are “what has to finish first.” Not mission numbers.
-
 ```text
-1 done → 2 done → 3 done → 4 done → [ 4B YOU ARE HERE ] → 5 → 6 → 7 → 8 Simple Mode → 9
+1 done → 2 done → 3 done → 4 done → [ 4B engineering done ] → 5 → 6 → 7 → 8 → 9
 ```
 
-- **4B** = remaining headless engineering the product consumes (product eval bar implemented; 008 join remaining). You live here.
-- **8** = Simple Mode (the easy UI). Later. Needs remaining 4B engineering plus owner Accept first. Independent review is not a gate. The UI must not own semantics.
+- **4B** remaining engineering from the remaining-product campaign is **Accepted** (OAR-021–029). Compiler still **PARTIAL**. Not full Phase 4B exit. Not CERTIFIED compiler.
+- **8** = broader Simple Mode polish and hosted product hardening. Stdlib slice exists (MISSION-035 / OAR-028 Accepted). Q2 runtime pick is STACK-OWNER-SELECTED — not FastAPI/Next.js.
 
 ---
 
 ## Picture 3 — what sits in what
 
 ```text
-Phase 4B  (you live here)
+Phase 4B  (Accepted engineering; compiler still PARTIAL)
 ├── Fake closed loop ........ DONE / CERTIFIED  (offline fake only)
-└── Compiler ................ NOT DONE / PARTIAL
-      ├── Jobs 016–021 ...... done
-      ├── Job 022 ........... done  (questions 3, 5, 10; 4/7/8/9 locked)
-      ├── Job 023 ........... done  (numbered + constraints map; Goal already mapped)
-      ├── Job 024 ........... done  (remaining 4B inventory; not CERTIFIED)
-      ├── Job 025 ........... done  (same-host PARTIAL slice review; not CERTIFIED)
-      ├── Job 026 ........... in    (independent-person review pack; OAR-020 Ready; not CERTIFIED)
-      ├── Job 027 ........... in    (eval/repair product bar; OAR-021 Ready; not CERTIFIED)
-      ├── Job 028 ........... in    (skip-cert law; OAR-022 Ready; peer review is not a gate)
-      ├── M1 typing ......... in   (strict prose now compiles SUCCESS for valid grammar)
-      └── M2 suggestions .... fake helper only (no live model)
+├── Product eval bar ........ DONE / Accepted OAR-021 (not CERTIFIED product surface)
+├── 008→IR bridge ........... DONE / Accepted OAR-023
+├── Live OpenAI ............. DONE / Accepted OAR-025 (opt-in; Q1 unpicked)
+├── Sealed benchmark ........ DONE / Accepted OAR-026 (not a published claim)
+├── Hosted contracts ........ DONE / Accepted OAR-027
+├── Hosted runtime .......... DONE / Accepted OAR-028 (stdlib; not CERTIFIED hosted)
+├── MissionRig consume ...... DONE / Accepted OAR-029 (one profile; not CERTIFIED)
+└── Compiler ................ PARTIAL (not CERTIFIED)
 
-Phase 8  (later)
-└── M3 Simple Mode .......... not started
+Phase 8+ (later)
+└── FastAPI/Next.js restack, Q1 live, Q4 IR v0.2 schema, CERTIFIED promotion ... not started
 ```
-
-Read it as boxes inside boxes:
-
-- **Phase** = neighborhood
-- **Mission / job** = a chunk of work in that neighborhood
-- **M1 / M2 / M3** = how a person types, not a job number
-
-M3 is not “the next mission.” It is a later neighborhood.
 
 ---
 
 ## Picture 4 — the ten compiler questions
 
-All ten are decided on paper. Only some are in the engine.
-
-```text
-021 (done)                 022 (done)
----------                  --------------
-1 digest      in           3 who-may-approve     IN (if unclear → blocked)
-2 optional    in           5 exact version       IN (keep 0.1.0-draft)
-6 notes       in           10 structured notes   IN
-
-                           4 aliases             LOCKED (do not merge ids)
-                           7 PRS language        LOCKED (stay parked)
-                           8 continue-state      LOCKED (no IR blob)
-                           9 thinking knobs      LOCKED (no IR knobs)
-```
-
-After 028 the compiler is still PARTIAL. Numbered / constraint prose is mapped (OAR-017 Accepted 2026-08-24). Remaining 4B blockers are inventoried (OAR-018 Accepted 2026-08-28). Same-host PARTIAL-slice review is recorded (OAR-019 Accepted 2026-08-28). Independent-person review pack is Ready (OAR-020 Ready, not Accepted). Skip-cert law is Ready (OAR-022 Ready, not Accepted): peer review is not a Phase 5–9 gate. Product eval bar is implemented (MISSION-027 / OAR-021 Ready; product surface not CERTIFIED). Remaining 4B engineering is the 008 join. Not CERTIFIED.
+All ten are decided on paper. Engine coverage is unchanged from MISSION-022 except numbered/constraint prose maps (OAR-017) and 008 bridge (OAR-023).
 
 ---
 
 ## Short answers
 
-**Where am I?** Remaining-product campaign through MISSION-036 (OAR-029 Ready). Compiler still PARTIAL.
+**Where am I?** Remaining-product campaign Accepted through MISSION-036 (OAR-029 Accepted 2026-08-30). Compiler still PARTIAL.
 
-**Is the product done?** Headless compile-eval-repair, stdlib Simple/Developer slice, sealed benchmark, and MissionRig consume exist as Ready OARs. The compiler is still PARTIAL. Owner Accept is outstanding.
+**Is the product done?** Headless compile-eval-repair, product eval bar, 008 bridge, opt-in live, sealed benchmark, stdlib hosted slice, and MissionRig consume are Accepted. Not CERTIFIED hosted product. Not CERTIFIED compiler. Not a published benchmark claim.
 
-**Should I start Simple Mode now?** Phase 8 stdlib slice exists (MISSION-035). Q2 pick is STACK-OWNER-SELECTED — do not scaffold FastAPI or Next.js, and do not extend apps/dashboard or apps/promptrig.jsx. Independent review is not a gate. The UI must not own semantics.
+**Should I start Simple Mode now?** Phase 8 stdlib slice exists (OAR-028 Accepted). Q2 pick is STACK-OWNER-SELECTED — do not scaffold FastAPI or Next.js. Do not extend `apps/dashboard` or `apps/promptrig.jsx`. UI must not own semantics.
 
 **Can I push origin/main?** No, unless you explicitly ask.
 
@@ -105,22 +75,6 @@ After 028 the compiler is still PARTIAL. Numbered / constraint prose is mapped (
 - Road: `architecture/strategy/ROADMAP_V1.md`
 - Done-or-not: `architecture/strategy/CAPABILITY_MATURITY_MAP.md`
 - Questions: `architecture/requirements-compiler-contract-v0.1/OPEN_QUESTIONS.md`
-- Last accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-019.md`
-- Open job until Accepted: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-020.md`
-- Product eval bar until Accepted: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-021.md`
-- Skip-cert law until Accepted: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-022.md`
-- 027 note: `architecture/mission-027-certification/README.md`
-- Prior accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-018.md`
-- 028 note: `architecture/mission-028-certification/README.md`
-- 027 spec: `docs/superpowers/specs/2026-08-28-mission-027-eval-repair-product-design.md`
-- 027 plan: `docs/superpowers/plans/2026-08-28-mission-027-eval-repair-product.md`
-- 026 spec: `docs/superpowers/specs/2026-08-28-mission-026-independent-review-pack-design.md`
-- 026 plan: `docs/superpowers/plans/2026-08-28-mission-026-independent-review-pack.md`
-- 025 spec: `docs/superpowers/specs/2026-08-28-mission-025-partial-slice-review-design.md`
-- 025 plan: `docs/superpowers/plans/2026-08-28-mission-025-partial-slice-review.md`
-- 024 spec: `docs/superpowers/specs/2026-08-24-mission-024-4b-honesty-design.md`
-- 024 plan: `docs/superpowers/plans/2026-08-24-mission-024-4b-honesty.md`
-- 023 spec: `docs/superpowers/specs/2026-08-24-mission-023-plain-language-ir-mapping-design.md`
-- 023 plan: `docs/superpowers/plans/2026-08-24-mission-023-plain-language-ir-mapping.md`
-- 022 spec: `docs/superpowers/specs/2026-08-23-mission-022-008-remaining-oq-design.md`
-- 022 plan: `docs/superpowers/plans/2026-08-23-mission-022-008-remaining-oq-implementation.md`
+- Last accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-029.md`
+- Campaign handoff: `docs/handoffs/2026-08-30-remaining-product-campaign.md`
+- Prior accept: `architecture/OWNER_ACCEPTANCE_RECORDS/OAR-022.md`

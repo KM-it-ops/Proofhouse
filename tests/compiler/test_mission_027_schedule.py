@@ -30,5 +30,5 @@ def test_mission_027_product_bar_not_certified_compiler() -> None:
     status = next(
         line for line in oar.read_text(encoding="utf-8").splitlines() if line.lower().startswith("**status:**")
     )
-    assert "ready" in status.lower()
-    assert "accepted" not in status.lower()
+    assert "accepted" in status.lower()
+    assert "ready (not accepted)" not in status.lower()
