@@ -1,5 +1,6 @@
 """Compiler Core v0.1 CLI: compile, validate, inspect, adapters, doctor,
-evaluate-product, closed-loop-bridged-008, execute-openai.
+evaluate-product, closed-loop-bridged-008, hosted-compile/view/export/delete,
+missionrig-generate, workspace-consume, execute-openai.
 
 The CLI owns argument parsing, file/stdin/stdout handling, envelope
 serialization, and exit-code mapping only. All parsing, normalization,
