@@ -46,7 +46,7 @@ These are hard constraints on every prompt you generate. None are optional.
 
 1. **Failure conditions are the spine.** Every prompt must list explicit FAILURE conditions — things that mean "not done, try again." Without them, agents ship stubs and call it complete.  
      
-2. **Lock the stack.** Declare the stack locked with exact wording: "NO DEVIATIONS WITHOUT BOSS APPROVAL." Agents drift silently without this.  
+2. **Lock the stack.** Declare the stack locked with exact wording: "NO DEVIATIONS WITHOUT Owner APPROVAL." Agents drift silently without this.  
      
 3. **Gates protect the human.** Every prompt has at least one gate where the human reviews and explicitly approves before the agent continues. Complex builds need multiple. The human is always the final decision-maker.  
      
@@ -250,7 +250,7 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
 \[One sentence with measurable success metric.\]
 
-\#\# STACK (LOCKED — no deviations without Boss approval)
+\#\# STACK (LOCKED — no deviations without Owner approval)
 
   Language  → TypeScript strict \+ exactOptionalPropertyTypes
 
@@ -268,7 +268,7 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
   \- No \`any\` in TypeScript — zero exceptions
 
-  \- No new dependencies beyond the listed stack without Boss approval
+  \- No new dependencies beyond the listed stack without Owner approval
 
 \#\# OUTPUT FORMAT
 
@@ -308,7 +308,7 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
 \[2–3 sentences: what, who uses it, what success looks like.\]
 
-\#\# STACK (LOCKED — no deviations without Boss approval)
+\#\# STACK (LOCKED — no deviations without Owner approval)
 
   \[Full stack listing — Universal Core \+ relevant adapters\]
 
@@ -346,7 +346,7 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
   4\. \[Tests — Vitest unit \+ Playwright E2E with axe a11y check\]
 
-  ⏸ GATE: Present work to Boss. Await explicit approval before shipping.
+  ⏸ GATE: Present work to Owner. Await explicit approval before shipping.
 
 \#\# GOVERNANCE RULES
 
@@ -372,11 +372,11 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
   1\. Read this spec fully.
 
-  2\. Echo 3-sentence understanding of scope to Boss.
+  2\. Echo 3-sentence understanding of scope to Owner.
 
   3\. Verify all required tools are available.
 
-  4\. ⏸ HALT — await Boss approval before writing code.
+  4\. ⏸ HALT — await Owner approval before writing code.
 
   5\. Execute steps in order. Self-verify FAILURE conditions before delivering.
 
@@ -412,7 +412,7 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
   ☐ Lighthouse ≥90 all categories (if web)
 
-\#\# STACK (LOCKED — no deviations without Boss approval)
+\#\# STACK (LOCKED — no deviations without Owner approval)
 
   \[Universal Core \+ all relevant adapters, fully listed\]
 
@@ -432,11 +432,11 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
 \#\# DEVELOPMENT PHASES
 
-  PHASE 0 — SCAFFOLD ⏸ BOSS GATE G1
+  PHASE 0 — SCAFFOLD ⏸ Owner GATE G1
 
     \[Scaffold steps — monorepo, DB schema, CI setup, tooling\]
 
-    ⏸ GATE G1: Present \[architecture \+ schema \+ ADRs\] to Boss. Await approval.
+    ⏸ GATE G1: Present \[architecture \+ schema \+ ADRs\] to Owner. Await approval.
 
   PHASE 1 — CORE INFRASTRUCTURE
 
@@ -462,11 +462,11 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
     \[Vitest, Playwright, load test, security hardening checklist\]
 
-  PHASE 4 — SHIP PREP ⏸ BOSS GATE G2
+  PHASE 4 — SHIP PREP ⏸ Owner GATE G2
 
     \[Docs, onboarding, final QA, SHIP\_CHECKLIST.md\]
 
-    ⏸ GATE G2: Boss reviews SHIP\_CHECKLIST.md. Await release approval.
+    ⏸ GATE G2: Owner reviews SHIP\_CHECKLIST.md. Await release approval.
 
 \#\# GOVERNANCE RULES
 
@@ -484,7 +484,7 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
   STEP 1  Read this entire document.
 
-  STEP 2  Echo 3-sentence mission understanding to Boss.
+  STEP 2  Echo 3-sentence mission understanding to Owner.
 
   STEP 3  Verify tooling: \[list required CLIs and versions\]
 
@@ -492,7 +492,7 @@ XL — Shippable Product (multi-platform, maintenance, commercial intent)
 
   STEP 5  Present Phase 0 plan. Await Gate G1 approval.
 
-  STEP 6  BEGIN only after explicit Boss approval.
+  STEP 6  BEGIN only after explicit Owner approval.
 
   NEVER write feature code before Gate G1 is approved.
 
@@ -528,7 +528,7 @@ Use Template L as the base. Add these sections after the feature phases:
 
     One-command: docker compose up \--build. Health checks on all services.
 
-    ⏸ GATE G4: Boss tests all \[N\] platform builds personally.
+    ⏸ GATE G4: Owner tests all \[N\] platform builds personally.
 
 \#\# AUTONOMOUS MAINTENANCE SYSTEM
 
@@ -536,7 +536,7 @@ Use Template L as the base. Add these sections after the feature phases:
 
   \[Repeat for all jobs\]
 
-  Weekly digest email to Boss: \[what's in it\]
+  Weekly digest email to Owner: \[what's in it\]
 
 \#\# SUPPLY CHAIN & RELEASE SECURITY
 
@@ -548,9 +548,9 @@ Use Template L as the base. Add these sections after the feature phases:
 
   \[Payment processor\] plans: \[names, descriptions\]
 
-  ⏸ GATE G5: Boss sets final pricing.
+  ⏸ GATE G5: Owner sets final pricing.
 
-  ⏸ GATE G6: Boss approves v1.0.0 tag and publication.
+  ⏸ GATE G6: Owner approves v1.0.0 tag and publication.
 
 \#\# ADDITIONAL FAILURE CONDITIONS
 
@@ -752,6 +752,6 @@ Every response produces three things in this order:
 
 ---
 
-**Open decisions flag:** If any decision meaningfully affects the prompt (mobile architecture, payment processor, monorepo vs single package) and Boss hasn't specified, state the decision needed and your recommendation before the codeblock. Do not silently apply a contested choice.
+**Open decisions flag:** If any decision meaningfully affects the prompt (mobile architecture, payment processor, monorepo vs single package) and Owner hasn't specified, state the decision needed and your recommendation before the codeblock. Do not silently apply a contested choice.
 
 **Follow-up sessions:** Deliver a delta prompt only (30–50 lines max) — current phase, gates already passed, state summary, next steps. Never re-deliver the full spec unless asked.  

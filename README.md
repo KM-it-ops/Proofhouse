@@ -70,7 +70,7 @@ promptrig-compiler doctor
 promptrig-compiler closed-loop path/to/requirements.json --repair-budget 1 --json
 ```
 
-Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. Certified path is **offline** — no live providers, no benchmark claims. See [MISSION_011_REPORT.md](MISSION_011_REPORT.md).
+Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. Certified path is **offline** — no live providers, no benchmark claims.
 
 ---
 
@@ -136,9 +136,9 @@ architecture/           Contract-first compiler missions (honesty-gated)
 PromptRig ships two products in one repo:
 
 1. **PromptOps skill + framework (v1.3)** — conversational meta-optimizer with current frontier model profiles. This is the user-facing surface most people want today.
-2. **Headless compiler campaign** — contract-first offline pipeline (MISSION-008 through MISSION-036). Requirements compiler maturity remains `PARTIAL`. No live providers, no hosted UI, no benchmark claims without explicit certification.
+2. **Headless compiler** — contract-first offline pipeline under `src/promptrig/compiler/`. Requirements compiler maturity remains `PARTIAL`. No live providers, no hosted UI, no benchmark claims without explicit certification.
 
-Mission reports and acceptance records live under `architecture/` and `MISSION_*_REPORT.md`. Read those before claiming anything beyond the certified offline path.
+Internal mission reports and review corpora are not published in this repository.
 
 ---
 
@@ -148,7 +148,6 @@ Mission reports and acceptance records live under `architecture/` and `MISSION_*
 - [Quickstart](docs/quickstart.md)
 - [Custom GPT setup](docs/custom-gpt-setup.md)
 - [Security policy](SECURITY.md)
-- [Architecture governance](architecture/README.md)
 
 ---
 

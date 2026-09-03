@@ -37,3 +37,12 @@ skills-lock.json
 
 
 .worktrees/
+
+# Internal-only — keep local, never publish
+review-cycles/
+docs/superpowers/
+docs/goals/
+docs/handoffs/
+MISSION_*_REPORT.md
+MISSION_REPORT.md
+MISSION_*_PromptRig_*.md
