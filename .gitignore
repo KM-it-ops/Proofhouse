@@ -43,6 +43,12 @@ review-cycles/
 docs/superpowers/
 docs/goals/
 docs/handoffs/
+docs/methodology/
+architecture/
+releases/
 MISSION_*_REPORT.md
 MISSION_REPORT.md
 MISSION_*_PromptRig_*.md
+CODEX_IMPLEMENTATION_PROMPT.md
+PROMPTRIG_FILE_MANIFEST.md
+promptrig_*.zip

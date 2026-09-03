@@ -70,7 +70,7 @@ jobs:
       - name: Regenerate TypeScript contracts and fail on drift
         run: |
           python scripts/generate_typescript_contracts.py
-          git diff --exit-code -- architecture/typescript
+          git diff --exit-code -- src/promptrig/compiler/typescript
 
   wheel-install:
     runs-on: ubuntu-latest

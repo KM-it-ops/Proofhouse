@@ -5,13 +5,14 @@ from pathlib import Path
 
 import pytest
 
+from promptrig.compiler import paths as compiler_paths
+
 _COMPILER_TEST_DIR = Path(__file__).resolve().parent
 if str(_COMPILER_TEST_DIR) not in sys.path:
     sys.path.insert(0, str(_COMPILER_TEST_DIR))
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-CONTRACT_DIR = REPO_ROOT / "architecture" / "compiler-contract-freeze-v0.5"
-DIAGNOSTICS_DIR = REPO_ROOT / "architecture" / "diagnostics"
+REQUIREMENTS_CONTRACT_DIR = REPO_ROOT / "tests" / "fixtures" / "requirements-compiler-contract-v0.1"
 
 
 @pytest.fixture(scope="session")
@@ -21,17 +22,17 @@ def repo_root() -> Path:
 
 @pytest.fixture(scope="session")
 def ir_schema_path() -> Path:
-    return CONTRACT_DIR / "PROMPTRIG_IR_V0_1.schema.json"
+    return compiler_paths.IR_SCHEMA_PATH
 
 
 @pytest.fixture(scope="session")
 def diagnostic_contract_schema_path() -> Path:
-    return CONTRACT_DIR / "DIAGNOSTIC_CONTRACT.schema.json"
+    return compiler_paths.DIAGNOSTIC_CONTRACT_SCHEMA_PATH
 
 
 @pytest.fixture(scope="session")
 def diagnostic_registry_path() -> Path:
-    return DIAGNOSTICS_DIR / "DIAGNOSTIC_CODE_REGISTRY.json"
+    return compiler_paths.DIAGNOSTIC_REGISTRY_PATH
 
 
 @pytest.fixture()

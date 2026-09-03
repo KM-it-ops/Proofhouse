@@ -1,6 +1,6 @@
 """Reproducible TypeScript generation with a CI drift check: regenerating
 from the vendored schemas must byte-for-byte match the committed output
-under architecture/typescript/. If this test fails, run
+under src/promptrig/compiler/typescript/. If this test fails, run
 `python scripts/generate_typescript_contracts.py` and commit the diff."""
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ def test_committed_typescript_matches_regenerated_output(repo_root):
     generated = generate_all(
         ir_schema_path=paths.IR_SCHEMA_PATH, diagnostic_schema_path=paths.DIAGNOSTIC_CONTRACT_SCHEMA_PATH
     )
-    ts_dir = repo_root / "architecture" / "typescript"
+    ts_dir = repo_root / "src" / "promptrig" / "compiler" / "typescript"
     for filename, source in generated.items():
         committed = (ts_dir / filename).read_text(encoding="utf-8")
         assert committed == source, (
@@ -32,7 +32,7 @@ def test_generated_ir_type_has_required_and_optional_fields():
     )
     ir_ts = generated["promptrig_ir.ts"]
     assert "export interface PromptRigIR {" in ir_ts
-    assert "spec_version: \"0.1.0\";" in ir_ts
+    assert 'spec_version: "0.1.0";' in ir_ts
     assert "workflow?: PromptRigIRWorkflow;" in ir_ts  # optional (not in required[])
 
 

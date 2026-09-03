@@ -17,17 +17,13 @@ import jsonschema
 from .canonical import canonical_sha256
 from .eval_product import ProductEvalRequest, evaluate_product
 from .evaluation import EvaluationRequest, evaluate_deterministic
+from . import paths as compiler_paths
 
 MANIFEST_VERSION = "0.1.0"
 BENCHMARK_ID_DEFAULT = "promptrig-sealed-offline-v0.1"
 REPAIR_BUDGETS = (0, 1, 2)
 DEFAULT_AUTONOMOUS_ATTEMPTS = 3
-_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[3]
-    / "architecture"
-    / "sealed-benchmark-v0.1"
-    / "benchmark-manifest.schema.json"
-)
+_SCHEMA_PATH = compiler_paths.BENCHMARK_MANIFEST_SCHEMA_PATH
 _SECRET_MARKERS = (
     "api_key",
     "apikey",

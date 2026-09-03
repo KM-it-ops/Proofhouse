@@ -2,10 +2,8 @@
 
 Every emitted diagnostic is checked against two independent contracts:
 
-1. `architecture/diagnostics/DIAGNOSTIC_CODE_REGISTRY.json` — which codes
-   exist, their fixed phase/severity, and whether they are active or retired.
-2. `architecture/compiler-contract-freeze-v0.5/DIAGNOSTIC_CONTRACT.schema.json`
-   — the structural shape every diagnostic object must have.
+1. The vendored diagnostic code registry under `src/promptrig/compiler/schemas/`.
+2. The vendored diagnostic contract schema in the same directory.
 
 A registered code attached to a structurally non-conforming diagnostic is a
 failure (mission requirement); diagnostics are otherwise immutable and

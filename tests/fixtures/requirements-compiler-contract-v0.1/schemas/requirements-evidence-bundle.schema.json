@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/contracts/requirements-compiler/v0.1/requirements-evidence-bundle.schema.json",
+  "title": "Requirements Evidence Bundle",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version", "id", "frozen_ir_version", "compile_result_ref", "input_hash", "artifact_hashes", "schema_hashes",
+    "source_refs", "requirement_refs", "mapping_refs", "derivation_refs", "model_proposal_refs",
+    "assumption_refs", "conflict_refs", "question_refs", "approval_refs", "default_refs",
+    "test_mapping_refs", "diagnostic_refs", "gap_refs", "policy_refs", "validation_refs",
+    "external_evidence_refs", "validation", "network_access", "credentials_accessed"
+  ],
+  "properties": {
+    "contract_version": {"const": "0.1.0-draft"},
+    "id": {"type": "string", "pattern": "^EVB-[A-Z0-9-]+$"},
+    "frozen_ir_version": {"const": "0.1.0", "description": "EM-023: the exact frozen IR target version this bundle's mappings validate against; equals frozen IR spec_version.const and is cross-checked by the validator."},
+    "input_hash": {"type": "string", "pattern": "^[a-f0-9]{64}$", "description": "EM-027 canonical digest of the intent input artifact."},
+    "artifact_hashes": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": {"enum": ["intent_input", "requirements_document", "mappings", "diagnostics", "compile_result"]},
+      "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"},
+      "description": "EM-027: exact artifact keys only. The bundle never hashes itself, so the digest domain is acyclic."
+    },
+    "schema_hashes": {"type": "object", "minProperties": 1, "additionalProperties": {"type": "string", "pattern": "^[a-f0-9]{64}$"}, "description": "EM-027: SHA-256 over the exact schema file bytes, keyed by schema file name."},
+    "source_refs": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "requirement_refs": {"type": "array", "items": {"type": "string", "pattern": "^REQ-[A-Z0-9-]{3,64}$"}, "uniqueItems": true},
+    "mapping_refs": {"type": "array", "items": {"type": "string", "pattern": "^MAP-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "derivation_refs": {"type": "array", "items": {"type": "string", "pattern": "^DRV-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "model_proposal_refs": {"type": "array", "items": {"type": "string", "pattern": "^MDL-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "assumption_refs": {"type": "array", "items": {"type": "string", "pattern": "^ASM-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "conflict_refs": {"type": "array", "items": {"type": "string", "pattern": "^CFL-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "question_refs": {"type": "array", "items": {"type": "string", "pattern": "^OQN-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "approval_refs": {"type": "array", "items": {"type": "string", "pattern": "^APR-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "default_refs": {"type": "array", "items": {"type": "string", "pattern": "^DFT-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "test_mapping_refs": {"type": "array", "items": {"type": "string", "pattern": "^TSM-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "diagnostic_refs": {"type": "array", "items": {"type": "string", "pattern": "^RQDIA-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "gap_refs": {"type": "array", "items": {"type": "string", "pattern": "^IRG-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "policy_refs": {"type": "array", "items": {"type": "string", "pattern": "^POL-[A-Z0-9-]+$"}, "uniqueItems": true, "description": "Reusable governing policies this attempt relied on. Reusable authority evidence is not attempt-bound, but must be exactly referenced and content-addressed."},
+    "validation_refs": {"type": "array", "items": {"type": "string", "pattern": "^VAL-[A-Z0-9-]+$"}, "uniqueItems": true},
+    "external_evidence_refs": {"type": "array", "items": {"type": "string", "pattern": "^EXT-[A-Z0-9-]+$"}, "uniqueItems": true, "description": "Governed external evidence, each carrying a URI and SHA-256."},
+    "compile_result_ref": {"type": "string", "pattern": "^ATT-[A-Z0-9-]+$", "description": "EM-020 terminal-status evidence (now required): the compile-result attempt_id this bundle supports; same-attempt closure requires the compile result to reciprocate via evidence_bundle_ref."},
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["validator_version", "result", "fixture_count"],
+      "properties": {
+        "validator_version": {"type": "string", "minLength": 1},
+        "result": {"enum": ["PASS", "FAIL"]},
+        "fixture_count": {"type": "integer", "minimum": 0}
+      }
+    },
+    "network_access": {"const": false},
+    "credentials_accessed": {"const": false}
+  }
+}

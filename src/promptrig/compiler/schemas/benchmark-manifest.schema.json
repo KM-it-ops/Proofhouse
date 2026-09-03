@@ -1,0 +1,108 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.local/schemas/benchmark-manifest.schema.json",
+  "title": "PromptRig sealed offline benchmark manifest v0.1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "manifest_version",
+    "benchmark_id",
+    "network_mode",
+    "network_allowed",
+    "environment_digest",
+    "source_hashes",
+    "secrets_policy",
+    "budgets",
+    "repetition",
+    "starter_commit",
+    "permissions",
+    "intervention_policy",
+    "contamination_controls",
+    "scoring",
+    "marketing_claims_policy"
+  ],
+  "properties": {
+    "manifest_version": { "type": "string", "const": "0.1.0" },
+    "benchmark_id": { "type": "string", "minLength": 1 },
+    "network_mode": { "type": "string", "const": "offline" },
+    "network_allowed": { "type": "boolean", "const": false },
+    "environment_digest": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "source_hashes": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "string",
+        "pattern": "^sha256:[0-9a-f]{64}$"
+      }
+    },
+    "secrets_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["credentials", "in_artifacts", "in_repository"],
+      "properties": {
+        "credentials": { "type": "string", "const": "forbidden" },
+        "in_artifacts": { "type": "boolean", "const": false },
+        "in_repository": { "type": "boolean", "const": false }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["repair", "autonomous_attempts"],
+      "properties": {
+        "repair": {
+          "type": "array",
+          "minItems": 3,
+          "maxItems": 3,
+          "items": { "type": "integer" }
+        },
+        "autonomous_attempts": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "repetition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "autonomous_attempts",
+        "owner_ratified_smaller_budget",
+        "owner_ratification_note"
+      ],
+      "properties": {
+        "autonomous_attempts": { "type": "integer", "minimum": 1 },
+        "owner_ratified_smaller_budget": { "type": "boolean" },
+        "owner_ratification_note": { "type": "string" }
+      }
+    },
+    "starter_commit": { "type": "string", "minLength": 1 },
+    "permissions": {
+      "type": "object",
+      "additionalProperties": { "type": "string" }
+    },
+    "intervention_policy": { "type": "string", "const": "autonomous" },
+    "contamination_controls": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hidden_tests_inaccessible", "public_tests_only_for_config"],
+      "properties": {
+        "hidden_tests_inaccessible": { "type": "boolean", "const": true },
+        "public_tests_only_for_config": { "type": "boolean" }
+      }
+    },
+    "scoring": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["oracle", "published_scorer"],
+      "properties": {
+        "oracle": { "type": "string", "const": "evaluate_deterministic" },
+        "published_scorer": { "type": "string", "const": "evaluate_product" }
+      }
+    },
+    "marketing_claims_policy": {
+      "type": "string",
+      "const": "forbidden_until_owner_authorized_dry_run"
+    }
+  }
+}

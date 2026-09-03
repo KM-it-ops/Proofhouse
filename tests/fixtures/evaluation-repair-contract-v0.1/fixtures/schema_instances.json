@@ -1,0 +1,109 @@
+{
+  "instances": [
+    {
+      "id": "accept-evaluator",
+      "schema": "evaluator-record.schema.json",
+      "expect": "accept",
+      "document": {
+        "evaluator_id": "EVL-DET-001",
+        "evaluator_kind": "deterministic_validator",
+        "version": "0.1.0",
+        "authority_rank": 1,
+        "inputs": [
+          "candidate",
+          "baseline"
+        ],
+        "outputs": [
+          "pass_fail"
+        ],
+        "confidence_scale": "none",
+        "provenance": "contract"
+      }
+    },
+    {
+      "id": "reject-evaluator-kind",
+      "schema": "evaluator-record.schema.json",
+      "expect": "reject",
+      "document": {
+        "evaluator_id": "EVL-DET-001",
+        "evaluator_kind": "live_provider",
+        "version": "0.1.0",
+        "authority_rank": 1,
+        "inputs": [
+          "candidate",
+          "baseline"
+        ],
+        "outputs": [
+          "pass_fail"
+        ],
+        "confidence_scale": "none",
+        "provenance": "contract"
+      }
+    },
+    {
+      "id": "accept-baseline",
+      "schema": "baseline-identity.schema.json",
+      "expect": "accept",
+      "document": {
+        "baseline_id": "BSL-001",
+        "artifact_digest": "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "contract_version": "0.1.0-draft",
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "created_at": "2026-08-11T00:00:00Z",
+        "stale": false
+      }
+    },
+    {
+      "id": "reject-baseline-digest",
+      "schema": "baseline-identity.schema.json",
+      "expect": "reject",
+      "document": {
+        "baseline_id": "BSL-001",
+        "artifact_digest": "not-a-digest",
+        "contract_version": "0.1.0-draft",
+        "requirement_ids": [
+          "REQ-EVAL-001"
+        ],
+        "created_at": "2026-08-11T00:00:00Z",
+        "stale": false
+      }
+    },
+    {
+      "id": "accept-repair-plan",
+      "schema": "repair-plan.schema.json",
+      "expect": "accept",
+      "document": {
+        "plan_id": "RPL-OKAY",
+        "budget": 2,
+        "immutable_fields": [
+          "security_constraints"
+        ],
+        "allowed_mutations": [
+          "artifact_surface"
+        ],
+        "stop_states": [
+          "success",
+          "budget_exhausted"
+        ]
+      }
+    },
+    {
+      "id": "reject-repair-budget",
+      "schema": "repair-plan.schema.json",
+      "expect": "reject",
+      "document": {
+        "plan_id": "RPL-BAD",
+        "budget": 3,
+        "immutable_fields": [
+          "security_constraints"
+        ],
+        "allowed_mutations": [],
+        "stop_states": [
+          "success"
+        ]
+      }
+    }
+  ]
+}

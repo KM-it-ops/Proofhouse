@@ -11,13 +11,7 @@ from promptrig.compiler.closed_loop import (
 
 ROOT = Path(__file__).resolve().parents[2]
 MINIMAL = ROOT / "tests" / "compiler" / "fixtures" / "closed_loop_requirements_minimal.json"
-LAS = (
-    ROOT
-    / "architecture"
-    / "requirements-compiler-contract-v0.1"
-    / "fixtures"
-    / "linked_artifact_sets.json"
-)
+LAS = ROOT / "tests" / "fixtures" / "requirements-compiler-contract-v0.1" / "fixtures" / "linked_artifact_sets.json"
 
 
 def _las(set_id: str) -> dict:

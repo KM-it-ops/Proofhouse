@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.local/schemas/evaluation-repair/repair-plan.schema.json",
+  "title": "RepairPlan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "plan_id",
+    "budget",
+    "immutable_fields",
+    "allowed_mutations",
+    "stop_states"
+  ],
+  "properties": {
+    "plan_id": {
+      "type": "string",
+      "pattern": "^RPL-[A-Z0-9-]{3,64}$"
+    },
+    "budget": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 2
+    },
+    "immutable_fields": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1
+    },
+    "allowed_mutations": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "stop_states": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "enum": [
+          "budget_exhausted",
+          "timeout",
+          "cost_exhausted",
+          "regression",
+          "unresolved_defect",
+          "immutable_violation",
+          "success"
+        ]
+      },
+      "minItems": 1
+    },
+    "time_limit_ms": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "cost_limit": {
+      "type": "number",
+      "minimum": 0
+    }
+  }
+}

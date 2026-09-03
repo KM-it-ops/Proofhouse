@@ -1,4 +1,4 @@
-"""Regenerate architecture/typescript/*.ts from the vendored contract schemas.
+"""Regenerate src/promptrig/compiler/typescript/*.ts from the vendored contract schemas.
 
 Run with: python scripts/generate_typescript_contracts.py
 CI runs this and fails the build on any diff (see test_typescript_generation.py).
@@ -16,7 +16,7 @@ from promptrig.compiler import paths as compiler_paths  # noqa: E402
 
 
 def main() -> int:
-    output_dir = REPO_ROOT / "architecture" / "typescript"
+    output_dir = REPO_ROOT / "src" / "promptrig" / "compiler" / "typescript"
     output_dir.mkdir(parents=True, exist_ok=True)
     generated = generate_all(
         ir_schema_path=compiler_paths.IR_SCHEMA_PATH,

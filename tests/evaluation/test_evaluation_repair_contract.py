@@ -6,7 +6,7 @@ from pathlib import Path
 from types import ModuleType
 
 ROOT = Path(__file__).resolve().parents[2]
-PACKAGE = ROOT / "architecture" / "evaluation-repair-contract-v0.1"
+PACKAGE = ROOT / "tests" / "fixtures" / "evaluation-repair-contract-v0.1"
 FIXTURES = PACKAGE / "fixtures"
 VALIDATOR_PATH = PACKAGE / "validate_contract.py"
 SCHEMA_NAMES = {
@@ -27,8 +27,8 @@ def _json(path: Path) -> dict:
 
 
 def _load_validator() -> ModuleType:
-    assert VALIDATOR_PATH.is_file(), "MISSION-009 contract validator is not implemented"
-    spec = importlib.util.spec_from_file_location("mission009_contract_validator", VALIDATOR_PATH)
+    assert VALIDATOR_PATH.is_file(), "evaluation-repair contract validator is not implemented"
+    spec = importlib.util.spec_from_file_location("evaluation_repair_contract_validator", VALIDATOR_PATH)
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)

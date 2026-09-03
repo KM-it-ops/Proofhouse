@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://promptrig.dev/contracts/requirements-compiler/v0.1/intent-input.schema.json",
+  "title": "Intent Input",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["contract_version", "input_id", "authoring_mode", "intent", "authoritative_inputs", "non_authoritative_inputs"],
+  "properties": {
+    "contract_version": {"const": "0.1.0-draft"},
+    "input_id": {"type": "string", "pattern": "^INP-[A-Z0-9-]+$"},
+    "authoring_mode": {"enum": ["simple", "developer", "api", "file", "prs"]},
+    "intent": {"type": "string", "minLength": 1},
+    "authoritative_inputs": {"type": "array", "items": {"type": "string", "minLength": 1}, "minItems": 1, "uniqueItems": true},
+    "non_authoritative_inputs": {"type": "array", "items": {"type": "string", "minLength": 1}, "uniqueItems": true},
+    "source_ids": {"type": "array", "items": {"type": "string", "pattern": "^SRC-[A-Z0-9-]+$"}, "uniqueItems": true}
+  }
+}

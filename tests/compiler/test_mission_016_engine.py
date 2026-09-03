@@ -6,7 +6,7 @@ from pathlib import Path
 from types import ModuleType
 
 ROOT = Path(__file__).resolve().parents[2]
-PACKAGE = ROOT / "architecture" / "requirements-compiler-contract-v0.1"
+PACKAGE = ROOT / "tests" / "fixtures" / "requirements-compiler-contract-v0.1"
 LAS = PACKAGE / "fixtures" / "linked_artifact_sets.json"
 
 

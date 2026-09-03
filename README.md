@@ -116,7 +116,7 @@ apps/promptrig.jsx      Interactive compile UI
 prompts/                Core, modes, modules, Custom GPT pack
 evals/                  JSONL datasets, YAML rubrics
 src/promptrig/          Stdlib eval harness + headless compiler
-architecture/           Contract-first compiler missions (honesty-gated)
+tests/fixtures/         Contract schemas and validation fixtures
 ```
 
 ---

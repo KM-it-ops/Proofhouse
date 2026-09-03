@@ -6,13 +6,7 @@ from pathlib import Path
 from promptrig.compiler.cli_compiler import main as compiler_main
 
 ROOT = Path(__file__).resolve().parents[2]
-LAS = (
-    ROOT
-    / "architecture"
-    / "requirements-compiler-contract-v0.1"
-    / "fixtures"
-    / "linked_artifact_sets.json"
-)
+LAS = ROOT / "tests" / "fixtures" / "requirements-compiler-contract-v0.1" / "fixtures" / "linked_artifact_sets.json"
 
 
 def _artifacts(set_id: str) -> dict:
