@@ -1,39 +1,78 @@
 # PromptRig
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)](https://www.python.org/)
-[![Runtime deps](https://img.shields.io/badge/runtime%20deps-stdlib%20only-2f855a)](#30-second-start)
-[![PromptOps](https://img.shields.io/badge/promptops-modular%20%7C%20testable%20%7C%20safe-0f766e)](#what-you-get)
+[![Framework](https://img.shields.io/badge/framework-v1.3-7c3aed)](promptrig-framework.json)
+[![PromptOps](https://img.shields.io/badge/promptops-clarify%20%E2%86%92%20compile%20%E2%86%92%20heal-0f766e)](#the-flow)
 [![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
 
-**Prompt operations for agentic and security-minded builders.**
+**Turn a rough objective into a model-specific prompt that actually works — then prove it.**
 
-PromptRig turns sticky-note prompts into inspectable infrastructure: modular architecture, missing-context audits, agent permission maps, offline evals, and a self-heal compile loop — without API keys or provider lock-in.
+PromptRig is a PromptOps framework for builders who care about *which* model runs the job, not just *what* you asked. Natural language in → batched clarification → optimized prompt out → self-heal when it misses. Built-in profiles for **September 2026 frontier models**, token discipline, loop engineering for recurring agents, and an offline eval harness — no API keys required for the certified headless path.
 
-Custom GPT surface: **PromptOps Architect powered by PromptRig**.
+Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/) · Skill: `skills/promptrig/` · Showcase: [docs/showcase.md](docs/showcase.md)
 
-Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/) · Showcase: [docs/showcase.md](docs/showcase.md)
+---
 
-## Why it exists
+## Why PromptRig exists
 
-Most prompts fail quietly — missing context, model overfitting, no regression tests, no stop conditions. PromptRig gives prompt systems the same discipline you’d expect from production code:
+Generic prompts fail quietly: wrong model assumptions, missing context, no stop conditions, no regression tests. PromptRig treats prompts like production infrastructure:
 
-1. **Clarify** — batched, branching questions before you write
-2. **Compile** — model-specific prompt + settings + token rationale
-3. **Evaluate** — JSONL cases, YAML rubrics, stdlib CLI validation
-4. **Self-heal** — diagnose failures and revise without losing prior versions
-
-Built for coding agents, Custom GPTs, local LLMs, and cyber×AI workflows where inventing facts or skipping safety boundaries is unacceptable.
-
-## What you get
-
-| Capability | Outcome |
+| Stage | What happens |
 |---|---|
-| Prompt architecture | Core prompt, modes, reusable modules, project context templates |
-| Audits | Missing-context labels, safety boundaries, rewrite notes, changelogs |
-| Agentic design | Permission maps, tool boundaries, verification loops, stop conditions |
-| Evals | JSONL datasets, YAML rubrics, schema checks, report skeletons |
-| Skill pack | Cursor / Codex / Claude skill in `skills/promptrig/` + portable `promptrig-framework.*` |
-| Custom GPT pack | Ready instruction set for PromptOps Architect |
+| **Clarify** | One upfront batch of branching questions — not drip-feed back-and-forth |
+| **Compile** | Model-specific prompt + settings + token-saving rationale |
+| **Evaluate** | JSONL cases, YAML rubrics, stdlib CLI validation |
+| **Self-heal** | Diagnose scope/tone/bloat/model-mismatch and revise without losing history |
+
+Designed for coding agents, Custom GPTs, Cursor skills, and cyber×AI workflows where inventing facts or skipping safety boundaries is unacceptable.
+
+---
+
+## Supported models (framework v1.3)
+
+Built-in `modelNotes` — prompting quirks, API ids, cost/caching levers:
+
+| Tier | Models |
+|---|---|
+| **Anthropic** | Claude Fable 5.1 · Mythos 5.1 · Opus 5 · Sonnet 5 · Haiku 4.5 |
+| **OpenAI** | GPT-5.6 Sol · Terra · Luna |
+| **Google** | Gemini 3.8 Flash |
+| **xAI** | Grok 4.6 |
+| **Meta** | Muse Spark 1.3 |
+| **Moonshot** | Kimi K3 |
+| **Legacy** | Fable 5 · Mythos 5 · Opus 4.8 · GPT-5.5 · Gemini (generic) |
+| **Other** | Auto-research via web search, cached for reuse |
+
+Full profiles: [`promptrig-framework.json`](promptrig-framework.json) · human-readable [`promptrig-framework.md`](promptrig-framework.md)
+
+---
+
+## Three ways to use it
+
+### 1. Conversational (default)
+
+Install the Cursor skill from `skills/promptrig/` or invoke **PromptRig** in chat:
+
+1. State your objective and target model
+2. Answer one batched clarification form
+3. Paste the compiled prompt; say what's wrong to self-heal
+
+### 2. Interactive artifact
+
+Open [`apps/promptrig.jsx`](apps/promptrig.jsx) — a React artifact with model picker, efficiency modes, and live compile loop.
+
+### 3. Offline compiler (reproducible)
+
+```bash
+python -m pip install -e .
+python -m pytest
+promptrig-compiler doctor
+promptrig-compiler closed-loop path/to/requirements.json --repair-budget 1 --json
+```
+
+Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. Certified path is **offline** — no live providers, no benchmark claims. See [MISSION_011_REPORT.md](MISSION_011_REPORT.md).
+
+---
 
 ## 30-second start
 
@@ -44,112 +83,73 @@ python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jso
 python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
 ```
 
-Windows launcher form if needed:
+Windows:
 
 ```powershell
 py -3.14 -m pip install -e .
 py -3.14 -m pytest
 ```
 
-## Demo path
+---
 
-1. Drop a rough agent or product prompt into PromptRig (skill, Custom GPT, or modules).
-2. Run Context Auditor — separate confirmed facts from `UNKNOWN` / `NOT SPECIFIED` / `NOT FOUND IN PROVIDED MATERIAL`.
-3. Choose mode: Audit · Meta-Prompting · Agentic · Evaluator.
-4. Rewrite with safety and missing-context behavior preserved.
-5. Add JSONL eval cases; validate with the CLI; generate a report skeleton.
+## What you get
+
+| Capability | Outcome |
+|---|---|
+| Meta-optimizer | Clarify → compile → self-heal with model-specific behavior |
+| Token discipline | Efficient / Balanced / Thorough presets; cache-aware prompt structure |
+| Loop engineering | Trigger, body, exit, escalation, compounding memory for recurring agents |
+| Prompt architecture | Core prompt, modes, modules, project context templates |
+| Audits | Missing-context labels, safety boundaries, rewrite notes |
+| Agentic design | Permission maps, tool boundaries, verification loops, stop conditions |
+| Evals | JSONL datasets, YAML rubrics, schema checks, report skeletons |
+| Skill pack | Cursor skill + portable `promptrig-framework.*` |
+
+---
 
 ## Repository map
 
 ```text
-prompts/            Core, modes, modules, templates, Custom GPT pack
-evals/              JSONL datasets, YAML rubrics, report output
-src/promptrig/      Stdlib eval harness + CLI
-tests/              Pytest for schemas, scoring, bundled datasets
-docs/               Quickstart, showcase, Custom GPT setup
-skills/promptrig/   v1.2 skill bundle (.skill, framework refs, artifact JSX)
-apps/               Interactive PromptRig artifact (promptrig.jsx)
-promptrig-framework.*  Portable human/JSON meta-optimizer spec
+promptrig-framework.*   Portable meta-optimizer spec (v1.3 model profiles)
+skills/promptrig/       Cursor skill bundle + artifact JSX
+apps/promptrig.jsx      Interactive compile UI
+prompts/                Core, modes, modules, Custom GPT pack
+evals/                  JSONL datasets, YAML rubrics
+src/promptrig/          Stdlib eval harness + headless compiler
+architecture/           Contract-first compiler missions (honesty-gated)
 ```
 
-## CLI highlights
-
-```bash
-# Validate eval dataset
-python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
-
-# Report skeleton
-python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
-
-# Render versioned prompt-architect templates
-python -m promptrig.cli generate --template prompt-architect \
-  --project-name "Incident Desk" \
-  --project-description "Build an internal incident review assistant." \
-  --platform web --stack "Next.js, Supabase" --scale M \
-  --out-dir exports/incident-desk
-```
+---
 
 ## Design rules
 
-- Stay lightweight by default; tighten only for safety, agentic execution, repo work, evals, or missing context.
+- Stay lightweight by default; tighten only for safety, agentic execution, or missing context.
 - Never invent repository or project facts.
 - Use exact missing-context labels: `UNKNOWN`, `NOT SPECIFIED`, `NOT FOUND IN PROVIDED MATERIAL`.
-- Keep cybersecurity, automation, scraping, credentials, exploit research, malware analysis, and sensitive-data work defensive, authorized, educational, and privacy-preserving.
+- Keep cybersecurity and sensitive-data work defensive, authorized, and privacy-preserving.
 - No private chain-of-thought dumps — concise rationales only.
 
-## Engineering methodology
+---
 
-[Architect Mode v1.2.0](docs/methodology/architect-mode/README.md) is the architecture-first, contract-first methodology snapshot retained in-repo for reviewability. Compiler Core work stays gated by the [v0.5 contract-freeze candidate](architecture/compiler-contract-freeze-v0.5/README.md).
+## Engineering status
+
+PromptRig ships two products in one repo:
+
+1. **PromptOps skill + framework (v1.3)** — conversational meta-optimizer with current frontier model profiles. This is the user-facing surface most people want today.
+2. **Headless compiler campaign** — contract-first offline pipeline (MISSION-008 through MISSION-036). Requirements compiler maturity remains `PARTIAL`. No live providers, no hosted UI, no benchmark claims without explicit certification.
+
+Mission reports and acceptance records live under `architecture/` and `MISSION_*_REPORT.md`. Read those before claiming anything beyond the certified offline path.
+
+---
 
 ## Start here
 
 - [Showcase](docs/showcase.md) — pitch, demo flow, outcomes
 - [Quickstart](docs/quickstart.md)
 - [Custom GPT setup](docs/custom-gpt-setup.md)
-- [Prompt audit example](examples/prompt-audit-request.md)
 - [Security policy](SECURITY.md)
 - [Architecture governance](architecture/README.md)
 
-## Status
+---
 
-**MISSION-012 offline eval/repair/evidence certified (OAR-006 Accepted 2026-08-12)** on the fake-adapter headless closed loop (`promptrig-compiler closed-loop`): deterministic evaluator, bounded repair (budgets `{0,1,2}`), versioned evidence (`eeb-headless-v0.1`). Builds on OAR-005 (MISSION-011) and MISSION-008/009 contracts — see `MISSION_012_REPORT.md` and `architecture/mission-012-certification/`.
-
-**MISSION-013 M1 constrained prose intake certified (OAR-007 Accepted 2026-08-14)** (`plain_language_v0` grammar → `structured_minimal_v0` → closed loop) — see `MISSION_013_REPORT.md` and `architecture/mission-013-certification/`.
-
-**MISSION-014 M2 fake suggester sidecar certified (OAR-008 Accepted 2026-08-14)** — opt-in offline `fake-suggester-v0` proposals as sidecar evidence only (`enable_model_suggestions`; default off); see `MISSION_014_REPORT.md` and `architecture/mission-014-certification/`.
-
-**MISSION-015 Phase 4B residual evidence complete (OAR-009 Accepted 2026-08-22)** — PEP 517 clean-install, installed-package consumer matrix, and operational resource ceilings for the offline fake closed loop; see `MISSION_015_REPORT.md` and `architecture/mission-015-certification/`. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Still no full Roadmap Phase 4B exit, no live model assistance, no freeform NLP, no Simple Mode UI (M3), no live providers, no benchmark claims.
-
-**MISSION-016 shared MISSION-008 contract-rule engine certified (OAR-010 Accepted 2026-08-21)** — `compile_requirements` / `promptrig-compiler compile-requirements` evaluate canonical artifact sets only; see `MISSION_016_REPORT.md` and `architecture/mission-016-certification/`. OAR-009 Accepted 2026-08-22. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Not a full MISSION-008 production compiler (canonical records only; OQ-008-001 through OQ-008-009 owner-resolved in OPEN_QUESTIONS.md, policy only). This engine does not unblock M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers.
-
-**MISSION-017 file/api envelope producers (OAR-011 Accepted 2026-08-22)** — `produce_requirements` / `compile_requirements_input` assemble canonical MISSION-008 artifact mappings from file/api envelopes; `promptrig-compiler compile-requirements` dispatches envelope vs canonical payload; see `MISSION_017_REPORT.md` and `architecture/mission-017-certification/`. OAR-009 Accepted 2026-08-22. OAR-010 remains Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Not a full MISSION-008 production compiler (no simple/developer/prs/authoring-prose producers until a later campaign; OQ-008-001 through OQ-008-009 owner-resolved in OPEN_QUESTIONS.md, policy only). This mission does not unblock M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers.
-
-**MISSION-018 simple/developer envelope producers (OAR-012 Accepted 2026-08-22)** — `produce_requirements` / `compile_requirements_input` assemble canonical MISSION-008 artifact mappings from simple (`ordinary_language`) and developer (`developer_config`) envelopes alongside file/api; `promptrig-compiler compile-requirements` help names file/api/simple/developer envelopes; see `MISSION_018_REPORT.md` and `architecture/mission-018-certification/`. OAR-009 Accepted 2026-08-22. OAR-010 and OAR-011 remain Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Not a full MISSION-008 production compiler (no prs/authoring-prose producers; OQ-008-001 through OQ-008-009 owner-resolved in OPEN_QUESTIONS.md, policy only). This mission does not unblock M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers.
-
-**MISSION-019 prs envelope producers (OAR-013 Accepted 2026-08-22)** — `produce_requirements` / `compile_requirements_input` assemble canonical MISSION-008 artifact mappings from structured `authoring_mode=prs` envelopes alongside file/api/simple/developer; `promptrig-compiler compile-requirements` help names file/api/simple/developer/prs envelopes; see `MISSION_019_REPORT.md` and `architecture/mission-019-certification/`. OAR-009 Accepted 2026-08-22. OAR-010, OAR-011, and OAR-012 remain Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). PRS **language** (grammar, parser) remains DEFERRED per `PRS_DISPOSITION.md` — this mission implements only the structured envelope producer. Not a full MISSION-008 production compiler (no authoring-prose producers; OQ-008-001 through OQ-008-009 owner-resolved in `architecture/requirements-compiler-contract-v0.1/OPEN_QUESTIONS.md`, policy only — engine still fail-closed until a new campaign implements them). This mission does not unblock M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers.
-
-**MISSION-020 authoring-prose producers (OAR-014 Accepted 2026-08-22)** — constrained `plain_language_v0` text envelopes (`{profile, text}`) parse via existing `parse_plain_language_v0` and lower through `produce_plain_language_requirements` into canonical MISSION-008 artifact mappings; `compile_requirements_input` / `promptrig-compiler compile-requirements` dispatch canonical vs prose vs file/api/simple/developer/prs envelope; CLI help names `plain_language_v0`; see `MISSION_020_REPORT.md` and `architecture/mission-020-certification/`. OAR-009 Accepted 2026-08-22. OAR-010, OAR-011, OAR-012, and OAR-013 remain Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Valid constrained prose yields `BLOCKED` / `RQC-BLK-0001` (goal maps direct; numbered/constraint mappings unresolved). Not a full MISSION-008 production compiler (OQ-008-001 through OQ-008-010 owner-resolved in `architecture/requirements-compiler-contract-v0.1/OPEN_QUESTIONS.md`, policy only — engine still fail-closed until a new campaign implements them). PRS **language** remains DEFERRED. This mission does not unblock M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers.
-
-**MISSION-021 OQ-008-001/002/006 implementation (OAR-015 Accepted 2026-08-23)** — OQ-008-001 file-digest fail-closed named policy; OQ-008-002 optional unresolved / optional `no_ir_representation` meaning compiles PARTIAL with evidence; OQ-008-006 SUCCESS may carry advisory non-semantic `RQC-ADV-0001`; `evaluate_contract_rules` remains sole RC-065 implementation; see `MISSION_021_REPORT.md` and `architecture/mission-021-certification/`. OAR-009 through OAR-014 remain Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Valid constrained `plain_language_v0` grammar remains BLOCKED (`RQC-BLK-0001`). Remaining executable OQs 003/005/010 are MISSION-022. Not a full MISSION-008 production compiler. PRS **language** remains DEFERRED. This mission does not unblock M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers.
-
-**MISSION-022 remaining OQ-008-003/005/010 implementation (OAR-016 Accepted 2026-08-24)** — OQ-008-003 undeterminable required authority → BLOCKED; OQ-008-005 exact `0.1.0-draft`; OQ-008-010 structured-only assumption/open-question records; OQ-008-004/007/008/009 locked-not-built; `evaluate_contract_rules` remains sole RC-065 implementation; see `MISSION_022_REPORT.md` and `architecture/mission-022-certification/`. OAR-009 through OAR-015 remain Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Valid constrained `plain_language_v0` grammar remains BLOCKED (`RQC-BLK-0001`). Not a full MISSION-008 production compiler. PRS **language** remains DEFERRED. This mission does not unblock M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers.
-
-**MISSION-023 constrained prose numbered/constraint IR mapping (OAR-017 Accepted 2026-08-24)** — numbered requirement lines map `direct` to `/requirements/{n}/statement` and constraint lines map `direct` to `/behavior/constraints/{n}`; Goal remains `direct` to `/objective/goal`; a valid Goal + numbered list + optional constraints write-up compiles SUCCESS rather than `RQC-BLK-0001` for this hole; see `MISSION_023_REPORT.md` and `architecture/mission-023-certification/`. OAR-009 through OAR-016 remain Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). OQ-008-004/007/008/009 remain locked-not-built. Not a full MISSION-008 production compiler. PRS **language** remains DEFERRED. This mission does not unblock M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers.
-
-**MISSION-024 remaining Phase 4B honesty inventory (OAR-018 Accepted 2026-08-28)** — remaining-4B inventory of honesty blockers (independent architecture/security review outstanding; evaluation/repair product bar outstanding; OQ-008-004/007/008/009 locked-not-built); no producer/engine change; see `MISSION_024_REPORT.md` and `architecture/mission-024-certification/`. OAR-009 through OAR-017 remain Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Not a full MISSION-008 production compiler. Not M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers.
-
-**MISSION-025 same-host PARTIAL compiler slice review (OAR-019 Accepted 2026-08-28)** — same-host architecture and security review of the current PARTIAL requirements-compiler slice recorded in `architecture/mission-025-certification/REVIEW.md`; independence limit: same-host, not third-party, not enterprise SAST, not Phase 4B-exit boundary certification; no producer/engine change; see `MISSION_025_REPORT.md` and `architecture/mission-025-certification/`. OAR-009 through OAR-018 remain Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Not M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers. OQ-008-004/007/008/009 locked-not-built. Evaluation/repair product bar outstanding.
-
-**MISSION-026 independent-person PARTIAL slice review pack (OAR-020 Ready)** — plain-language architecture and security pack of the current PARTIAL requirements-compiler slice and fake-adapter eval/repair oracle at SHA `2831cda` recorded in `architecture/mission-026-certification/PACK.md`; independence limit: owner plus a second person, not enterprise SAST, not Phase 4B-exit boundary certification; humans fill `VERDICT.md`; no producer/engine change; see `MISSION_026_REPORT.md` and `architecture/mission-026-certification/`. OAR-009 through OAR-019 remain Accepted. Requirements compiler maturity remains `PARTIAL` (not CERTIFIED). Not M3. Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers. OQ-008-004/007/008/009 locked-not-built. Evaluation/repair product bar outstanding on this SHA.
-
-**MISSION-028 skip-cert law (OAR-022 Ready)** — amends ROADMAP_V1 Phase 5-implementation and Phase 6–9 entry so remaining 4B engineering plus owner Accept is the gate later phases consume; peer review is not a gate; requirements compiler stays `PARTIAL`; fake-adapter eval/repair oracle stays CERTIFIED; no producer/engine change; see `MISSION_028_REPORT.md` and `architecture/mission-028-certification/`. OAR-021 is reserved for MISSION-027. OAR-009 through OAR-019 remain Accepted. OAR-020 remains Ready (not Accepted). Still no full Roadmap Phase 4B exit, no freeform NLP, no Simple Mode UI (M3), no live providers. Remaining 4B engineering: product eval (MISSION-027) and the 008 join.
-
-**MISSION-027 evaluation/repair product bar (OAR-021 Ready)** — additive rubric/dataset engine, baseline comparison, scoring aggregation, and production regression gate beside `evaluate_deterministic`; fake-adapter only; no new CLI; product surface implemented and not CERTIFIED; requirements compiler stays `PARTIAL`; see `MISSION_027_REPORT.md` and `architecture/mission-027-certification/`. Remaining 4B engineering is the 008 join. OAR-022 skip-cert remains Ready (peer review is not a gate). OQ-008-004/007/008/009 locked-not-built.
-
-**MISSION-033 sealed offline whole-configuration benchmark (OAR-026 Ready)** — executable sealed runner and manifest validation (`architecture/sealed-benchmark-v0.1/`, `promptrig.compiler.benchmark`); offline-only (`network_allowed=false`); product eval is the published scorer; oracle `evaluate_deterministic` remains the rank-1 gate. **Not a published claim. Not CERTIFIED.** Requirements compiler stays `PARTIAL`. `review-cycles/v0.4/` is historical design evidence only and is **not a benchmark result**. See `architecture/mission-033-certification/`. Skip-cert law (OAR-022) is not undone. No live track in this freeze.
-
-**MISSION-034 hosted Simple+Developer slice contracts (OAR-027 Ready)** — stack-agnostic contracts and generated OpenAPI from `promptrig-compiler` (`architecture/hosted-slice-v0.1/`). **Q2 unpicked. Not a hosted implementation.** No FastAPI/Next.js scaffolding. `apps/dashboard` and `apps/promptrig.jsx` unused. `simple_mode_ui` stays forbidden. Requirements compiler stays `PARTIAL`. See `architecture/mission-034-certification/`. Skip-cert law (OAR-022) is not undone.
-
-**MISSION-035 hosted Simple+Developer slice runtime (OAR-028 Ready)** — stdlib `HostedSlice` file store; Simple and Developer views share CLI `ir_sha256`. Q2 pick `STACK-OWNER-SELECTED`. **Not FastAPI. Not Next.js.** Vite/JSX unused. `simple_mode_ui` stays forbidden. See `architecture/mission-035-certification/`. Skip-cert law (OAR-022) is not undone.
-
-**MISSION-036 MissionRig and Workspace consume (OAR-029 Ready)** — one-profile generator from PromptRig evidence; PARTIAL stays PARTIAL; IR write-back rejected. **Not CERTIFIED.** See `architecture/mission-036-certification/`. Skip-cert law (OAR-022) is not undone.
+<sub>Custom GPT surface: <strong>PromptOps Architect powered by PromptRig</strong> · MIT License</sub>

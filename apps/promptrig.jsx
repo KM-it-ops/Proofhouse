@@ -6,20 +6,40 @@ import { Terminal, Copy, RefreshCw, Check, AlertTriangle, Loader2, ChevronRight,
 // optimizer respects real behavioral differences between targets.
 // ---------------------------------------------------------------------------
 const MODEL_NOTES = {
-  "Claude Fable 5":
-    "Fable 5 (Mythos-tier) is built for long, autonomous, self-verifying runs, not rapid back-and-forth. State goals and success criteria rather than prescriptive steps -- over-specifying degrades it. Default effort: high (xhigh only for the hardest work). It delegates to subagents on its own when useful, and benefits from a persistent lessons file across sessions. It runs safety classifiers on offensive-cybersecurity and bio/life-science content that can occasionally flag legitimate defensive or detection-engineering work -- frame technique descriptions defensively. Never ask it to echo, transcribe, or explain its internal reasoning as response text -- this risks a refusal fallback to Opus 4.8. For long or autonomous tasks, define explicit checkpoints for where it should pause vs. keep going, since it will otherwise define them itself.",
-  "Claude Mythos 5":
-    "Same underlying model as Fable 5, without the added cyber/bio safety layers, used only in restricted trusted-org contexts. Apply identical prompting patterns to Fable 5.",
-  "Claude Opus 4.8":
-    "Strong general-purpose reasoning model. Benefits from clear step structure, explicit success criteria, and worked examples for style-sensitive tasks. Handles moderate agentic tasks well but is less suited to fully autonomous multi-hour runs than Fable 5.",
+  "Claude Fable 5.1":
+    "Long-horizon / science / unattended runs. 1M context, 128k output (claude-fable-5-1), thinking always on (disabled returns 400), default effort high, $10/$50, slower than Opus 5. State goals and success criteria, not steps -- over-specifying degrades it. Cyber + bio classifiers remain; life-sciences R&D is redirected to Opus 5 or Mythos 5.1 trusted access. Never ask it to echo, transcribe, or explain hidden reasoning as response text. For long or autonomous tasks, define explicit pause-vs-continue checkpoints. Reach for it when Opus 5 at higher effort still fails evals.",
+  "Claude Mythos 5.1":
+    "Same model as Fable 5.1, with looser cyber/bio safeguards, restricted to trusted-org programs (CVP / LSVP). Apply identical prompting patterns to Fable 5.1.",
+  "Claude Opus 5":
+    "Anthropic's default for complex agentic coding. 1M context, 128k output (claude-opus-5), thinking on by default (disable only at effort high or below), default effort high, $5/$25. Give the full task spec and let it run -- it finishes rather than stubbing. Strip verify/self-check/subagent-QA instructions (they cause over-verification). Cap subagent spawns; it delegates eagerly. Ask for concise progress explicitly; default replies run long. Constrain scope on large jobs or it will expand them. Step up to Fable 5.1 only when Opus 5 at higher effort still fails evals.",
   "Claude Sonnet 5":
     "Fast, capable default model for most tasks. Responds well to concise, direct instructions and doesn't need heavy scaffolding. Well suited to genuine iterative back-and-forth.",
   "Claude Haiku 4.5":
     "Optimized for speed and cost. Keep prompts tight and narrow; break multi-stage work into smaller discrete requests rather than one open-ended instruction.",
+  "GPT-5.6 Sol":
+    "Flagship GPT-5.6 (gpt-5.6-sol; the gpt-5.6 alias routes here). Outcome, constraints, evidence, and completion bar -- not step lists. Lean system prompts; strip repeated rules and unused examples. More concise than 5.5 by default -- skip blanket 'be concise'; control length with text.verbosity. Define autonomy/approval bounds (it is proactive on multi-step work). reasoning.effort default medium; high/xhigh only when evals gain; reserve max. Personality vs collaboration as separate short blocks. Programmatic Tool Calling only for bounded reduction of large tool results, not every tool loop. Keep reusable prefixes stable for prompt caching.",
+  "GPT-5.6 Terra":
+    "Balanced GPT-5.6 default for most apps (gpt-5.6-terra). Same prompting contract as Sol: outcome-first, lean prompts, text.verbosity, explicit autonomy bounds. Prefer Terra over Sol unless hard reasoning, coding, or tool coordination fails evals. Same 1M context / 128k output family. Start reasoning.effort at medium and test one step lower before stepping up.",
+  "GPT-5.6 Luna":
+    "Fast/cheap GPT-5.6 (gpt-5.6-luna). Same family prompting patterns, but keep the task narrow. Best for classification, extraction, transformation, and batch work with automated validation -- not high-error-cost agentic coding unless evals hold. Same verbosity/effort/caching levers as Sol/Terra; default effort medium and prefer none/low when quality holds.",
   "GPT-5.5":
-    "Apply general best practice: explicit system/developer instructions, clear output-format specification, few-shot examples for style-sensitive output. Vendor specifics may have shifted since this tool's knowledge was last verified -- flag that in the rationale.",
+    "Legacy. Explicit system/developer instructions, clear output-format specification, few-shot examples for style-sensitive output. Prefer the GPT-5.6 family unless a workload is pinned here.",
+  "Gemini 3.8 Flash":
+    "Google workhorse (gemini-3.8-flash), 1M context, 65k output, intro $0.75/$3.75. Reasoning model -- concise direct instructions; legacy CoT scaffolding hurts. Control depth with thinking_level (low/medium/high), not temperature/top_p (ignored on 3.x). Put instructions after large context; anchor with 'Based on the preceding information...'. Higher effort uses more tokens by design. Separate stable system instructions from per-call variable content for caching. Add 2026 date + Jan 2025 knowledge-cutoff clauses for time-sensitive or strictly grounded tasks per Google docs.",
+  "Grok 4.6":
+    "xAI frontier (grok-4.6), 500K context, image+text in, reasoning low/medium/high (default)/xhigh, $2/$6 per MTok below 200K prompt tokens (entire request doubles above 200K). Agentic coding and long-horizon work -- outcome-first with explicit stop/approval bounds. Set prompt_cache_key or x-grok-conv-id for cache affinity on multi-turn loops. Compact context before the 200K cliff on long agent runs. Available via xAI API, Cursor, OpenRouter.",
+  "Muse Spark 1.3":
+    "Meta frontier (muse-spark-1.3, xhigh GA; max after safety testing), 1M context, text/image/video in, Meta Model API + Muse Code. Self-corrects, asks clarifying questions, confirms before consequential actions. Do not over-script tool loops (~20% fewer vs 1.2). Standard endpoint keeps data private; Contributor is cheaper but may train Meta products. Lean outcome prompts with explicit autonomy and escalation bounds.",
+  "Kimi K3":
+    "Moonshot open frontier (kimi-k3), 2.8T MoE, 1M context, native vision, $0.30 cache-hit / $3 input / $15 output per MTok. Long-horizon coding and agentic work -- best with Kimi Code harness. Default max thinking at launch; use low/high effort when available. Outcome and evidence bar, not micromanaged steps. Structure a stable prefix for Mooncake cache hits.",
   "Gemini":
-    "Apply general best practice: explicit structure, clear formatting instructions, and grounding context provided up front. Vendor specifics may have shifted since this tool's knowledge was last verified -- flag that in the rationale.",
+    "Legacy/generic Google. Prefer Gemini 3.8 Flash for current Flash work. Apply general best practice: explicit structure, clear formatting instructions, and grounding context provided up front. Vendor specifics may have shifted -- flag that in the rationale.",
+  "Claude Fable 5":
+    "Legacy. Fable 5 (Mythos-tier) is built for long, autonomous, self-verifying runs, not rapid back-and-forth. State goals and success criteria rather than prescriptive steps -- over-specifying degrades it. Default effort: high (xhigh only for the hardest work). It delegates to subagents on its own when useful, and benefits from a persistent lessons file across sessions. It runs safety classifiers on offensive-cybersecurity and bio/life-science content that can occasionally flag legitimate defensive or detection-engineering work -- frame technique descriptions defensively. Never ask it to echo, transcribe, or explain its internal reasoning as response text -- this risks a refusal fallback to Opus 4.8. For long or autonomous tasks, define explicit checkpoints for where it should pause vs. keep going, since it will otherwise define them itself.",
+  "Claude Mythos 5":
+    "Legacy. Same underlying model as Fable 5, without the added cyber/bio safety layers, used only in restricted trusted-org contexts. Apply identical prompting patterns to Fable 5.",
+  "Claude Opus 4.8":
+    "Legacy. Strong general-purpose reasoning model. Benefits from clear step structure, explicit success criteria, and worked examples for style-sensitive tasks. Handles moderate agentic tasks well but is less suited to fully autonomous multi-hour runs than Fable 5.",
   "Other":
     "No verified vendor-specific behavior available. Apply general best practice: be explicit about goal, constraints, format, and audience, and note in the rationale that this is generic guidance.",
 };
@@ -111,7 +131,7 @@ function isVisible(q, answers) {
 export default function PromptRig() {
   const [screen, setScreen] = useState("input"); // input | clarify | output
   const [rawRequest, setRawRequest] = useState("");
-  const [targetModel, setTargetModel] = useState("Claude Fable 5");
+  const [targetModel, setTargetModel] = useState("Claude Opus 5");
   const [customModel, setCustomModel] = useState("");
   const [questionGroups, setQuestionGroups] = useState([]);
   const [answers, setAnswers] = useState({});

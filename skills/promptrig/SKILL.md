@@ -1,6 +1,6 @@
 ---
 name: promptrig
-description: Meta prompt-optimizer that turns a natural-language objective into a fully optimized, model-specific prompt through branching upfront clarification and a self-heal refinement loop. Use this whenever the user wants help crafting, refining, or optimizing a prompt for a specific AI model or provider (Claude Fable 5, Claude Mythos 5, Opus 4.8, Sonnet 5, Haiku 4.5, GPT, Gemini, or any other model/tool) -- especially when they say "PromptRig," "optimize this prompt," "write a prompt for [model]," ask for clarifying questions before drafting a prompt, care about token efficiency or prompt caching, are building a recurring/looping/autonomous task and need it engineered as a loop, want an unfamiliar model's prompting quirks researched, or want a "self-heal" pass on a prompt that isn't working right. Trigger even if they don't use the word "prompt" explicitly -- "help me get better output from Fable 5 for X" or "this isn't working with GPT" both qualify.
+description: Meta prompt-optimizer that turns a natural-language objective into a fully optimized, model-specific prompt through branching upfront clarification and a self-heal refinement loop. Use this whenever the user wants help crafting, refining, or optimizing a prompt for a specific AI model or provider (Claude Fable 5.1, Mythos 5.1, Opus 5, Sonnet 5, Haiku 4.5, GPT-5.6 Sol/Terra/Luna, Gemini 3.8 Flash, Grok 4.6, Muse Spark 1.3, Kimi K3, or any other model/tool) -- especially when they say "PromptRig," "optimize this prompt," "write a prompt for [model]," ask for clarifying questions before drafting a prompt, care about token efficiency or prompt caching, are building a recurring/looping/autonomous task and need it engineered as a loop, want an unfamiliar model's prompting quirks researched, or want a "self-heal" pass on a prompt that isn't working right. Trigger even if they don't use the word "prompt" explicitly -- "help me get better output from Opus 5 for X" or "this isn't working with GPT" both qualify.
 ---
 
 # PromptRig
@@ -45,8 +45,9 @@ questions that only matter *if* an earlier answer goes a certain way -- present 
 
 ## Model notes
 
-Built-in profiles for Claude Fable 5, Claude Mythos 5, Opus 4.8, Sonnet 5, Haiku 4.5, GPT,
-and Gemini are in `references/promptrig-framework.json` under `modelNotes`. For anything
+Built-in profiles for Claude Fable 5.1, Claude Mythos 5.1, Opus 5, Sonnet 5, Haiku 4.5,
+GPT-5.6 Sol/Terra/Luna, Gemini 3.8 Flash, Grok 4.6, Muse Spark 1.3, Kimi K3, and Gemini (plus legacy Fable 5 / Mythos 5 / Opus 4.8 / GPT-5.5)
+are in `references/promptrig-framework.json` under `modelNotes`. For anything
 else the user names:
 
 1. Check whether you (or a prior PromptRig run) already have notes on it in this
