@@ -831,13 +831,29 @@ def validate_package(package: Path) -> dict[str, Any]:
     if linked_failed:
         errors.append(f"linked artifact set mismatch: {', '.join(linked_failed)}")
 
-    unknown_clauses = find_unknown_clause_references(package)
-    if unknown_clauses:
-        errors.append(f"unknown clause references: {', '.join(unknown_clauses)}")
+    # The clause layer is only meaningful when the package carries its own normative prose.
+    # Clause IDs are read from the package's *.md documents; with none present every clause
+    # citation in evidence/ reads as "unknown", which reports a wall of phantom failures
+    # instead of the truth -- that this layer was not evaluated at all. Report it as not
+    # evaluated rather than failed, and never let that read as an unqualified pass: the
+    # result carries a PARTIAL status and names the skipped layer.
+    clause_sources = sorted(path.name for path in package.glob("*.md"))
+    not_evaluated: list[str] = []
+    if clause_sources:
+        unknown_clauses = find_unknown_clause_references(package)
+        if unknown_clauses:
+            errors.append(f"unknown clause references: {', '.join(unknown_clauses)}")
 
-    missing_dispositions = find_clauses_without_disposition(package)
-    if missing_dispositions:
-        errors.append(f"clauses without an explicit disposition: {', '.join(missing_dispositions)}")
+        missing_dispositions = find_clauses_without_disposition(package)
+        if missing_dispositions:
+            errors.append(f"clauses without an explicit disposition: {', '.join(missing_dispositions)}")
+    else:
+        unknown_clauses = []
+        missing_dispositions = []
+        not_evaluated.append(
+            "clause-disposition: the package carries no *.md clause sources, so clause identity "
+            "and disposition completeness were not checked"
+        )
 
     uncovered_fields = find_uncovered_required_fields(package, schema_docs)
     if uncovered_fields:
@@ -848,6 +864,8 @@ def validate_package(package: Path) -> dict[str, Any]:
         errors.append(f"vocabulary drift: {'; '.join(vocabulary_drift)}")
 
     return {
+        "clause_source_count": len(clause_sources),
+        "clause_sources": clause_sources,
         "clauses_without_disposition": missing_dispositions,
         "contract_version": CONTRACT_VERSION,
         "credentials_accessed": False,
@@ -872,6 +890,7 @@ def validate_package(package: Path) -> dict[str, Any]:
         "ir_pointer_case_pass_count": len(ir_pointer_results) - len(ir_pointer_failed),
         "ir_pointer_case_results": sorted(ir_pointer_results, key=lambda item: item["id"]),
         "network_access": False,
+        "not_evaluated": not_evaluated,
         "schema_count": len(schema_paths),
         "schema_instance_count": len(schema_instance_results),
         "schema_instance_pass_count": len(schema_instance_results) - len(schema_instance_failed),
@@ -889,7 +908,7 @@ def validate_package(package: Path) -> dict[str, Any]:
             key=lambda item: item["id"],
         ),
         "schema_sha256": {path.name: _sha256(path) for path in schema_paths},
-        "status": "PASS" if not errors else "FAIL",
+        "status": "FAIL" if errors else ("PARTIAL" if not_evaluated else "PASS"),
         "uncovered_required_fields": uncovered_fields,
         "unknown_clause_references": unknown_clauses,
         "validator_version": VALIDATOR_VERSION,
@@ -944,7 +963,10 @@ def main() -> int:
     if args.write_evidence:
         write_derived_evidence(args.package, result)
     print(output, end="")
-    return 0 if result["status"] == "PASS" else 1
+    # 0 everything checked and passed | 2 nothing failed but a layer was not evaluated
+    # | 1 something failed. PARTIAL gets its own code so a skipped layer can never be read
+    # as a clean pass, and a package that simply lacks its prose is never reported as broken.
+    return {"PASS": 0, "PARTIAL": 2}.get(result["status"], 1)
 
 
 class _HarnessModule(ModuleType):
