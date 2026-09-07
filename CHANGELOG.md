@@ -1,5 +1,24 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `skills/proofhouse/proofhouse.skill` was a hand-packed artifact last built
+  2026-07-04. It shipped framework **v1.2** while the repository was on v1.3, so
+  its model tables still listed superseded entries. Rebuilt from the source
+  directory; the bundle now carries v1.3 and its entries are named `proofhouse/`.
+
+### Added
+
+- `scripts/build_skill_bundle.py` builds the bundle reproducibly — fixed
+  timestamps and attributes, entry order sorted by name, text normalised to LF,
+  and stored uncompressed, so the output does not depend on the platform or the
+  Python version that packed it.
+- `tests/test_skill_bundle.py` fails if the committed bundle and its source
+  directory disagree, which is what went unnoticed for two months.
+
+
 ## 0.2.0 - Proofhouse Rename
 
 ### Changed
