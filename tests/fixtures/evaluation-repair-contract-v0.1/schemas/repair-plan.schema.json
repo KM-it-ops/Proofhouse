@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://promptrig.local/schemas/evaluation-repair/repair-plan.schema.json",
+  "$id": "https://proofhouse.local/schemas/evaluation-repair/repair-plan.schema.json",
   "title": "RepairPlan",
   "type": "object",
   "additionalProperties": false,

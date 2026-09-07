@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://promptrig.local/schemas/benchmark-manifest.schema.json",
+  "$id": "https://proofhouse.local/schemas/benchmark-manifest.schema.json",
   "title": "PromptRig sealed offline benchmark manifest v0.1",
   "type": "object",
   "additionalProperties": false,

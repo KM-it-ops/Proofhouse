@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://promptrig.local/schemas/evaluation-repair/candidate-identity.schema.json",
+  "$id": "https://proofhouse.local/schemas/evaluation-repair/candidate-identity.schema.json",
   "title": "CandidateIdentity",
   "type": "object",
   "additionalProperties": false,

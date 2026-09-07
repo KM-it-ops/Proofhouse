@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://promptrig.local/schemas/evaluation-repair/evaluation-result.schema.json",
+  "$id": "https://proofhouse.local/schemas/evaluation-repair/evaluation-result.schema.json",
   "title": "EvaluationResult",
   "type": "object",
   "additionalProperties": false,

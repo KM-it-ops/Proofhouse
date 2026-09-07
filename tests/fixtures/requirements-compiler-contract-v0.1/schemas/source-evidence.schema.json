@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://promptrig.dev/contracts/requirements-compiler/v0.1/source-evidence.schema.json",
+  "$id": "https://proofhouse.dev/contracts/requirements-compiler/v0.1/source-evidence.schema.json",
   "title": "Source Evidence",
   "type": "object",
   "additionalProperties": false,

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://promptrig.dev/registries/diagnostic-codes/1.0.0",
+  "$id": "https://proofhouse.dev/registries/diagnostic-codes/1.0.0",
   "title": "PromptRig Diagnostic Code Registry",
   "registry_version": "1.0.0",
   "contract_version": "0.1.0",

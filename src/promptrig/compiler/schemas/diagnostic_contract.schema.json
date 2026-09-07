@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://promptrig.dev/schemas/diagnostic/0.1.0",
+  "$id": "https://proofhouse.dev/schemas/diagnostic/0.1.0",
   "title": "PromptRig Diagnostic Contract 0.1.0",
   "type": "object",
   "additionalProperties": false,
