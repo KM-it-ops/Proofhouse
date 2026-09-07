@@ -20,8 +20,8 @@ from typing import Any, Mapping
 from jsonschema import Draft202012Validator
 from referencing import Registry, Resource
 
-from promptrig.compiler import requirements_contract as _requirements_contract
-from promptrig.compiler.requirements_contract import (
+from proofhouse.compiler import requirements_contract as _requirements_contract
+from proofhouse.compiler.requirements_contract import (
     ACCEPTED_PERMITTED_AUTHORITY,
     CANONICAL_NAMESPACES,
     JSON_POINTER,

@@ -1,4 +1,4 @@
-# PromptRig Agentic Mode
+# Proofhouse Agentic Mode
 
 Use Agentic Mode when an AI is expected to act as an autonomous or semi-autonomous agent.
 

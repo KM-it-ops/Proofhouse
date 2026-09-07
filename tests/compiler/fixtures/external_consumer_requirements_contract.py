@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from promptrig.compiler.api import compile_requirements
+from proofhouse.compiler.api import compile_requirements
 
 
 def main() -> int:

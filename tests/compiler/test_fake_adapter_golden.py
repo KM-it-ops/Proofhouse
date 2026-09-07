@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import json
 
-from promptrig.compiler.adapters.fake import ADAPTER_ID, ADAPTER_VERSION, FakeAdapter
-from promptrig.compiler.canonical import canonical_sha256
+from proofhouse.compiler.adapters.fake import ADAPTER_ID, ADAPTER_VERSION, FakeAdapter
+from proofhouse.compiler.canonical import canonical_sha256
 
 from .fixtures.ir_fixtures import minimal_valid_ir
 
@@ -62,7 +62,7 @@ def test_lower_matches_committed_golden_fixture(diagnostic_factory, repo_root):
 
 
 def test_lower_fails_explicitly_on_missing_required_capability(diagnostic_factory):
-    from promptrig.compiler.contracts import CapabilityDecision
+    from proofhouse.compiler.contracts import CapabilityDecision
 
     adapter = FakeAdapter(diagnostic_factory)
     ir = minimal_valid_ir()

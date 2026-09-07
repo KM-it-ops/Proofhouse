@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.2.0 - Proofhouse Rename
+
+### Changed
+
+- Renamed the project from PromptRig to Proofhouse across the package, console
+  scripts, schema `$id` namespaces, environment variables, generated TypeScript,
+  brand-named files, and documentation.
+- Python package `promptrig` is now `proofhouse` (`src/proofhouse/`).
+- Schema `$id` namespaces moved to `proofhouse.dev` and `proofhouse.local`.
+  `proofhouse.local` remains a deliberately non-resolving namespace.
+
+### Added
+
+- Console scripts `proofhouse` and `proofhouse-compiler`.
+- Environment variables `PROOFHOUSE_LIVE*` for opt-in live runs.
+
+### Deprecated
+
+- Console scripts `promptrig` and `promptrig-compiler` remain as aliases for one
+  minor version and are removable at 0.3.0.
+- Environment variables `PROMPTRIG_LIVE*` remain as a fallback that warns once
+  per process, also removable at 0.3.0.
+
+### Unchanged
+
+- The frozen contract schema `PROMPTRIG_IR_V0_1.schema.json` keeps its filename
+  and its `$id`; it is a historical artifact and its identity is part of the record.
+- Wire identifiers, media types, and canonical digest inputs are untouched. The
+  three pinned `ir_sha256` digests are byte-identical across the rename.
+- Maturity is unchanged: the requirements compiler remains `PARTIAL`.
+
+
 ## 0.1.1 - Showcase and Local Skill Adoption
 
 ### Added

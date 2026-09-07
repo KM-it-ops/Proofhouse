@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from promptrig.compiler.ir import find_duplicate_semantic_owners, iter_schema_errors, parse_ir
+from proofhouse.compiler.ir import find_duplicate_semantic_owners, iter_schema_errors, parse_ir
 
 from .fixtures.ir_fixtures import (
     ir_with_duplicate_requirement_ids,
@@ -62,7 +62,7 @@ def test_parse_ir_digest_independent_of_key_order():
 
 
 def test_parse_ir_rejects_duplicate_keys():
-    from promptrig.compiler.ir import IRParseError
+    from proofhouse.compiler.ir import IRParseError
 
     import pytest
 

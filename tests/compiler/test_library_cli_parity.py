@@ -7,7 +7,7 @@ from __future__ import annotations
 import io
 import json
 
-from promptrig.compiler import api, cli_compiler
+from proofhouse.compiler import api, cli_compiler
 
 from .fixtures.ir_fixtures import (
     ir_with_anthropic_structured_output,
@@ -157,7 +157,7 @@ def test_parity_009_doctor_healthy(capsys):
 
 
 def test_parity_010_doctor_invalid_configuration(monkeypatch, tmp_path, capsys):
-    from promptrig.compiler import paths
+    from proofhouse.compiler import paths
 
     missing = tmp_path / "does_not_exist.json"
     monkeypatch.setattr(paths, "DIAGNOSTIC_REGISTRY_PATH", missing)
@@ -171,7 +171,7 @@ def test_parity_010_doctor_invalid_configuration(monkeypatch, tmp_path, capsys):
 def test_parity_installed_script_and_python_module_agree(tmp_path, capsys):
     """Both required invocation forms (installed script, python -m) resolve to
     the same main() entry point and therefore produce identical output."""
-    import promptrig.compiler.cli_compiler as module_entry
+    import proofhouse.compiler.cli_compiler as module_entry
 
     doc = minimal_valid_ir()
     path = tmp_path / "ir.json"

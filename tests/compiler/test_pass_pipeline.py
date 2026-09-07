@@ -4,9 +4,9 @@ import copy
 
 import pytest
 
-from promptrig.compiler.adapters import get_adapter
-from promptrig.compiler.capability import CapabilityManifest
-from promptrig.compiler.passes import (
+from proofhouse.compiler.adapters import get_adapter
+from proofhouse.compiler.capability import CapabilityManifest
+from proofhouse.compiler.passes import (
     AdapterLoweringPass,
     CapabilityResolutionPass,
     CompilationState,
@@ -15,7 +15,7 @@ from promptrig.compiler.passes import (
     SafetyPass,
     ValidationPass,
 )
-from promptrig.compiler.pipeline import PASS_ORDER, run_pipeline
+from proofhouse.compiler.pipeline import PASS_ORDER, run_pipeline
 
 from .fixtures.ir_fixtures import (
     ir_with_capabilities,

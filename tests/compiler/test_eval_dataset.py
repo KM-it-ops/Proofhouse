@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.eval_dataset import load_dataset
+from proofhouse.compiler.eval_dataset import load_dataset
 
 
 FIXTURE = Path("tests/compiler/fixtures/mission_027/cases.jsonl")

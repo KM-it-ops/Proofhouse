@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from promptrig.compiler.closed_loop import ClosedLoopOptions, closed_loop_from_json
+from proofhouse.compiler.closed_loop import ClosedLoopOptions, closed_loop_from_json
 
 PLAIN_FIXTURE = Path(__file__).parent / "fixtures" / "plain_language_minimal.txt"
 STRUCTURED_FIXTURE = Path(__file__).parent / "fixtures" / "closed_loop_requirements_minimal.json"

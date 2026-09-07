@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from promptrig.runner import validate_dataset
+from proofhouse.runner import validate_dataset
 
 
 def test_included_datasets_validate():

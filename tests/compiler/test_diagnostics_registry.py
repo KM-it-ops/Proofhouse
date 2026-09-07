@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from promptrig.compiler.diagnostics import DiagnosticRegistryError
+from proofhouse.compiler.diagnostics import DiagnosticRegistryError
 
 
 def test_known_active_code_resolves(diagnostic_registry):
@@ -17,7 +17,7 @@ def test_unregistered_code_rejected(diagnostic_registry):
 
 
 def test_registry_is_immutable_status(diagnostic_registry_path):
-    from promptrig.compiler.diagnostics import DiagnosticRegistry
+    from proofhouse.compiler.diagnostics import DiagnosticRegistry
 
     registry = DiagnosticRegistry(diagnostic_registry_path)
     assert registry.registry_version == "1.0.0"
@@ -94,7 +94,7 @@ def test_emit_unregistered_code_rejected(diagnostic_factory):
 def test_retired_code_cannot_be_emitted(tmp_path, diagnostic_contract_schema_path):
     import json
 
-    from promptrig.compiler.diagnostics import DiagnosticFactory, DiagnosticRegistry
+    from proofhouse.compiler.diagnostics import DiagnosticFactory, DiagnosticRegistry
 
     registry_data = {
         "registry_version": "1.0.0",
@@ -121,7 +121,7 @@ def test_retired_code_cannot_be_emitted(tmp_path, diagnostic_contract_schema_pat
 def test_code_cannot_be_both_active_and_retired(tmp_path):
     import json
 
-    from promptrig.compiler.diagnostics import DiagnosticRegistry
+    from proofhouse.compiler.diagnostics import DiagnosticRegistry
 
     registry_data = {
         "registry_version": "1.0.0",

@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from promptrig.compiler.cli_compiler import main as compiler_main
+from proofhouse.compiler.cli_compiler import main as compiler_main
 
 ROOT = Path(__file__).resolve().parents[2]
 LAS = ROOT / "tests" / "fixtures" / "requirements-compiler-contract-v0.1" / "fixtures" / "linked_artifact_sets.json"
@@ -18,15 +18,15 @@ def _artifacts(set_id: str) -> dict:
 
 
 def test_api_lazy_export_matches_engine() -> None:
-    from promptrig.compiler.api import compile_requirements
-    from promptrig.compiler.requirements_contract import compile_requirements as direct
+    from proofhouse.compiler.api import compile_requirements
+    from proofhouse.compiler.requirements_contract import compile_requirements as direct
 
     artifacts = _artifacts("LAS-POS-SUCCESS-001")
     assert compile_requirements(artifacts).to_dict() == direct(artifacts).to_dict()
 
 
 def test_cli_json_parity_with_library(tmp_path, capsys) -> None:
-    from promptrig.compiler.api import compile_requirements
+    from proofhouse.compiler.api import compile_requirements
 
     artifacts = _artifacts("LAS-POS-BLOCKED-001")
     path = tmp_path / "blocked.json"

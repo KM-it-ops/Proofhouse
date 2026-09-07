@@ -107,8 +107,8 @@ wheels = [
 ]
 
 [[package]]
-name = "promptrig"
-version = "0.1.1"
+name = "proofhouse"
+version = "0.2.0"
 source = { editable = "." }
 dependencies = [
     { name = "jsonschema" },

@@ -1,21 +1,21 @@
-# PromptRig
+# Proofhouse
 
 [![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)](https://www.python.org/)
-[![Framework](https://img.shields.io/badge/framework-v1.3-7c3aed)](promptrig-framework.json)
+[![Framework](https://img.shields.io/badge/framework-v1.3-7c3aed)](proofhouse-framework.json)
 [![PromptOps](https://img.shields.io/badge/promptops-clarify%20%E2%86%92%20compile%20%E2%86%92%20heal-0f766e)](#the-flow)
 [![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
 
 **Turn a rough objective into a model-specific prompt that actually works — then prove it.**
 
-PromptRig is a PromptOps framework for builders who care about *which* model runs the job, not just *what* you asked. Natural language in → batched clarification → optimized prompt out → self-heal when it misses. Built-in profiles for **September 2026 frontier models**, token discipline, loop engineering for recurring agents, and an offline eval harness — no API keys required for the certified headless path.
+Proofhouse is a PromptOps framework for builders who care about *which* model runs the job, not just *what* you asked. Natural language in → batched clarification → optimized prompt out → self-heal when it misses. Built-in profiles for **September 2026 frontier models**, token discipline, loop engineering for recurring agents, and an offline eval harness — no API keys required for the certified headless path.
 
-Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/) · Skill: `skills/promptrig/` · Showcase: [docs/showcase.md](docs/showcase.md)
+Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/) · Skill: `skills/proofhouse/` · Showcase: [docs/showcase.md](docs/showcase.md)
 
 ---
 
-## Why PromptRig exists
+## Why Proofhouse exists
 
-Generic prompts fail quietly: wrong model assumptions, missing context, no stop conditions, no regression tests. PromptRig treats prompts like production infrastructure:
+Generic prompts fail quietly: wrong model assumptions, missing context, no stop conditions, no regression tests. Proofhouse treats prompts like production infrastructure:
 
 | Stage | What happens |
 |---|---|
@@ -43,7 +43,7 @@ Built-in `modelNotes` — prompting quirks, API ids, cost/caching levers:
 | **Legacy** | Fable 5 · Mythos 5 · Opus 4.8 · GPT-5.5 · Gemini (generic) |
 | **Other** | Auto-research via web search, cached for reuse |
 
-Full profiles: [`promptrig-framework.json`](promptrig-framework.json) · human-readable [`promptrig-framework.md`](promptrig-framework.md)
+Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human-readable [`proofhouse-framework.md`](proofhouse-framework.md)
 
 ---
 
@@ -51,7 +51,7 @@ Full profiles: [`promptrig-framework.json`](promptrig-framework.json) · human-r
 
 ### 1. Conversational (default)
 
-Install the Cursor skill from `skills/promptrig/` or invoke **PromptRig** in chat:
+Install the Cursor skill from `skills/proofhouse/` or invoke **Proofhouse** in chat:
 
 1. State your objective and target model
 2. Answer one batched clarification form
@@ -59,15 +59,15 @@ Install the Cursor skill from `skills/promptrig/` or invoke **PromptRig** in cha
 
 ### 2. Interactive artifact
 
-Open [`apps/promptrig.jsx`](apps/promptrig.jsx) — a React artifact with model picker, efficiency modes, and live compile loop.
+Open [`apps/proofhouse.jsx`](apps/proofhouse.jsx) — a React artifact with model picker, efficiency modes, and live compile loop.
 
 ### 3. Offline compiler (reproducible)
 
 ```bash
 python -m pip install -e .
 python -m pytest
-promptrig-compiler doctor
-promptrig-compiler closed-loop path/to/requirements.json --repair-budget 1 --json
+proofhouse-compiler doctor
+proofhouse-compiler closed-loop path/to/requirements.json --repair-budget 1 --json
 ```
 
 Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. Certified path is **offline** — no live providers, no benchmark claims.
@@ -79,8 +79,8 @@ Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. 
 ```bash
 python -m pip install -e .
 python -m pytest
-python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
-python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+python -m proofhouse.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
+python -m proofhouse.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
 ```
 
 Windows:
@@ -103,19 +103,19 @@ py -3.14 -m pytest
 | Audits | Missing-context labels, safety boundaries, rewrite notes |
 | Agentic design | Permission maps, tool boundaries, verification loops, stop conditions |
 | Evals | JSONL datasets, YAML rubrics, schema checks, report skeletons |
-| Skill pack | Cursor skill + portable `promptrig-framework.*` |
+| Skill pack | Cursor skill + portable `proofhouse-framework.*` |
 
 ---
 
 ## Repository map
 
 ```text
-promptrig-framework.*   Portable meta-optimizer spec (v1.3 model profiles)
-skills/promptrig/       Cursor skill bundle + artifact JSX
-apps/promptrig.jsx      Interactive compile UI
+proofhouse-framework.*   Portable meta-optimizer spec (v1.3 model profiles)
+skills/proofhouse/       Cursor skill bundle + artifact JSX
+apps/proofhouse.jsx      Interactive compile UI
 prompts/                Core, modes, modules, Custom GPT pack
 evals/                  JSONL datasets, YAML rubrics
-src/promptrig/          Stdlib eval harness + headless compiler
+src/proofhouse/          Stdlib eval harness + headless compiler
 tests/fixtures/         Contract schemas and validation fixtures
 ```
 
@@ -133,10 +133,10 @@ tests/fixtures/         Contract schemas and validation fixtures
 
 ## Engineering status
 
-PromptRig ships two products in one repo:
+Proofhouse ships two products in one repo:
 
 1. **PromptOps skill + framework (v1.3)** — conversational meta-optimizer with current frontier model profiles. This is the user-facing surface most people want today.
-2. **Headless compiler** — contract-first offline pipeline under `src/promptrig/compiler/`. Requirements compiler maturity remains `PARTIAL`. No live providers, no hosted UI, no benchmark claims without explicit certification.
+2. **Headless compiler** — contract-first offline pipeline under `src/proofhouse/compiler/`. Requirements compiler maturity remains `PARTIAL`. No live providers, no hosted UI, no benchmark claims without explicit certification.
 
 Internal mission reports and review corpora are not published in this repository.
 
@@ -151,4 +151,4 @@ Internal mission reports and review corpora are not published in this repository
 
 ---
 
-<sub>Custom GPT surface: <strong>PromptOps Architect powered by PromptRig</strong> · MIT License</sub>
+<sub>Custom GPT surface: <strong>PromptOps Architect powered by Proofhouse</strong> · MIT License</sub>

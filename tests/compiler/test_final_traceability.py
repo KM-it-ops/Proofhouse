@@ -4,7 +4,7 @@ from __future__ import annotations
 import base64
 import json
 
-from promptrig.compiler import api
+from proofhouse.compiler import api
 
 from .fixtures.ir_fixtures import minimal_valid_ir, strict_compliant_schema
 

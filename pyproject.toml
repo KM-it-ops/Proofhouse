@@ -3,12 +3,12 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "promptrig"
-version = "0.1.1"
+name = "proofhouse"
+version = "0.2.0"
 description = "Prompt operations framework for prompt architecture, audits, rewrites, and evals."
 readme = "README.md"
 requires-python = ">=3.11"
-authors = [{ name = "PromptRig Maintainers" }]
+authors = [{ name = "Proofhouse Maintainers" }]
 license = { text = "MIT" }
 dependencies = ["jsonschema>=4.18", "rfc8785==0.1.4"]
 
@@ -16,8 +16,12 @@ dependencies = ["jsonschema>=4.18", "rfc8785==0.1.4"]
 live = ["httpx>=0.27"]
 
 [project.scripts]
-promptrig = "promptrig.cli:main"
-promptrig-compiler = "promptrig.compiler.cli_compiler:main"
+proofhouse = "proofhouse.cli:main"
+proofhouse-compiler = "proofhouse.compiler.cli_compiler:main"
+# Compatibility aliases, kept for one minor version so existing callers and
+# scripts keep working across the rename. Removable at 0.3.0, not before.
+promptrig = "proofhouse.cli:main"
+promptrig-compiler = "proofhouse.compiler.cli_compiler:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
@@ -26,4 +30,4 @@ markers = ["live: real or optional live-path tests; not collected by default"]
 addopts = "-m \"not live\""
 
 [tool.setuptools.package-data]
-"promptrig.compiler" = ["schemas/*.json"]
+"proofhouse.compiler" = ["schemas/*.json"]

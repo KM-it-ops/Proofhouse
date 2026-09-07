@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from promptrig.compiler.requirements_contract import compile_requirements_input
+from proofhouse.compiler.requirements_contract import compile_requirements_input
 
 FIXTURE = Path(__file__).parent / "fixtures" / "plain_language_minimal.txt"
 
@@ -15,7 +15,7 @@ def _plain_payload(text: str | None = None) -> dict:
 
 
 def test_valid_grammar_succeeds_with_direct_numbered_and_constraint_maps() -> None:
-    from promptrig.compiler.requirements_plain_produce import produce_plain_language_requirements
+    from proofhouse.compiler.requirements_plain_produce import produce_plain_language_requirements
 
     artifacts = produce_plain_language_requirements(FIXTURE.read_text(encoding="utf-8"))
     document = artifacts["requirements_document"]
@@ -99,7 +99,7 @@ def test_prs_envelope_still_compiles() -> None:
 
 
 def test_compile_requirements_input_help_names_plain_language() -> None:
-    from promptrig.compiler.cli_compiler import build_parser
+    from proofhouse.compiler.cli_compiler import build_parser
 
     parser = build_parser()
     req = None

@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.api import ClosedLoopOptions, closed_loop_from_json
-from promptrig.compiler.cli_compiler import main as compiler_main
+from proofhouse.compiler.api import ClosedLoopOptions, closed_loop_from_json
+from proofhouse.compiler.cli_compiler import main as compiler_main
 
 ROOT = Path(__file__).resolve().parents[2]
 PLAIN_TEXT = Path(__file__).parent / "fixtures" / "plain_language_minimal.txt"
@@ -52,7 +52,7 @@ def _parity_fields_from_cli(payload: dict) -> dict[str, str]:
 
 
 def test_plain_language_public_api_exports() -> None:
-    from promptrig.compiler import api
+    from proofhouse.compiler import api
 
     assert callable(api.closed_loop_from_json)
     assert callable(api.parse_plain_language_v0)

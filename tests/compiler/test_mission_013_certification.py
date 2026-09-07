@@ -6,14 +6,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-from promptrig.compiler.closed_loop import ClosedLoopOptions, closed_loop_from_json
+from proofhouse.compiler.closed_loop import ClosedLoopOptions, closed_loop_from_json
 
 ROOT = Path(__file__).resolve().parents[2]
 PLAIN_FIXTURE = Path(__file__).parent / "fixtures" / "plain_language_minimal.txt"
 
 
 def test_plain_language_module_has_no_provider_imports() -> None:
-    src = Path("src/promptrig/compiler/plain_language.py").read_text(encoding="utf-8")
+    src = Path("src/proofhouse/compiler/plain_language.py").read_text(encoding="utf-8")
     for needle in ("openai", "anthropic", "google.generativeai", "httpx", "requests"):
         assert needle not in src.lower()
 
@@ -67,7 +67,7 @@ def test_cli_subprocess_plain_language_smoke(tmp_path: Path) -> None:
         [
             sys.executable,
             "-m",
-            "promptrig.compiler.cli_compiler",
+            "proofhouse.compiler.cli_compiler",
             "closed-loop",
             str(req_path),
             "--json",

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from promptrig.compiler.requirements_contract import compile_requirements_input
-from promptrig.compiler.requirements_plain_produce import produce_plain_language_requirements
+from proofhouse.compiler.requirements_contract import compile_requirements_input
+from proofhouse.compiler.requirements_plain_produce import produce_plain_language_requirements
 
 FIXTURE = Path(__file__).parent / "fixtures" / "plain_language_minimal.txt"
 

@@ -1,4 +1,4 @@
-# PromptRig Evaluator Mode
+# Proofhouse Evaluator Mode
 
 Use Evaluator Mode to score prompts, model outputs, eval results, or regression tests.
 

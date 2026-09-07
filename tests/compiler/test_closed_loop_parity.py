@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.api import ClosedLoopOptions, closed_loop_from_json
-from promptrig.compiler.cli_compiler import main as compiler_main
+from proofhouse.compiler.api import ClosedLoopOptions, closed_loop_from_json
+from proofhouse.compiler.cli_compiler import main as compiler_main
 
 FIXTURE = Path(__file__).parent / "fixtures" / "closed_loop_requirements_minimal.json"
 
@@ -32,7 +32,7 @@ def _parity_fields_from_cli(payload: dict) -> dict[str, str]:
 
 
 def test_closed_loop_public_api_exports() -> None:
-    from promptrig.compiler import api
+    from proofhouse.compiler import api
 
     assert callable(api.closed_loop_from_json)
     assert callable(api.run_closed_loop)

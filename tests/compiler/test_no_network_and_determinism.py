@@ -5,8 +5,8 @@ import socket
 
 import pytest
 
-from promptrig.compiler import api
-from promptrig.compiler.execution import LiveOpenAIRequest, execute_openai
+from proofhouse.compiler import api
+from proofhouse.compiler.execution import LiveOpenAIRequest, execute_openai
 
 from .fixtures.ir_fixtures import (
     ir_with_anthropic_structured_output,
@@ -114,6 +114,6 @@ def test_validate_is_deterministic_across_many_runs():
 
 
 def test_offline_option_is_always_true_by_default():
-    from promptrig.compiler.contracts import CompileOptions
+    from proofhouse.compiler.contracts import CompileOptions
 
     assert CompileOptions().offline is True

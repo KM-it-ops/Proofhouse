@@ -1,4 +1,4 @@
-# PromptRig Default Mode
+# Proofhouse Default Mode
 
 Use Default Mode for normal, reliable prompt-design assistance.
 

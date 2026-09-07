@@ -1,11 +1,11 @@
 """Reproducible TypeScript generation with a CI drift check: regenerating
 from the vendored schemas must byte-for-byte match the committed output
-under src/promptrig/compiler/typescript/. If this test fails, run
+under src/proofhouse/compiler/typescript/. If this test fails, run
 `python scripts/generate_typescript_contracts.py` and commit the diff."""
 from __future__ import annotations
 
-from promptrig.compiler import paths
-from promptrig.compiler.codegen.typescript import generate_all
+from proofhouse.compiler import paths
+from proofhouse.compiler.codegen.typescript import generate_all
 
 
 def test_generation_is_deterministic():
@@ -18,7 +18,7 @@ def test_committed_typescript_matches_regenerated_output(repo_root):
     generated = generate_all(
         ir_schema_path=paths.IR_SCHEMA_PATH, diagnostic_schema_path=paths.DIAGNOSTIC_CONTRACT_SCHEMA_PATH
     )
-    ts_dir = repo_root / "src" / "promptrig" / "compiler" / "typescript"
+    ts_dir = repo_root / "src" / "proofhouse" / "compiler" / "typescript"
     for filename, source in generated.items():
         committed = (ts_dir / filename).read_text(encoding="utf-8")
         assert committed == source, (

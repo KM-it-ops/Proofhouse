@@ -6,9 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.cli_compiler import build_parser, main as compiler_main
-from promptrig.compiler.closed_loop import ClosedLoopOptions, requirements_to_ir, run_closed_loop
-from promptrig.compiler.repair import ClosedLoopTestHooks
+from proofhouse.compiler.cli_compiler import build_parser, main as compiler_main
+from proofhouse.compiler.closed_loop import ClosedLoopOptions, requirements_to_ir, run_closed_loop
+from proofhouse.compiler.repair import ClosedLoopTestHooks
 
 FIXTURE = Path(__file__).parent / "fixtures" / "closed_loop_requirements_minimal.json"
 

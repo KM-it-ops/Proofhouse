@@ -1,6 +1,6 @@
 import pytest
 
-from promptrig.scoring import summarize_scores, validate_score
+from proofhouse.scoring import summarize_scores, validate_score
 
 
 def test_summarize_scores_passes_threshold():

@@ -1,4 +1,4 @@
-from promptrig.compiler.eval_aggregate import aggregate_scores
+from proofhouse.compiler.eval_aggregate import aggregate_scores
 
 
 def test_any_fail_and_all_pass() -> None:

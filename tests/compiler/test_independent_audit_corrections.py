@@ -14,9 +14,9 @@ import struct
 
 import pytest
 
-from promptrig.compiler import api
-from promptrig.compiler.canonical import CanonicalizationError, canonicalize
-from promptrig.compiler.paths import semantic_leaf_pointers
+from proofhouse.compiler import api
+from proofhouse.compiler.canonical import CanonicalizationError, canonicalize
+from proofhouse.compiler.paths import semantic_leaf_pointers
 
 from .fixtures.ir_fixtures import minimal_valid_ir, strict_compliant_schema
 

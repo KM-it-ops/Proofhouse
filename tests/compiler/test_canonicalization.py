@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from promptrig.compiler.canonical import (
+from proofhouse.compiler.canonical import (
     CanonicalizationError,
     canonical_sha256,
     canonicalize,

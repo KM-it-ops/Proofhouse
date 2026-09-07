@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from promptrig.compiler.requirements_contract import compile_requirements_input
-from promptrig.compiler.requirements_produce import produce_requirements
+from proofhouse.compiler.requirements_contract import compile_requirements_input
+from proofhouse.compiler.requirements_produce import produce_requirements
 
 
 def _intent(*, mode: str, input_id: str = "INP-019-001") -> dict:
@@ -75,7 +75,7 @@ def test_imports_rejected_on_prs() -> None:
 
 
 def test_compile_requirements_input_help_names_prs() -> None:
-    from promptrig.compiler.cli_compiler import build_parser
+    from proofhouse.compiler.cli_compiler import build_parser
 
     parser = build_parser()
     req = None

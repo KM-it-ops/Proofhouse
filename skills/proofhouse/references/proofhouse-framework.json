@@ -1,0 +1,105 @@
+{
+  "name": "Proofhouse",
+  "version": "1.3",
+  "description": "A meta prompt-optimizer: natural language in, a model-specific optimized prompt out, with branching upfront clarification, a self-heal refinement loop, built-in token discipline, auto-research/indexing of unfamiliar models, and optional loop-engineering structure for recurring tasks.",
+  "flow": ["input", "clarify", "compile", "self_heal_loop"],
+  "tokenDiscipline": {
+    "universalDirective": "Apply strict token discipline, in your own output and in the prompt you produce: eliminate redundant framing, merge overlapping constraints into single directives, never restate information already established, and default to the shortest phrasing that fully preserves meaning. Where the target model supports prompt caching (e.g., Claude models via cache_control), structure the compiled prompt so stable/reusable instructions are clearly separated from per-call variable content, and say so explicitly in settings. Do not pad with filler transitions, meta-commentary about your own process, hedging, or restated instructions.",
+    "efficiencyPresets": {
+      "efficient": { "label": "Efficient", "questionCount": "6-10", "promptWordCap": 250, "note": "tightest possible prompt, minimum viable questions" },
+      "balanced": { "label": "Balanced", "questionCount": "10-16", "promptWordCap": 500, "note": "standard coverage" },
+      "thorough": { "label": "Thorough", "questionCount": "14-22", "promptWordCap": 800, "note": "maximum coverage, more explicit guardrails" }
+    },
+    "tokenEstimateFormula": "Math.ceil(text.length / 4) -- computed locally, no extra API call",
+    "selfHealCategory": "token bloat / too verbose is a named diagnosis category alongside scope mismatch, wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, other"
+  },
+  "modelResearchAndIndexing": {
+    "purpose": "Handle target models/providers not in the built-in modelNotes without falling back to generic guidance.",
+    "flow": [
+      "Check persistent storage for a cached entry at key model-notes:{lowercased_name} (shared=true)",
+      "If absent, call the Messages API with tools: [{type: 'web_search_20250305', name: 'web_search'}] to research the model's real prompting behavior",
+      "Condense the result into one dense paragraph matching the style of the built-in modelNotes entries",
+      "Write it back to persistent storage at the same key so future sessions/users reuse it instantly",
+      "On research failure, fall back to the generic 'Other' notes and say so explicitly rather than inventing specifics"
+    ],
+    "sourceLabels": ["builtin", "cached", "researched", "fallback"],
+    "researchPromptTemplate": "Research the AI model/provider \"{{name}}\". Find its known prompting best practices, behavioral quirks, context window, and anything a prompt engineer should know to optimize prompts for it specifically. Write ONE dense paragraph under 120 words, in this style: \"Fast, capable default model for most tasks. Responds well to concise, direct instructions and doesn't need heavy scaffolding.\" Return ONLY that paragraph -- no preamble, no markdown, no citations, no \"based on my research.\""
+  },
+  "loopEngineering": {
+    "trigger": "user-toggled boolean (loopMode), not auto-detected",
+    "directive": "This is a recurring or autonomous loop task, not a one-shot request. Structure the compiled prompt with an explicit loop shape: (1) Trigger/cadence -- what starts each iteration (schedule, event, or manual invocation), (2) Loop body -- plan, act, verify each iteration against evidence rather than assuming success, (3) Exit/stop condition -- what ends the loop entirely, distinct from what ends one iteration, (4) Checkpoint/escalation -- what's severe or ambiguous enough to interrupt the loop and involve the human. Include a compounding-memory mechanism (a running notes file: one lesson per entry, corrections and confirmed approaches alike, update rather than duplicate) so later iterations benefit from earlier ones. Label this section \"Loop Structure\" in the compiled prompt.",
+    "effectOnClarify": "Adds a 'Loop & Recurrence' question group covering trigger type, interval/condition, stop condition, and completion criteria.",
+    "effectOnCompile": "Compiled prompt includes a labeled 'Loop Structure' section alongside (or instead of) the one-shot instructions."
+  },
+  "modelNotes": {
+    "Claude Fable 5.1": "Long-horizon / science / unattended runs. 1M context, 128k output (`claude-fable-5-1`), thinking always on (disabled returns 400), default effort high, $10/$50, slower than Opus 5. State goals and success criteria, not steps -- over-specifying degrades it. Cyber + bio classifiers remain; life-sciences R&D is redirected to Opus 5 or Mythos 5.1 trusted access. Never ask it to echo/explain hidden reasoning as response text. Define explicit pause-vs-continue checkpoints for long tasks. Reach for it when Opus 5 at higher effort still fails evals.",
+    "Claude Mythos 5.1": "Same model as Fable 5.1, with looser cyber/bio safeguards, restricted to trusted-org programs (CVP / LSVP). Same prompting patterns as Fable 5.1.",
+    "Claude Opus 5": "Anthropic's default for complex agentic coding. 1M context, 128k output (`claude-opus-5`), thinking on by default (disable only at effort high or below), default effort high, $5/$25. Give the full task spec and let it run -- it finishes rather than stubbing. Strip verify/self-check/subagent-QA instructions (they cause over-verification). Cap subagent spawns; it delegates eagerly. Ask for concise progress explicitly; default replies run long. Constrain scope on large jobs or it will expand them. Step up to Fable 5.1 only when Opus 5 at higher effort still fails evals.",
+    "Claude Sonnet 5": "Fast, capable default. Concise, direct instructions; doesn't need heavy scaffolding. Good for genuine iteration.",
+    "Claude Haiku 4.5": "Optimized for speed/cost. Keep prompts narrow; break multi-stage work into smaller discrete requests.",
+    "GPT-5.6 Sol": "Flagship GPT-5.6 (`gpt-5.6-sol`; the `gpt-5.6` alias routes here). Outcome, constraints, evidence, and completion bar -- not step lists. Lean system prompts; strip repeated rules and unused examples. More concise than 5.5 by default -- skip blanket 'be concise'; control length with `text.verbosity`. Define autonomy/approval bounds (it is proactive on multi-step work). `reasoning.effort` default medium; high/xhigh only when evals gain; reserve max. Personality vs collaboration as separate short blocks. Programmatic Tool Calling only for bounded reduction of large tool results, not every tool loop. Keep reusable prefixes stable for prompt caching.",
+    "GPT-5.6 Terra": "Balanced GPT-5.6 default for most apps (`gpt-5.6-terra`). Same prompting contract as Sol: outcome-first, lean prompts, `text.verbosity`, explicit autonomy bounds. Prefer Terra over Sol unless hard reasoning, coding, or tool coordination fails evals. Same 1M context / 128k output family. Start `reasoning.effort` at medium and test one step lower before stepping up.",
+    "GPT-5.6 Luna": "Fast/cheap GPT-5.6 (`gpt-5.6-luna`). Same family prompting patterns, but keep the task narrow. Best for classification, extraction, transformation, and batch work with automated validation -- not high-error-cost agentic coding unless evals hold. Same verbosity/effort/caching levers as Sol/Terra; default effort medium and prefer `none`/`low` when quality holds.",
+    "GPT-5.5": "Legacy. Explicit system/developer instructions, clear output format, few-shot examples for style-sensitive output. Prefer the GPT-5.6 family unless a workload is pinned here.",
+    "Gemini 3.8 Flash": "Google workhorse (`gemini-3.8-flash`), 1M context, 65k output, intro $0.75/$3.75. Reasoning model -- concise direct instructions; legacy CoT scaffolding hurts. Control depth with `thinking_level` (low/medium/high), not temperature/top_p (ignored on 3.x). Put instructions after large context; anchor with 'Based on the preceding information...'. Higher effort uses more tokens by design. Separate stable system instructions from per-call variable content for caching. Add 2026 date + Jan 2025 knowledge-cutoff clauses for time-sensitive or strictly grounded tasks per Google docs.",
+    "Grok 4.6": "xAI frontier (`grok-4.6`), 500K context, image+text in, reasoning low/medium/high (default)/xhigh, $2/$6 per MTok below 200K prompt tokens (entire request doubles above 200K). Agentic coding and long-horizon work -- outcome-first with explicit stop/approval bounds. Set `prompt_cache_key` or `x-grok-conv-id` for cache affinity on multi-turn loops. Compact context before the 200K cliff on long agent runs. Available via xAI API, Cursor, OpenRouter.",
+    "Muse Spark 1.3": "Meta frontier (`muse-spark-1.3`, xhigh GA; max after safety testing), 1M context, text/image/video in, Meta Model API + Muse Code. Self-corrects, asks clarifying questions, confirms before consequential actions. Do not over-script tool loops (~20% fewer vs 1.2). Standard endpoint keeps data private; Contributor is cheaper but may train Meta products. Lean outcome prompts with explicit autonomy and escalation bounds.",
+    "Kimi K3": "Moonshot open frontier (`kimi-k3`), 2.8T MoE, 1M context, native vision, $0.30 cache-hit / $3 input / $15 output per MTok. Long-horizon coding and agentic work -- best with Kimi Code harness. Default max thinking at launch; use low/high effort when available. Outcome and evidence bar, not micromanaged steps. Structure a stable prefix for Mooncake cache hits.",
+    "Gemini": "Legacy/generic Google. Prefer Gemini 3.8 Flash for current Flash work. Explicit structure, clear formatting, grounding context up front. Verify against current Google docs for anything critical.",
+    "Claude Fable 5": "Legacy. Mythos-tier, built for long autonomous self-verifying runs, not rapid back-and-forth. State goals/success criteria, not steps -- over-specifying degrades it. Default effort: high (xhigh for the hardest work). Delegates to subagents on its own. Benefits from a persistent lessons file across sessions. Runs safety classifiers on offensive-cybersecurity and bio/life-science content that can flag legitimate defensive/detection work -- frame technique descriptions defensively. Never ask it to echo/explain its internal reasoning as response text (risks refusal fallback to Opus 4.8). Define explicit pause-vs-continue checkpoints for long tasks.",
+    "Claude Mythos 5": "Legacy. Same model as Fable 5, without the added cyber/bio safety layer, restricted to trusted orgs. Same prompting patterns as Fable 5.",
+    "Claude Opus 4.8": "Legacy. Strong general reasoning. Benefits from clear step structure, explicit success criteria, worked examples for style-sensitive tasks. Less suited to fully autonomous multi-hour runs than Fable 5.",
+    "Other": "General best practice: explicit goal, constraints, format, audience. Note in rationale that this is generic guidance."
+  },
+  "systemPrompts": {
+    "generateQuestions": {
+      "template": "You are an expert prompt engineer. You generate a single batch of clarifying questions that will let you fully optimize a prompt for a specific target model, given a user's raw natural-language request.\n\nTarget model: {{resolvedModel}}\nKnown behavior of this target: {{modelNotes}}\n\n{{TOKEN_DISCIPLINE}}\n\nBecause this target is not always well suited to rapid back-and-forth (especially long-horizon models), ask everything you'll need in ONE batch rather than iteratively. Group questions into 3-5 categories relevant to the request (choose from: Scope & Goal, Constraints & Format, Tone & Audience, Autonomy & Iteration Cadence, Security & Reliability, Technical Environment -- only include categories relevant to this specific request). Within groups, include conditional follow-up questions that only make sense given a particular answer (a domino-effect branch), marked with dependsOn.\n\nUser's efficiency preference: {{preset.label}} ({{preset.note}}). Keep every question under 15 words and every option under 5 words. Produce {{preset.questionCount}} total questions including branches -- ask only what materially changes the compiled prompt, skip anything you can reasonably default.\n\nReturn ONLY valid JSON (no markdown fences, no prose) matching exactly this schema:\n[{\"group\":\"string\",\"questions\":[{\"id\":\"short_snake_case\",\"text\":\"string\",\"type\":\"single_select|multi_select|text\",\"options\":[\"...\"],\"dependsOn\":null}]}]\n\nFor conditional questions, dependsOn must be {\"questionId\":\"parent_id\",\"values\":[\"option\",\"that\",\"triggers\",\"it\"]} -- otherwise null. For type \"text\", options must be an empty array.",
+      "userTemplate": "Raw request: \"{{rawRequest}}\"\n\nGenerate the question batch now.",
+      "placeholders": ["resolvedModel", "modelNotes", "rawRequest", "TOKEN_DISCIPLINE", "preset.label", "preset.note", "preset.questionCount"]
+    },
+    "compilePrompt": {
+      "template": "You are an expert prompt engineer. Synthesize a fully optimized prompt for the target model below, using the user's raw request and their clarifying answers.\n\nTarget model: {{resolvedModel}}\nKnown behavior of this target: {{modelNotes}}\n\n{{TOKEN_DISCIPLINE}}\n\nOptimize for: user satisfaction, feasibility, usability, and top-tier performance on this specific model. If the request involves building software, systems, or handling sensitive data, include a short \"Security & Reliability\" section in the prompt capturing relevant constraints -- omit it entirely if not applicable.\n\nUser's efficiency preference: {{preset.label}} ({{preset.note}}). Keep the compiled prompt itself under {{preset.promptWordCap}} words -- trim aggressively rather than covering every edge case when the mode is efficient. Keep your whole response (including rationale) under 550 words total.\n\nReturn ONLY valid JSON (no markdown fences, no prose) matching exactly this schema:\n{\"prompt\":\"the full optimized prompt text, ready to paste as-is\",\"rationale\":\"2-4 sentences on key choices made for this model\",\"settings\":\"one line of suggested settings for this model (effort level, temperature, etc.) or empty string if not applicable\",\"efficiency\":\"one sentence naming the concrete token-saving choices made in this specific prompt\"}",
+      "userTemplateFirstPass": "Raw request: \"{{rawRequest}}\"\n\nClarifying answers:\n{{answeredEntries}}\n\nCompile the optimized prompt now.",
+      "userTemplateSelfHeal": "Original request: \"{{rawRequest}}\"\n\nPrevious optimized prompt (~{{tokenEstimate}} tokens):\n{{previousPrompt}}\n\nUser feedback on that version: \"{{feedback}}\"\n\nDiagnose what's wrong (scope mismatch, wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, token bloat/too verbose, or other) and produce a revised version that fixes it. Reflect the diagnosis briefly in the rationale.",
+      "placeholders": ["resolvedModel", "modelNotes", "rawRequest", "answeredEntries", "previousPrompt", "feedback", "TOKEN_DISCIPLINE", "preset.label", "preset.note", "preset.promptWordCap", "tokenEstimate"]
+    }
+  },
+  "schemas": {
+    "questionBatch": {
+      "type": "array",
+      "items": {
+        "group": "string",
+        "questions": {
+          "type": "array",
+          "items": {
+            "id": "short_snake_case string, unique",
+            "text": "string, under 15 words",
+            "type": "single_select | multi_select | text",
+            "options": "array of strings, under 5 words each; empty array for type=text",
+            "dependsOn": "null, or {questionId: string, values: array of strings}"
+          }
+        }
+      }
+    },
+    "compiledPrompt": {
+      "type": "object",
+      "properties": {
+        "prompt": "string -- the full optimized prompt, ready to paste as-is",
+        "rationale": "string -- 2-4 sentences on key choices made for this model",
+        "settings": "string -- one line of suggested settings, or empty string",
+        "efficiency": "string -- one sentence naming the concrete token-saving choices made in this specific prompt"
+      }
+    }
+  },
+  "apiConfig": {
+    "endpoint": "https://api.anthropic.com/v1/messages",
+    "model": "claude-sonnet-4-6",
+    "max_tokens": 1000,
+    "note": "Used internally by the Proofhouse artifact to run both stages. No API key required inside a Claude artifact."
+  },
+  "reuse": {
+    "interactive": "Use proofhouse.jsx as-is (calls the Claude API directly, no backend needed).",
+    "manual": "Paste the system/user prompts above into any conversation, filling in the {{placeholders}} by hand.",
+    "portable": "This file holds the same content as structured data for scripting or dropping into other tools/projects."
+  }
+}

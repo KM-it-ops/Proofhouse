@@ -5,8 +5,8 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
-from promptrig.compiler.missionrig import (
+from proofhouse.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
+from proofhouse.compiler.missionrig import (
     EVR_WS_0001,
     WorkspaceWritebackError,
     generate_mission,

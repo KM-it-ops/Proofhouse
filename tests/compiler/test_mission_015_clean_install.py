@@ -22,7 +22,7 @@ def test_isolated_venv_doctor_and_closed_loop_consumer(tmp_path: Path) -> None:
     py = install_isolated(ROOT, tmp_path / "venv")
     env = clean_child_env()
     doctor = subprocess.run(
-        [str(py), "-m", "promptrig.compiler.cli_compiler", "doctor", "--json"],
+        [str(py), "-m", "proofhouse.compiler.cli_compiler", "doctor", "--json"],
         cwd=tmp_path,
         env=env,
         capture_output=True,

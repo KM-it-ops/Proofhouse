@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from promptrig.compiler.closed_loop import (
+from proofhouse.compiler.closed_loop import (
     ClosedLoopOptions,
     run_closed_loop,
     validate_structured_requirements,

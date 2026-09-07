@@ -4,7 +4,7 @@ import json
 
 import pytest
 
-from promptrig.compiler import cli_compiler
+from proofhouse.compiler import cli_compiler
 
 from .fixtures.ir_fixtures import (
     ir_with_anthropic_structured_output,

@@ -1,10 +1,10 @@
-# PromptRig Showcase
+# Proofhouse Showcase
 
 Prompt systems that feel like maintained infrastructure — not sticky notes.
 
 ## Pitch
 
-Most prompts fail quietly: they miss context, drift from the product, overfit to one model, or grow too long to maintain. PromptRig is a small operating system for prompts:
+Most prompts fail quietly: they miss context, drift from the product, overfit to one model, or grow too long to maintain. Proofhouse is a small operating system for prompts:
 
 - Core identity and mission
 - Modes for audit, rewriting, agentic workflows, and evaluation
@@ -25,13 +25,13 @@ Built for builders who ship coding agents, Custom GPTs, and cyber×AI harnesses 
 
 ```bash
 python -m pip install -e .
-python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
-python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+python -m proofhouse.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
+python -m proofhouse.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
 ```
 
 ## Example outcomes
 
-| You bring | PromptRig returns |
+| You bring | Proofhouse returns |
 |---|---|
 | Rough Custom GPT instructions | Modular system prompt, missing-context policy, safety boundaries |
 | Coding-agent workflow prompt | Tool permission map, stop conditions, verification loop, audit criteria |
@@ -51,7 +51,7 @@ python -m promptrig.cli report --dataset evals/datasets/prompt_audit_cases.jsonl
 - Runtime deps: Python standard library only
 - Defensive safety stance documented in `SECURITY.md`
 - Source policy notes in `references/current_sources.md`
-- Portable skill + framework spec in `skills/promptrig/` and `promptrig-framework.*`
+- Portable skill + framework spec in `skills/proofhouse/` and `proofhouse-framework.*`
 
 ## What’s next
 

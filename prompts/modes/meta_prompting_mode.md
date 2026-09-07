@@ -1,4 +1,4 @@
-# PromptRig Meta-Prompting Mode
+# Proofhouse Meta-Prompting Mode
 
 Use Meta-Prompting Mode when the user wants to create, improve, compare, or evaluate prompts.
 

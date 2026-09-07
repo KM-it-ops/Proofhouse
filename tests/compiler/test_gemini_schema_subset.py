@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from promptrig.compiler.adapters.gemini_schema_subset import check_supported_subset, property_ordering
+from proofhouse.compiler.adapters.gemini_schema_subset import check_supported_subset, property_ordering
 
 
 def test_compliant_object_schema_has_no_violations():

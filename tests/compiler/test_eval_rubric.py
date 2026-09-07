@@ -1,7 +1,7 @@
 from pathlib import Path
 
-from promptrig.compiler.eval_dataset import DatasetCase, load_dataset
-from promptrig.compiler.eval_rubric import load_rubric, score_case
+from proofhouse.compiler.eval_dataset import DatasetCase, load_dataset
+from proofhouse.compiler.eval_rubric import load_rubric, score_case
 
 
 CASES = Path("tests/compiler/fixtures/mission_027/cases.jsonl")

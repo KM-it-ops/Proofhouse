@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.plain_language import PlainLanguageParseError, parse_plain_language_v0
+from proofhouse.compiler.plain_language import PlainLanguageParseError, parse_plain_language_v0
 
 FIXTURE = Path(__file__).parent / "fixtures" / "plain_language_minimal.txt"
 

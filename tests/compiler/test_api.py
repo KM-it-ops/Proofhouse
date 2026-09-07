@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import json
 
-from promptrig.compiler import api
-from promptrig.compiler.contracts import CompileOptions
-from promptrig.compiler.sink import DirectorySink, InMemorySink
+from proofhouse.compiler import api
+from proofhouse.compiler.contracts import CompileOptions
+from proofhouse.compiler.sink import DirectorySink, InMemorySink
 
 from .fixtures.ir_fixtures import (
     ir_with_anthropic_structured_output,
@@ -127,7 +127,7 @@ def test_compile_is_deterministic_across_repeated_runs():
 
 
 def test_compile_uses_caller_supplied_sink(tmp_path):
-    from promptrig.compiler.sink import DirectorySink
+    from proofhouse.compiler.sink import DirectorySink
 
     sink = DirectorySink(tmp_path)
     env = api.compile(_raw(minimal_valid_ir()), adapter_id="fake", adapter_version="0.1.0", sink=sink)

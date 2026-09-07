@@ -8,7 +8,7 @@ Audit this rough assistant prompt and rewrite it for a coding agent:
 You are an expert dev helper. Build whatever the user asks for, use tools when needed, and keep going until it works.
 ```
 
-## PromptRig Audit Notes
+## Proofhouse Audit Notes
 
 | Area | Finding |
 |---|---|

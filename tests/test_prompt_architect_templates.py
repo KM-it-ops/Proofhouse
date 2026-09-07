@@ -1,7 +1,7 @@
 import shutil
 from pathlib import Path
 
-from promptrig.templates import (
+from proofhouse.templates import (
     COMPACT_PROJECT_PLACEHOLDER,
     PromptArchitectInputs,
     export_prompt_architect,

@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from promptrig.compiler.closed_loop import ClosedLoopOptions, run_closed_loop, closed_loop_from_json
-from promptrig.compiler.repair import ClosedLoopTestHooks
+from proofhouse.compiler.closed_loop import ClosedLoopOptions, run_closed_loop, closed_loop_from_json
+from proofhouse.compiler.repair import ClosedLoopTestHooks
 
 FIXTURE = Path(__file__).parent / "fixtures" / "closed_loop_requirements_minimal.json"
 

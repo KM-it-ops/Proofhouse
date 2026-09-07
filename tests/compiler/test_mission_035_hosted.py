@@ -5,12 +5,12 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.closed_loop import (
+from proofhouse.compiler.closed_loop import (
     SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC,
     ClosedLoopOptions,
     run_closed_loop,
 )
-from promptrig.compiler.hosted_slice import (
+from proofhouse.compiler.hosted_slice import (
     EVR_HST_0001,
     EVR_TEN_0001,
     HostedSlice,
@@ -87,8 +87,8 @@ def test_hosted_export_delete_and_cross_tenant(tmp_path: Path) -> None:
 
 def test_hosted_vite_jsx_not_used() -> None:
     dashboard = (ROOT / "apps" / "dashboard").resolve()
-    jsx = (ROOT / "apps" / "promptrig.jsx").resolve()
-    hosted_src = (ROOT / "src" / "promptrig" / "compiler" / "hosted_slice.py").read_text(encoding="utf-8")
+    jsx = (ROOT / "apps" / "proofhouse.jsx").resolve()
+    hosted_src = (ROOT / "src" / "proofhouse" / "compiler" / "hosted_slice.py").read_text(encoding="utf-8")
     assert dashboard.is_dir()
     assert jsx.is_file()
     assert "from apps" not in hosted_src

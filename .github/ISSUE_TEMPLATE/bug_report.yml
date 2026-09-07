@@ -21,7 +21,7 @@ body:
     id: environment
     attributes:
       label: Environment
-      description: PromptRig version, OS, Python version, and relevant provider adapter.
+      description: Proofhouse version, OS, Python version, and relevant provider adapter.
     validations:
       required: true
   - type: checkboxes

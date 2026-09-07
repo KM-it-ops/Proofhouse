@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from promptrig.compiler.adapters.anthropic_schema_subset import check_strict_subset
+from proofhouse.compiler.adapters.anthropic_schema_subset import check_strict_subset
 
 
 def test_compliant_object_schema_has_no_violations():

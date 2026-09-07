@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from promptrig.compiler.contracts import Artifact
-from promptrig.compiler.sink import DirectorySink, InMemorySink
+from proofhouse.compiler.contracts import Artifact
+from proofhouse.compiler.sink import DirectorySink, InMemorySink
 
 
 def _artifact(name: str = "compiled_prompt") -> Artifact:

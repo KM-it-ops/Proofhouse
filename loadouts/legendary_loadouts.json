@@ -6,7 +6,7 @@
     "tagline": "Silently maps messy prompt terrain into clean modular architecture.",
     "rank": "Legendary",
     "target_surfaces": ["ChatGPT", "Custom GPT", "Claude", "Gemini"],
-    "primary": "prompts/core/promptrig_core.md",
+    "primary": "prompts/core/proofhouse_core.md",
     "mode": "prompts/modes/audit_mode.md",
     "modules": [
       "prompts/modules/context_auditor.md",
@@ -30,7 +30,7 @@
     "tagline": "Tunes rough instructions into sharp, portable, surface-aware prompts.",
     "rank": "Legendary",
     "target_surfaces": ["Custom GPT", "Codex", "Cursor", "Claude Code"],
-    "primary": "prompts/core/promptrig_core.md",
+    "primary": "prompts/core/proofhouse_core.md",
     "mode": "prompts/modes/meta_prompting_mode.md",
     "modules": [
       "prompts/modules/rewrite_engine.md",
@@ -54,7 +54,7 @@
     "tagline": "Turns prompt quality into testable cases, rubrics, and reports.",
     "rank": "Legendary",
     "target_surfaces": ["API agents", "local LLMs", "benchmarks", "regression suites"],
-    "primary": "prompts/core/promptrig_core.md",
+    "primary": "prompts/core/proofhouse_core.md",
     "mode": "prompts/modes/evaluator_mode.md",
     "modules": [
       "prompts/modules/evaluation_builder.md",
@@ -84,7 +84,7 @@
     "tagline": "Designs autonomous workflows with tools, permissions, loops, and stop rules.",
     "rank": "Legendary",
     "target_surfaces": ["Codex", "terminal agents", "browser agents", "multi-agent systems"],
-    "primary": "prompts/core/promptrig_core.md",
+    "primary": "prompts/core/proofhouse_core.md",
     "mode": "prompts/modes/agentic_mode.md",
     "modules": [
       "prompts/modules/context_auditor.md",
@@ -108,7 +108,7 @@
     "tagline": "Pressure-tests sensitive prompt workflows before they reach production.",
     "rank": "Legendary",
     "target_surfaces": ["cybersecurity", "automation", "scraping", "sensitive-data workflows"],
-    "primary": "prompts/core/promptrig_core.md",
+    "primary": "prompts/core/proofhouse_core.md",
     "mode": "prompts/modes/audit_mode.md",
     "modules": [
       "prompts/modules/safety_boundary_checker.md",

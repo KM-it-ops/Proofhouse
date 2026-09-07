@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from promptrig.loadouts import compile_loadout, load_legendary_loadouts
+from proofhouse.loadouts import compile_loadout, load_legendary_loadouts
 
 
 def test_legendary_loadouts_have_expected_count():

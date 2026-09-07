@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from promptrig.compiler.repair import apply_instruction_repair, plan_repair
+from proofhouse.compiler.repair import apply_instruction_repair, plan_repair
 
 
 def test_refuse_security_weaken() -> None:

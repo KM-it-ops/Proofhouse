@@ -1,6 +1,6 @@
 # Security Policy
 
-PromptRig is a prompt-operations framework. It should not contain secrets, API keys, account tokens, private data, or provider credentials.
+Proofhouse is a prompt-operations framework. It should not contain secrets, API keys, account tokens, private data, or provider credentials.
 
 ## Supported Scope
 

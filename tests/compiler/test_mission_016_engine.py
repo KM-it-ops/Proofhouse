@@ -28,11 +28,11 @@ def _set(set_id: str) -> dict:
 
 
 def test_compile_requirements_not_importable_yet() -> None:
-    from promptrig.compiler.requirements_contract import compile_requirements  # noqa: F401
+    from proofhouse.compiler.requirements_contract import compile_requirements  # noqa: F401
 
 
 def test_positive_linked_sets_match_declared_status() -> None:
-    from promptrig.compiler.requirements_contract import compile_requirements
+    from proofhouse.compiler.requirements_contract import compile_requirements
 
     expected = {
         "LAS-POS-SUCCESS-001": "SUCCESS",
@@ -48,7 +48,7 @@ def test_positive_linked_sets_match_declared_status() -> None:
 
 
 def test_missing_requirements_document_is_invalid_output() -> None:
-    from promptrig.compiler.requirements_contract import compile_requirements
+    from proofhouse.compiler.requirements_contract import compile_requirements
 
     result = compile_requirements({"intent_input": {"contract_version": "0.1.0-draft"}})
     assert result.status == "INVALID_OUTPUT"
@@ -56,7 +56,7 @@ def test_missing_requirements_document_is_invalid_output() -> None:
 
 
 def test_harness_reexports_the_same_evaluate_contract_rules() -> None:
-    from promptrig.compiler import requirements_contract as rc
+    from proofhouse.compiler import requirements_contract as rc
 
     harness = _load_harness()
     assert harness.evaluate_contract_rules is rc.evaluate_contract_rules

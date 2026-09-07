@@ -3,8 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from promptrig.compiler.cli_compiler import build_parser
-from promptrig.compiler.hosted_openapi import build_openapi, dump_openapi
+from proofhouse.compiler.cli_compiler import build_parser
+from proofhouse.compiler.hosted_openapi import build_openapi, dump_openapi
 
 ROOT = Path(__file__).resolve().parents[2]
 OPENAPI_PATH = ROOT / "tests" / "fixtures" / "hosted-slice-v0.1" / "openapi.json"

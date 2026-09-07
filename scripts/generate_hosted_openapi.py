@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from promptrig.compiler.hosted_openapi import build_openapi, dump_openapi
+from proofhouse.compiler.hosted_openapi import build_openapi, dump_openapi
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 OUTPUT = REPO_ROOT / "tests" / "fixtures" / "hosted-slice-v0.1" / "openapi.json"

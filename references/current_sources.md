@@ -1,6 +1,6 @@
 # Current Reference Sources
 
-Use current official provider documentation as the primary reference layer for PromptRig.
+Use current official provider documentation as the primary reference layer for Proofhouse.
 
 ## Primary Sources
 
@@ -19,4 +19,4 @@ Use current official provider documentation as the primary reference layer for P
 
 ## Policy
 
-When provider documentation changes, update this file and revise PromptRig prompts only when the change affects behavior, safety, tool use, structured outputs, or evaluation methodology.
+When provider documentation changes, update this file and revise Proofhouse prompts only when the change affects behavior, safety, tool use, structured outputs, or evaluation methodology.

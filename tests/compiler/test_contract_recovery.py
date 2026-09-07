@@ -11,13 +11,13 @@ import json
 
 import pytest
 
-from promptrig.compiler import api
-from promptrig.compiler.adapters.openai import OpenAIAdapter
-from promptrig.compiler.capability import CapabilityManifest
-from promptrig.compiler.canonical import CanonicalizationError, canonicalize
-from promptrig.compiler.contracts import Artifact
-from promptrig.compiler.passes.adapter_lowering import AdapterLoweringPass
-from promptrig.compiler.passes.base import CompilationState
+from proofhouse.compiler import api
+from proofhouse.compiler.adapters.openai import OpenAIAdapter
+from proofhouse.compiler.capability import CapabilityManifest
+from proofhouse.compiler.canonical import CanonicalizationError, canonicalize
+from proofhouse.compiler.contracts import Artifact
+from proofhouse.compiler.passes.adapter_lowering import AdapterLoweringPass
+from proofhouse.compiler.passes.base import CompilationState
 
 from .fixtures.ir_fixtures import (
     ir_with_capabilities,
@@ -108,7 +108,7 @@ def test_partial_lowering_stops_the_pipeline_and_cannot_be_deployable():
         adapter_id = "partial"
 
         def lower(self, validated_ir, resolution):
-            from promptrig.compiler.adapters.base import LoweringResult
+            from proofhouse.compiler.adapters.base import LoweringResult
 
             artifact = Artifact(name="partial", media_type="application/json", sha256="a" * 64, data=b"{}")
             return LoweringResult(artifacts=(artifact,), diagnostics=(), status="partial")
@@ -176,7 +176,7 @@ def test_capability_manifest_nested_limits_are_immutable():
 
 
 def test_json_pointer_escapes_slash_and_tilde_in_schema_property_names():
-    from promptrig.compiler.adapters.openai_schema_subset import check_strict_subset
+    from proofhouse.compiler.adapters.openai_schema_subset import check_strict_subset
 
     schema = {
         "$schema": "https://json-schema.org/draft/2020-12/schema",

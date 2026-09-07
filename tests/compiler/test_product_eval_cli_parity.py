@@ -13,9 +13,9 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.api import ClosedLoopOptions, closed_loop_from_json
-from promptrig.compiler.cli_compiler import main as compiler_main
-from promptrig.compiler.eval_product import ProductEvalRequest, evaluate_product
+from proofhouse.compiler.api import ClosedLoopOptions, closed_loop_from_json
+from proofhouse.compiler.cli_compiler import main as compiler_main
+from proofhouse.compiler.eval_product import ProductEvalRequest, evaluate_product
 
 CASES = Path(__file__).parent / "fixtures" / "mission_027" / "cases.jsonl"
 RUBRIC = Path(__file__).parent / "fixtures" / "mission_027" / "rubric.json"

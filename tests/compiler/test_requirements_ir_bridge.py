@@ -4,13 +4,13 @@ import json
 from copy import deepcopy
 from pathlib import Path
 
-from promptrig.compiler.closed_loop import (
+from proofhouse.compiler.closed_loop import (
     ClosedLoopOptions,
     closed_loop_from_json,
     run_closed_loop,
 )
-from promptrig.compiler.cli_compiler import main as compiler_main
-from promptrig.compiler.requirements_ir_bridge import (
+from proofhouse.compiler.cli_compiler import main as compiler_main
+from proofhouse.compiler.requirements_ir_bridge import (
     bridge_008_to_structured,
     closed_loop_from_bridged_008,
 )

@@ -4,7 +4,7 @@ from copy import deepcopy
 from pathlib import Path
 import json
 
-from promptrig.compiler.model_suggest import (
+from proofhouse.compiler.model_suggest import (
     FAKE_SUGGESTER_ID,
     PROPOSED_REQUIREMENT_ID,
     build_fake_model_proposal,
@@ -41,7 +41,7 @@ def test_suggester_does_not_mutate_input() -> None:
 
 
 def test_module_has_no_provider_or_http_imports() -> None:
-    src = (ROOT / "src" / "promptrig" / "compiler" / "model_suggest.py").read_text(encoding="utf-8")
+    src = (ROOT / "src" / "proofhouse" / "compiler" / "model_suggest.py").read_text(encoding="utf-8")
     for needle in ("openai", "anthropic", "google.generativeai", "httpx", "requests"):
         assert needle not in src.lower()
 

@@ -1,4 +1,4 @@
-from promptrig.compiler.evaluation import EvaluationRequest, evaluate_deterministic
+from proofhouse.compiler.evaluation import EvaluationRequest, evaluate_deterministic
 
 
 def test_network_blocks() -> None:

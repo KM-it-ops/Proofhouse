@@ -8,8 +8,8 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler.api import ClosedLoopOptions, closed_loop_from_json
-from promptrig.compiler.cli_compiler import main as compiler_main
+from proofhouse.compiler.api import ClosedLoopOptions, closed_loop_from_json
+from proofhouse.compiler.cli_compiler import main as compiler_main
 
 ROOT = Path(__file__).resolve().parents[2]
 FIXTURE = Path(__file__).parent / "fixtures" / "closed_loop_requirements_minimal.json"
@@ -17,7 +17,7 @@ EXTERNAL_CONSUMER = Path(__file__).parent / "fixtures" / "external_consumer_mode
 
 
 def test_model_suggest_public_api_exports() -> None:
-    from promptrig.compiler import api
+    from proofhouse.compiler import api
 
     assert callable(api.build_fake_model_proposal)
     assert callable(api.closed_loop_from_json)

@@ -8,10 +8,10 @@ from typing import Any
 
 import pytest
 
-from promptrig.compiler import api
-from promptrig.compiler.cli_compiler import build_parser, main as compiler_main
-from promptrig.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
-from promptrig.compiler.execution import LiveOpenAIRequest, execute_openai
+from proofhouse.compiler import api
+from proofhouse.compiler.cli_compiler import build_parser, main as compiler_main
+from proofhouse.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
+from proofhouse.compiler.execution import LiveOpenAIRequest, execute_openai
 
 from .fixtures.ir_fixtures import ir_with_openai_structured_output, minimal_valid_ir
 
@@ -330,7 +330,7 @@ def test_closed_loop_cli_has_no_live_execute_flags() -> None:
 def test_no_ratified_production_model_id_in_execution_module() -> None:
     from pathlib import Path
 
-    source = Path("src/promptrig/compiler/execution.py").read_text(encoding="utf-8").lower()
+    source = Path("src/proofhouse/compiler/execution.py").read_text(encoding="utf-8").lower()
     for banned in ("gpt-4o", "gpt-4.1", "gpt-5", "o1-preview", "o3-mini"):
         assert banned not in source
     assert "q1" in source

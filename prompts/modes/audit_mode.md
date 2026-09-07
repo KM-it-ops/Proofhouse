@@ -1,4 +1,4 @@
-# PromptRig Audit Mode
+# Proofhouse Audit Mode
 
 Use Audit Mode when reviewing an existing prompt, prompt system, Custom GPT instruction set, agent prompt, or repo prompt architecture.
 

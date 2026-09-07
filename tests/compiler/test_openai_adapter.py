@@ -6,9 +6,9 @@ import socket
 
 import pytest
 
-from promptrig.compiler.adapters.openai import ADAPTER_ID, ADAPTER_VERSION, OpenAIAdapter
-from promptrig.compiler.canonical import canonical_sha256
-from promptrig.compiler.contracts import CapabilityDecision
+from proofhouse.compiler.adapters.openai import ADAPTER_ID, ADAPTER_VERSION, OpenAIAdapter
+from proofhouse.compiler.canonical import canonical_sha256
+from proofhouse.compiler.contracts import CapabilityDecision
 
 from .fixtures.ir_fixtures import (
     ir_with_openai_structured_output,

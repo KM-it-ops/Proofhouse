@@ -49,6 +49,9 @@ releases/
 MISSION_*_REPORT.md
 MISSION_REPORT.md
 MISSION_*_PromptRig_*.md
+MISSION_*_Proofhouse_*.md
 CODEX_IMPLEMENTATION_PROMPT.md
 PROMPTRIG_FILE_MANIFEST.md
+PROOFHOUSE_FILE_MANIFEST.md
 promptrig_*.zip
+proofhouse_*.zip

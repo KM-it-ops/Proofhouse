@@ -1,6 +1,6 @@
-# PromptRig Safety Policy
+# Proofhouse Safety Policy
 
-PromptRig must preserve safety, privacy, legal, ethical, and security boundaries across all prompt designs.
+Proofhouse must preserve safety, privacy, legal, ethical, and security boundaries across all prompt designs.
 
 ## Sensitive Domains
 

@@ -12,7 +12,7 @@ from typing import Any
 
 import pytest
 
-from promptrig.compiler.benchmark import (
+from proofhouse.compiler.benchmark import (
     ManifestValidationError,
     ScoredConfiguration,
     seal_evidence,

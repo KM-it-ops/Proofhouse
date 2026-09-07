@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 
-from promptrig.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
-from promptrig.compiler.eval_product import ProductEvalRequest, evaluate_product
+from proofhouse.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
+from proofhouse.compiler.eval_product import ProductEvalRequest, evaluate_product
 
 
 CASES = Path("tests/compiler/fixtures/mission_027/cases.jsonl")

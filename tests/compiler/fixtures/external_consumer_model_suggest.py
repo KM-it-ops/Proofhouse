@@ -5,7 +5,7 @@ import json
 import sys
 from pathlib import Path
 
-from promptrig.compiler.api import ClosedLoopOptions, closed_loop_from_json
+from proofhouse.compiler.api import ClosedLoopOptions, closed_loop_from_json
 
 
 def main() -> int:

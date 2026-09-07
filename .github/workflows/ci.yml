@@ -38,10 +38,10 @@ jobs:
 
       - name: Validate datasets (legacy PromptOps CLI)
         run: |
-          python -m promptrig.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
-          python -m promptrig.cli validate --dataset evals/datasets/meta_prompting_cases.jsonl
-          python -m promptrig.cli validate --dataset evals/datasets/agentic_mode_cases.jsonl
-          python -m promptrig.cli validate --dataset evals/datasets/adversarial_cases.jsonl
+          python -m proofhouse.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
+          python -m proofhouse.cli validate --dataset evals/datasets/meta_prompting_cases.jsonl
+          python -m proofhouse.cli validate --dataset evals/datasets/agentic_mode_cases.jsonl
+          python -m proofhouse.cli validate --dataset evals/datasets/adversarial_cases.jsonl
 
       - name: Compiler Core smoke test -- installed script
         run: |
@@ -50,8 +50,8 @@ jobs:
 
       - name: Compiler Core smoke test -- python -m invocation
         run: |
-          python -m promptrig.compiler.cli_compiler doctor --json
-          python -m promptrig.compiler.cli_compiler adapters --json
+          python -m proofhouse.compiler.cli_compiler doctor --json
+          python -m proofhouse.compiler.cli_compiler adapters --json
 
   typescript-drift:
     runs-on: ubuntu-latest
@@ -70,7 +70,7 @@ jobs:
       - name: Regenerate TypeScript contracts and fail on drift
         run: |
           python scripts/generate_typescript_contracts.py
-          git diff --exit-code -- src/promptrig/compiler/typescript
+          git diff --exit-code -- src/proofhouse/compiler/typescript
 
   wheel-install:
     runs-on: ubuntu-latest

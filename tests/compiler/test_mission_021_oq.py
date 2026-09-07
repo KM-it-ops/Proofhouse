@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from promptrig.compiler.requirements_contract import (
+from proofhouse.compiler.requirements_contract import (
     compile_requirements,
     compile_requirements_input,
 )
-from promptrig.compiler.requirements_produce import produce_requirements
+from proofhouse.compiler.requirements_produce import produce_requirements
 
 
 def _intent(*, mode: str, input_id: str) -> dict:

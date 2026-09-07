@@ -1,4 +1,4 @@
-from promptrig.schemas import validate_case
+from proofhouse.schemas import validate_case
 
 
 def test_valid_case_has_no_issues():

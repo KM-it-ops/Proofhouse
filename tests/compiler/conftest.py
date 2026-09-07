@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from promptrig.compiler import paths as compiler_paths
+from proofhouse.compiler import paths as compiler_paths
 
 _COMPILER_TEST_DIR = Path(__file__).resolve().parent
 if str(_COMPILER_TEST_DIR) not in sys.path:
@@ -37,13 +37,13 @@ def diagnostic_registry_path() -> Path:
 
 @pytest.fixture()
 def diagnostic_registry(diagnostic_registry_path):
-    from promptrig.compiler.diagnostics import DiagnosticRegistry
+    from proofhouse.compiler.diagnostics import DiagnosticRegistry
 
     return DiagnosticRegistry(diagnostic_registry_path)
 
 
 @pytest.fixture()
 def diagnostic_factory(diagnostic_registry, diagnostic_contract_schema_path):
-    from promptrig.compiler.diagnostics import DiagnosticFactory
+    from proofhouse.compiler.diagnostics import DiagnosticFactory
 
     return DiagnosticFactory(diagnostic_registry, diagnostic_contract_schema_path)

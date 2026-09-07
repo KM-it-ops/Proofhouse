@@ -1,6 +1,6 @@
-# PromptRig Reference Policy
+# Proofhouse Reference Policy
 
-PromptRig uses current official provider documentation as the primary reference layer.
+Proofhouse uses current official provider documentation as the primary reference layer.
 
 ## Primary References
 
