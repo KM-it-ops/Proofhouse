@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proofhouse"
-version = "0.2.0"
+version = "0.2.1"
 description = "Prompt operations framework for prompt architecture, audits, rewrites, and evals."
 readme = "README.md"
 requires-python = ">=3.11"
