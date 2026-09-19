@@ -6,6 +6,13 @@
 
 - CI test matrix now includes Python 3.13 and 3.14 on Ubuntu, Windows, and
   macOS (Fable D6). Typescript-drift and wheel-install stay on 3.11.
+- Q1 live model is `gpt-5.6-luna` (OAR-032). `execute-openai` still requires
+  `--model` at call time; envelopes record `q1_unpicked: false`. Cost ceilings
+  remain recorded, not enforced. Live stays opt-in and not CERTIFIED.
+- Live OpenAI payload uses `max_completion_tokens` (Q1 `gpt-5.6-luna` rejects
+  `max_tokens`).
+- `execute-openai` reports `error` / `EXE-HTTP-0001` when the provider HTTP
+  status is not 2xx (a completed send is not a successful completion).
 
 ## 0.2.1 - Skill Bundle Rebuild
 

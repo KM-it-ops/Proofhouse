@@ -1,8 +1,8 @@
 """Real-network live OpenAI tests. Ordinary CI does not collect this module.
 
-Q1 is unpicked. These tests must fail-closed unless the owner supplies call-time
-model, ceilings, and credential env. Do not treat collection as authorization
-to call the network.
+Q1 is gpt-5.6-luna (OAR-032). These tests still fail-closed unless the owner
+supplies call-time model, ceilings, and credential env. The stub IR in this
+module must not call the network. Do not treat collection as a CI live job.
 """
 
 from __future__ import annotations
@@ -66,5 +66,8 @@ def test_real_network_fail_closed_until_q1_picked() -> None:
         "EXE-CEIL-0001",
         "EXE-COMPILE-0001",
         "EXE-DEP-0001",
+        "EXE-HTTP-0001",
     }
     assert "q1_unpicked" in result.envelope
+    assert result.envelope.get("q1_unpicked") is False
+    assert result.envelope.get("q1_model") == "gpt-5.6-luna"
