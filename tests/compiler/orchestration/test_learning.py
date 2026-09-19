@@ -24,14 +24,15 @@ def test_second_identical_hash_promotes(tmp_path: Path) -> None:
 
 
 def test_promoted_rules_emit_eval_dataset_cases(tmp_path: Path) -> None:
-    store = RuleStore(tmp_path)
+    store = RuleStore(tmp_path / "evals" / "rules")
     store.record_finding("abc123")
     store.record_finding("abc123")
-    dataset = tmp_path / "learning_rules.jsonl"
-    store.write_eval_dataset(dataset)
+    store.record_finding("def456")
+    store.record_finding("def456")
+    dataset = tmp_path / "evals" / "datasets" / "learning_rules.jsonl"
     cases = load_dataset(dataset)
-    assert len(cases) == 1
-    assert cases[0].req_ids[0].startswith("REQ-")
+    assert len(cases) == 2
+    assert all(case.req_ids[0].startswith("REQ-") for case in cases)
 
 
 def test_gc_retires_after_k_unfired(tmp_path: Path) -> None:

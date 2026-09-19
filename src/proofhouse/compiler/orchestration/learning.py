@@ -44,6 +44,9 @@ class RuleStore:
     def _save_rules(self, rules: list[Rule]) -> None:
         self.rules_path.write_text(json.dumps([asdict(rule) for rule in rules], indent=2) + "\n", encoding="utf-8")
 
+    def _eval_dataset_path(self) -> Path:
+        return self.root.parent / "datasets" / "learning_rules.jsonl"
+
     def record_finding(self, finding_hash: str) -> Rule | None:
         pending = json.loads(self.pending_path.read_text(encoding="utf-8"))
         pending[finding_hash] = int(pending.get(finding_hash, 0)) + 1
@@ -53,25 +56,28 @@ class RuleStore:
             return None
         rules = self.load_rules()
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        promoted: Rule | None = None
         for rule in rules:
             if rule.finding_hash == finding_hash:
                 rule.hit_count = count
                 rule.last_fired = now
                 rule.consecutive_unfired = 0
-                self._save_rules(rules)
-                return rule
-        rule = Rule(
-            id=f"LR-{finding_hash[:12]}",
-            version=1,
-            hit_count=count,
-            last_fired=now,
-            consecutive_unfired=0,
-            regression_case_id=f"REQ-LR-{finding_hash[:12].upper()}",
-            finding_hash=finding_hash,
-        )
-        rules.append(rule)
+                promoted = rule
+                break
+        if promoted is None:
+            promoted = Rule(
+                id=f"LR-{finding_hash[:12]}",
+                version=1,
+                hit_count=count,
+                last_fired=now,
+                consecutive_unfired=0,
+                regression_case_id=f"REQ-LR-{finding_hash[:12].upper()}",
+                finding_hash=finding_hash,
+            )
+            rules.append(promoted)
         self._save_rules(rules)
-        return rule
+        self.write_eval_dataset(self._eval_dataset_path())
+        return promoted
 
     def write_eval_dataset(self, path: Path) -> None:
         lines: list[str] = []
@@ -82,6 +88,7 @@ class RuleStore:
                 "observations": {"promoted": True},
             }
             lines.append(json.dumps(payload, sort_keys=True))
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     def write_retired(self, retired: list[Rule], path: Path) -> None:
