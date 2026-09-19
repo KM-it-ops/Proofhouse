@@ -4,11 +4,10 @@ Adapters remain offline lowerers. This module is the only live path and is
 not a flag on closed_loop.py. Default compile/validate/closed-loop stay
 offline. Live is DEFERRED-to-opt-in, not CERTIFIED.
 
-Q1 remains an owner gate before real-network tests: model id, token/cost
-ceilings, and credential material are required at call time (function args
-and/or env var name). There is no ratified first live model. The credential
-store is caller-supplied env var name / value at invoke time, not a vault
-product.
+Q1 is gpt-5.6-luna (OAR-032). Model id, token/cost ceilings, and credential
+material are still required at call time (function args and/or env var name);
+Q1 is not a request default. The credential store is caller-supplied env var
+name / value at invoke time, not a vault product.
 
 Continuation is evidence-only and omitted for this campaign's single-request
 live path. IR v0.1 is not extended.
@@ -29,6 +28,8 @@ from . import api
 
 CONTRACT_VERSION = "0.1.0-live-openai-opt-in"
 DEFAULT_TARGET_URL = "https://api.openai.com/v1/chat/completions"
+# OAR-032 Q1. Not a LiveOpenAIRequest default; --model is still required.
+Q1_MODEL_ID = "gpt-5.6-luna"
 ALLOWED_OPENAI_HOSTS = frozenset({"api.openai.com"})
 ALLOWED_OPENAI_PATH_PREFIX = "/v1/"
 
@@ -39,6 +40,7 @@ EXE_CEIL_0001 = "EXE-CEIL-0001"
 EXE_DEP_0001 = "EXE-DEP-0001"
 EXE_EGRESS_0001 = "EXE-EGRESS-0001"
 EXE_COMPILE_0001 = "EXE-COMPILE-0001"
+EXE_HTTP_0001 = "EXE-HTTP-0001"
 
 _REDACTED = "[REDACTED]"
 
@@ -68,8 +70,8 @@ class LiveOpenAIRequest:
     """Call-time live request. Missing model, ceilings, or credentials fail closed.
 
     Model, token/cost ceilings, and credential material have no defaults and
-    are not read from a vault. Pass them here. Q1 is unpicked: this struct is
-    not a ratified production model or credential-store decision.
+    are not read from a vault. Pass them here. Q1 is gpt-5.6-luna (OAR-032);
+    this struct still has no default model.
     """
 
     opt_in: bool = False
@@ -107,7 +109,9 @@ def _error(code: str, envelope: dict[str, Any] | None = None) -> ExecutionResult
     return ExecutionResult(
         status="error",
         diagnostics=(code,),
-        envelope=_redact_tree(envelope or {"single_request": True, "q1_unpicked": True}),
+        envelope=_redact_tree(
+            envelope or {"single_request": True, "q1_unpicked": False, "q1_model": Q1_MODEL_ID}
+        ),
     )
 
 
@@ -193,7 +197,7 @@ def _provider_body(model: str, lowered: dict[str, Any], max_output_tokens: int) 
     body: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "max_tokens": max_output_tokens,
+        "max_completion_tokens": max_output_tokens,
     }
     tools = lowered.get("tools") or []
     if tools:
@@ -271,7 +275,8 @@ def execute_openai(
     host = urlparse(target_url).hostname or ""
     evidence = {
         "single_request": True,
-        "q1_unpicked": True,
+        "q1_unpicked": False,
+        "q1_model": Q1_MODEL_ID,
         "host": host,
         "idempotency_key": idempotency_key,
         "ir_sha256": compile_env.data.get("ir_sha256"),
@@ -329,7 +334,8 @@ def execute_openai(
         "contract_version": CONTRACT_VERSION,
         "command": "execute-openai",
         "single_request": True,
-        "q1_unpicked": True,
+        "q1_unpicked": False,
+        "q1_model": Q1_MODEL_ID,
         "model": model,
         "host": host,
         "target_url": target_url,
@@ -342,6 +348,9 @@ def execute_openai(
         "ir_sha256": compile_env.data.get("ir_sha256"),
         "compile_artifact_sha256": artifact.get("sha256"),
     }
+    ok = isinstance(status_code, int) and 200 <= status_code < 300
+    result_status = "success" if ok else "error"
+    diagnostics = () if ok else (EXE_HTTP_0001,)
     audit = {
         "event": "live_openai_execute",
         "opt_in": True,
@@ -350,13 +359,13 @@ def execute_openai(
         "model_supplied": True,
         "credential_env_name": request.credential_env_name,
         "idempotency_key": idempotency_key,
-        "status": "success",
+        "status": result_status,
         "http_status": status_code,
     }
     return finish(
         ExecutionResult(
-            status="success",
-            diagnostics=(),
+            status=result_status,
+            diagnostics=diagnostics,
             envelope=envelope,
             audit_event=audit,
         )
