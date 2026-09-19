@@ -1,4 +1,4 @@
-"""External-consumer smoke: import only promptrig.compiler.api public paths."""
+"""External-consumer smoke: import only proofhouse.compiler.api public paths."""
 from __future__ import annotations
 
 import json

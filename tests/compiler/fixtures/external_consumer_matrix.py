@@ -1,4 +1,4 @@
-"""Installed-package consumer: import only promptrig.compiler.api public paths."""
+"""Installed-package consumer: import only proofhouse.compiler.api public paths."""
 from __future__ import annotations
 
 import json

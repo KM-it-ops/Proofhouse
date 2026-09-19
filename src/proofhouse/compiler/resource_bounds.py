@@ -5,3 +5,4 @@ These are not comparative benchmark results (REJ-005).
 
 WALL_SECONDS_MAX = 5.0
 TRACEMALLOC_PEAK_BYTES_MAX = 8388608
+MAX_INPUT_BYTES = 8 * 1024 * 1024

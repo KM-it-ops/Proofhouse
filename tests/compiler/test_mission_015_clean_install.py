@@ -36,7 +36,7 @@ def test_isolated_venv_doctor_and_closed_loop_consumer(tmp_path: Path) -> None:
     names = {c["name"]: c["ok"] for c in payload["data"]["checks"]}
     assert names["ir_schema"] is True
     assert names["diagnostic_registry"] is True
-    assert names["offline_mode"] is True
+    assert names["offline_mode_assertion"] is True
 
     consumer = subprocess.run(
         [str(py), str(CONSUMER), str(FIXTURE)],

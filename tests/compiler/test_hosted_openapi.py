@@ -36,7 +36,8 @@ def _cli_command_names() -> set[str]:
     return names
 
 
-def test_openapi_matches_cli_and_excludes_live_from_default_slice() -> None:
+def test_openapi_matches_cli_and_excludes_live_from_default_slice(monkeypatch) -> None:
+    monkeypatch.setenv("PROOFHOUSE_EXPERIMENTAL", "1")
     generated = build_openapi()
     committed = json.loads(OPENAPI_PATH.read_text(encoding="utf-8"))
     assert committed == generated

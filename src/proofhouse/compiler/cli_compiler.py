@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from dataclasses import asdict
 from pathlib import Path
@@ -32,6 +33,7 @@ from .missionrig import (
     workspace_consume,
     workspace_writeback_ir,
 )
+from .resource_bounds import MAX_INPUT_BYTES
 from .sink import DirectorySink, InMemorySink
 
 EXIT_SUCCESS = 0
@@ -42,6 +44,11 @@ EXIT_COMPILATION_FAILURE = 5
 EXIT_ADAPTER_FAILURE = 6
 EXIT_ENVIRONMENT_FAILURE = 7
 EXIT_INTERNAL_ERROR = 8
+
+EXPERIMENTAL_COMMANDS = frozenset({
+    "hosted-compile", "hosted-view", "hosted-export", "hosted-delete",
+    "missionrig-generate", "workspace-consume",
+})
 
 _CODE_TO_EXIT: dict[str, int] = {
     "PRG-NORMALIZATION-0001": EXIT_VALIDATION_FAILURE,
@@ -69,8 +76,15 @@ def _exit_code_for(diagnostics: tuple[Diagnostic, ...]) -> int:
 
 def _read_input(input_arg: str) -> bytes:
     if input_arg == "-":
-        return sys.stdin.buffer.read()
-    return Path(input_arg).read_bytes()
+        data = sys.stdin.buffer.read(MAX_INPUT_BYTES + 1)
+    else:
+        path = Path(input_arg)
+        if path.stat().st_size > MAX_INPUT_BYTES:
+            raise ValueError("EVR-RES-0001: input exceeds MAX_INPUT_BYTES")
+        data = path.read_bytes()
+    if len(data) > MAX_INPUT_BYTES:
+        raise ValueError("EVR-RES-0001: input exceeds MAX_INPUT_BYTES")
+    return data
 
 
 def _emit(envelope: ResultEnvelope, *, as_json: bool) -> None:
@@ -436,6 +450,88 @@ def _cmd_workspace_consume(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+COMPILER_COMMANDS = frozenset({
+    "validate",
+    "inspect",
+    "compile",
+    "adapters",
+    "doctor",
+    "closed-loop",
+    "compile-requirements",
+    "evaluate-product",
+    "closed-loop-bridged-008",
+    "execute-openai",
+    "route",
+    "assay",
+    "proof",
+    "hosted-compile",
+    "hosted-view",
+    "hosted-export",
+    "hosted-delete",
+    "missionrig-generate",
+    "workspace-consume",
+})
+
+
+def _emit_route_decision(decision: object, *, as_json: bool) -> int:
+    payload = decision.to_dict()  # type: ignore[attr-defined]
+    if as_json:
+        sys.stdout.write(json.dumps(payload, sort_keys=True))
+        sys.stdout.write("\n")
+    else:
+        print(f"route: {payload['artifact_class']}")
+        print(f"  ship_walk: {payload['ship_walk']}")
+        print(f"  {payload['rationale']}")
+    return EXIT_SUCCESS
+
+
+def _cmd_route(args: argparse.Namespace) -> int:
+    from .orchestration.route import RouteRequest, route
+
+    try:
+        constraints = json.loads(args.constraints) if args.constraints else {}
+    except json.JSONDecodeError:
+        return _cli_error("route", "constraints must be a JSON object", "-", as_json=args.json)
+    if not isinstance(constraints, dict):
+        return _cli_error("route", "constraints must be a JSON object", "-", as_json=args.json)
+    return _emit_route_decision(route(RouteRequest(args.objective, constraints)), as_json=args.json)
+
+
+def _cmd_assay(args: argparse.Namespace) -> int:
+    from .orchestration.assay import assay
+    from .orchestration.claim_ledger import Claim
+
+    raw = json.loads(Path(args.claims).read_text(encoding="utf-8"))
+    claims = tuple(Claim(**item) for item in raw)
+    result = assay(claims, rotten_fields=bool(args.rotten_fields))
+    payload = {"status": result.status, "claim_ids": [claim.id for claim in result.claims]}
+    if args.json:
+        sys.stdout.write(json.dumps(payload, sort_keys=True))
+        sys.stdout.write("\n")
+    else:
+        print(f"assay: {result.status}")
+    return EXIT_SUCCESS if result.status == "PASS" else EXIT_COMPILATION_FAILURE
+
+
+def _cmd_proof(args: argparse.Namespace) -> int:
+    from .orchestration.proof import run_proof
+
+    result = run_proof(
+        args.artifact,
+        args.spec,
+        drafting_rationale="",
+        pass_a=lambda _a, _s: (),
+        pass_b=lambda _a, _s, _f: (),
+    )
+    payload = {"status": result.status, "passes": result.passes, "findings": []}
+    if args.json:
+        sys.stdout.write(json.dumps(payload, sort_keys=True))
+        sys.stdout.write("\n")
+    else:
+        print(f"proof: {result.status}")
+    return EXIT_SUCCESS
+
+
 def _cmd_execute_openai(args: argparse.Namespace) -> int:
     raw = _read_input(args.input)
     result = execute_openai(
@@ -495,10 +591,12 @@ def build_parser() -> argparse.ArgumentParser:
     p_loop = subparsers.add_parser(
         "closed-loop",
         help=(
-            "MISSION-010 prototype: structured requirements or plain_language_v0 envelope "
-            "→ IR → fake adapter → eval/repair → evidence."
+            "Headless closed-loop (OAR-006 certified slice): structured requirements or "
+            "plain_language_v0 envelope -> IR -> fake adapter -> eval/repair -> evidence. "
+            "Not a live provider. Not full MISSION-008."
         ),
     )
+
     p_loop.add_argument(
         "input",
         help="Path to structured requirements JSON or plain_language_v0 envelope, or '-' for stdin.",
@@ -584,6 +682,42 @@ def build_parser() -> argparse.ArgumentParser:
     p_bridge.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
     p_bridge.set_defaults(func=_cmd_closed_loop_bridged_008)
 
+    p_route = subparsers.add_parser(
+        "route",
+        help="Classify artifact class upstream of IR (ADR-008). Does not compile IR.",
+    )
+    p_route.add_argument("--objective", required=True, help="Natural-language objective to classify.")
+    p_route.add_argument(
+        "--constraints",
+        default="{}",
+        help="JSON object of routing constraints (not IR).",
+    )
+    p_route.add_argument("--json", action="store_true", help="Emit RouteDecision JSON.")
+    p_route.set_defaults(func=_cmd_route)
+
+    p_assay = subparsers.add_parser(
+        "assay",
+        help="Evaluate an in-run claim ledger (ADR-008). Offline; caller supplies evidence text.",
+    )
+    p_assay.add_argument("--claims", required=True, help="Path to JSON array of Claim objects.")
+    p_assay.add_argument(
+        "--rotten-fields",
+        action="store_true",
+        default=False,
+        help="Require freshness stamps (model IDs, API params, library versions, stack profiles).",
+    )
+    p_assay.add_argument("--json", action="store_true", help="Emit assay JSON.")
+    p_assay.set_defaults(func=_cmd_assay)
+
+    p_proof = subparsers.add_parser(
+        "proof",
+        help="Two-pass expand/contract audit (ADR-008). Offline default ships with empty passes.",
+    )
+    p_proof.add_argument("--artifact", required=True, help="Artifact text to audit.")
+    p_proof.add_argument("--spec", required=True, help="Spec text the artifact must satisfy.")
+    p_proof.add_argument("--json", action="store_true", help="Emit proof JSON.")
+    p_proof.set_defaults(func=_cmd_proof)
+
     p_exec = subparsers.add_parser(
         "execute-openai",
         help=(
@@ -619,7 +753,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_exec.add_argument(
         "--max-cost-usd",
         default=None,
-        help="Caller-supplied cost ceiling as a decimal string (required at call time).",
+        help="Declared cost ceiling recorded in evidence; not enforced pre-send (Q1 unpicked).",
     )
     p_exec.add_argument(
         "--target-url",
@@ -629,64 +763,98 @@ def build_parser() -> argparse.ArgumentParser:
     p_exec.add_argument("--json", action="store_true", help="Emit a JSON execution envelope.")
     p_exec.set_defaults(func=_cmd_execute_openai)
 
-    p_hc = subparsers.add_parser(
-        "hosted-compile",
-        help="Compile intake through the hosted slice store (stdlib transport; not FastAPI/Next.js).",
-    )
-    p_hc.add_argument("input", help="Path to structured intake JSON, or '-' for stdin.")
-    p_hc.add_argument("--store", required=True, help="Hosted project store directory.")
-    p_hc.add_argument("--tenant", default="alpha", help="Tenant id (single-tenant alpha default).")
-    p_hc.add_argument("--json", action="store_true", help="Emit JSON.")
-    p_hc.set_defaults(func=_cmd_hosted_compile)
+    if os.environ.get("PROOFHOUSE_EXPERIMENTAL") == "1":
+        p_hc = subparsers.add_parser(
+            "hosted-compile",
+            help="Compile intake through the hosted slice store (stdlib transport; not FastAPI/Next.js).",
+        )
+        p_hc.add_argument("input", help="Path to structured intake JSON, or '-' for stdin.")
+        p_hc.add_argument("--store", required=True, help="Hosted project store directory.")
+        p_hc.add_argument(
+            "--tenant",
+            default="alpha",
+            help="Single-tenant alpha label (not isolation). Default: alpha.",
+        )
+        p_hc.add_argument("--json", action="store_true", help="Emit JSON.")
+        p_hc.set_defaults(func=_cmd_hosted_compile)
 
-    p_hv = subparsers.add_parser(
-        "hosted-view",
-        help="Simple or Developer view of one hosted project. Same IR digest as CLI closed-loop.",
-    )
-    p_hv.add_argument("project_id", help="Hosted project id.")
-    p_hv.add_argument("--mode", required=True, choices=("simple", "developer"))
-    p_hv.add_argument("--store", required=True, help="Hosted project store directory.")
-    p_hv.add_argument("--tenant", default="alpha")
-    p_hv.add_argument("--json", action="store_true", help="Emit JSON.")
-    p_hv.set_defaults(func=_cmd_hosted_view)
+        p_hv = subparsers.add_parser(
+            "hosted-view",
+            help="Simple or Developer view of one hosted project. Same IR digest as CLI closed-loop.",
+        )
+        p_hv.add_argument("project_id", help="Hosted project id.")
+        p_hv.add_argument("--mode", required=True, choices=("simple", "developer"))
+        p_hv.add_argument("--store", required=True, help="Hosted project store directory.")
+        p_hv.add_argument(
+            "--tenant",
+            default="alpha",
+            help="Single-tenant alpha label (not isolation). Default: alpha.",
+        )
+        p_hv.add_argument("--json", action="store_true", help="Emit JSON.")
+        p_hv.set_defaults(func=_cmd_hosted_view)
 
-    p_he = subparsers.add_parser("hosted-export", help="Export a hosted project package.")
-    p_he.add_argument("project_id")
-    p_he.add_argument("--store", required=True)
-    p_he.add_argument("--tenant", default="alpha")
-    p_he.add_argument("--json", action="store_true", help="Emit JSON.")
-    p_he.set_defaults(func=_cmd_hosted_export)
+        p_he = subparsers.add_parser("hosted-export", help="Export a hosted project package.")
+        p_he.add_argument("project_id")
+        p_he.add_argument("--store", required=True)
+        p_he.add_argument(
+            "--tenant",
+            default="alpha",
+            help="Single-tenant alpha label (not isolation). Default: alpha.",
+        )
+        p_he.add_argument("--json", action="store_true", help="Emit JSON.")
+        p_he.set_defaults(func=_cmd_hosted_export)
 
-    p_hd = subparsers.add_parser("hosted-delete", help="Delete a hosted project so the compiler cannot see it.")
-    p_hd.add_argument("project_id")
-    p_hd.add_argument("--store", required=True)
-    p_hd.add_argument("--tenant", default="alpha")
-    p_hd.add_argument("--json", action="store_true", help="Emit JSON.")
-    p_hd.set_defaults(func=_cmd_hosted_delete)
+        p_hd = subparsers.add_parser("hosted-delete", help="Delete a hosted project so the compiler cannot see it.")
+        p_hd.add_argument("project_id")
+        p_hd.add_argument("--store", required=True)
+        p_hd.add_argument(
+            "--tenant",
+            default="alpha",
+            help="Single-tenant alpha label (not isolation). Default: alpha.",
+        )
+        p_hd.add_argument("--json", action="store_true", help="Emit JSON.")
+        p_hd.set_defaults(func=_cmd_hosted_delete)
 
-    p_mg = subparsers.add_parser(
-        "missionrig-generate",
-        help="Generate a MissionRig mission from Proofhouse evidence (read-only; one profile).",
-    )
-    p_mg.add_argument("--evidence", required=True, help="Path to evidence bundle JSON.")
-    p_mg.add_argument("--intake", required=True, help="Path to intake JSON.")
-    p_mg.add_argument("--output", default=None, help="Optional mission JSON output path.")
-    p_mg.add_argument("--json", action="store_true", help="Emit JSON instead of markdown.")
-    p_mg.set_defaults(func=_cmd_missionrig_generate)
+        p_mg = subparsers.add_parser(
+            "missionrig-generate",
+            help="Generate a MissionRig mission from Proofhouse evidence (read-only; one profile).",
+        )
+        p_mg.add_argument("--evidence", required=True, help="Path to evidence bundle JSON.")
+        p_mg.add_argument("--intake", required=True, help="Path to intake JSON.")
+        p_mg.add_argument("--output", default=None, help="Optional mission JSON output path.")
+        p_mg.add_argument("--json", action="store_true", help="Emit JSON instead of markdown.")
+        p_mg.set_defaults(func=_cmd_missionrig_generate)
 
-    p_ws = subparsers.add_parser(
-        "workspace-consume",
-        help="Read-only workspace consume of a MissionRig mission. --writeback-ir fails closed.",
-    )
-    p_ws.add_argument("--mission", required=True, help="Path to mission JSON.")
-    p_ws.add_argument("--writeback-ir", action="store_true", default=False, help="If set, fail closed.")
-    p_ws.add_argument("--json", action="store_true", help="Emit JSON.")
-    p_ws.set_defaults(func=_cmd_workspace_consume)
+        p_ws = subparsers.add_parser(
+            "workspace-consume",
+            help="Read-only workspace consume of a MissionRig mission. --writeback-ir fails closed.",
+        )
+        p_ws.add_argument("--mission", required=True, help="Path to mission JSON.")
+        p_ws.add_argument(
+            "--writeback-ir",
+            action="store_true",
+            default=False,
+            help="Fail-closed demo: always raises EVR-WS-0001; does not write IR.",
+        )
+        p_ws.add_argument("--json", action="store_true", help="Emit JSON.")
+        p_ws.set_defaults(func=_cmd_workspace_consume)
 
     return parser
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv_list = list(sys.argv[1:] if argv is None else argv)
+    if (
+        argv_list
+        and not argv_list[0].startswith("-")
+        and argv_list[0] not in COMPILER_COMMANDS
+        and " " in argv_list[0]
+    ):
+        from .orchestration.overseer import dispatch
+
+        as_json = "--json" in argv_list
+        return _emit_route_decision(dispatch(argv_list[0]), as_json=as_json)
+
     parser = build_parser()
     try:
         args = parser.parse_args(argv)
@@ -699,6 +867,11 @@ def main(argv: list[str] | None = None) -> int:
     except FileNotFoundError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE_ERROR
+    except ValueError as exc:
+        if str(exc).startswith("EVR-RES-0001"):
+            print(f"error: {exc}", file=sys.stderr)
+            return EXIT_USAGE_ERROR
+        raise
     except Exception as exc:  # noqa: BLE001 -- last-resort boundary, never a silent failure
         print(f"internal error: {exc}", file=sys.stderr)
         return EXIT_INTERNAL_ERROR
