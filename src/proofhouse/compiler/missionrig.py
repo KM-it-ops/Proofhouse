@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from .canonical import canonicalize
+from .evidence import EVIDENCE_BUNDLE_SCHEMA
 
 MISSION_SCHEMA_VERSION = "0.1.0-draft"
 MISSION_PROFILE = "structured_minimal_v0"
@@ -47,6 +48,10 @@ def generate_mission(
 ) -> dict[str, Any]:
     if spec_profile != MISSION_PROFILE:
         raise MissionRigError(EVR_MRG_0001, f"unsupported spec profile: {spec_profile}")
+    if evidence_bundle.get("evidence_schema") != EVIDENCE_BUNDLE_SCHEMA:
+        raise MissionRigError(EVR_MRG_0001, "evidence_schema missing or not eeb-headless-v0.1")
+    if not evidence_bundle.get("ir_sha256"):
+        raise MissionRigError(EVR_MRG_0001, "ir_sha256 required")
     compiler_status = _compiler_status(evidence_bundle)
     unresolved = evidence_bundle.get("unresolved_defect")
     if compiler_status in {"PASS", "SUCCESS"} and not unresolved:

@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Proofhouse learning rules",
+  "type": "array",
+  "items": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["id", "version", "hit_count", "last_fired", "consecutive_unfired", "regression_case_id"],
+    "properties": {
+      "id": { "type": "string" },
+      "version": { "type": "integer", "minimum": 1 },
+      "hit_count": { "type": "integer", "minimum": 0 },
+      "last_fired": { "type": ["string", "null"] },
+      "consecutive_unfired": { "type": "integer", "minimum": 0 },
+      "regression_case_id": { "type": "string", "pattern": "^REQ-" },
+      "finding_hash": { "type": "string" }
+    }
+  }
+}

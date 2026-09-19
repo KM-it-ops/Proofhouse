@@ -81,6 +81,57 @@
         "x-default-hosted-slice": true
       }
     },
+    "/v0/compiler/assay": {
+      "post": {
+        "operationId": "assay",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "claims": {
+                    "description": "Path to JSON array of Claim objects.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit assay JSON.",
+                    "type": "boolean"
+                  },
+                  "rotten-fields": {
+                    "description": "Require freshness stamps (model IDs, API params, library versions, stack profiles).",
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "claims"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "assay",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "assay",
+        "x-default-hosted-slice": true
+      }
+    },
     "/v0/compiler/closed-loop": {
       "post": {
         "operationId": "closed_loop",
@@ -448,7 +499,7 @@
                     "type": "boolean"
                   },
                   "max-cost-usd": {
-                    "description": "Caller-supplied cost ceiling as a decimal string (required at call time).",
+                    "description": "Declared cost ceiling recorded in evidence; not enforced pre-send (Q1 unpicked).",
                     "type": "string"
                   },
                   "max-output-tokens": {
@@ -519,7 +570,7 @@
                     "type": "string"
                   },
                   "tenant": {
-                    "description": "Tenant id (single-tenant alpha default).",
+                    "description": "Single-tenant alpha label (not isolation). Default: alpha.",
                     "type": "string"
                   }
                 },
@@ -573,6 +624,7 @@
                     "type": "string"
                   },
                   "tenant": {
+                    "description": "Single-tenant alpha label (not isolation). Default: alpha.",
                     "type": "string"
                   }
                 },
@@ -626,6 +678,7 @@
                     "type": "string"
                   },
                   "tenant": {
+                    "description": "Single-tenant alpha label (not isolation). Default: alpha.",
                     "type": "string"
                   }
                 },
@@ -688,6 +741,7 @@
                     "type": "string"
                   },
                   "tenant": {
+                    "description": "Single-tenant alpha label (not isolation). Default: alpha.",
                     "type": "string"
                   }
                 },
@@ -825,6 +879,109 @@
         "x-default-hosted-slice": true
       }
     },
+    "/v0/compiler/proof": {
+      "post": {
+        "operationId": "proof",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "artifact": {
+                    "description": "Artifact text to audit.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit proof JSON.",
+                    "type": "boolean"
+                  },
+                  "spec": {
+                    "description": "Spec text the artifact must satisfy.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "artifact",
+                  "spec"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "proof",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "proof",
+        "x-default-hosted-slice": true
+      }
+    },
+    "/v0/compiler/route": {
+      "post": {
+        "operationId": "route",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "constraints": {
+                    "description": "JSON object of routing constraints (not IR).",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit RouteDecision JSON.",
+                    "type": "boolean"
+                  },
+                  "objective": {
+                    "description": "Natural-language objective to classify.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "objective"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "route",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "route",
+        "x-default-hosted-slice": true
+      }
+    },
     "/v0/compiler/validate": {
       "post": {
         "operationId": "validate",
@@ -890,7 +1047,7 @@
                     "type": "string"
                   },
                   "writeback-ir": {
-                    "description": "If set, fail closed.",
+                    "description": "Fail-closed demo: always raises EVR-WS-0001; does not write IR.",
                     "type": "boolean"
                   }
                 },
@@ -926,6 +1083,7 @@
   },
   "x-cli-commands": [
     "adapters",
+    "assay",
     "closed-loop",
     "closed-loop-bridged-008",
     "compile",
@@ -939,11 +1097,14 @@
     "hosted-view",
     "inspect",
     "missionrig-generate",
+    "proof",
+    "route",
     "validate",
     "workspace-consume"
   ],
   "x-default-hosted-slice": [
     "adapters",
+    "assay",
     "closed-loop",
     "closed-loop-bridged-008",
     "compile",
@@ -956,6 +1117,8 @@
     "hosted-view",
     "inspect",
     "missionrig-generate",
+    "proof",
+    "route",
     "validate",
     "workspace-consume"
   ],

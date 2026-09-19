@@ -342,7 +342,13 @@ def doctor() -> ResultEnvelope:
         schema_detail = str(exc)
     checks.append(DoctorCheck(name="ir_schema", ok=schema_ok, detail=schema_detail))
 
-    checks.append(DoctorCheck(name="offline_mode", ok=True, detail="no network access is performed"))
+    checks.append(
+        DoctorCheck(
+            name="offline_mode_assertion",
+            ok=True,
+            detail="certified path performs no network access; this is an assertion, not a probe",
+        )
+    )
 
     all_ok = all(c.ok for c in checks)
     diagnostics: tuple[Diagnostic, ...] = ()

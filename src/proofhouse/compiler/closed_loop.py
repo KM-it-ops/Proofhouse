@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from dataclasses import dataclass, field, replace
 from typing import Any
 
@@ -28,11 +29,14 @@ from .model_suggest import (
 )
 from .plain_language import PlainLanguageParseError, parse_plain_language_v0
 from .repair import ClosedLoopTestHooks, apply_instruction_repair, plan_repair
+from .resource_bounds import MAX_INPUT_BYTES
 
 ACCEPTED_INPUT_CONTRACT_VERSIONS = frozenset({"0.1.0-draft", "0.1.0"})
 FAKE_ADAPTER_ID = "fake"
 FAKE_ADAPTER_VERSION = "0.1.0"
 IMMUTABLE_FIELDS = ("accepted_objectives", "security_constraints", "requirement_ids")
+REQ_ID_RE = re.compile(r"^REQ-[A-Z0-9-]{3,40}$")
+_EVAL_RANK = {"FAIL": 0, "BLOCKED": 0, "UNRESOLVED_DEFECT": 0, "PASS": 1}
 
 
 @dataclass
@@ -87,7 +91,7 @@ def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
     else:
         for req in reqs:
             rid = req.get("id", "")
-            if not isinstance(rid, str) or not rid.startswith("REQ-"):
+            if not isinstance(rid, str) or not REQ_ID_RE.fullmatch(rid):
                 errors.append(f"invalid requirement id: {rid!r}")
             if not req.get("statement"):
                 errors.append(f"requirement {rid} missing statement")
@@ -104,6 +108,12 @@ def validate_structured_requirements(doc: dict[str, Any]) -> list[str]:
     if profile == "simple_mode_ui" or doc.get("authoring_mode") == "simple_ui_only":
         errors.append(SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC)
     return errors
+
+
+def _repair_outcome(prior_status: str, next_status: str) -> str:
+    if _EVAL_RANK.get(next_status, 0) > _EVAL_RANK.get(prior_status, 0):
+        return "improved"
+    return "no_change"
 
 
 def requirements_to_ir(doc: dict[str, Any]) -> dict[str, Any]:
@@ -254,6 +264,8 @@ def run_closed_loop(
     baseline_digest = _digest({"phase": "requirements", "ir": ir_doc})
 
     failed_attempts: list[dict[str, Any]] = []
+    pending_repair: dict[str, Any] | None = None
+    pending_prior_status: str | None = None
     current_ir = ir_doc
     current_raw = ir_raw
     compile_env: ResultEnvelope | None = None
@@ -278,6 +290,18 @@ def run_closed_loop(
                 source_document="<closed-loop>",
             )
             compile_ok = compile_env.status != "error"
+            if compile_env.status == "error":
+                error_codes = [d.code for d in compile_env.diagnostics if d.severity == "error"]
+                if error_codes and all(
+                    code.startswith("PRG-VALIDATION-") or code.startswith("PRG-NORMALIZATION-")
+                    for code in error_codes
+                ):
+                    return ClosedLoopResult(
+                        status="BLOCKED",
+                        evidence_bundle={},
+                        envelope=compile_env,
+                        diagnostics=error_codes,
+                    )
             artifacts = list(compile_env.data.get("artifacts", [])) if compile_ok else []
             candidate_digest = _digest(
                 {
@@ -306,6 +330,11 @@ def run_closed_loop(
         final_eval = evaluation
         final_evaluator_id = eval_result.evaluator_id
         final_evaluator_version = eval_result.evaluator_version
+        if pending_repair is not None:
+            pending_repair["outcome"] = _repair_outcome(pending_prior_status or "", evaluation["status"])
+            failed_attempts.append(pending_repair)
+            pending_repair = None
+            pending_prior_status = None
 
         if evaluation["status"] == "PASS":
             if options.product_eval is not None:
@@ -351,18 +380,17 @@ def run_closed_loop(
         assert current_ir["behavior"]["constraints"] == security_constraints
         assert [r["id"] for r in current_ir["requirements"]] == requirement_ids
         current_raw = canonicalize(current_ir)
-        failed_attempts.append(
-            {
-                "attempt_id": f"RPA-{attempt_index}",
-                "attempt_index": attempt_index,
-                "mutation_summary": repair_plan.mutation_summary,
-                "allowed_mutation": True,
-                "outcome": "improved",
-                "preserved_failed_evidence": True,
-                "weakened_security_or_objective": False,
-                "diagnostic_codes": [],
-            }
-        )
+        pending_prior_status = evaluation["status"]
+        pending_repair = {
+            "attempt_id": f"RPA-{attempt_index}",
+            "attempt_index": attempt_index,
+            "mutation_summary": repair_plan.mutation_summary,
+            "allowed_mutation": True,
+            "outcome": "no_change",
+            "preserved_failed_evidence": True,
+            "weakened_security_or_objective": False,
+            "diagnostic_codes": [],
+        }
 
     assert final_eval is not None
     status = final_eval["status"]
@@ -421,8 +449,12 @@ def closed_loop_from_json(
     hooks: ClosedLoopTestHooks | None = None,
 ) -> ClosedLoopResult:
     if isinstance(raw, bytes):
+        if len(raw) > MAX_INPUT_BYTES:
+            return ClosedLoopResult(status="BLOCKED", evidence_bundle={}, diagnostics=["EVR-RES-0001"])
         text = raw.decode("utf-8")
     else:
+        if len(raw.encode("utf-8")) > MAX_INPUT_BYTES:
+            return ClosedLoopResult(status="BLOCKED", evidence_bundle={}, diagnostics=["EVR-RES-0001"])
         text = raw
     doc = json.loads(text)
     options = options or ClosedLoopOptions()

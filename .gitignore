@@ -38,6 +38,7 @@ skills-lock.json
 
 .worktrees/
 
+# architecture/ is local-only; public clone must not receive it.
 # Internal-only — keep local, never publish
 review-cycles/
 docs/superpowers/
