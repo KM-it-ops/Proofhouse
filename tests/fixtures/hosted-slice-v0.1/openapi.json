@@ -499,7 +499,7 @@
                     "type": "boolean"
                   },
                   "max-cost-usd": {
-                    "description": "Declared cost ceiling recorded in evidence; not enforced pre-send (Q1 unpicked).",
+                    "description": "Declared cost ceiling recorded in evidence; not enforced pre-send.",
                     "type": "string"
                   },
                   "max-output-tokens": {
