@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- CI test matrix now includes Python 3.13 and 3.14 on Ubuntu, Windows, and
+  macOS (Fable D6). Typescript-drift and wheel-install stay on 3.11.
+
 ## 0.2.1 - Skill Bundle Rebuild
 
 ### Fixed
