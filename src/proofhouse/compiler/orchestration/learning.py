@@ -94,9 +94,9 @@ class RuleStore:
 
     def write_retired(self, retired: list[Rule], path: Path) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
-        existing = path.read_text(encoding="utf-8") if path.is_file() else ""
         addition = "".join(json.dumps(asdict(rule), sort_keys=True) + "\n" for rule in retired)
-        path.write_text(existing + addition, encoding="utf-8")
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(addition)
         retired_ids = {rule.id for rule in retired}
         remaining = [rule for rule in self.load_rules() if rule.id not in retired_ids]
         self._save_rules(remaining)
