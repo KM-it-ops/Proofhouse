@@ -14,6 +14,10 @@ node_modules/
 evals/reports/*.json
 evals/reports/*.md
 !evals/reports/.gitkeep
+# Live RuleStore artifacts at repo evals/ (compiler schema vs legacy runner schema).
+evals/datasets/learning_rules.jsonl
+evals/rules/retired.jsonl
+evals/rules/pending.json
 .env
 .env.*
 !.env.example

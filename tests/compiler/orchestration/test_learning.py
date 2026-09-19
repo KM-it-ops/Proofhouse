@@ -91,3 +91,29 @@ def test_gc_persists_unfired_until_k(tmp_path: Path) -> None:
     assert (_rules_root(tmp_path) / "retired.jsonl").is_file()
     with pytest.raises(ValueError, match="dataset empty"):
         load_dataset(_dataset_path(tmp_path))
+
+
+def test_gc_partial_retire_keeps_fired_sibling(tmp_path: Path) -> None:
+    store = RuleStore(_rules_root(tmp_path))
+    store.record_finding("abc123")
+    store.record_finding("abc123")
+    store.record_finding("def456")
+    store.record_finding("def456")
+    assert store.gc_unfired(k=DEFAULT_K, runs_elapsed=DEFAULT_K - 1) == []
+    store.record_finding("def456")
+    retired = store.gc_unfired(k=DEFAULT_K, runs_elapsed=1)
+    assert [rule.id for rule in retired] == ["LR-abc123"]
+    assert [rule.regression_case_id for rule in retired] == ["REQ-LR-ABC123"]
+    retired_rows = [
+        json.loads(line)
+        for line in (_rules_root(tmp_path) / "retired.jsonl").read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    assert [row["id"] for row in retired_rows] == ["LR-abc123"]
+    remaining = store.load_rules()
+    assert [rule.id for rule in remaining] == ["LR-def456"]
+    assert remaining[0].regression_case_id == "REQ-LR-DEF456"
+    cases = load_dataset(_dataset_path(tmp_path))
+    assert len(cases) == 1
+    assert cases[0].case_id == "LR-def456"
+    assert cases[0].req_ids == ("REQ-LR-DEF456",)
