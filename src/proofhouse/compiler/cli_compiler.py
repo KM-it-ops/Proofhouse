@@ -723,7 +723,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Fail-closed opt-in single-request live OpenAI execution. "
             "Not closed-loop. Model, ceilings, and credential env name are "
-            "required at call time. Q1 is unpicked: no ratified first live model."
+            "required at call time. Q1 is gpt-5.6-luna (OAR-032); --model has no default."
         ),
     )
     p_exec.add_argument("input", help="Path to an IR JSON file, or '-' for stdin.")
@@ -753,7 +753,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_exec.add_argument(
         "--max-cost-usd",
         default=None,
-        help="Declared cost ceiling recorded in evidence; not enforced pre-send (Q1 unpicked).",
+        help="Declared cost ceiling recorded in evidence; not enforced pre-send.",
     )
     p_exec.add_argument(
         "--target-url",

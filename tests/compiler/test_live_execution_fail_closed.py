@@ -12,7 +12,7 @@ import pytest
 from proofhouse.compiler import api
 from proofhouse.compiler.cli_compiler import build_parser, main as compiler_main
 from proofhouse.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
-from proofhouse.compiler.execution import EXE_COMPILE_0001, LiveOpenAIRequest, execute_openai
+from proofhouse.compiler.execution import EXE_COMPILE_0001, EXE_HTTP_0001, LiveOpenAIRequest, execute_openai
 
 from .fixtures.ir_fixtures import ir_with_openai_structured_output, minimal_valid_ir
 
@@ -21,8 +21,9 @@ CALLER_MODEL = "caller-supplied-unratified-model"
 
 
 class RecordingTransport:
-    def __init__(self, payload: dict[str, Any] | None = None) -> None:
+    def __init__(self, payload: dict[str, Any] | None = None, status_code: int = 200) -> None:
         self.calls: list[Any] = []
+        self.status_code = status_code
         self.payload = payload or {
             "id": "chatcmpl-test-double",
             "object": "chat.completion",
@@ -31,7 +32,7 @@ class RecordingTransport:
 
     def send(self, prepared: Any) -> Any:
         self.calls.append(prepared)
-        return type("Resp", (), {"status_code": 200, "payload": self.payload})()
+        return type("Resp", (), {"status_code": self.status_code, "payload": self.payload})()
 
 
 @pytest.fixture()
@@ -162,6 +163,8 @@ def test_happy_path_opt_in_test_double_audit_and_stable_compile(forbid_network: 
     assert result.audit_event is not None
     assert result.audit_event.get("event") == "live_openai_execute"
     assert result.envelope.get("single_request") is True
+    assert result.envelope.get("q1_unpicked") is False
+    assert result.envelope.get("q1_model") == "gpt-5.6-luna"
     assert "continuation" not in result.envelope
     assert len(transport.calls) == 1
     assert SECRET not in _blob(result.to_dict())
@@ -283,6 +286,33 @@ def test_success_does_not_retry(forbid_network: None) -> None:
     prepared = transport.calls[0]
     key = getattr(prepared, "idempotency_key", None) or prepared.get("idempotency_key")
     assert key
+    body = getattr(prepared, "body", None) or prepared.get("body")
+    assert body["max_completion_tokens"] == 8
+    assert "max_tokens" not in body
+
+
+def test_provider_http_error_is_not_success(forbid_network: None) -> None:
+    transport = RecordingTransport(
+        payload={"error": {"code": "unsupported_parameter", "message": "max_tokens"}},
+        status_code=400,
+    )
+    result = execute_openai(
+        _raw(),
+        LiveOpenAIRequest(
+            opt_in=True,
+            model=CALLER_MODEL,
+            credential_value=SECRET,
+            max_output_tokens=8,
+            max_cost_usd="0.01",
+            transport=transport,
+        ),
+    )
+    assert result.status == "error"
+    assert EXE_HTTP_0001 in result.diagnostics
+    assert result.envelope.get("http_status") == 400
+    assert result.audit_event is not None
+    assert result.audit_event.get("status") == "error"
+    assert SECRET not in _blob(result.to_dict())
 
 
 def test_execute_openai_empty_artifacts_fail_closed(
@@ -353,11 +383,14 @@ def test_closed_loop_cli_has_no_live_execute_flags() -> None:
     assert "model" not in dests
 
 
-def test_no_ratified_production_model_id_in_execution_module() -> None:
+def test_q1_is_recorded_but_is_not_a_request_default() -> None:
     from pathlib import Path
 
+    from proofhouse.compiler.execution import Q1_MODEL_ID, LiveOpenAIRequest
+
+    assert Q1_MODEL_ID == "gpt-5.6-luna"
+    assert LiveOpenAIRequest().model is None
     source = Path("src/proofhouse/compiler/execution.py").read_text(encoding="utf-8").lower()
-    for banned in ("gpt-4o", "gpt-4.1", "gpt-5", "o1-preview", "o3-mini"):
+    for banned in ("gpt-4o", "gpt-4.1", "o1-preview", "o3-mini"):
         assert banned not in source
-    assert "q1" in source
     assert "caller-supplied" in source or "call time" in source or "invoke time" in source
