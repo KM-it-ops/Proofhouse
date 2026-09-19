@@ -121,11 +121,11 @@ function App() {
 
   return (
     <main className={`arsenal-shell world-${world.id}`}>
-      <section className="top-command" aria-label="PromptRig design command">
+      <section className="top-command" aria-label="Proofhouse dashboard prototype">
         <div>
           <span className="brand-glyph">PR</span>
           <div>
-            <p>PromptRig Arsenal</p>
+            <p>Proofhouse prototype</p>
             <h1>{world.name}</h1>
           </div>
         </div>

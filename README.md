@@ -1,6 +1,6 @@
 # Proofhouse
 
-[![Python](https://img.shields.io/badge/python-3.10%2B-3776ab)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/)
 [![Framework](https://img.shields.io/badge/framework-v1.3-7c3aed)](proofhouse-framework.json)
 [![PromptOps](https://img.shields.io/badge/promptops-clarify%20%E2%86%92%20compile%20%E2%86%92%20heal-0f766e)](#the-flow)
 [![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
@@ -59,7 +59,7 @@ Install the Cursor skill from `skills/proofhouse/` or invoke **Proofhouse** in c
 
 ### 2. Interactive artifact
 
-Open [`apps/proofhouse.jsx`](apps/proofhouse.jsx) — a React artifact with model picker, efficiency modes, and live compile loop.
+Open [`apps/proofhouse.jsx`](apps/proofhouse.jsx) — a React artifact with model picker, efficiency modes, and live compile loop. This artifact calls `https://api.anthropic.com/v1/messages` and is not offline.
 
 ### 3. Offline compiler (reproducible)
 
@@ -70,7 +70,7 @@ proofhouse-compiler doctor
 proofhouse-compiler closed-loop path/to/requirements.json --repair-budget 1 --json
 ```
 
-Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. Certified path is **offline** — no live providers, no benchmark claims.
+Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. Certified path is **offline** (fake adapter, no network). `proofhouse-compiler execute-openai` is fail-closed **opt-in** live OpenAI and is **not** certified. No benchmark claims.
 
 ---
 
@@ -81,13 +81,6 @@ python -m pip install -e .
 python -m pytest
 python -m proofhouse.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
 python -m proofhouse.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
-```
-
-Windows:
-
-```powershell
-py -3.14 -m pip install -e .
-py -3.14 -m pytest
 ```
 
 ---
@@ -136,7 +129,7 @@ tests/fixtures/         Contract schemas and validation fixtures
 Proofhouse ships two products in one repo:
 
 1. **PromptOps skill + framework (v1.3)** — conversational meta-optimizer with current frontier model profiles. This is the user-facing surface most people want today.
-2. **Headless compiler** — contract-first offline pipeline under `src/proofhouse/compiler/`. Requirements compiler maturity remains `PARTIAL`. No live providers, no hosted UI, no benchmark claims without explicit certification.
+2. **Headless compiler** — contract-first offline pipeline under `src/proofhouse/compiler/`. Requirements compiler maturity remains `PARTIAL`. Certified path is **offline** (fake adapter, no network). `proofhouse-compiler execute-openai` is fail-closed **opt-in** live OpenAI and is **not** certified. `hosted-*` / `missionrig-*` are experimental library slices, not a hosted UI (DFR-006/008). `apps/proofhouse.jsx` calls the Anthropic Messages API when run as a Claude artifact and is **not** the certified path. No benchmark claims.
 
 Internal mission reports and review corpora are not published in this repository.
 

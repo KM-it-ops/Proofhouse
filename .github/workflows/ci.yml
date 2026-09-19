@@ -1,14 +1,21 @@
 name: CI
 
 # Push CI is main-only so feature/docs/fix branch pushes do not burn
-# Actions minutes. Exercise the matrix via a pull_request into main or
-# feature/promptrig-framework, or via workflow_dispatch.
+# Actions minutes. Exercise the matrix via a pull_request into main,
+# or via workflow_dispatch.
 on:
   push:
     branches: ["main"]
   pull_request:
-    branches: ["main", "feature/promptrig-framework"]
+    branches: ["main"]
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -20,10 +27,10 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: ${{ matrix.python-version }}
 
@@ -45,7 +52,9 @@ jobs:
 
       - name: Compiler Core smoke test -- installed script
         run: |
+          proofhouse-compiler doctor --json
           promptrig-compiler doctor --json
+          proofhouse-compiler adapters --json
           promptrig-compiler adapters --json
 
       - name: Compiler Core smoke test -- python -m invocation
@@ -53,14 +62,20 @@ jobs:
           python -m proofhouse.compiler.cli_compiler doctor --json
           python -m proofhouse.compiler.cli_compiler adapters --json
 
+      - name: Compiler --help smoke
+        env:
+          PYTHONUTF8: "1"
+          PYTHONIOENCODING: utf-8
+        run: proofhouse-compiler --help
+
   typescript-drift:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
 
@@ -76,10 +91,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
         with:
           python-version: "3.11"
 
@@ -94,7 +109,9 @@ jobs:
           /tmp/pr-wheel/bin/pip install dist/*.whl
 
       - name: Doctor on installed wheel
-        run: /tmp/pr-wheel/bin/promptrig-compiler doctor --json
+        run: |
+          /tmp/pr-wheel/bin/proofhouse-compiler doctor --json
+          /tmp/pr-wheel/bin/promptrig-compiler doctor --json
 
       - name: Installed consumer smoke
         run: |

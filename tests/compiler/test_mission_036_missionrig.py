@@ -45,6 +45,7 @@ def test_missionrig_partial_does_not_invent_success() -> None:
     evidence = {
         "requirement_ids": ["REQ-EVAL-001"],
         "ir_sha256": "deadbeef",
+        "evidence_schema": "eeb-headless-v0.1",
         "evaluation": {"status": "UNRESOLVED_DEFECT"},
         "unresolved_defect": {"defect_id": "UDF-CLOSED-LOOP", "requirement_ids": ["REQ-EVAL-001"]},
         "compile_status": "UNRESOLVED_DEFECT",

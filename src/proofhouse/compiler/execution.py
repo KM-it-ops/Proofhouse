@@ -258,7 +258,10 @@ def execute_openai(
     if compile_env.status == "error":
         return finish(_error(EXE_COMPILE_0001, {"compile_status": compile_env.status}))
 
-    artifact = compile_env.data["artifacts"][0]
+    artifacts = list(compile_env.data.get("artifacts") or [])
+    if not artifacts:
+        return finish(_error(EXE_COMPILE_0001, {"compile_status": compile_env.status, "artifacts": 0}))
+    artifact = artifacts[0]
     if artifact.get("data_base64"):
         lowered = json.loads(base64.b64decode(artifact["data_base64"]))
     else:
