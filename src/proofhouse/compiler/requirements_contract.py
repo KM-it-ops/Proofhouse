@@ -477,6 +477,13 @@ def evaluate_contract_rules(context: Mapping[str, Any], registry: Mapping[str, A
     THIS function over a normalized context, so there is exactly one rule implementation and the
     two layers cannot diverge. Terminal status follows the explicit precedence matrix of RC-065."""
 
+    if context.get("evaluation_unit", "prompt_program") == "build_plan":
+        artifacts = list(context.get("artifacts") or [])
+        classes = sorted({str(item.get("class")) for item in artifacts if item.get("class")})
+        if len(classes) > 1:
+            return "PARTIAL", ["RQC-BLD-0001", f"decertification_scope:{','.join(classes)}"]
+        return "SUCCESS", []
+
     requirements = context["requirements"]
     source_list = context["sources"]
     mappings = context["mappings"]

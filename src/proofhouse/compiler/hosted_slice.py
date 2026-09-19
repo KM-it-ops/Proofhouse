@@ -1,13 +1,10 @@
-"""Narrow hosted Simple+Developer slice (MISSION-035).
-
-Stdlib library transport wrapping the headless closed loop. Not FastAPI,
-not Next.js, not apps/dashboard, not apps/proofhouse.jsx. Q2 pick is
-STACK-OWNER-SELECTED. Canonical meaning stays in the compiler.
+"""Alpha stdlib slice wrapping closed_loop. Not FastAPI, not tenancy (DFR-006). --tenant is a single-tenant label, not isolation.
 """
 
 from __future__ import annotations
 
 import json
+import re
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
@@ -24,6 +21,19 @@ HOSTED_CONTRACT_VERSION = "0.1.0-draft"
 EVR_TEN_0001 = "EVR-TEN-0001"
 EVR_HST_0001 = "EVR-HST-0001"
 EVR_HST_0002 = "EVR-HST-0002"
+EVR_HST_0003 = "EVR-HST-0003"
+PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$")
+_SK_KEY_RE = re.compile(r"\bsk-(?:live|proj|ant)?-?[A-Za-z0-9]{16,}")
+_SECRET_MARKERS = (
+    "openai_api_key",
+    "api_key",
+    "apikey",
+    "sk-live",
+    "sk-proj-",
+    "begin private key",
+    "authorization: bearer",
+    "aws_secret_access_key",
+)
 ViewMode = Literal["simple", "developer"]
 
 
@@ -71,6 +81,13 @@ class ProjectRecord:
         )
 
 
+def package_contains_secret(dumped: str) -> bool:
+    lowered = dumped.lower()
+    if any(marker in lowered for marker in _SECRET_MARKERS):
+        return True
+    return _SK_KEY_RE.search(dumped) is not None
+
+
 class HostedStore:
     def __init__(self, root: Path, tenant_id: str = "alpha") -> None:
         self.root = root
@@ -78,8 +95,13 @@ class HostedStore:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _path(self, project_id: str) -> Path:
-        safe = project_id.replace("/", "_").replace("..", "_")
-        return self.root / f"{safe}.json"
+        if not PROJECT_ID_RE.fullmatch(project_id):
+            raise HostedSliceError(EVR_HST_0003, f"illegal project_id: {project_id!r}")
+        resolved_root = self.root.resolve()
+        target = (self.root / f"{project_id}.json").resolve()
+        if resolved_root not in target.parents:
+            raise HostedSliceError(EVR_HST_0003, "refusing path outside hosted store root")
+        return target
 
     def put(self, record: ProjectRecord) -> None:
         self._path(record.project_id).write_text(
@@ -89,7 +111,7 @@ class HostedStore:
 
     def get(self, project_id: str, *, tenant_id: str) -> ProjectRecord:
         if tenant_id != self.tenant_id:
-            raise HostedSliceError(EVR_TEN_0001, "cross-tenant read fails closed")
+            raise HostedSliceError(EVR_TEN_0001, "tenant label mismatch (single-tenant alpha; not isolation)")
         path = self._path(project_id)
         if not path.is_file():
             raise HostedSliceError(EVR_HST_0001, f"unknown project: {project_id}")
@@ -97,7 +119,7 @@ class HostedStore:
         if record.deleted:
             raise HostedSliceError(EVR_HST_0001, f"deleted project: {project_id}")
         if record.tenant_id != tenant_id:
-            raise HostedSliceError(EVR_TEN_0001, "cross-tenant read fails closed")
+            raise HostedSliceError(EVR_TEN_0001, "tenant label mismatch (single-tenant alpha; not isolation)")
         return record
 
     def tombstone(self, project_id: str, *, tenant_id: str) -> None:
@@ -161,11 +183,13 @@ class HostedSlice:
     ) -> ProjectRecord:
         tenant = tenant_id or self.store.tenant_id
         if tenant != self.store.tenant_id:
-            raise HostedSliceError(EVR_TEN_0001, "cross-tenant write fails closed")
+            raise HostedSliceError(EVR_TEN_0001, "tenant label mismatch (single-tenant alpha; not isolation)")
         profile = intake.get("profile")
         if profile == "simple_mode_ui" or intake.get("authoring_mode") == "simple_ui_only":
             raise HostedSliceError(SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC, SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC)
-        result: ClosedLoopResult = run_closed_loop(intake, ClosedLoopOptions())
+        raw_budget = intake.get("repair_budget", 1)
+        budget = raw_budget if raw_budget in (0, 1, 2) else 1
+        result: ClosedLoopResult = run_closed_loop(intake, ClosedLoopOptions(repair_budget=int(budget)))
         pid = project_id or str(uuid.uuid4())
         evidence = result.evidence_bundle or {}
         record = ProjectRecord(
@@ -195,7 +219,7 @@ class HostedSlice:
             "ir_sha256": record.ir_sha256,
         }
         dumped = json.dumps(package)
-        if "OPENAI_API_KEY" in dumped or "sk-" in dumped:
+        if package_contains_secret(dumped):
             raise HostedSliceError(EVR_HST_0002, "secrets must not enter export packages")
         return package
 

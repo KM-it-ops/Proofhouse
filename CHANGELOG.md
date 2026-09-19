@@ -33,14 +33,16 @@
 ### Added
 
 - Console scripts `proofhouse` and `proofhouse-compiler`.
-- Environment variables `PROOFHOUSE_LIVE*` for opt-in live runs.
+- Test-only environment names `PROOFHOUSE_LIVE*` (legacy fallback
+  `PROMPTRIG_LIVE*`) are read by
+  `tests/compiler/live/test_live_openai_q1_gate.py` under pytest marker `live`
+  (deselected by default). `execution.py` does not read them. Removable at
+  0.3.0 with the aliases.
 
 ### Deprecated
 
 - Console scripts `promptrig` and `promptrig-compiler` remain as aliases for one
   minor version and are removable at 0.3.0.
-- Environment variables `PROMPTRIG_LIVE*` remain as a fallback that warns once
-  per process, also removable at 0.3.0.
 
 ### Unchanged
 

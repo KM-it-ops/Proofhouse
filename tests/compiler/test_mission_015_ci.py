@@ -8,5 +8,13 @@ def test_ci_has_ubuntu_wheel_install_job() -> None:
     assert "python -m build" in text
     assert "pip install" in text
     assert "promptrig-compiler doctor --json" in text
+    assert "proofhouse-compiler doctor --json" in text
+    assert "proofhouse-compiler --help" in text
     assert "external_consumer_closed_loop.py" in text
     assert "install -e" in text  # existing editable matrix stays
+    assert "permissions:" in text
+    assert "contents: read" in text
+    assert "feature/promptrig-framework" not in text
+    assert "actions/checkout@v4" not in text
+    assert "actions/setup-python@v5" not in text
+    assert "PYTHONUTF8" in text

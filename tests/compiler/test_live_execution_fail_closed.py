@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import socket
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -11,7 +12,7 @@ import pytest
 from proofhouse.compiler import api
 from proofhouse.compiler.cli_compiler import build_parser, main as compiler_main
 from proofhouse.compiler.closed_loop import ClosedLoopOptions, run_closed_loop
-from proofhouse.compiler.execution import LiveOpenAIRequest, execute_openai
+from proofhouse.compiler.execution import EXE_COMPILE_0001, LiveOpenAIRequest, execute_openai
 
 from .fixtures.ir_fixtures import ir_with_openai_structured_output, minimal_valid_ir
 
@@ -282,6 +283,31 @@ def test_success_does_not_retry(forbid_network: None) -> None:
     prepared = transport.calls[0]
     key = getattr(prepared, "idempotency_key", None) or prepared.get("idempotency_key")
     assert key
+
+
+def test_execute_openai_empty_artifacts_fail_closed(
+    monkeypatch: pytest.MonkeyPatch, forbid_network: None
+) -> None:
+    monkeypatch.setattr(
+        "proofhouse.compiler.execution.api.compile",
+        lambda *args, **kwargs: SimpleNamespace(status="success", data={"artifacts": []}),
+    )
+    transport = RecordingTransport()
+    result = execute_openai(
+        _raw(),
+        LiveOpenAIRequest(
+            opt_in=True,
+            model=CALLER_MODEL,
+            credential_value=SECRET,
+            max_output_tokens=16,
+            max_cost_usd="0.01",
+            transport=transport,
+        ),
+    )
+    assert result.status == "error"
+    assert EXE_COMPILE_0001 in result.diagnostics
+    assert result.envelope.get("artifacts") == 0
+    assert transport.calls == []
 
 
 def test_lazy_api_export_matches_module() -> None:

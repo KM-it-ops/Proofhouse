@@ -8,12 +8,6 @@ Use this when you want to verify the project locally or hand it to another agent
 python -m pip install -e .
 ```
 
-If your default `python` is managed by another tool, use a specific launcher or interpreter:
-
-```powershell
-py -3.14 -m pip install -e .
-```
-
 ## Validate Datasets
 
 ```bash
@@ -50,7 +44,7 @@ Reports are generated artifacts and are ignored by default except for `evals/rep
 python -m pytest
 ```
 
-The package runtime uses only the Python standard library. Pytest is needed only for the test suite.
+Runtime dependencies are jsonschema>=4.18 and rfc8785==0.1.4. Optional extra [live] installs httpx>=0.27. Do not add further runtime deps without an OAR. Pytest is needed only for the test suite.
 
 ## Use Proofhouse
 

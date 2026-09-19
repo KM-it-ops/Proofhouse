@@ -1,4 +1,4 @@
-"""Library/CLI parity for opt-in product eval on promptrig-compiler.
+"""Library/CLI parity for opt-in product eval on proofhouse-compiler.
 
 CLI JSON ``data`` must deep-equal the serialized library
 ``ProductEvaluationResult`` (tuples as lists). Default closed-loop stays

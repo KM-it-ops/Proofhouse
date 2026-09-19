@@ -88,3 +88,12 @@ If the objective involves building software, handling sensitive data, or touchin
 production systems, add a short section to the compiled prompt covering the relevant
 constraints. Omit entirely when not applicable -- don't pad prompts with boilerplate
 security language for tasks that don't need it.
+
+## Honesty gates
+
+Certified path is offline. Package is `proofhouse` 0.2.1 (`src/proofhouse/`).
+CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler). Aliases
+`promptrig` / `promptrig-compiler` until 0.3.0. Approved profiles
+`structured_minimal_v0`, `structured_developer_v0`. Requirements compiler
+`PARTIAL`, not CERTIFIED. Latest Accepted OAR is OAR-028 (rename). OAR-026 is
+Ready, not Accepted. Do not claim Phase 4B exit, hosted UI, or live providers.

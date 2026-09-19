@@ -48,7 +48,7 @@ python -m proofhouse.cli report --dataset evals/datasets/prompt_audit_cases.json
 ## Public-ready posture
 
 - No secrets or provider credentials in the repo
-- Runtime deps: Python standard library only
+- Runtime deps: jsonschema>=4.18 and rfc8785==0.1.4. Optional extra [live] installs httpx>=0.27. Do not add further runtime deps without an OAR.
 - Defensive safety stance documented in `SECURITY.md`
 - Source policy notes in `references/current_sources.md`
 - Portable skill + framework spec in `skills/proofhouse/` and `proofhouse-framework.*`
