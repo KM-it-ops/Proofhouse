@@ -22,7 +22,8 @@ class Rule:
 
 
 def gc(rules: list[Rule], k: int, runs_elapsed: int) -> list[Rule]:
-    del runs_elapsed
+    for rule in rules:
+        rule.consecutive_unfired += runs_elapsed
     return [rule for rule in rules if rule.consecutive_unfired >= k]
 
 
@@ -92,9 +93,19 @@ class RuleStore:
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     def write_retired(self, retired: list[Rule], path: Path) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
         existing = path.read_text(encoding="utf-8") if path.is_file() else ""
         addition = "".join(json.dumps(asdict(rule), sort_keys=True) + "\n" for rule in retired)
         path.write_text(existing + addition, encoding="utf-8")
         retired_ids = {rule.id for rule in retired}
         remaining = [rule for rule in self.load_rules() if rule.id not in retired_ids]
         self._save_rules(remaining)
+        self.write_eval_dataset(self._eval_dataset_path())
+
+    def gc_unfired(self, k: int = DEFAULT_K, runs_elapsed: int = 1) -> list[Rule]:
+        rules = self.load_rules()
+        retired = gc(rules, k=k, runs_elapsed=runs_elapsed)
+        self._save_rules(rules)
+        if retired:
+            self.write_retired(retired, self.root / "retired.jsonl")
+        return retired
