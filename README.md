@@ -51,7 +51,19 @@ Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human
 
 ### 1. Conversational (default)
 
-Install the Cursor skill from `skills/proofhouse/` or invoke **Proofhouse** in chat:
+Install the Cursor skill (the bundle is the zipped `skills/proofhouse/` directory; `tests/test_skill_bundle.py` keeps them identical):
+
+```powershell
+# Windows PowerShell, from the repository root
+uv run python -m zipfile -e skills/proofhouse/proofhouse.skill "$env:USERPROFILE\.cursor\skills"
+```
+
+```bash
+# macOS / Linux
+python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills
+```
+
+This lands `~/.cursor/skills/proofhouse/SKILL.md`, the user-level location Cursor scans for skills. Start a **new** Agent chat afterwards; then say **Proofhouse** and:
 
 1. State your objective and target model
 2. Answer one batched clarification form
@@ -64,10 +76,11 @@ Open [`apps/proofhouse.jsx`](apps/proofhouse.jsx) — a React artifact with mode
 ### 3. Offline compiler (reproducible)
 
 ```bash
-python -m pip install -e .
-python -m pytest
-proofhouse-compiler doctor
-proofhouse-compiler closed-loop path/to/requirements.json --repair-budget 1 --json
+uv sync --extra test
+uv run proofhouse-compiler doctor
+uv run proofhouse-compiler closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1
+uv run proofhouse-compiler validate examples/ir_minimal.json
+uv run proofhouse-compiler compile examples/ir_minimal.json --adapter fake --adapter-version 0.1.0 --output build/demo
 ```
 
 Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. Certified path is **offline** (fake adapter, no network). `proofhouse-compiler execute-openai` is fail-closed **opt-in** live OpenAI and is **not** certified. No benchmark claims.
@@ -76,12 +89,36 @@ Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. 
 
 ## 30-second start
 
-```bash
-python -m pip install -e .
-python -m pytest
-python -m proofhouse.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
-python -m proofhouse.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+Two console scripts ship in one package: `proofhouse-compiler` (offline compiler) and `proofhouse` (offline eval harness).
+
+| Command | Surface | Subcommands |
+|---|---|---|
+| `proofhouse-compiler` | Compiler: requirements → IR → adapter artifact → evaluation/repair evidence | `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` |
+| `proofhouse` | Eval harness: JSONL datasets, rubrics, report skeletons | `validate` `report` `loadouts` `compile-loadout` `generate` |
+
+Clean clone with [uv](https://docs.astral.sh/uv/) (tested on Windows; the same commands work in bash without the `$env:` line):
+
+```powershell
+git clone https://github.com/KM-it-ops/Proofhouse.git
+cd Proofhouse
+$env:PYTHONUTF8='1'                                     # Windows: reliable console output
+uv sync --extra test                                    # package + pytest into .venv
+uv run proofhouse-compiler doctor                       # doctor: success
+uv run proofhouse-compiler closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1
+                                                        # closed-loop: PASS
+uv run proofhouse validate --dataset evals/datasets/prompt_audit_cases.jsonl
+                                                        # Dataset validation passed: ...
+uv run pytest -q                                        # all passed, 1 deselected (live tests are opt-in)
 ```
+
+pip alternative (same result, your own venv):
+
+```bash
+python -m pip install -e ".[test]"
+python -m pytest -q
+```
+
+Everything above is offline: fake adapter, no network, no API key. Nothing here is a benchmark.
 
 ---
 
@@ -108,6 +145,7 @@ skills/proofhouse/       Cursor skill bundle + artifact JSX
 apps/proofhouse.jsx      Interactive compile UI
 prompts/                Core, modes, modules, Custom GPT pack
 evals/                  JSONL datasets, YAML rubrics
+examples/               Static demo inputs (examples/ir_minimal.json) and a prompt-audit request
 src/proofhouse/          Stdlib eval harness + headless compiler
 tests/fixtures/         Contract schemas and validation fixtures
 ```

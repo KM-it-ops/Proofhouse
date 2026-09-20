@@ -1,35 +1,103 @@
-# Proofhouse Showcase
+# Proofhouse Showcase — the 5-minute no-key demo
 
-Prompt systems that feel like maintained infrastructure — not sticky notes.
+Prompt systems that behave like maintained infrastructure: deterministic, inspectable, regression-tested. This page is a script you can run verbatim. Every command is offline; no provider is called; nothing here is a benchmark.
 
-## Pitch
+## Before you start
 
-Most prompts fail quietly: they miss context, drift from the product, overfit to one model, or grow too long to maintain. Proofhouse is a small operating system for prompts:
-
-- Core identity and mission
-- Modes for audit, rewriting, agentic workflows, and evaluation
-- Reusable modules for repeated work
-- Datasets and rubrics for regression testing
-- A CLI that validates eval inputs **without** provider APIs
-
-Built for builders who ship coding agents, Custom GPTs, and cyber×AI harnesses where inventing context is a defect.
-
-## 60-second demo
-
-1. Paste a rough product or agent prompt.
-2. Run the Context Auditor — confirmed facts vs missing context.
-3. Pick a mode: **Audit** · **Meta-Prompting** · **Agentic** · **Evaluator**.
-4. Rewrite with safety and missing-context behavior preserved.
-5. Add or update JSONL eval cases.
-6. Run the CLI validator and generate a markdown report skeleton.
-
-```bash
-python -m pip install -e .
-python -m proofhouse.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
-python -m proofhouse.cli report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+```powershell
+$env:PYTHONUTF8='1'
+uv sync --extra test
 ```
 
-## Example outcomes
+Presenting from a checkout that is already synced? Add `--no-sync` after `uv run` to skip the lock check.
+
+## 0:00–0:30 — Frame it
+
+"Proofhouse turns structured prompt requirements into deterministic, inspectable artifacts, and ships an offline eval harness. Two CLIs, one package, version 0.2.1. This demo makes no provider or benchmark claim."
+
+## 0:30–1:00 — Prove the environment
+
+```powershell
+uv run proofhouse-compiler doctor
+```
+
+```text
+doctor: success
+```
+
+Say: "Doctor asserts the certified path is offline. It does not probe the network — that is a design statement, not a measurement."
+
+## 1:00–1:30 — Show the two products
+
+```powershell
+uv run proofhouse-compiler --help
+uv run proofhouse --help
+```
+
+First is the compiler (`validate inspect compile adapters doctor closed-loop …`). Second is the eval harness (`validate report loadouts compile-loadout generate`). Say: "Same package, two console scripts. `proofhouse` never means the compiler."
+
+## 1:30–3:15 — Run the real offline loop
+
+```powershell
+uv run proofhouse-compiler closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1
+```
+
+```text
+closed-loop: PASS
+  requirements: ['REQ-EVAL-001']
+  failed_attempts: 0
+```
+
+Then the evidence:
+
+```powershell
+uv run proofhouse-compiler closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1 --json
+```
+
+Point at, in order: `"status":"PASS"`, `"adapter":{"id":"fake","version":"0.1.0"}`, `"network_allowed":false`, `"network_used":false`, `"repair_budget":1`, `"requirement_ids":["REQ-EVAL-001"]`, `"ir_sha256"`, `"baseline_digest"`. Say: "Requirements in, IR, fake-adapter compile, deterministic evaluation, one repair attempt allowed and none needed, evidence with digests. Real run, no network."
+
+## 3:15–4:00 — Validate and compile a static IR
+
+```powershell
+uv run proofhouse-compiler validate examples/ir_minimal.json
+uv run proofhouse-compiler compile examples/ir_minimal.json --adapter fake --adapter-version 0.1.0 --output build/demo
+```
+
+```text
+validate: success
+compile: success
+  artifact: compiled_prompt -> <your checkout>/build/demo/compiled_prompt
+```
+
+Say: "One artifact, written to disk, path shown." Open `examples/ir_minimal.json` if asked what an IR looks like (60 lines: project, objective, requirements, behavior, evaluation, provenance). Do not open `compile --json` output on a projector — it carries a base64 artifact.
+
+## 4:00–4:30 — Independent eval-harness operation
+
+```powershell
+uv run proofhouse validate --dataset evals/datasets/prompt_audit_cases.jsonl
+uv run proofhouse report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+```
+
+```text
+Dataset validation passed: evals/datasets/prompt_audit_cases.jsonl
+Report written: evals/reports/prompt_audit_report.md
+```
+
+## 4:30–5:00 — The conversational surface
+
+Skill install (once, then a new Agent chat):
+
+```powershell
+uv run python -m zipfile -e skills/proofhouse/proofhouse.skill "$env:USERPROFILE\.cursor\skills"
+```
+
+In the new chat: "Proofhouse: write a prompt for Sonnet 5 that summarises a security advisory." Show the one batched clarification form → compile → offer self-heal. If the skill is not installed on the presenting machine, open `skills/proofhouse/SKILL.md` and walk the Clarify → Compile → Self-heal flow and its honesty gates instead.
+
+## Do not demo
+
+Experimental hosted/MissionRig commands (`PROOFHOUSE_EXPERIMENTAL=1`), `execute-openai`, compatibility aliases `promptrig*`, `apps/proofhouse.jsx` as a product, any API key.
+
+## Example outcomes (conversational skill)
 
 | You bring | Proofhouse returns |
 |---|---|
@@ -40,29 +108,18 @@ python -m proofhouse.cli report --dataset evals/datasets/prompt_audit_cases.json
 
 ## Why cyber×AI teams care
 
-- Explicit missing-context labels instead of hallucinated “facts”
+- Explicit missing-context labels (`UNKNOWN`, `NOT SPECIFIED`, `NOT FOUND IN PROVIDED MATERIAL`) instead of invented facts
 - Agentic permission maps and stop conditions before tools run
-- Offline eval harness — inspectable, repeatable, no API keys required
+- Offline compiler and eval harness — inspectable, repeatable, no API keys
 - Defensive default for security, automation, scraping, credentials, and sensitive data
 
-## Public-ready posture
+## Public posture
 
-- No secrets or provider credentials in the repo
-- Runtime deps: jsonschema>=4.18 and rfc8785==0.1.4. Optional extra [live] installs httpx>=0.27. Do not add further runtime deps without an OAR.
-- Defensive safety stance documented in `SECURITY.md`
-- Source policy notes in `references/current_sources.md`
-- Portable skill + framework spec in `skills/proofhouse/` and `proofhouse-framework.*`
-
-## What’s next
-
-- More real-world prompt packs
-- Golden-output fixtures for common audits and rewrites
-- Optional provider runners after the offline harness stays stable
-- A small gallery of before/after prompt transformations
+- No secrets or provider credentials in the repo; `SECURITY.md` documents the stance.
+- Runtime deps: `jsonschema>=4.18`, `rfc8785==0.1.4`. Extras: `test` (pytest), `live` (httpx, for the opt-in, not-certified `execute-openai`).
+- Requirements compiler maturity `PARTIAL`. Certified path offline. No benchmark claims.
 
 ## Links
 
-- [README](../README.md)
-- [Quickstart](quickstart.md)
-- [Custom GPT setup](custom-gpt-setup.md)
+- [README](../README.md) · [Quickstart](quickstart.md) · [Custom GPT setup](custom-gpt-setup.md)
 - Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/)
