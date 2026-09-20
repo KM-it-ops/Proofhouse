@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+### Added
+
+- `[test]` extra declaring pytest, locked in `uv.lock`, so `uv sync --extra test`
+  and `pip install -e ".[test]"` establish the test prerequisite on a clean clone.
+- `examples/ir_minimal.json` — static, human-readable copy of the canonical
+  minimal IR (`tests/compiler/test_examples_ir_minimal.py` pins it to the
+  fixture factory) for `validate` / `compile` demos without a Python pipeline.
+- README and `docs/quickstart.md` now separate the two console scripts
+  (`proofhouse-compiler`, `proofhouse`), lead with tested uv commands, and give
+  the Cursor skill install command (`python -m zipfile -e … ~/.cursor/skills`).
+  `docs/showcase.md` is an executable 5-minute offline script.
+
 ### Changed
 
 - CI test matrix now includes Python 3.13 and 3.14 on Ubuntu, Windows, and
