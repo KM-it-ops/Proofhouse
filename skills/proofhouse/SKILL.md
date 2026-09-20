@@ -92,8 +92,12 @@ security language for tasks that don't need it.
 ## Honesty gates
 
 Certified path is offline. Package is `proofhouse` 0.2.1 (`src/proofhouse/`).
-CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler). Aliases
-`promptrig` / `promptrig-compiler` until 0.3.0. Approved profiles
-`structured_minimal_v0`, `structured_developer_v0`. Requirements compiler
-`PARTIAL`, not CERTIFIED. Latest Accepted OAR is OAR-028 (rename). OAR-026 is
-Ready, not Accepted. Do not claim Phase 4B exit, hosted UI, or live providers.
+CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler, including
+`route` / `assay` / `proof`). Aliases `promptrig` / `promptrig-compiler` until 0.3.0.
+Approved profiles `structured_minimal_v0`, `structured_developer_v0`. Requirements
+compiler `PARTIAL`, not CERTIFIED. Latest Accepted OARs: OAR-028 (rename), OAR-030
+(orchestration implementation), OAR-031 (media not CERTIFIED), OAR-032 (Q1
+`gpt-5.6-luna`). OAR-026 and OAR-029 remain Ready, not Accepted. `execute-openai`
+is fail-closed opt-in and is not certified. Hosted/MissionRig CLI is experimental
+(`PROOFHOUSE_EXPERIMENTAL=1`). Do not claim Phase 4B exit, hosted UI, or
+live-default providers.
