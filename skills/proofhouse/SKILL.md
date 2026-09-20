@@ -97,7 +97,14 @@ CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler, including
 Approved profiles `structured_minimal_v0`, `structured_developer_v0`. Requirements
 compiler `PARTIAL`, not CERTIFIED. Latest Accepted OARs: OAR-028 (rename), OAR-030
 (orchestration implementation), OAR-031 (media not CERTIFIED), OAR-032 (Q1
-`gpt-5.6-luna`). OAR-026 and OAR-029 remain Ready, not Accepted. `execute-openai`
-is fail-closed opt-in and is not certified. Hosted/MissionRig CLI is experimental
+`gpt-5.6-luna`). OAR-029 (hosted/MissionRig quarantine) is Accepted-as-executed
+2026-09-20; the `PROOFHOUSE_EXPERIMENTAL=1` quarantine is the end state. OAR-026
+remains Ready, not Accepted. `execute-openai` is fail-closed opt-in and is not
+certified. Hosted/MissionRig CLI is experimental
 (`PROOFHOUSE_EXPERIMENTAL=1`). Do not claim Phase 4B exit, hosted UI, or
 live-default providers.
+
+Fable parked remainder is CLOSED (2026-09-20): no IR v0.2, no 008 join, no
+CERTIFIED promotion, no alias drop before 0.3.0, no hosted/MissionRig product,
+no `max_cost_usd` enforcement (recorded, not enforced). Do not describe any of
+these as pending.
