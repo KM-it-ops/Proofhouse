@@ -22,7 +22,8 @@ class Rule:
 
 
 def gc(rules: list[Rule], k: int, runs_elapsed: int) -> list[Rule]:
-    del runs_elapsed
+    for rule in rules:
+        rule.consecutive_unfired += runs_elapsed
     return [rule for rule in rules if rule.consecutive_unfired >= k]
 
 
@@ -44,6 +45,9 @@ class RuleStore:
     def _save_rules(self, rules: list[Rule]) -> None:
         self.rules_path.write_text(json.dumps([asdict(rule) for rule in rules], indent=2) + "\n", encoding="utf-8")
 
+    def _eval_dataset_path(self) -> Path:
+        return self.root.parent / "datasets" / "learning_rules.jsonl"
+
     def record_finding(self, finding_hash: str) -> Rule | None:
         pending = json.loads(self.pending_path.read_text(encoding="utf-8"))
         pending[finding_hash] = int(pending.get(finding_hash, 0)) + 1
@@ -53,25 +57,28 @@ class RuleStore:
             return None
         rules = self.load_rules()
         now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        promoted: Rule | None = None
         for rule in rules:
             if rule.finding_hash == finding_hash:
                 rule.hit_count = count
                 rule.last_fired = now
                 rule.consecutive_unfired = 0
-                self._save_rules(rules)
-                return rule
-        rule = Rule(
-            id=f"LR-{finding_hash[:12]}",
-            version=1,
-            hit_count=count,
-            last_fired=now,
-            consecutive_unfired=0,
-            regression_case_id=f"REQ-LR-{finding_hash[:12].upper()}",
-            finding_hash=finding_hash,
-        )
-        rules.append(rule)
+                promoted = rule
+                break
+        if promoted is None:
+            promoted = Rule(
+                id=f"LR-{finding_hash[:12]}",
+                version=1,
+                hit_count=count,
+                last_fired=now,
+                consecutive_unfired=0,
+                regression_case_id=f"REQ-LR-{finding_hash[:12].upper()}",
+                finding_hash=finding_hash,
+            )
+            rules.append(promoted)
         self._save_rules(rules)
-        return rule
+        self.write_eval_dataset(self._eval_dataset_path())
+        return promoted
 
     def write_eval_dataset(self, path: Path) -> None:
         lines: list[str] = []
@@ -82,12 +89,23 @@ class RuleStore:
                 "observations": {"promoted": True},
             }
             lines.append(json.dumps(payload, sort_keys=True))
+        path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     def write_retired(self, retired: list[Rule], path: Path) -> None:
-        existing = path.read_text(encoding="utf-8") if path.is_file() else ""
+        path.parent.mkdir(parents=True, exist_ok=True)
         addition = "".join(json.dumps(asdict(rule), sort_keys=True) + "\n" for rule in retired)
-        path.write_text(existing + addition, encoding="utf-8")
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(addition)
         retired_ids = {rule.id for rule in retired}
         remaining = [rule for rule in self.load_rules() if rule.id not in retired_ids]
         self._save_rules(remaining)
+        self.write_eval_dataset(self._eval_dataset_path())
+
+    def gc_unfired(self, k: int = DEFAULT_K, runs_elapsed: int = 1) -> list[Rule]:
+        rules = self.load_rules()
+        retired = gc(rules, k=k, runs_elapsed=runs_elapsed)
+        self._save_rules(rules)
+        if retired:
+            self.write_retired(retired, self.root / "retired.jsonl")
+        return retired
