@@ -1,0 +1,252 @@
+{
+  "schema": "proofhouse.model-registry/v0",
+  "frameworkVersion": "1.3",
+  "staleAfterDays": 90,
+  "models": [
+    {
+      "id": "claude-fable-5-1",
+      "display_name": "Claude Fable 5.1",
+      "trigger_label": "Claude Fable 5.1",
+      "provider": "Anthropic",
+      "tier": "current",
+      "api_id": "claude-fable-5-1",
+      "aliases": [
+        "fable 5.1"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Long-horizon / science / unattended runs. 1M context, 128k output (`claude-fable-5-1`), thinking always on (disabled returns 400), default effort high, $10/$50, slower than Opus 5. State goals and success criteria, not steps -- over-specifying degrades it. Cyber + bio classifiers remain; life-sciences R&D is redirected to Opus 5 or Mythos 5.1 trusted access. Never ask it to echo/explain hidden reasoning as response text. Define explicit pause-vs-continue checkpoints for long tasks. Reach for it when Opus 5 at higher effort still fails evals."
+    },
+    {
+      "id": "claude-mythos-5-1",
+      "display_name": "Claude Mythos 5.1",
+      "trigger_label": "Mythos 5.1",
+      "provider": "Anthropic",
+      "tier": "current",
+      "api_id": null,
+      "aliases": [
+        "mythos 5.1"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Same model as Fable 5.1, with looser cyber/bio safeguards, restricted to trusted-org programs (CVP / LSVP). Same prompting patterns as Fable 5.1."
+    },
+    {
+      "id": "claude-opus-5",
+      "display_name": "Claude Opus 5",
+      "trigger_label": "Opus 5",
+      "provider": "Anthropic",
+      "tier": "current",
+      "api_id": "claude-opus-5",
+      "aliases": [
+        "opus 5"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Anthropic's default for complex agentic coding. 1M context, 128k output (`claude-opus-5`), thinking on by default (disable only at effort high or below), default effort high, $5/$25. Give the full task spec and let it run -- it finishes rather than stubbing. Strip verify/self-check/subagent-QA instructions (they cause over-verification). Cap subagent spawns; it delegates eagerly. Ask for concise progress explicitly; default replies run long. Constrain scope on large jobs or it will expand them. Step up to Fable 5.1 only when Opus 5 at higher effort still fails evals."
+    },
+    {
+      "id": "claude-sonnet-5",
+      "display_name": "Claude Sonnet 5",
+      "trigger_label": "Sonnet 5",
+      "provider": "Anthropic",
+      "tier": "current",
+      "api_id": null,
+      "aliases": [
+        "sonnet 5"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Fast, capable default. Concise, direct instructions; doesn't need heavy scaffolding. Good for genuine iteration."
+    },
+    {
+      "id": "claude-haiku-4-5",
+      "display_name": "Claude Haiku 4.5",
+      "trigger_label": "Haiku 4.5",
+      "provider": "Anthropic",
+      "tier": "current",
+      "api_id": null,
+      "aliases": [
+        "haiku 4.5"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Optimized for speed/cost. Keep prompts narrow; break multi-stage work into smaller discrete requests."
+    },
+    {
+      "id": "gpt-5-6-sol",
+      "display_name": "GPT-5.6 Sol",
+      "trigger_label": "GPT-5.6 Sol",
+      "provider": "OpenAI",
+      "tier": "current",
+      "api_id": "gpt-5.6-sol",
+      "aliases": [
+        "gpt-5.6"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Flagship GPT-5.6 (`gpt-5.6-sol`; the `gpt-5.6` alias routes here). Outcome, constraints, evidence, and completion bar -- not step lists. Lean system prompts; strip repeated rules and unused examples. More concise than 5.5 by default -- skip blanket 'be concise'; control length with `text.verbosity`. Define autonomy/approval bounds (it is proactive on multi-step work). `reasoning.effort` default medium; high/xhigh only when evals gain; reserve max. Personality vs collaboration as separate short blocks. Programmatic Tool Calling only for bounded reduction of large tool results, not every tool loop. Keep reusable prefixes stable for prompt caching."
+    },
+    {
+      "id": "gpt-5-6-terra",
+      "display_name": "GPT-5.6 Terra",
+      "trigger_label": "Terra",
+      "provider": "OpenAI",
+      "tier": "current",
+      "api_id": "gpt-5.6-terra",
+      "aliases": [],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Balanced GPT-5.6 default for most apps (`gpt-5.6-terra`). Same prompting contract as Sol: outcome-first, lean prompts, `text.verbosity`, explicit autonomy bounds. Prefer Terra over Sol unless hard reasoning, coding, or tool coordination fails evals. Same 1M context / 128k output family. Start `reasoning.effort` at medium and test one step lower before stepping up."
+    },
+    {
+      "id": "gpt-5-6-luna",
+      "display_name": "GPT-5.6 Luna",
+      "trigger_label": "Luna",
+      "provider": "OpenAI",
+      "tier": "current",
+      "api_id": "gpt-5.6-luna",
+      "aliases": [],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Fast/cheap GPT-5.6 (`gpt-5.6-luna`). Same family prompting patterns, but keep the task narrow. Best for classification, extraction, transformation, and batch work with automated validation -- not high-error-cost agentic coding unless evals hold. Same verbosity/effort/caching levers as Sol/Terra; default effort medium and prefer `none`/`low` when quality holds."
+    },
+    {
+      "id": "gpt-5-5",
+      "display_name": "GPT-5.5",
+      "trigger_label": "GPT-5.5",
+      "provider": "OpenAI",
+      "tier": "legacy",
+      "api_id": "gpt-5.5",
+      "aliases": [],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy. Explicit system/developer instructions, clear output format, few-shot examples for style-sensitive output. Prefer the GPT-5.6 family unless a workload is pinned here."
+    },
+    {
+      "id": "gemini-3-8-flash",
+      "display_name": "Gemini 3.8 Flash",
+      "trigger_label": "Gemini 3.8 Flash",
+      "provider": "Google",
+      "tier": "current",
+      "api_id": "gemini-3.8-flash",
+      "aliases": [
+        "gemini flash"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Google workhorse (`gemini-3.8-flash`), 1M context, 65k output, intro $0.75/$3.75. Reasoning model -- concise direct instructions; legacy CoT scaffolding hurts. Control depth with `thinking_level` (low/medium/high), not temperature/top_p (ignored on 3.x). Put instructions after large context; anchor with 'Based on the preceding information...'. Higher effort uses more tokens by design. Separate stable system instructions from per-call variable content for caching. Add 2026 date + Jan 2025 knowledge-cutoff clauses for time-sensitive or strictly grounded tasks per Google docs."
+    },
+    {
+      "id": "grok-4-6",
+      "display_name": "Grok 4.6",
+      "trigger_label": "Grok 4.6",
+      "provider": "xAI",
+      "tier": "current",
+      "api_id": "grok-4.6",
+      "aliases": [],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "xAI frontier (`grok-4.6`), 500K context, image+text in, reasoning low/medium/high (default)/xhigh, $2/$6 per MTok below 200K prompt tokens (entire request doubles above 200K). Agentic coding and long-horizon work -- outcome-first with explicit stop/approval bounds. Set `prompt_cache_key` or `x-grok-conv-id` for cache affinity on multi-turn loops. Compact context before the 200K cliff on long agent runs. Available via xAI API, Cursor, OpenRouter."
+    },
+    {
+      "id": "muse-spark-1-3",
+      "display_name": "Muse Spark 1.3",
+      "trigger_label": "Muse Spark 1.3",
+      "provider": "Meta",
+      "tier": "current",
+      "api_id": "muse-spark-1.3",
+      "aliases": [
+        "muse spark"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Meta frontier (`muse-spark-1.3`, xhigh GA; max after safety testing), 1M context, text/image/video in, Meta Model API + Muse Code. Self-corrects, asks clarifying questions, confirms before consequential actions. Do not over-script tool loops (~20% fewer vs 1.2). Standard endpoint keeps data private; Contributor is cheaper but may train Meta products. Lean outcome prompts with explicit autonomy and escalation bounds."
+    },
+    {
+      "id": "kimi-k3",
+      "display_name": "Kimi K3",
+      "trigger_label": "Kimi K3",
+      "provider": "Moonshot",
+      "tier": "current",
+      "api_id": "kimi-k3",
+      "aliases": [
+        "kimi"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Moonshot open frontier (`kimi-k3`), 2.8T MoE, 1M context, native vision, $0.30 cache-hit / $3 input / $15 output per MTok. Long-horizon coding and agentic work -- best with Kimi Code harness. Default max thinking at launch; use low/high effort when available. Outcome and evidence bar, not micromanaged steps. Structure a stable prefix for Mooncake cache hits."
+    },
+    {
+      "id": "gemini",
+      "display_name": "Gemini",
+      "trigger_label": "Gemini (generic)",
+      "provider": "Google",
+      "tier": "legacy",
+      "api_id": null,
+      "aliases": [
+        "google gemini"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy/generic Google. Prefer Gemini 3.8 Flash for current Flash work. Explicit structure, clear formatting, grounding context up front. Verify against current Google docs for anything critical."
+    },
+    {
+      "id": "claude-fable-5",
+      "display_name": "Claude Fable 5",
+      "trigger_label": "Fable 5",
+      "provider": "Anthropic",
+      "tier": "legacy",
+      "api_id": null,
+      "aliases": [
+        "fable 5"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy. Mythos-tier, built for long autonomous self-verifying runs, not rapid back-and-forth. State goals/success criteria, not steps -- over-specifying degrades it. Default effort: high (xhigh for the hardest work). Delegates to subagents on its own. Benefits from a persistent lessons file across sessions. Runs safety classifiers on offensive-cybersecurity and bio/life-science content that can flag legitimate defensive/detection work -- frame technique descriptions defensively. Never ask it to echo/explain its internal reasoning as response text (risks refusal fallback to Opus 4.8). Define explicit pause-vs-continue checkpoints for long tasks."
+    },
+    {
+      "id": "claude-mythos-5",
+      "display_name": "Claude Mythos 5",
+      "trigger_label": "Mythos 5",
+      "provider": "Anthropic",
+      "tier": "legacy",
+      "api_id": null,
+      "aliases": [
+        "mythos 5"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy. Same model as Fable 5, without the added cyber/bio safety layer, restricted to trusted orgs. Same prompting patterns as Fable 5."
+    },
+    {
+      "id": "claude-opus-4-8",
+      "display_name": "Claude Opus 4.8",
+      "trigger_label": "Opus 4.8",
+      "provider": "Anthropic",
+      "tier": "legacy",
+      "api_id": null,
+      "aliases": [
+        "opus 4.8"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy. Strong general reasoning. Benefits from clear step structure, explicit success criteria, worked examples for style-sensitive tasks. Less suited to fully autonomous multi-hour runs than Fable 5."
+    },
+    {
+      "id": "other",
+      "display_name": "Other",
+      "trigger_label": "Other",
+      "provider": null,
+      "tier": "generic",
+      "api_id": null,
+      "aliases": [
+        "unspecified",
+        "other/unspecified"
+      ],
+      "verified_at": null,
+      "sources": [],
+      "notes": "No verified vendor-specific behavior available. General best practice: explicit goal, constraints, format, audience. Note in rationale that this is generic guidance."
+    }
+  ]
+}

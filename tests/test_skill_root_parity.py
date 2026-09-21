@@ -34,6 +34,10 @@ def test_root_copies_match_skill_sources() -> None:
             REPO_ROOT / "apps" / "proofhouse.jsx",
             REPO_ROOT / "skills" / "proofhouse" / "assets" / "proofhouse.jsx",
         ),
+        (
+            REPO_ROOT / "proofhouse-framework.json",
+            REPO_ROOT / "src" / "proofhouse" / "optimize" / "data" / "proofhouse-framework.json",
+        ),
     )
     for canonical, skill_copy in pairs:
         assert canonical.is_file(), f"missing canonical {canonical}"
