@@ -283,7 +283,13 @@ def test_check_writes_checks_v1_json_with_overall(tmp_path: Path, capsys) -> Non
     text = path.read_text(encoding="utf-8")
     assert text.endswith("\n") and "\r" not in text
     written = json.loads(text)
-    assert set(written) == {"revision", "results", "overall"}
+    # T04: the latest view also names exactly what was checked.
+    assert set(written) == {
+        "revision", "results", "overall", "run_id", "checked_at", "checks_version",
+        "revision_sha256", "criteria_sha256", "target",
+    }
+    assert written["target"] == "prompt_text"
+    assert set(written["criteria_sha256"]) == {"C1", "C2"}
     assert written["revision"] == 1
     assert written["overall"] == "FAIL"
     assert written["results"] == [

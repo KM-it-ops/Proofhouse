@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -86,12 +88,44 @@ def revise_packet_name(n: int) -> str:
 
 
 def _write_text(path: Path, text: str) -> None:
-    with path.open("w", encoding="utf-8", newline="\n") as handle:
-        handle.write(text)
+    """Atomic replace: write a sibling temp file, then ``os.replace`` it into place.
+
+    An interrupted write leaves the previous file intact and no temp file behind.
+    """
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex[:8]}.tmp")
+    try:
+        with tmp.open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def _write_new_text(path: Path, text: str) -> None:
+    """Exclusive create: never replaces a file another writer already created."""
+    try:
+        with path.open("x", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+    except FileExistsError:
+        raise CaseError(
+            f"{path.name} already exists; another writer may have recorded it. "
+            "Inspect it before recording again."
+        ) from None
+
+
+def _json_text(payload: dict) -> str:
+    return json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
 def _write_json(path: Path, payload: dict) -> None:
-    _write_text(path, json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+    _write_text(path, _json_text(payload))
+
+
+def prompt_sha256(prompt: str) -> str:
+    return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
 
 def _read_json(path: Path):
@@ -279,11 +313,34 @@ def latest_revision_number(data: dict) -> int:
 
 
 def load_revision(case_dir: Path, n: int) -> Revision:
+    """Load revision N and prove it is the content that was recorded.
+
+    The prompt must hash to the file's ``sha256`` and that digest must equal
+    the one ``case.json`` recorded for vN. Either mismatch is a usage error:
+    an edited revision is never evaluated as if it were the original. This
+    detects drift and accidental edits; it is not tamper-proofing against
+    someone who controls the whole directory.
+    """
     path = case_dir / revision_relpath(n)
     if not path.is_file():
         raise CaseError(f"revision file missing: {revision_relpath(n)}")
-    raw = _read_json(path)
-    return Revision(**{key: raw[key] for key in Revision.__dataclass_fields__})
+    try:
+        raw = _read_json(path)
+        revision = Revision(**{key: raw[key] for key in Revision.__dataclass_fields__})
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise CaseError(f"revision file {revision_relpath(n)} is unreadable: {exc}") from None
+    if not isinstance(revision.prompt, str) or revision.n != n:
+        raise CaseError(f"revision file {revision_relpath(n)} does not describe v{n}")
+    actual = prompt_sha256(revision.prompt)
+    if actual != revision.sha256:
+        raise CaseError(
+            f"revision v{n} content does not match its recorded sha256 "
+            f"(recorded {revision.sha256[:12]}, actual {actual[:12]}); it was edited after recording"
+        )
+    summary = next((item for item in load_case(case_dir)["revisions"] if int(item["n"]) == n), None)
+    if summary is not None and summary.get("sha256") != revision.sha256:
+        raise CaseError(f"revision v{n} sha256 differs from the digest recorded in case.json")
+    return revision
 
 
 def record_revision(
@@ -306,13 +363,13 @@ def record_revision(
         rationale=rationale,
         settings=settings,
         efficiency=efficiency,
-        sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        sha256=prompt_sha256(prompt),
         token_estimate=token_estimate(prompt),
         created_at=now_iso(),
         feedback_on_previous=pending["feedback"] if pending else None,
     )
     (case_dir / REVISIONS_DIR).mkdir(exist_ok=True)
-    _write_json(case_dir / revision_relpath(n), revision.to_dict())
+    _write_new_text(case_dir / revision_relpath(n), _json_text(revision.to_dict()))
     data["revisions"].append(revision.summary())
     data["pending_feedback"] = None
     save_case(case_dir, data)
