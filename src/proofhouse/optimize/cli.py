@@ -579,11 +579,14 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
             "files": list(result.files),
             "verified": result.verified,
             "bundle": str(result.bundle),
+            "backup": None if result.backup is None else str(result.backup),
         }
         _emit_json("install-skill", "success", data)
         return EXIT_SUCCESS
     print(f"install-skill: installed {len(result.files)} files -> {result.dest}")
     print(f"  verified: {install_mod.NAME_LINE}")
+    if result.backup is not None:
+        print(f"  previous installation kept at: {result.backup}")
     print('  next: start a new Cursor Agent chat and say "Proofhouse"')
     return EXIT_SUCCESS
 
