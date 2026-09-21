@@ -13,7 +13,7 @@ Presenting from a checkout that is already synced? Add `--no-sync` after `uv run
 
 ## 0:00–0:30 — Frame it
 
-"Proofhouse turns structured prompt requirements into deterministic, inspectable artifacts, and ships an offline eval harness. Two CLIs, one package, version 0.2.1. This demo makes no provider or benchmark claim."
+"Proofhouse turns structured prompt requirements into deterministic, inspectable artifacts, and ships an offline eval harness. Two CLIs, one package, version 0.3.0. This demo makes no provider or benchmark claim."
 
 ## 0:30–1:00 — Prove the environment
 
@@ -98,7 +98,7 @@ In the new chat: "Proofhouse: write a prompt for Sonnet 5 that summarises a secu
 
 ## Do not demo
 
-Experimental hosted/MissionRig commands (`PROOFHOUSE_EXPERIMENTAL=1`), `execute-openai`, compatibility aliases `promptrig*`, `apps/proofhouse.jsx` as a product, any API key.
+Experimental hosted/MissionRig commands (`PROOFHOUSE_EXPERIMENTAL=1`), `execute-openai`, `apps/proofhouse.jsx` as a product, any API key.
 
 ## Example outcomes (conversational skill)
 

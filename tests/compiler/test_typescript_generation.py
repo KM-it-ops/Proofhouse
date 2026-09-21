@@ -30,10 +30,10 @@ def test_generated_ir_type_has_required_and_optional_fields():
     generated = generate_all(
         ir_schema_path=paths.IR_SCHEMA_PATH, diagnostic_schema_path=paths.DIAGNOSTIC_CONTRACT_SCHEMA_PATH
     )
-    ir_ts = generated["promptrig_ir.ts"]
-    assert "export interface PromptRigIR {" in ir_ts
+    ir_ts = generated["proofhouse_ir.ts"]
+    assert "export interface ProofhouseIR {" in ir_ts
     assert 'spec_version: "0.1.0";' in ir_ts
-    assert "workflow?: PromptRigIRWorkflow;" in ir_ts  # optional (not in required[])
+    assert "workflow?: ProofhouseIRWorkflow;" in ir_ts  # optional (not in required[])
 
 
 def test_generated_diagnostic_type_matches_contract_shape():

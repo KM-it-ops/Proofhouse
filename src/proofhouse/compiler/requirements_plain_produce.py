@@ -14,7 +14,7 @@ from .requirements_contract import REQUIREMENTS_CONTRACT_VERSION
 
 PLAIN_LANGUAGE_PROFILE = "plain_language_v0"
 PLAIN_LANGUAGE_COMPILE_KEYS = frozenset({"profile", "text"})
-PLAIN_PRODUCER_VAL_DIGEST = hashlib.sha256(b"promptrig-mission-020-plain-producer").hexdigest()
+PLAIN_PRODUCER_VAL_DIGEST = hashlib.sha256(b"proofhouse-mission-020-plain-producer").hexdigest()
 
 
 def is_plain_language_compile_payload(payload: object) -> bool:

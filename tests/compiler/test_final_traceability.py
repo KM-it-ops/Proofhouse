@@ -85,19 +85,19 @@ def test_source_paths_are_a_leaf_disposition_bijection_not_artifact_destinations
     artifact = envelope.data["artifacts"][0]
     provenance = artifact["provenance"]
     payload = json.loads(base64.b64decode(artifact["data_base64"]))
-    context = payload["promptrig_semantic_context"]["ir"]
+    context = payload["proofhouse_semantic_context"]["ir"]
 
     source_paths = provenance["source_ir_paths"]
     dispositions = provenance["semantic_dispositions"]
     assert source_paths == provenance["semantic_coverage"]
     assert len(source_paths) == len(set(source_paths)) == len(dispositions)
     assert [item["source_path"] for item in dispositions] == source_paths
-    assert all(not path.startswith("/promptrig_semantic_context") for path in source_paths)
+    assert all(not path.startswith("/proofhouse_semantic_context") for path in source_paths)
 
     for disposition in dispositions:
         assert disposition["artifact_paths"]
         for artifact_path in disposition["artifact_paths"]:
-            assert artifact_path.startswith("/promptrig_semantic_context/ir")
+            assert artifact_path.startswith("/proofhouse_semantic_context/ir")
             assert _resolve_pointer(context, disposition["source_path"]) == _resolve_pointer(
                 payload, artifact_path
             )
