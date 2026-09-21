@@ -348,7 +348,26 @@ def test_import_detects_altered_bytes(tmp_path: Path, capsys) -> None:
     assert not target.exists()
 
 
-@pytest.mark.parametrize("evil", ["../escape.json", "C:/x.json", "a\\..\\b.json", "/abs.json"])
+def test_import_manifest_catches_altered_files_without_their_own_digest(tmp_path: Path, capsys) -> None:
+    """answers.json and verdicts carry no self-digest; only the manifest protects them."""
+    case = _populated_case(tmp_path, capsys)
+    bundle = tmp_path / "case.zip"
+    run(["optimize", "export", "--case", str(case), "--out", str(bundle)], capsys)
+    altered = tmp_path / "altered.zip"
+    with zipfile.ZipFile(bundle) as src, zipfile.ZipFile(altered, "w") as dst:
+        for info in src.infolist():
+            data = src.read(info.filename)
+            if info.filename == "answers.json":
+                data = data.replace(b"Plain text", b"Markdown")
+            dst.writestr(info.filename, data)
+    target = tmp_path / "imported"
+    code, out, err = run(["optimize", "import", "--bundle", str(altered), "--case", str(target)], capsys)
+    assert code == 2
+    assert "answers.json: sha256 does not match the manifest" in err
+    assert not target.exists()
+
+
+@pytest.mark.parametrize("evil",["../escape.json", "C:/x.json", "a\\..\\b.json", "/abs.json"])
 def test_import_refuses_unsafe_entries_and_never_executes_content(tmp_path: Path, capsys, evil: str) -> None:
     bundle = tmp_path / "evil.zip"
     with zipfile.ZipFile(bundle, "w") as archive:
