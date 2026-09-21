@@ -10,12 +10,14 @@ compares models; there is no number besides counts.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from .case import CaseError, latest_revision_number, load_revision, now_iso
+from .case import CaseError, _write_new_text, _write_text, latest_revision_number, load_revision, now_iso
 
 KIND_MUST_CONTAIN = "must_contain"
 KIND_MUST_NOT_CONTAIN = "must_not_contain"
@@ -33,8 +35,11 @@ VERDICT_FAIL = "fail"
 VERDICT_RESULTS = (VERDICT_PASS, VERDICT_FAIL)
 
 CHECKS_DIR = "checks"
+RUNS_DIR = "runs"
 VERDICTS_FILE = "verdicts.json"
 VERDICTS_SCHEMA = "proofhouse.optimize.verdicts/v0"
+# Version of the check semantics recorded with every verdict and report.
+CHECKS_VERSION = "proofhouse.optimize.checks/v1"
 
 _AUTO_ID = re.compile(r"^C(\d+)$")
 
@@ -50,9 +55,23 @@ class Criterion:
         return {"id": self.id, "kind": self.kind, "value": self.value, "note": self.note}
 
 
+def _json_text(payload: dict) -> str:
+    return json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
+
+
 def _write_json(path: Path, payload: dict) -> None:
-    with path.open("w", encoding="utf-8", newline="\n") as handle:
-        handle.write(json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+    _write_text(path, _json_text(payload))
+
+
+def criterion_digest(criterion: dict) -> str:
+    """Digest of what a criterion asks for (id, kind, value); the free-text note is excluded."""
+    material = json.dumps(
+        {"id": criterion["id"], "kind": criterion["kind"], "value": str(criterion["value"])},
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    )
+    return hashlib.sha256(material.encode("utf-8")).hexdigest()
 
 
 def validate_value(kind: str, value: str) -> str:
@@ -164,22 +183,54 @@ def load_verdicts(case_dir: Path) -> list[dict]:
     return list(raw["verdicts"])
 
 
-def verdict_for(verdicts: list[dict], revision: int, cid: str) -> str | None:
+def verdict_for(
+    verdicts: list[dict],
+    revision: int,
+    cid: str,
+    *,
+    revision_sha256: str | None = None,
+    criterion_sha256: str | None = None,
+) -> tuple[str | None, bool]:
+    """``(result, stale)`` for (revision, criterion).
+
+    A verdict applies only to the exact revision content and criterion
+    definition it judged. A verdict recorded without those digests, or for
+    different ones, is stale: it is reported but never counted.
+    """
     for item in verdicts:
         if int(item["revision"]) == revision and item["criterion"] == cid:
-            return item["result"]
-    return None
+            bound = (
+                revision_sha256 is not None
+                and criterion_sha256 is not None
+                and item.get("revision_sha256") == revision_sha256
+                and item.get("criterion_sha256") == criterion_sha256
+            )
+            return (item["result"], False) if bound else (None, True)
+    return None, False
 
 
 def record_verdict(case_dir: Path, revision: int, cid: str, result: str, note: str = "") -> dict:
-    """Store ``result`` for (revision, criterion); the same pair is overwritten."""
+    """Store ``result`` for (revision, criterion), bound to both digests; the same pair is overwritten."""
+    from .case import load_case
+
     if result not in VERDICT_RESULTS:
         raise CaseError(f"--result must be one of: {', '.join(VERDICT_RESULTS)}")
+    criterion = find_criterion(load_case(case_dir).get("criteria", []), cid)
+    revision_sha256 = load_revision(case_dir, revision).sha256
     verdicts = [
         item for item in load_verdicts(case_dir)
         if not (int(item["revision"]) == revision and item["criterion"] == cid)
     ]
-    entry = {"revision": revision, "criterion": cid, "result": result, "note": note, "recorded_at": now_iso()}
+    entry = {
+        "revision": revision,
+        "criterion": cid,
+        "result": result,
+        "note": note,
+        "recorded_at": now_iso(),
+        "revision_sha256": revision_sha256,
+        "criterion_sha256": criterion_digest(criterion),
+        "checks_version": CHECKS_VERSION,
+    }
     verdicts.append(entry)
     verdicts.sort(key=lambda item: (int(item["revision"]), str(item["criterion"])))
     path = verdicts_path(case_dir)
@@ -189,15 +240,46 @@ def record_verdict(case_dir: Path, revision: int, cid: str, result: str, note: s
 
 
 def check_revision(case_dir: Path, criteria: list[dict], revision: int, verdicts: list[dict]) -> dict:
-    """Evaluate every criterion against revision N and write ``checks/v{N}.json``."""
-    prompt = load_revision(case_dir, revision).prompt
+    """Evaluate every criterion against revision N.
+
+    Writes an immutable ``checks/runs/<run_id>.json`` and refreshes
+    ``checks/v{N}.json`` as the latest view. Each report names the revision
+    digest and every criterion digest it evaluated.
+    """
+    loaded = load_revision(case_dir, revision)
     results = []
+    digests: dict[str, str] = {}
     for item in criteria:
-        result = evaluate(item, prompt, verdict=verdict_for(verdicts, revision, item["id"]))
-        results.append({"id": item["id"], "kind": item["kind"], "value": item["value"], "result": result})
+        digest = criterion_digest(item)
+        digests[item["id"]] = digest
+        verdict, stale = verdict_for(
+            verdicts, revision, item["id"], revision_sha256=loaded.sha256, criterion_sha256=digest
+        )
+        row = {
+            "id": item["id"],
+            "kind": item["kind"],
+            "value": item["value"],
+            "result": evaluate(item, loaded.prompt, verdict=verdict),
+        }
+        if item["kind"] == KIND_MANUAL:
+            row["stale_verdict"] = stale
+        results.append(row)
     overall = PASS if all(row["result"] == PASS for row in results) else FAIL
-    report = {"revision": revision, "results": results, "overall": overall}
-    (case_dir / CHECKS_DIR).mkdir(exist_ok=True)
+    run_id = f"v{revision}-{now_iso().replace(':', '').replace('+0000', 'Z')}-{uuid.uuid4().hex[:8]}"
+    report = {
+        "revision": revision,
+        "results": results,
+        "overall": overall,
+        "run_id": run_id,
+        "checked_at": now_iso(),
+        "checks_version": CHECKS_VERSION,
+        "revision_sha256": loaded.sha256,
+        "criteria_sha256": digests,
+        "target": "prompt_text",
+    }
+    runs = case_dir / CHECKS_DIR / RUNS_DIR
+    runs.mkdir(parents=True, exist_ok=True)
+    _write_new_text(runs / f"{run_id}.json", _json_text(report))
     _write_json(case_dir / CHECKS_DIR / f"v{revision}.json", report)
     return report
 
