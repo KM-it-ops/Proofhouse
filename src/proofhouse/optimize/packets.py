@@ -158,7 +158,8 @@ def packet_markdown(title: str, resolved: ResolvedNotes, packet: Packet, next_li
         f"# Proofhouse packet: {title}",
         "",
         f"Target model: {_resolved_model(resolved)} ({resolved.canonical_id}) -- "
-        f"source={resolved.source}, verified_at={resolved.verified_at or '-'}, stale={stale}",
+        f"source={resolved.source}, verified_at={resolved.verified_at or '-'}, stale={stale}, "
+        f"evidence={resolved.verification}",
         "",
         "## System prompt",
         f"{fence}text",

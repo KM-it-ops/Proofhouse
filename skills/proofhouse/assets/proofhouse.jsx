@@ -12,7 +12,7 @@ const MODEL_NOTES = {
   "Claude Mythos 5.1":
     "Same model as Fable 5.1, with looser cyber/bio safeguards, restricted to trusted-org programs (CVP / LSVP). Same prompting patterns as Fable 5.1.",
   "Claude Opus 5":
-    "Anthropic's default for complex agentic coding. 1M context, 128k output (`claude-opus-5`), thinking on by default (disable only at effort high or below), default effort high, $5/$25. Give the full task spec and let it run -- it finishes rather than stubbing. Strip verify/self-check/subagent-QA instructions (they cause over-verification). Cap subagent spawns; it delegates eagerly. Ask for concise progress explicitly; default replies run long. Constrain scope on large jobs or it will expand them. Step up to Fable 5.1 only when Opus 5 at higher effort still fails evals.",
+    "Anthropic's default for complex agentic coding. 1M context, 128k output (`claude-opus-5`), thinking on by default (disable only at effort high or below), default effort high, $5/$25. Give the full task spec and let it run -- it finishes rather than stubbing. Drop redundant generic 'double-check your work' wording (it causes over-verification); keep every user-required test, acceptance check and approval gate. Cap subagent spawns; it delegates eagerly. Ask for concise progress explicitly; default replies run long. Constrain scope on large jobs or it will expand them. Step up to Fable 5.1 only when Opus 5 at higher effort still fails evals.",
   "Claude Sonnet 5":
     "Fast, capable default. Concise, direct instructions; doesn't need heavy scaffolding. Good for genuine iteration.",
   "Claude Haiku 4.5":
