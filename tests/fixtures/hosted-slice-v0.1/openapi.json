@@ -1097,6 +1097,7 @@
     "hosted-view",
     "inspect",
     "missionrig-generate",
+    "models",
     "proof",
     "route",
     "validate",
@@ -1121,6 +1122,9 @@
     "route",
     "validate",
     "workspace-consume"
+  ],
+  "x-local-only": [
+    "models"
   ],
   "x-opt-in-live": [
     "execute-openai"
