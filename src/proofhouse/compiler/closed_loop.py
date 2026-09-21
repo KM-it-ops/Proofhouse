@@ -16,6 +16,7 @@ from . import api
 from .canonical import canonical_sha256, canonicalize
 from .contracts import CompileOptions, ResultEnvelope
 from .eval_product import ProductEvalRequest, evaluate_product
+from .intake import INP_TYPE, IntakeError, parse_json_object, structured_shape_errors
 from .evaluation import EvaluationRequest, EvaluationResult, evaluate_deterministic
 from .evidence import (
     DEFAULT_EVALUATOR_ID,
@@ -226,6 +227,10 @@ def run_closed_loop(
                 evidence_bundle={},
                 diagnostics=["MAS-GATE-0003"],
             )
+
+    shape_errors = structured_shape_errors(requirements_doc)
+    if shape_errors:
+        return ClosedLoopResult(status="BLOCKED", evidence_bundle={}, diagnostics=shape_errors)
 
     boundary_errors = validate_model_boundary(requirements_doc)
     if boundary_errors:
@@ -448,15 +453,20 @@ def closed_loop_from_json(
     options: ClosedLoopOptions | None = None,
     hooks: ClosedLoopTestHooks | None = None,
 ) -> ClosedLoopResult:
-    if isinstance(raw, bytes):
-        if len(raw) > MAX_INPUT_BYTES:
-            return ClosedLoopResult(status="BLOCKED", evidence_bundle={}, diagnostics=["EVR-RES-0001"])
-        text = raw.decode("utf-8")
-    else:
-        if len(raw.encode("utf-8")) > MAX_INPUT_BYTES:
-            return ClosedLoopResult(status="BLOCKED", evidence_bundle={}, diagnostics=["EVR-RES-0001"])
-        text = raw
-    doc = json.loads(text)
+    size = len(raw) if isinstance(raw, (bytes, bytearray)) else len(raw.encode("utf-8"))
+    if size > MAX_INPUT_BYTES:
+        return ClosedLoopResult(status="BLOCKED", evidence_bundle={}, diagnostics=["EVR-RES-0001"])
+    try:
+        doc = parse_json_object(raw)
+    except IntakeError as exc:
+        return ClosedLoopResult(status="BLOCKED", evidence_bundle={}, diagnostics=[exc.diagnostic])
+    top_level_errors = [
+        f"{INP_TYPE}: {key} must be true or false"
+        for key in ("network_allowed", "enable_model_suggestions")
+        if key in doc and not isinstance(doc[key], bool)
+    ]
+    if top_level_errors:
+        return ClosedLoopResult(status="BLOCKED", evidence_bundle={}, diagnostics=top_level_errors)
     options = options or ClosedLoopOptions()
     enable_from_doc = doc.pop("enable_model_suggestions", None) is True
     if enable_from_doc:
