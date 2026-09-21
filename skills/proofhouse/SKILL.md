@@ -32,6 +32,14 @@ conversational walkthrough.
 4. **Self-heal** — if the user says it's not right, diagnose the complaint (scope mismatch,
    wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, token
    bloat/too verbose, other) and produce a revised version. Keep prior versions referenceable.
+   Treat the user's clarification answers as accepted constraints: carry every one into every
+   revision, and if new feedback conflicts with one, keep it and name the conflict instead of
+   silently dropping it. Never remove a required test, acceptance check or approval gate for
+   brevity, whatever a model note says.
+5. **Evidence (optional)** — when the user wants proof rather than a draft, offer the offline
+   CLI: `proofhouse-compiler optimize` records revisions and the outputs they produced, keeps
+   the answers as constraints, checks both, and reports what passed and what was not measured
+   (see `docs/reference-workflow.md` in the repository).
 
 Run this conversationally when there's no artifact in play: ask the clarifying batch as a
 single message (numbered, grouped), collect the answers in one reply, then compile.
@@ -91,19 +99,21 @@ security language for tasks that don't need it.
 
 ## Honesty gates
 
-Certified path is offline. Package is `proofhouse` 0.3.0 (`src/proofhouse/`).
+The tested path is offline. Package is `proofhouse` 0.3.0 (`src/proofhouse/`).
 CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler, including
 `route` / `assay` / `proof`, and the offline optimize / models / install-skill
 commands; optimize renders packets and never calls a model).
 Approved profiles `structured_minimal_v0`, `structured_developer_v0`. Requirements
-compiler `PARTIAL`, not CERTIFIED. Latest Accepted OARs: OAR-028 (rename), OAR-030
-(orchestration implementation), OAR-031 (media not CERTIFIED), OAR-032 (Q1
-`gpt-5.6-luna`). OAR-029 (hosted/MissionRig quarantine) is Accepted-as-executed
-2026-09-20; the `PROOFHOUSE_EXPERIMENTAL=1` quarantine is the end state. OAR-026
-remains Ready, not Accepted. `execute-openai` is fail-closed opt-in and is not
-certified. Hosted/MissionRig CLI is experimental
-(`PROOFHOUSE_EXPERIMENTAL=1`). Do not claim Phase 4B exit, hosted UI, or
-live-default providers.
+compiler maturity is `PARTIAL`. `route` / `assay` / `proof` and media are experimental.
+`execute-openai` is fail-closed and opt-in: it sends every mandatory requirement or refuses,
+and it is experimental. Hosted/MissionRig commands are experimental and hidden behind
+`PROOFHOUSE_EXPERIMENTAL=1`; their tenant label is not isolation. Do not claim a hosted UI,
+live-default providers, or output quality.
+
+A PASS from `optimize check` means every declared check passed on that exact revision and its
+recorded outputs, and every accepted constraint has a passing linked check. It does not mean
+the prompt is good in general. Model profiles cite no sources yet and are labeled
+`unverified`; say so when you rely on one. Public decisions are in `docs/decisions/`.
 
 Fable parked remainder is CLOSED (2026-09-20): no IR v0.2, no 008 join, no
 CERTIFIED promotion, no hosted/MissionRig product,

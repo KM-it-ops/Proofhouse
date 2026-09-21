@@ -92,7 +92,7 @@ uv run proofhouse-compiler install-skill
 uv run proofhouse-compiler models show "Sonnet 5"
 ```
 
-Say: "The skill installs from the package and verifies its own name. `models show` tells you the profile's source and verified date before you trust it."
+Say: "The skill installs from the package and verifies its own name. `models show` tells you the profile's source, review date and evidence label before you trust it; today every shipped profile says unverified, because none cites sources yet."
 
 In the new chat: "Proofhouse: write a prompt for Sonnet 5 that summarises a security advisory." Show the one batched clarification form → compile → offer self-heal. If the skill is not installed on the presenting machine, open `skills/proofhouse/SKILL.md` and walk the Clarify → Compile → Self-heal flow and its honesty gates instead.
 
