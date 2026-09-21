@@ -301,10 +301,16 @@ def _answer_text(value) -> str:
 
 def compile_case(case_dir: Path, answers_path: Path | None = None) -> Path:
     """Write ``02-compile.md`` from the answers and move the stage to ``compile``."""
+    from .workflow import seed_clarification
+
     data = load_case(case_dir)
-    entries = read_answers(answers_path or case_dir / ANSWERS_FILE)
+    source = answers_path or case_dir / ANSWERS_FILE
+    entries = read_answers(source)
     resolved = model_from_case(data)
     packet = compile_packet(data["objective"], resolved, data["preset"], data["loop"], entries)
+    # T09 / review F11: the answers outlive this packet. They are snapshotted in
+    # case.json and seeded as accepted constraints so every revision gets them.
+    seed_clarification(data, entries, hashlib.sha256(source.read_bytes()).hexdigest())
     next_line = f"Run this packet, save the compiled prompt text, then: {record_command(case_dir.resolve())}"
     out_path = case_dir / COMPILE_FILE
     _write_text(out_path, packet_markdown("compile", resolved, packet, next_line))
@@ -319,6 +325,22 @@ def add_criterion(case_dir: Path, criterion: dict) -> dict:
     data.setdefault("criteria", []).append(criterion)
     save_case(case_dir, data)
     return data
+
+
+def lineage(data: dict) -> list[dict]:
+    """Recorded revisions oldest first, each with the revision it was revised from."""
+    rows = []
+    for item in sorted(data["revisions"], key=lambda row: int(row["n"])):
+        rows.append(
+            {
+                "n": int(item["n"]),
+                "sha256": item["sha256"],
+                "parent": item.get("parent"),
+                "feedback_on_previous": item.get("feedback_on_previous"),
+                "created_at": item.get("created_at"),
+            }
+        )
+    return rows
 
 
 def latest_revision_number(data: dict) -> int:
@@ -383,7 +405,9 @@ def record_revision(
     )
     (case_dir / REVISIONS_DIR).mkdir(exist_ok=True)
     _write_new_text(case_dir / revision_relpath(n), _json_text(revision.to_dict()))
-    data["revisions"].append(revision.summary())
+    summary = revision.summary()
+    summary["parent"] = pending["revision"] if pending else None
+    data["revisions"].append(summary)
     data["pending_feedback"] = None
     save_case(case_dir, data)
     return revision
@@ -401,9 +425,16 @@ def revise_case(case_dir: Path, feedback: str, revision_n: int | None = None) ->
     n = latest if revision_n is None else revision_n
     if n < 1 or all(int(item["n"]) != n for item in data["revisions"]):
         raise CaseError(f"revision v{n} does not exist (latest is v{latest})")
+    from .workflow import accepted_constraints
+
     previous = load_revision(case_dir, n)
     resolved = model_from_case(data)
-    packet = revise_packet(data["objective"], resolved, data["preset"], data["loop"], previous.prompt, feedback)
+    answers = [(label, answer) for label, answer in (data.get("clarification") or {}).get("answers", [])]
+    ledger = [(item["id"], item["text"]) for item in accepted_constraints(data)]
+    packet = revise_packet(
+        data["objective"], resolved, data["preset"], data["loop"], previous.prompt, feedback,
+        answered_entries=answers, accepted_constraints=ledger,
+    )
     next_line = f"Run this packet, then record the result as v{latest + 1}: {record_command(case_dir.resolve())}"
     out_path = case_dir / revise_packet_name(n)
     _write_text(out_path, packet_markdown(f"revise v{n}", resolved, packet, next_line))

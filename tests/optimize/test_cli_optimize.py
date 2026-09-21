@@ -171,7 +171,10 @@ def test_record_twice_creates_v1_v2_with_distinct_sha(tmp_path: Path, capsys) ->
     assert [r["n"] for r in case["revisions"]] == [1, 2]
     assert case["revisions"][0]["path"] == "revisions/v1.json"
     assert case["revisions"][0]["sha256"] == sha_one
-    assert set(case["revisions"][0]) == {"n", "path", "sha256", "token_estimate", "created_at", "feedback_on_previous"}
+    assert set(case["revisions"][0]) == {
+        "n", "path", "sha256", "token_estimate", "created_at", "feedback_on_previous", "parent"
+    }
+    assert case["revisions"][0]["parent"] is None  # T09 lineage: v1 was not revised from anything
 
 
 def test_revise_from_earlier_revision_quotes_that_prompt(tmp_path: Path, capsys) -> None:
