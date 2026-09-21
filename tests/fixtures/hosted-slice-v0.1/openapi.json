@@ -142,7 +142,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "enable-model-suggestions": {
-                    "description": "Opt-in MISSION-014 fake-suggester-v0 sidecar (proposals are not canonical).",
+                    "description": "Opt-in fake model-suggestion sidecar (proposals are not canonical).",
                     "type": "boolean"
                   },
                   "input": {
@@ -209,7 +209,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "input": {
-                    "description": "Path to canonical MISSION-008 artifact JSON, or '-' for stdin.",
+                    "description": "Path to a canonical requirements-contract artifact JSON, or '-' for stdin.",
                     "type": "string"
                   },
                   "json": {

@@ -5,9 +5,9 @@ from __future__ import annotations
 from proofhouse.compiler import api, cli_compiler
 
 CLOSED_LOOP_HELP = (
-    "Headless closed-loop (OAR-006 certified slice): structured requirements or "
+    "Offline closed loop (the tested offline path): structured requirements or "
     "plain_language_v0 envelope -> IR -> fake adapter -> eval/repair -> evidence. "
-    "Not a live provider. Not full MISSION-008."
+    "Structural checks only; not a live provider and not the full requirements contract."
 )
 
 DOCTOR_OFFLINE_DETAIL = (
