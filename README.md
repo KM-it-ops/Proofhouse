@@ -46,7 +46,7 @@ Built-in `modelNotes` cover prompting quirks, API ids, and cost and caching leve
 | **Legacy** | GPT-5.5 · Gemini (generic) · Fable 5 · Mythos 5 · Opus 4.8 |
 | **Other** | Skill and artifact: the host agent or the artifact web-researches the model and caches the paragraph. CLI (`proofhouse-compiler`): offline; `models remember` stores your own notes, otherwise the generic profile is used and labeled `fallback`. |
 
-Profiles verified 2026-09-03; a profile older than 90 days is flagged stale. `proofhouse-compiler models list` shows per-model ids, aliases, and dates.
+Profiles last reviewed 2026-09-03; a profile older than 90 days is flagged stale. None of the 18 profiles cites sources yet, so every profile is labeled unverified. They are prompting guidance, not vendor specifications. `proofhouse-compiler models list` shows per-model ids, aliases, and dates.
 
 Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human-readable [`proofhouse-framework.md`](proofhouse-framework.md)
 <!-- supported-models:end -->

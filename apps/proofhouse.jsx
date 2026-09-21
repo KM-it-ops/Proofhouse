@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Terminal, Copy, RefreshCw, Check, AlertTriangle, Loader2, ChevronRight, ArrowLeft, History } from "lucide-react";
 
 // ---------------------------------------------------------------------------
@@ -64,6 +64,154 @@ const EFFICIENCY_PRESETS = {
 // loop body -> exit condition -> checkpoint, with a compounding-memory mechanism.
 const LOOP_ENGINEERING = `This is a recurring or autonomous loop task, not a one-shot request. Structure the compiled prompt with an explicit loop shape: (1) Trigger/cadence -- what starts each iteration (schedule, event, or manual invocation), (2) Loop body -- plan, act, verify each iteration against evidence rather than assuming success, (3) Exit/stop condition -- what ends the loop entirely, distinct from what ends one iteration, (4) Checkpoint/escalation -- what's severe or ambiguous enough to interrupt the loop and involve the human. Include a compounding-memory mechanism (a running notes file: one lesson per entry, corrections and confirmed approaches alike, update rather than duplicate) so later iterations benefit from earlier ones. Label this section "Loop Structure" in the compiled prompt.`;
 
+// validators:begin
+// Pure helpers: no React, no network. tests/test_artifact_validators.py runs
+// this block under node. Model responses are untrusted input (review F10):
+// every response is parsed and schema-checked before it reaches state, and
+// only answers to questions that are currently visible reach compilation.
+const QUESTION_TYPES = ["single_select", "multi_select", "text"];
+const MAX_QUESTIONS = 40;
+const REQUEST_TIMEOUT_MS = 90000;
+const POLICY_PRECEDENCE =
+  "Precedence: never remove or weaken the user's mandatory requirements, acceptance checks, tests, permission or approval gates, or verification steps they asked for. Model-specific notes and token discipline may only trim redundant wording, never a required gate.";
+
+function invalid(error) {
+  return { ok: false, error };
+}
+
+function parseModelJSON(text) {
+  if (typeof text !== "string" || !text.trim()) return invalid("the model returned an empty response");
+  const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
+  try {
+    return { ok: true, value: JSON.parse(cleaned) };
+  } catch (_) {
+    return invalid("the model's response was not complete JSON (it may have been cut off)");
+  }
+}
+
+function validateQuestionGroups(value) {
+  if (!Array.isArray(value) || value.length === 0) return invalid("expected a non-empty list of question groups");
+  const byId = new Map();
+  const groups = [];
+  for (let gi = 0; gi < value.length; gi += 1) {
+    const group = value[gi];
+    if (!group || typeof group !== "object" || typeof group.group !== "string" || !group.group.trim()) {
+      return invalid(`question group ${gi + 1} has no name`);
+    }
+    if (!Array.isArray(group.questions) || group.questions.length === 0) {
+      return invalid(`question group "${group.group}" has no questions`);
+    }
+    const questions = [];
+    for (const q of group.questions) {
+      if (!q || typeof q !== "object") return invalid(`group "${group.group}" contains a non-object question`);
+      if (typeof q.id !== "string" || !/^[a-z][a-z0-9_]{0,63}$/.test(q.id)) {
+        return invalid(`question id ${JSON.stringify(q.id)} is not short_snake_case`);
+      }
+      if (byId.has(q.id)) return invalid(`duplicate question id ${q.id}`);
+      if (typeof q.text !== "string" || !q.text.trim()) return invalid(`question ${q.id} has no text`);
+      if (!QUESTION_TYPES.includes(q.type)) return invalid(`question ${q.id} has unknown type ${JSON.stringify(q.type)}`);
+      const options = q.options === undefined || q.options === null ? [] : q.options;
+      if (!Array.isArray(options) || !options.every((o) => typeof o === "string" && o.trim())) {
+        return invalid(`question ${q.id} options must be non-empty strings`);
+      }
+      if (new Set(options).size !== options.length) return invalid(`question ${q.id} repeats an option`);
+      if (q.type === "text" && options.length > 0) return invalid(`text question ${q.id} must not have options`);
+      if (q.type !== "text" && options.length < 2) return invalid(`question ${q.id} needs at least two options`);
+      const normalized = { id: q.id, text: q.text, type: q.type, options, dependsOn: q.dependsOn ?? null };
+      byId.set(q.id, normalized);
+      questions.push(normalized);
+    }
+    groups.push({ group: group.group, questions });
+  }
+  if (byId.size > MAX_QUESTIONS) return invalid(`too many questions (${byId.size}; limit ${MAX_QUESTIONS})`);
+  for (const q of byId.values()) {
+    const dep = q.dependsOn;
+    if (dep === null) continue;
+    if (typeof dep !== "object" || typeof dep.questionId !== "string" || !Array.isArray(dep.values) || dep.values.length === 0) {
+      return invalid(`question ${q.id} has a malformed dependsOn`);
+    }
+    const parent = byId.get(dep.questionId);
+    if (!parent) return invalid(`question ${q.id} depends on unknown question ${dep.questionId}`);
+    if (parent.id === q.id) return invalid(`question ${q.id} depends on itself`);
+    if (parent.type === "text") return invalid(`question ${q.id} branches on free-text question ${parent.id}`);
+    if (!dep.values.every((v) => parent.options.includes(v))) {
+      return invalid(`question ${q.id} depends on values that ${parent.id} does not offer`);
+    }
+  }
+  for (const start of byId.values()) {
+    const seen = new Set();
+    let cur = start;
+    while (cur && cur.dependsOn) {
+      if (seen.has(cur.id)) return invalid(`question dependencies form a cycle at ${cur.id}`);
+      seen.add(cur.id);
+      cur = byId.get(cur.dependsOn.questionId);
+    }
+  }
+  return { ok: true, value: groups };
+}
+
+function questionIndex(groups) {
+  const byId = {};
+  for (const g of groups || []) for (const q of g.questions || []) byId[q.id] = q;
+  return byId;
+}
+
+function isVisible(q, answers, byId, depth = 0) {
+  if (!q.dependsOn) return true;
+  if (depth > MAX_QUESTIONS) return false;
+  const parent = byId[q.dependsOn.questionId];
+  if (!parent || !isVisible(parent, answers, byId, depth + 1)) return false;
+  const parentVal = answers[q.dependsOn.questionId];
+  if (parentVal === undefined || parentVal === null) return false;
+  const values = q.dependsOn.values || [];
+  if (Array.isArray(parentVal)) return values.some((v) => parentVal.includes(v));
+  return values.includes(parentVal);
+}
+
+function hasAnswer(v) {
+  return v !== undefined && v !== null && v !== "" && !(Array.isArray(v) && v.length === 0);
+}
+
+// Answers the user can currently see. A hidden branch's stale answer never reaches compilation.
+function visibleAnswers(groups, answers) {
+  const byId = questionIndex(groups);
+  const out = {};
+  for (const q of Object.values(byId)) {
+    if (isVisible(q, answers, byId) && hasAnswer(answers[q.id])) out[q.id] = answers[q.id];
+  }
+  return out;
+}
+
+function formatAnswers(answers) {
+  return Object.entries(answers)
+    .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
+    .join("\n");
+}
+
+function validateCompiledVersion(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return invalid("expected a JSON object with a prompt");
+  if (typeof value.prompt !== "string" || !value.prompt.trim()) return invalid("the response has no prompt text");
+  const out = { prompt: value.prompt };
+  for (const key of ["rationale", "settings", "efficiency"]) {
+    if (value[key] === undefined || value[key] === null) out[key] = "";
+    else if (typeof value[key] === "string") out[key] = value[key];
+    else return invalid(`${key} must be text`);
+  }
+  return { ok: true, value: out };
+}
+
+// Revision context (review F11): the clarifying answers ride along with every self-heal request.
+function buildRevisionUser({ rawRequest, answeredText, previousPrompt, feedback, estimate }) {
+  return (
+    `Original request: "${rawRequest}"\n\n` +
+    `Clarifying answers from the original compile (authoritative; keep every one; if the feedback conflicts with one, keep it and name the conflict in the rationale):\n${answeredText || "(none provided)"}\n\n` +
+    `Previous optimized prompt (~${estimate} tokens):\n${previousPrompt}\n\n` +
+    `User feedback on that version: "${feedback}"\n\n` +
+    "Diagnose what's wrong (scope mismatch, wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, token bloat/too verbose, or other) and produce a revised version that fixes it. Reflect the diagnosis briefly in the rationale."
+  );
+}
+// validators:end
+
 function estimateTokens(text) {
   return Math.ceil((text || "").length / 4);
 }
@@ -95,8 +243,9 @@ async function researchModel(name) {
   return text;
 }
 
-async function callClaude(system, user) {
+async function callClaude(system, user, signal) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
+    signal,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -116,18 +265,9 @@ async function callClaude(system, user) {
   return text;
 }
 
-function extractJSON(text) {
-  const cleaned = text.replace(/```json/gi, "").replace(/```/g, "").trim();
-  return JSON.parse(cleaned);
-}
-
-function isVisible(q, answers) {
-  if (!q.dependsOn) return true;
-  const parentVal = answers[q.dependsOn.questionId];
-  if (parentVal === undefined || parentVal === null) return false;
-  const values = q.dependsOn.values || [];
-  if (Array.isArray(parentVal)) return values.some((v) => parentVal.includes(v));
-  return values.includes(parentVal);
+function requestErrorMessage(e) {
+  if (e && e.name === "AbortError") return "the request was cancelled or timed out; nothing was changed, try again";
+  return e && e.message ? e.message : String(e);
 }
 
 export default function Proofhouse() {
@@ -149,6 +289,24 @@ export default function Proofhouse() {
   const [resolvedModelNotes, setResolvedModelNotes] = useState("");
   const [modelSource, setModelSource] = useState("builtin"); // builtin | cached | researched | fallback
   const [researching, setResearching] = useState(false);
+  const abortRef = useRef(null);
+
+  // One in-flight request at a time, with a timeout and a user-visible cancel.
+  async function guardedCall(system, user) {
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await callClaude(system, user, controller.signal);
+    } finally {
+      clearTimeout(timer);
+      abortRef.current = null;
+    }
+  }
+
+  function cancelRequest() {
+    if (abortRef.current) abortRef.current.abort();
+  }
 
   const resolvedModel = targetModel === "Other" ? (customModel || "an unspecified model") : targetModel;
 
@@ -205,13 +363,15 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
 For conditional questions, dependsOn must be {"questionId":"parent_id","values":["option","that","triggers","it"]} -- otherwise null. For type "text", options must be an empty array.`;
 
       const user = `Raw request: "${rawRequest}"\n\nGenerate the question batch now.`;
-      const text = await callClaude(system, user);
-      const parsed = extractJSON(text);
-      setQuestionGroups(parsed);
+      const text = await guardedCall(system, user);
+      const parsed = parseModelJSON(text);
+      const checked = parsed.ok ? validateQuestionGroups(parsed.value) : parsed;
+      if (!checked.ok) throw new Error(`${checked.error}. Your objective is unchanged; try again.`);
+      setQuestionGroups(checked.value);
       setAnswers({});
       setScreen("clarify");
     } catch (e) {
-      setError("Couldn't generate questions. " + e.message);
+      setError("Couldn't generate questions. " + requestErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -221,9 +381,7 @@ For conditional questions, dependsOn must be {"questionId":"parent_id","values":
     setLoading(true);
     setError("");
     try {
-      const answeredEntries = Object.entries(answers)
-        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(", ") : v}`)
-        .join("\n");
+      const answeredEntries = formatAnswers(visibleAnswers(questionGroups, answers));
 
       const preset = EFFICIENCY_PRESETS[efficiencyMode];
       const system = `You are an expert prompt engineer. Synthesize a fully optimized prompt for the target model below, using the user's raw request and their clarifying answers.
@@ -234,6 +392,8 @@ Known behavior of this target: ${resolvedModelNotes}
 ${TOKEN_DISCIPLINE}
 ${loopMode ? "\n" + LOOP_ENGINEERING : ""}
 
+${POLICY_PRECEDENCE}
+
 Optimize for: user satisfaction, feasibility, usability, and top-tier performance on this specific model. If the request involves building software, systems, or handling sensitive data, include a short "Security & Reliability" section in the prompt capturing relevant constraints -- omit it entirely if not applicable.
 
 User's efficiency preference: ${preset.label} (${preset.note}). Keep the compiled prompt itself under ${preset.promptWordCap} words -- trim aggressively rather than covering every edge case when the mode is efficient. Keep your whole response (including rationale) under 550 words total.
@@ -243,21 +403,29 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
 
       let user;
       if (previousVersion && feedback) {
-        user = `Original request: "${rawRequest}"\n\nPrevious optimized prompt (~${estimateTokens(previousVersion.prompt)} tokens):\n${previousVersion.prompt}\n\nUser feedback on that version: "${feedback}"\n\nDiagnose what's wrong (scope mismatch, wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, token bloat/too verbose, or other) and produce a revised version that fixes it. Reflect the diagnosis briefly in the rationale.`;
+        user = buildRevisionUser({
+          rawRequest,
+          answeredText: answeredEntries,
+          previousPrompt: previousVersion.prompt,
+          feedback,
+          estimate: estimateTokens(previousVersion.prompt),
+        });
       } else {
         user = `Raw request: "${rawRequest}"\n\nClarifying answers:\n${answeredEntries || "(none provided)"}\n\nCompile the optimized prompt now.`;
       }
 
-      const text = await callClaude(system, user);
-      const parsed = extractJSON(text);
-      const newVersion = { ...parsed, feedback: feedback || null };
+      const text = await guardedCall(system, user);
+      const parsed = parseModelJSON(text);
+      const checked = parsed.ok ? validateCompiledVersion(parsed.value) : parsed;
+      if (!checked.ok) throw new Error(`${checked.error}. Your answers and earlier versions are unchanged; try again.`);
+      const newVersion = { ...checked.value, feedback: feedback || null };
       setVersions((prev) => [...prev, newVersion]);
       setActiveVersion(versions.length); // index of the new version
       setScreen("output");
       setShowFeedback(false);
       setFeedbackText("");
     } catch (e) {
-      setError("Couldn't compile the prompt. " + e.message);
+      setError("Couldn't compile the prompt. " + requestErrorMessage(e));
     } finally {
       setLoading(false);
     }
@@ -274,8 +442,10 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
     });
   }
 
+  const questionById = questionIndex(questionGroups);
+
   function visibleQuestions() {
-    return questionGroups.flatMap((g) => g.questions.filter((q) => isVisible(q, answers)));
+    return questionGroups.flatMap((g) => g.questions.filter((q) => isVisible(q, answers, questionById)));
   }
 
   const answeredCount = visibleQuestions().filter((q) => {
@@ -324,8 +494,9 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
         {screen === "input" && (
           <div className="border border-[#1e3a2a] rounded-md bg-[#0d1410] p-5 space-y-4">
             <div>
-              <label className="text-xs uppercase tracking-wide text-[#5a8a6a]">Objective</label>
+              <label htmlFor="objective" className="text-xs uppercase tracking-wide text-[#5a8a6a]">Objective</label>
               <textarea
+                id="objective"
                 value={rawRequest}
                 onChange={(e) => setRawRequest(e.target.value)}
                 placeholder="What do you want the prompt to accomplish?"
@@ -335,8 +506,9 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
             </div>
 
             <div>
-              <label className="text-xs uppercase tracking-wide text-[#5a8a6a]">Target model / provider</label>
+              <label htmlFor="targetModel" className="text-xs uppercase tracking-wide text-[#5a8a6a]">Target model / provider</label>
               <select
+                id="targetModel"
                 value={targetModel}
                 onChange={(e) => setTargetModel(e.target.value)}
                 className="w-full mt-1 bg-[#0a0f0c] border border-[#1e3a2a] rounded px-3 py-2 text-sm text-[#c8f5d8] focus:outline-none focus:border-[#3ddc84]"
@@ -347,6 +519,7 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
               </select>
               {targetModel === "Other" && (
                 <input
+                  aria-label="Model or provider name"
                   value={customModel}
                   onChange={(e) => setCustomModel(e.target.value)}
                   placeholder="Name the model/provider"
@@ -355,7 +528,7 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
               )}
               {targetModel === "Other" && customModel.trim() && (
                 <p className="text-[10px] text-[#5a8a6a] mt-1">
-                  Unfamiliar model -- I'll research it via web search and index it for next time.
+                  Unfamiliar model -- the model will web-search it; the notes are unverified and cached for next time.
                 </p>
               )}
             </div>
@@ -395,7 +568,7 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 text-xs text-[#ffb454] bg-[#241a0c] border border-[#4a3418] rounded px-3 py-2">
+              <div role="alert" className="flex items-start gap-2 text-xs text-[#ffb454] bg-[#241a0c] border border-[#4a3418] rounded px-3 py-2">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -409,6 +582,14 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
               {loading ? <Loader2 size={16} className="animate-spin" /> : <ChevronRight size={16} />}
               {loading ? (researching ? `Researching ${resolvedModel}...` : "Analyzing...") : "Initialize >"}
             </button>
+            {loading && (
+              <button
+                onClick={cancelRequest}
+                className="w-full text-xs text-[#8ab89a] border border-[#1e3a2a] rounded py-1.5 hover:border-[#ffb454] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb454]"
+              >
+                cancel request
+              </button>
+            )}
           </div>
         )}
 
@@ -424,12 +605,12 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
 
             {modelSource !== "builtin" && (
               <p className="text-[10px] text-[#5a8a6a] -mt-2">
-                model notes: {modelSource === "cached" ? "loaded from a prior session" : modelSource === "researched" ? "freshly researched and indexed for next time" : "research failed, using generic fallback"}
+                model notes: {modelSource === "cached" ? "loaded from a prior session" : modelSource === "researched" ? "researched by the model via web search just now -- unverified, no sources recorded" : "research failed, using generic fallback"}
               </p>
             )}
 
             {questionGroups.map((group) => {
-              const visibleQs = group.questions.filter((q) => isVisible(q, answers));
+              const visibleQs = group.questions.filter((q) => isVisible(q, answers, questionById));
               if (visibleQs.length === 0) return null;
               return (
                 <div key={group.group} className="border border-[#1e3a2a] rounded-md bg-[#0d1410] p-4">
@@ -437,9 +618,10 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
                   <div className="space-y-3">
                     {visibleQs.map((q) => (
                       <div key={q.id}>
-                        <p className="text-sm text-[#c8f5d8] mb-1.5">{q.text}</p>
+                        <p id={`q-${q.id}`} className="text-sm text-[#c8f5d8] mb-1.5">{q.text}</p>
                         {q.type === "text" && (
                           <input
+                            aria-labelledby={`q-${q.id}`}
                             value={answers[q.id] || ""}
                             onChange={(e) => handleAnswer(q, e.target.value)}
                             className="w-full bg-[#0a0f0c] border border-[#1e3a2a] rounded px-3 py-1.5 text-sm text-[#c8f5d8] focus:outline-none focus:border-[#3ddc84]"
@@ -455,6 +637,7 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
                               return (
                                 <button
                                   key={opt}
+                                  aria-pressed={active}
                                   onClick={() => handleAnswer(q, opt)}
                                   className={`text-xs px-3 py-1.5 rounded border transition-colors ${
                                     active
@@ -476,7 +659,7 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
             })}
 
             {error && (
-              <div className="flex items-start gap-2 text-xs text-[#ffb454] bg-[#241a0c] border border-[#4a3418] rounded px-3 py-2">
+              <div role="alert" className="flex items-start gap-2 text-xs text-[#ffb454] bg-[#241a0c] border border-[#4a3418] rounded px-3 py-2">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -490,6 +673,14 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
               {loading ? <Loader2 size={16} className="animate-spin" /> : <ChevronRight size={16} />}
               {loading ? "Compiling..." : "Compile optimized prompt >"}
             </button>
+            {loading && (
+              <button
+                onClick={cancelRequest}
+                className="w-full text-xs text-[#8ab89a] border border-[#1e3a2a] rounded py-1.5 hover:border-[#ffb454] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#ffb454]"
+              >
+                cancel request
+              </button>
+            )}
           </div>
         )}
 
@@ -537,7 +728,7 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
             </div>
 
             {error && (
-              <div className="flex items-start gap-2 text-xs text-[#ffb454] bg-[#241a0c] border border-[#4a3418] rounded px-3 py-2">
+              <div role="alert" className="flex items-start gap-2 text-xs text-[#ffb454] bg-[#241a0c] border border-[#4a3418] rounded px-3 py-2">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -562,6 +753,7 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
               <div className="border border-[#4a3418] rounded-md bg-[#0d1410] p-4 space-y-3">
                 <p className="text-xs text-[#ffb454]">What's off about it?</p>
                 <textarea
+                  aria-label="What is off about this version"
                   value={feedbackText}
                   onChange={(e) => setFeedbackText(e.target.value)}
                   rows={3}
@@ -578,7 +770,7 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
                     {loading ? "Self-healing..." : "Self-heal prompt"}
                   </button>
                   <button
-                    onClick={() => setShowFeedback(false)}
+                    onClick={() => (loading ? cancelRequest() : setShowFeedback(false))}
                     className="px-4 border border-[#1e3a2a] text-[#8ab89a] text-sm rounded hover:border-[#3ddc84] transition-colors"
                   >
                     cancel

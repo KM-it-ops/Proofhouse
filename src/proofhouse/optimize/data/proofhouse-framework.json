@@ -91,7 +91,9 @@
         "aliases": [
           "fable 5.1"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "claude-mythos-5-1",
@@ -103,7 +105,9 @@
         "aliases": [
           "mythos 5.1"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "claude-opus-5",
@@ -115,7 +119,9 @@
         "aliases": [
           "opus 5"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "claude-sonnet-5",
@@ -127,7 +133,9 @@
         "aliases": [
           "sonnet 5"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "claude-haiku-4-5",
@@ -139,7 +147,9 @@
         "aliases": [
           "haiku 4.5"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "gpt-5-6-sol",
@@ -151,7 +161,9 @@
         "aliases": [
           "gpt-5.6"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "gpt-5-6-terra",
@@ -161,7 +173,9 @@
         "tier": "current",
         "apiId": "gpt-5.6-terra",
         "aliases": [],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "gpt-5-6-luna",
@@ -171,7 +185,9 @@
         "tier": "current",
         "apiId": "gpt-5.6-luna",
         "aliases": [],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "gpt-5-5",
@@ -181,7 +197,9 @@
         "tier": "legacy",
         "apiId": "gpt-5.5",
         "aliases": [],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "gemini-3-8-flash",
@@ -193,7 +211,9 @@
         "aliases": [
           "gemini flash"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "grok-4-6",
@@ -203,7 +223,9 @@
         "tier": "current",
         "apiId": "grok-4.6",
         "aliases": [],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "muse-spark-1-3",
@@ -215,7 +237,9 @@
         "aliases": [
           "muse spark"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "kimi-k3",
@@ -227,7 +251,9 @@
         "aliases": [
           "kimi"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "gemini",
@@ -239,7 +265,9 @@
         "aliases": [
           "google gemini"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "claude-fable-5",
@@ -251,7 +279,9 @@
         "aliases": [
           "fable 5"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "claude-mythos-5",
@@ -263,7 +293,9 @@
         "aliases": [
           "mythos 5"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "claude-opus-4-8",
@@ -275,7 +307,9 @@
         "aliases": [
           "opus 4.8"
         ],
-        "verifiedAt": "2026-09-03"
+        "verifiedAt": "2026-09-03",
+        "sources": [],
+        "evidence": "unverified"
       },
       {
         "id": "other",
@@ -288,7 +322,9 @@
           "unspecified",
           "other/unspecified"
         ],
-        "verifiedAt": null
+        "verifiedAt": null,
+        "sources": [],
+        "evidence": "unverified"
       }
     ]
   },
