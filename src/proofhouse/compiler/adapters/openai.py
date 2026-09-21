@@ -205,7 +205,7 @@ class OpenAIAdapter:
         digest = canonical_sha256(payload)
         artifact = Artifact(
             name="openai_request_payload",
-            media_type="application/vnd.promptrig.openai.request-payload+json",
+            media_type="application/vnd.proofhouse.openai.request-payload+json",
             sha256=digest,
             data=body,
         )

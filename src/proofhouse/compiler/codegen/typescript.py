@@ -121,6 +121,6 @@ def generate_all(*, ir_schema_path: Path, diagnostic_schema_path: Path) -> dict[
     ir_schema = json.loads(ir_schema_path.read_text(encoding="utf-8"))
     diagnostic_schema = json.loads(diagnostic_schema_path.read_text(encoding="utf-8"))
     return {
-        "promptrig_ir.ts": generate_typescript(ir_schema, "PromptRigIR"),
+        "proofhouse_ir.ts": generate_typescript(ir_schema, "ProofhouseIR"),
         "diagnostic.ts": generate_typescript(diagnostic_schema, "Diagnostic"),
     }

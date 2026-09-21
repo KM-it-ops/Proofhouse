@@ -91,11 +91,10 @@ security language for tasks that don't need it.
 
 ## Honesty gates
 
-Certified path is offline. Package is `proofhouse` 0.2.1 (`src/proofhouse/`).
+Certified path is offline. Package is `proofhouse` 0.3.0 (`src/proofhouse/`).
 CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler, including
 `route` / `assay` / `proof`, and the offline optimize / models / install-skill
-commands; optimize renders packets and never calls a model). Aliases `promptrig` /
-`promptrig-compiler` until 0.3.0.
+commands; optimize renders packets and never calls a model).
 Approved profiles `structured_minimal_v0`, `structured_developer_v0`. Requirements
 compiler `PARTIAL`, not CERTIFIED. Latest Accepted OARs: OAR-028 (rename), OAR-030
 (orchestration implementation), OAR-031 (media not CERTIFIED), OAR-032 (Q1
@@ -107,6 +106,6 @@ certified. Hosted/MissionRig CLI is experimental
 live-default providers.
 
 Fable parked remainder is CLOSED (2026-09-20): no IR v0.2, no 008 join, no
-CERTIFIED promotion, no alias drop before 0.3.0, no hosted/MissionRig product,
+CERTIFIED promotion, no hosted/MissionRig product,
 no `max_cost_usd` enforcement (recorded, not enforced). Do not describe any of
 these as pending.

@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+### Removed
+
+- Removed the deprecated pre-Proofhouse console-script aliases and live-test
+  environment fallback at the documented 0.3.0 boundary.
+
+### Changed
+
+- Completed the Proofhouse identity migration across active wire media types,
+  semantic-context keys, benchmark and diagnostic identifiers, generated
+  TypeScript names, schema filenames, dashboard metadata, CI, docs, and tests.
+- Bumped the package to 0.3.0. Frozen v0.5 contract fixtures, requirements
+  contract evidence, the original dashboard backup, and changelog history keep
+  their historical names intentionally.
+
 ### Added
 
 - `[test]` extra declaring pytest, locked in `uv.lock`, so `uv sync --extra test`
