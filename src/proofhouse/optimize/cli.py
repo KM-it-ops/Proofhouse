@@ -1,4 +1,4 @@
-"""Local-workstation commands for ``proofhouse-compiler``: the ``optimize`` and ``models`` groups.
+"""Local-workstation commands for ``proofhouse-compiler``: ``optimize``, ``models``, ``install-skill``.
 
 ``add_local_commands`` registers them into the compiler parser. They are
 listed under ``x-local-only`` in the hosted OpenAPI document and have no
@@ -21,6 +21,7 @@ from pathlib import Path
 
 from . import case as case_mod
 from . import checks
+from . import install_skill as install_mod
 from . import model_notes
 from .case import CaseError
 from .model_notes import ResolvedNotes, resolve_model_notes
@@ -564,7 +565,58 @@ def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
     _add_checks(opt_sub)
 
 
+def _cmd_install_skill(args: argparse.Namespace) -> int:
+    dest = Path(args.dest) if args.dest else None
+    bundle = Path(args.bundle) if args.bundle else None
+    try:
+        result = install_mod.install(dest, bundle, force=args.force)
+    except install_mod.InstallSkillError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return exc.exit_code
+    if args.json:
+        data = {
+            "dest": str(result.dest),
+            "files": list(result.files),
+            "verified": result.verified,
+            "bundle": str(result.bundle),
+        }
+        _emit_json("install-skill", "success", data)
+        return EXIT_SUCCESS
+    print(f"install-skill: installed {len(result.files)} files -> {result.dest}")
+    print(f"  verified: {install_mod.NAME_LINE}")
+    print('  next: start a new Cursor Agent chat and say "Proofhouse"')
+    return EXIT_SUCCESS
+
+
+def _add_install_skill(subparsers: argparse._SubParsersAction) -> None:
+    p_install = subparsers.add_parser(
+        "install-skill",
+        help=(
+            "Extract the bundled proofhouse.skill into ~/.cursor/skills (package data; no checkout needed) "
+            "and verify its frontmatter line name: proofhouse."
+        ),
+    )
+    p_install.add_argument(
+        "--dest",
+        default=None,
+        help="Skills directory to install into (default: ~/.cursor/skills); the skill lands in <dest>/proofhouse.",
+    )
+    p_install.add_argument(
+        "--bundle",
+        default=None,
+        help="Path to a proofhouse.skill zip (default: the bundle shipped inside the package).",
+    )
+    p_install.add_argument(
+        "--force",
+        action="store_true",
+        help="Replace an existing <dest>/proofhouse directory.",
+    )
+    p_install.add_argument("--json", action="store_true", help="Emit a single JSON object.")
+    p_install.set_defaults(func=_cmd_install_skill)
+
+
 def add_local_commands(subparsers: argparse._SubParsersAction) -> None:
     """Register the local-only command groups into the compiler parser."""
     _add_optimize(subparsers)
     _add_models(subparsers)
+    _add_install_skill(subparsers)
