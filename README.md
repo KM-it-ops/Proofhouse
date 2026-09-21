@@ -2,12 +2,14 @@
 
 [![Python](https://img.shields.io/badge/python-3.11%2B-3776ab)](https://www.python.org/)
 [![Framework](https://img.shields.io/badge/framework-v1.3-7c3aed)](proofhouse-framework.json)
-[![PromptOps](https://img.shields.io/badge/promptops-clarify%20%E2%86%92%20compile%20%E2%86%92%20heal-0f766e)](#the-flow)
+[![PromptOps](https://img.shields.io/badge/promptops-clarify%20%E2%86%92%20compile%20%E2%86%92%20heal-0f766e)](#why-proofhouse-exists)
 [![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
 
-**Turn a rough objective into a model-specific prompt that actually works — then prove it.**
+**Turn a rough objective into a prompt built for a specific model, then check that it actually works.**
 
-Proofhouse is a PromptOps framework for builders who care about *which* model runs the job, not just *what* you asked. Natural language in → batched clarification → optimized prompt out → self-heal when it misses. Built-in profiles for **September 2026 frontier models**, token discipline, loop engineering for recurring agents, and an offline eval harness — no API keys required for the certified headless path.
+I built Proofhouse because I kept rewriting the same prompt for different models and never had a good answer for which version was better. It takes a plain-language objective, asks its clarifying questions in one batch instead of a drip, compiles a prompt tuned for the model you named, and evaluates the result against cases you control. When the output misses, it diagnoses why (scope, tone, bloat, wrong model assumptions) and revises without throwing away the history.
+
+Version 0.2.1 ships two command-line tools in one Python package: `proofhouse-compiler`, an offline compiler, and `proofhouse`, an eval harness. The certified path runs entirely on your machine with no API key. There is a Cursor skill if you want the conversational flow. This is a local tool, not a hosted service, and I make no benchmark claims for it.
 
 Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/) · Skill: `skills/proofhouse/` · Showcase: [docs/showcase.md](docs/showcase.md)
 
@@ -15,22 +17,22 @@ Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/) · Skill: `skills
 
 ## Why Proofhouse exists
 
-Generic prompts fail quietly: wrong model assumptions, missing context, no stop conditions, no regression tests. Proofhouse treats prompts like production infrastructure:
+Most prompts fail quietly. The model assumptions are wrong, context is missing, there is no stop condition, and nobody wrote a regression test. Proofhouse treats a prompt the way you would treat any other piece of infrastructure: specify it, compile it, test it, repair it.
 
 | Stage | What happens |
 |---|---|
-| **Clarify** | One upfront batch of branching questions — not drip-feed back-and-forth |
-| **Compile** | Model-specific prompt + settings + token-saving rationale |
+| **Clarify** | One upfront batch of branching questions, not a back-and-forth |
+| **Compile** | A model-specific prompt, settings, and a short note on why each token is there |
 | **Evaluate** | JSONL cases, YAML rubrics, stdlib CLI validation |
-| **Self-heal** | Diagnose scope/tone/bloat/model-mismatch and revise without losing history |
+| **Self-heal** | Diagnose scope, tone, bloat, or model mismatch and revise without losing history |
 
-Designed for coding agents, Custom GPTs, Cursor skills, and cyber×AI workflows where inventing facts or skipping safety boundaries is unacceptable.
+It was designed for coding agents, Custom GPTs, Cursor skills, and security-adjacent AI work, where inventing facts or skipping a safety boundary is not acceptable.
 
 ---
 
 ## Supported models (framework v1.3)
 
-Built-in `modelNotes` — prompting quirks, API ids, cost/caching levers:
+Built-in `modelNotes` cover prompting quirks, API ids, and cost and caching levers for each model:
 
 | Tier | Models |
 |---|---|
@@ -51,7 +53,7 @@ Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human
 
 ### 1. Conversational (default)
 
-Install the Cursor skill (the bundle is the zipped `skills/proofhouse/` directory; `tests/test_skill_bundle.py` keeps them identical):
+Install the Cursor skill. The bundle is the zipped `skills/proofhouse/` directory; `tests/test_skill_bundle.py` keeps the two identical.
 
 ```powershell
 # Windows PowerShell, from the repository root
@@ -63,7 +65,7 @@ uv run python -m zipfile -e skills/proofhouse/proofhouse.skill "$env:USERPROFILE
 python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills
 ```
 
-This lands `~/.cursor/skills/proofhouse/SKILL.md`, the user-level location Cursor scans for skills. Start a **new** Agent chat afterwards; then say **Proofhouse** and:
+That lands `~/.cursor/skills/proofhouse/SKILL.md`, the user-level location Cursor scans for skills. Start a **new** Agent chat afterwards, say **Proofhouse**, and then:
 
 1. State your objective and target model
 2. Answer one batched clarification form
@@ -71,7 +73,7 @@ This lands `~/.cursor/skills/proofhouse/SKILL.md`, the user-level location Curso
 
 ### 2. Interactive artifact
 
-Open [`apps/proofhouse.jsx`](apps/proofhouse.jsx) — a React artifact with model picker, efficiency modes, and live compile loop. This artifact calls `https://api.anthropic.com/v1/messages` and is not offline.
+Open [`apps/proofhouse.jsx`](apps/proofhouse.jsx), a React artifact with a model picker, efficiency modes, and a live compile loop. This artifact calls `https://api.anthropic.com/v1/messages` and is not offline.
 
 ### 3. Offline compiler (reproducible)
 
@@ -83,7 +85,7 @@ uv run proofhouse-compiler validate examples/ir_minimal.json
 uv run proofhouse-compiler compile examples/ir_minimal.json --adapter fake --adapter-version 0.1.0 --output build/demo
 ```
 
-Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. Certified path is **offline** (fake adapter, no network). `proofhouse-compiler execute-openai` is fail-closed **opt-in** live OpenAI and is **not** certified. No benchmark claims.
+Approved headless profiles: `structured_minimal_v0`, `structured_developer_v0`. The certified path is **offline** (fake adapter, no network). `proofhouse-compiler execute-openai` is a fail-closed, **opt-in** live OpenAI path and is **not** certified. No benchmark claims.
 
 ---
 
@@ -96,7 +98,7 @@ Two console scripts ship in one package: `proofhouse-compiler` (offline compiler
 | `proofhouse-compiler` | Compiler: requirements → IR → adapter artifact → evaluation/repair evidence | `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` |
 | `proofhouse` | Eval harness: JSONL datasets, rubrics, report skeletons | `validate` `report` `loadouts` `compile-loadout` `generate` |
 
-Clean clone with [uv](https://docs.astral.sh/uv/) (tested on Windows; the same commands work in bash without the `$env:` line):
+Clean clone with [uv](https://docs.astral.sh/uv/). Tested on Windows; the same commands work in bash without the `$env:` line.
 
 ```powershell
 git clone https://github.com/KM-it-ops/Proofhouse.git
@@ -154,20 +156,21 @@ tests/fixtures/         Contract schemas and validation fixtures
 
 ## Design rules
 
-- Stay lightweight by default; tighten only for safety, agentic execution, or missing context.
+- Stay lightweight by default. Tighten only for safety, agentic execution, or missing context.
 - Never invent repository or project facts.
 - Use exact missing-context labels: `UNKNOWN`, `NOT SPECIFIED`, `NOT FOUND IN PROVIDED MATERIAL`.
 - Keep cybersecurity and sensitive-data work defensive, authorized, and privacy-preserving.
-- No private chain-of-thought dumps — concise rationales only.
+- No private chain-of-thought dumps. Concise rationales only.
 
 ---
 
-## Engineering status
+## Where things stand
 
-Proofhouse ships two products in one repo:
+Proofhouse is two products in one repo, at different levels of maturity.
 
-1. **PromptOps skill + framework (v1.3)** — conversational meta-optimizer with current frontier model profiles. This is the user-facing surface most people want today.
-2. **Headless compiler** — contract-first offline pipeline under `src/proofhouse/compiler/`. Requirements compiler maturity remains `PARTIAL`. Certified path is **offline** (fake adapter, no network). `proofhouse-compiler execute-openai` is fail-closed **opt-in** live OpenAI and is **not** certified. `hosted-*` / `missionrig-*` are experimental library slices, not a hosted UI (DFR-006/008). `apps/proofhouse.jsx` calls the Anthropic Messages API when run as a Claude artifact and is **not** the certified path. No benchmark claims.
+The **PromptOps skill and framework (v1.3)** is the conversational meta-optimizer with current frontier model profiles. It is the surface most people want, and it is the most mature part of the project.
+
+The **headless compiler** under `src/proofhouse/compiler/` is a contract-first offline pipeline, and its requirements-compiler maturity is still `PARTIAL`. What is certified is the offline path: fake adapter, no network. `proofhouse-compiler execute-openai` is a fail-closed, opt-in live OpenAI path and is **not** certified. The `hosted-*` and `missionrig-*` modules are experimental library slices, not a hosted UI (DFR-006/008). `apps/proofhouse.jsx` calls the Anthropic Messages API when run as a Claude artifact and is not the certified path either. None of this comes with benchmark claims.
 
 Internal mission reports and review corpora are not published in this repository.
 
@@ -175,7 +178,7 @@ Internal mission reports and review corpora are not published in this repository
 
 ## Start here
 
-- [Showcase](docs/showcase.md) — pitch, demo flow, outcomes
+- [Showcase](docs/showcase.md): pitch, demo flow, outcomes
 - [Quickstart](docs/quickstart.md)
 - [Custom GPT setup](docs/custom-gpt-setup.md)
 - [Security policy](SECURITY.md)
