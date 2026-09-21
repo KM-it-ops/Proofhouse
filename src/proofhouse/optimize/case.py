@@ -18,7 +18,14 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from . import registry
-from .model_notes import SOURCE_RESEARCHED, ResolvedNotes, cache_key, resolve_model_notes
+from .model_notes import (
+    SOURCE_USER_SUPPLIED,
+    VERIFICATION_UNVERIFIED,
+    ResolvedNotes,
+    cache_key,
+    resolve_model_notes,
+    verification_for,
+)
 from .packets import clarify_packet, compile_packet, packet_markdown, revise_packet, token_estimate
 from .registry import find_model, load_registry
 
@@ -133,7 +140,11 @@ def _read_json(path: Path):
 
 
 def notes_from_file(name: str, notes_path: Path) -> ResolvedNotes:
-    """Notes supplied for this case only: ``source=researched``, verified today, never cached."""
+    """Notes supplied for this case only: ``user_supplied``, undated, unverified, never cached.
+
+    A local file is whatever its author wrote; it is never promoted to
+    researched or verified material (T07, review F05).
+    """
     if not notes_path.is_file():
         raise CaseError(f"notes file not found: {notes_path}")
     notes = notes_path.read_text(encoding="utf-8").strip()
@@ -146,15 +157,16 @@ def notes_from_file(name: str, notes_path: Path) -> ResolvedNotes:
         canonical_id=cache_key(name, reg),
         display_name=builtin.display_name if builtin else name,
         provider=builtin.provider if builtin else None,
-        tier=builtin.tier if builtin else SOURCE_RESEARCHED,
-        source=SOURCE_RESEARCHED,
-        verified_at=registry.today().isoformat(),
+        tier=builtin.tier if builtin else SOURCE_USER_SUPPLIED,
+        source=SOURCE_USER_SUPPLIED,
+        verified_at=None,
         stale=False,
-        age_days=0,
+        age_days=None,
         stale_after_days=reg.stale_after_days,
         sources=(),
         provenance=f"notes file {notes_path.name}",
         notes=notes,
+        verification=VERIFICATION_UNVERIFIED,
     )
 
 
@@ -187,6 +199,7 @@ def model_from_case(data: dict) -> ResolvedNotes:
         sources=tuple(stored["sources"]),
         provenance=stored["provenance"],
         notes=stored["notes"],
+        verification=stored.get("verification") or verification_for(tuple(stored["sources"])),
     )
 
 

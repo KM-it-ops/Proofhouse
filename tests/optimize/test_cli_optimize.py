@@ -78,7 +78,7 @@ def test_new_writes_case_files_and_builtin_model(tmp_path: Path, capsys) -> None
     lines = out.splitlines()
     resolved_dir = case_dir.resolve()
     assert lines[0] == f"optimize: new case {resolved_dir}"
-    assert lines[1] == "  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no"
+    assert lines[1] == "  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no evidence=unverified"
     assert lines[2] == "  preset: balanced  loop: no"
     assert lines[3] == "  wrote: case.json, 01-clarify.md, answers.json"
     assert lines[4] == (
@@ -247,7 +247,7 @@ def test_unknown_template_key_is_usage_error_not_traceback(tmp_path: Path, capsy
     assert not (case_dir / "02-compile.md").exists()
 
 
-def test_notes_file_is_researched_and_not_cached(tmp_path: Path, home: Path, capsys) -> None:
+def test_notes_file_is_user_supplied_unverified_and_not_cached(tmp_path: Path, home: Path, capsys) -> None:
     notes = tmp_path / "zeta.md"
     notes.write_text("Zeta 9 prefers numbered constraints.\n", encoding="utf-8")
     case_dir = tmp_path / "case-g"
@@ -262,9 +262,11 @@ def test_notes_file_is_researched_and_not_cached(tmp_path: Path, home: Path, cap
     payload = _json(out)
     assert payload["command"] == "optimize new"
     model = payload["data"]["case"]["model"]
-    assert model["source"] == "researched"
+    # T07 (review F05): a local notes file is user-supplied and never dated as verified.
+    assert model["source"] == "user_supplied"
+    assert model["verification"] == "unverified"
     assert model["provenance"] == "notes file zeta.md"
-    assert model["verified_at"] == registry.today().isoformat()
+    assert model["verified_at"] is None
     assert model["canonical_id"] == "zeta-9"
     assert model["entered_name"] == "Zeta 9"
     assert model["notes"] == "Zeta 9 prefers numbered constraints."
@@ -273,7 +275,8 @@ def test_notes_file_is_researched_and_not_cached(tmp_path: Path, home: Path, cap
     assert "Zeta 9 prefers numbered constraints." in clarify
     assert "Loop & Recurrence" in clarify
     assert "Efficient (tightest possible prompt, minimum viable questions)" in clarify
-    assert "source=researched" in clarify
+    assert "source=user_supplied" in clarify
+    assert "evidence=unverified" in clarify
 
 
 def test_status_reports_stage_counts_and_stale_warning(tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -285,7 +288,7 @@ def test_status_reports_stage_counts_and_stale_warning(tmp_path: Path, capsys, m
     assert out.splitlines() == [
         f"case: {case_dir.resolve()}",
         "  stage: clarify",
-        "  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no",
+        "  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no evidence=unverified",
         "  revisions: 1",
         "  criteria: 0",
     ]

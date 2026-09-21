@@ -234,7 +234,8 @@ def _read_text_arg(text: str | None, file_arg: str | None, label: str) -> str:
 def _model_line(resolved: ResolvedNotes) -> str:
     return (
         f"  model: {resolved.display_name} ({resolved.canonical_id}) source={resolved.source} "
-        f"verified_at={resolved.verified_at or '-'} stale={_yes_no(resolved.stale)}"
+        f"verified_at={resolved.verified_at or '-'} stale={_yes_no(resolved.stale)} "
+        f"evidence={resolved.verification}"
     )
 
 
@@ -528,7 +529,7 @@ def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
         "--notes-file",
         dest="notes_file",
         default=None,
-        help="Your own notes for the target model, used for this case only (source=researched; not cached).",
+        help="Your own notes for the target model, used for this case only (source=user_supplied, unverified; not cached).",
     )
     p_new.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_new.set_defaults(func=_cmd_optimize_new)
