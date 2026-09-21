@@ -15,7 +15,13 @@ from typing import Any
 from . import api
 from .canonical import canonical_sha256, canonicalize
 from .contracts import CompileOptions, ResultEnvelope
-from .eval_product import ProductEvalRequest, evaluate_product
+from .eval_product import (
+    PRODUCT_EVALUATOR_ID,
+    PRODUCT_EVALUATOR_VERSION,
+    ProductEvalRequest,
+    ProductEvaluationResult,
+    evaluate_product,
+)
 from .intake import INP_TYPE, IntakeError, parse_json_object, structured_shape_errors
 from .evaluation import EvaluationRequest, EvaluationResult, evaluate_deterministic
 from .evidence import (
@@ -38,6 +44,9 @@ FAKE_ADAPTER_VERSION = "0.1.0"
 IMMUTABLE_FIELDS = ("accepted_objectives", "security_constraints", "requirement_ids")
 REQ_ID_RE = re.compile(r"^REQ-[A-Z0-9-]{3,40}$")
 _EVAL_RANK = {"FAIL": 0, "BLOCKED": 0, "UNRESOLVED_DEFECT": 0, "PASS": 1}
+# Repair cannot change imported observations, so re-evaluating after a repair
+# would re-score the same static data. The loop stops and says so instead.
+REPAIR_UNSUPPORTED = "EVR-REP-0005"
 
 
 @dataclass
@@ -191,6 +200,51 @@ def _evaluation_result_to_evidence(result: EvaluationResult) -> dict[str, Any]:
     }
 
 
+def _run_product_stage(
+    request: ProductEvalRequest,
+    candidate_digest: str,
+    mandatory_requirement_ids: tuple[str, ...],
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Evaluate imported observations against this exact candidate; never raise on bad data."""
+    try:
+        result = evaluate_product(
+            replace(request, candidate_digest=candidate_digest, required_req_ids=mandatory_requirement_ids)
+        )
+    except (OSError, ValueError) as exc:
+        code = "EVR-DUP-0001" if "duplicate" in str(exc) else INP_TYPE
+        result = ProductEvaluationResult(
+            status="BLOCKED",
+            diagnostic_codes=(f"{code}: product-eval input rejected: {exc}",),
+            scores={"primary": None},
+            evaluator_id=PRODUCT_EVALUATOR_ID,
+            evaluator_version=PRODUCT_EVALUATOR_VERSION,
+            authoritative=True,
+            aggregation=request.aggregation,
+            failed_attempts=(),
+            req_ids=(),
+            candidate_digest=candidate_digest,
+        )
+    evaluation = {
+        "status": result.status,
+        "diagnostic_codes": list(result.diagnostic_codes),
+        "scores": dict(result.scores),
+    }
+    stage = {
+        **evaluation,
+        "evaluator": {"id": result.evaluator_id, "version": result.evaluator_version},
+        "observation_source": result.observation_source,
+        "candidate_digest": result.candidate_digest,
+        "candidate_binding": result.candidate_binding,
+        "dataset_sha256": result.dataset_sha256,
+        "rubric_sha256": result.rubric_sha256,
+        "rubric": {"id": result.rubric_id, "version": result.rubric_version},
+        "aggregation": result.aggregation,
+        "case_results": [dict(row) for row in result.case_results],
+        "requirement_coverage": result.requirement_coverage,
+    }
+    return stage, evaluation
+
+
 def run_closed_loop(
     requirements_doc: dict[str, Any],
     options: ClosedLoopOptions | None = None,
@@ -262,6 +316,7 @@ def run_closed_loop(
     ir_doc["evaluation"]["repair_limit"] = options.repair_budget
 
     requirement_ids = [r["id"] for r in ir_doc["requirements"]]
+    mandatory_requirement_ids = tuple(r["id"] for r in ir_doc["requirements"] if r["mandatory"])
     accepted_objectives = list(ir_doc["objective"]["success_criteria"])
     security_constraints = list(ir_doc["behavior"]["constraints"])
 
@@ -277,6 +332,11 @@ def run_closed_loop(
     final_eval: dict[str, Any] | None = None
     final_evaluator_id = DEFAULT_EVALUATOR_ID
     final_evaluator_version = DEFAULT_EVALUATOR_VERSION
+    deterministic_stage: dict[str, Any] | None = None
+    product_stage: dict[str, Any] | None = None
+    candidate_digest = ""
+    terminal_reason = "not_needed"
+    extra_diagnostics: list[str] = []
 
     attempts_allowed = options.repair_budget
     # initial compile + eval counts as attempt 0 only when repair runs after failure
@@ -335,6 +395,11 @@ def run_closed_loop(
         final_eval = evaluation
         final_evaluator_id = eval_result.evaluator_id
         final_evaluator_version = eval_result.evaluator_version
+        deterministic_stage = {
+            **evaluation,
+            "evaluator": {"id": eval_result.evaluator_id, "version": eval_result.evaluator_version},
+            "attempt_index": attempt_index,
+        }
         if pending_repair is not None:
             pending_repair["outcome"] = _repair_outcome(pending_prior_status or "", evaluation["status"])
             failed_attempts.append(pending_repair)
@@ -342,20 +407,28 @@ def run_closed_loop(
             pending_prior_status = None
 
         if evaluation["status"] == "PASS":
+            if attempt_index > 0:
+                terminal_reason = "passed_after_repair"
             if options.product_eval is not None:
-                product_result = evaluate_product(
-                    replace(options.product_eval, candidate_digest=candidate_digest)
+                product_stage, product_eval = _run_product_stage(
+                    options.product_eval, candidate_digest, mandatory_requirement_ids
                 )
-                if product_result.status != "PASS":
-                    evaluation = {
-                        "status": product_result.status,
-                        "diagnostic_codes": list(product_result.diagnostic_codes),
-                        "scores": dict(product_result.scores),
-                    }
-                    final_eval = evaluation
+                final_eval = product_eval
+                final_evaluator_id = product_stage["evaluator"]["id"]
+                final_evaluator_version = product_stage["evaluator"]["version"]
+                if product_eval["status"] != "PASS":
+                    if product_eval["status"] in {"FAIL", "REGRESSION"}:
+                        if options.repair_budget - attempt_index > 0:
+                            terminal_reason = "repair_unsupported_imported_observations"
+                            extra_diagnostics.append(REPAIR_UNSUPPORTED)
+                        else:
+                            terminal_reason = "repair_budget_exhausted"
+                    else:
+                        terminal_reason = "blocked_before_repair"
             break
 
         if attempt_index >= attempts_allowed:
+            terminal_reason = "repair_budget_exhausted" if attempts_allowed > 0 else "repair_budget_zero"
             break
 
         weaken_security = hooks is not None and hooks.force_security_weaken_repair
@@ -378,6 +451,7 @@ def run_closed_loop(
                 "diagnostic_codes": list(repair_plan.diagnostic_codes),
                 "scores": {"primary": 0.0},
             }
+            terminal_reason = "refused_immutable"
             break
 
         current_ir = apply_instruction_repair(current_ir, attempt_index)
@@ -398,6 +472,11 @@ def run_closed_loop(
         }
 
     assert final_eval is not None
+    if extra_diagnostics:
+        final_eval = {
+            **final_eval,
+            "diagnostic_codes": list(dict.fromkeys([*final_eval.get("diagnostic_codes", []), *extra_diagnostics])),
+        }
     status = final_eval["status"]
     if status != "PASS" and attempts_allowed > 0 and failed_attempts and status == "FAIL":
         status = "UNRESOLVED_DEFECT"
@@ -436,6 +515,24 @@ def run_closed_loop(
         intake_profile=intake_profile,
         model_proposal=model_proposal,
         suggestion_profile=SUGGESTION_PROFILE if model_proposal is not None else None,
+        candidate_digest=candidate_digest,
+        requirement_coverage=None if product_stage is None else product_stage["requirement_coverage"],
+        stages={
+            "compile": {
+                "status": None if compile_env is None else compile_env.status,
+                "adapter": {"id": FAKE_ADAPTER_ID, "version": FAKE_ADAPTER_VERSION},
+            },
+            "deterministic_evaluation": deterministic_stage,
+            "product_evaluation": product_stage,
+            "repair": {
+                "budget": options.repair_budget,
+                "attempted": sum(1 for a in failed_attempts if a.get("allowed_mutation")),
+                "terminal_reason": terminal_reason,
+            },
+        },
+        evidence_classes=["structural_compile_check"]
+        + ([] if product_stage is None else ["imported_observation_check"]),
+        not_measured=["live_model_output"] + (["semantic_quality"] if product_stage is None else []),
     )
 
     return ClosedLoopResult(
