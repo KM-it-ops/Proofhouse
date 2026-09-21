@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import base64
 import json
+import math
 import os
 import uuid
 from dataclasses import dataclass, field
@@ -25,6 +26,7 @@ from typing import Any, Protocol
 from urllib.parse import urlparse
 
 from . import api
+from .runtime_context import render_runtime_context
 
 CONTRACT_VERSION = "0.1.0-live-openai-opt-in"
 DEFAULT_TARGET_URL = "https://api.openai.com/v1/chat/completions"
@@ -41,6 +43,10 @@ EXE_DEP_0001 = "EXE-DEP-0001"
 EXE_EGRESS_0001 = "EXE-EGRESS-0001"
 EXE_COMPILE_0001 = "EXE-COMPILE-0001"
 EXE_HTTP_0001 = "EXE-HTTP-0001"
+# A mandatory IR field cannot be honored by this single-request path.
+EXE_SEM_0001 = "EXE-SEM-0001"
+
+COST_CEILING_ENFORCEMENT = "declared_only_not_enforced_pre_send"
 
 _REDACTED = "[REDACTED]"
 
@@ -162,15 +168,26 @@ def _resolve_credential(request: LiveOpenAIRequest) -> str | None:
 
 
 def _ceilings_ok(request: LiveOpenAIRequest) -> bool:
-    if request.max_output_tokens is None or int(request.max_output_tokens) <= 0:
+    """Positive integer token ceiling and a positive, finite decimal cost ceiling.
+
+    ``bool`` is rejected even though it is an ``int`` subclass; ``NaN``,
+    ``Infinity`` and exponent overflow are rejected rather than raised.
+    """
+    tokens = request.max_output_tokens
+    if type(tokens) is not int or tokens <= 0:
         return False
-    if request.max_cost_usd is None or not str(request.max_cost_usd).strip():
+    if not isinstance(request.max_cost_usd, str) or not request.max_cost_usd.strip():
         return False
     try:
-        amount = Decimal(str(request.max_cost_usd))
+        amount = Decimal(request.max_cost_usd.strip())
     except (InvalidOperation, ValueError):
         return False
-    return amount > 0
+    if not amount.is_finite():
+        return False
+    try:
+        return amount > 0 and math.isfinite(float(amount))
+    except (InvalidOperation, OverflowError, ValueError):
+        return False
 
 
 def _allowlisted_url(url: str) -> bool:
@@ -192,8 +209,8 @@ def _allowlisted_url(url: str) -> bool:
     return True
 
 
-def _provider_body(model: str, lowered: dict[str, Any], max_output_tokens: int) -> dict[str, Any]:
-    messages = [{"role": "system", "content": lowered.get("instructions") or ""}]
+def _provider_body(model: str, lowered: dict[str, Any], system_text: str, max_output_tokens: int) -> dict[str, Any]:
+    messages = [{"role": "system", "content": system_text}]
     body: dict[str, Any] = {
         "model": model,
         "messages": messages,
@@ -206,6 +223,22 @@ def _provider_body(model: str, lowered: dict[str, Any], max_output_tokens: int) 
     if response_format:
         body["response_format"] = response_format
     return body
+
+
+def _admission(request: LiveOpenAIRequest) -> dict[str, Any]:
+    """What was checked before send, and what was only declared."""
+    return {
+        "cost_ceiling": {
+            "declared_usd": request.max_cost_usd,
+            "enforcement": COST_CEILING_ENFORCEMENT,
+            "pricing_source": None,
+            "input_token_estimate": None,
+        },
+        "output_token_ceiling": {
+            "value": request.max_output_tokens,
+            "enforcement": "sent_as_max_completion_tokens",
+        },
+    }
 
 
 def _httpx_send(prepared: PreparedLiveRequest) -> LiveTransportResponse:
@@ -271,6 +304,32 @@ def execute_openai(
     else:
         lowered = json.loads(artifact.get("data") or "{}")
 
+    semantic = lowered.get("promptrig_semantic_context")
+    ir_document = semantic.get("ir") if isinstance(semantic, dict) else None
+    if not isinstance(ir_document, dict):
+        return finish(
+            _error(
+                EXE_SEM_0001,
+                {"single_request": True, "unsupported_semantics": [{"source_path": "", "reason": "artifact has no semantic context"}]},
+            )
+        )
+    runtime = render_runtime_context(
+        ir_document,
+        response_format_sent=bool(lowered.get("response_format")),
+        tools_sent=bool(lowered.get("tools")),
+    )
+    if runtime.unsupported:
+        return finish(
+            _error(
+                EXE_SEM_0001,
+                {
+                    "single_request": True,
+                    "unsupported_semantics": [dict(row) for row in runtime.unsupported],
+                    "runtime_context": runtime.evidence(),
+                },
+            )
+        )
+
     idempotency_key = request.idempotency_key or str(uuid.uuid4())
     host = urlparse(target_url).hostname or ""
     evidence = {
@@ -303,7 +362,7 @@ def execute_openai(
             "Content-Type": "application/json",
             "Idempotency-Key": idempotency_key,
         },
-        body=_provider_body(model, lowered, int(request.max_output_tokens or 0)),
+        body=_provider_body(model, lowered, runtime.system_text, int(request.max_output_tokens or 0)),
         idempotency_key=idempotency_key,
     )
 
@@ -320,7 +379,15 @@ def execute_openai(
                 )
             )
     else:
-        response = request.transport.send(prepared)
+        try:
+            response = request.transport.send(prepared)
+        except Exception as exc:  # noqa: BLE001 -- injected transports get the same normalized boundary
+            return finish(
+                _error(
+                    EXE_DEP_0001,
+                    {"transport_error": type(exc).__name__, "single_request": True},
+                )
+            )
 
     status_code = getattr(response, "status_code", None)
     payload = getattr(response, "payload", None)
@@ -347,6 +414,8 @@ def execute_openai(
         "provider_response": payload,
         "ir_sha256": compile_env.data.get("ir_sha256"),
         "compile_artifact_sha256": artifact.get("sha256"),
+        "runtime_context": runtime.evidence(),
+        "admission": _admission(request),
     }
     ok = isinstance(status_code, int) and 200 <= status_code < 300
     result_status = "success" if ok else "error"
