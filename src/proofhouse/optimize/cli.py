@@ -20,6 +20,7 @@ from datetime import date
 from pathlib import Path
 
 from . import case as case_mod
+from . import checks
 from . import model_notes
 from .case import CaseError
 from .model_notes import ResolvedNotes, resolve_model_notes
@@ -353,6 +354,157 @@ def _cmd_optimize_status(args: argparse.Namespace) -> int:
     return EXIT_SUCCESS
 
 
+# (kind, help); the flag is "--" + kind with "_" -> "-" and the argparse dest is the kind itself.
+_KIND_HELP = (
+    (checks.KIND_MUST_CONTAIN, "Prompt must contain this text (case-insensitive)."),
+    (checks.KIND_MUST_NOT_CONTAIN, "Prompt must not contain this text (case-insensitive)."),
+    (checks.KIND_MAX_WORDS, "Prompt must have at most N words."),
+    (checks.KIND_REGEX, "Prompt must match this regular expression (re.MULTILINE)."),
+    (checks.KIND_MANUAL, "A criterion you judge yourself; record the outcome with optimize verdict."),
+)
+
+
+def _kind_flag(kind: str) -> str:
+    return "--" + kind.replace("_", "-")
+
+
+def _selected_kind(args: argparse.Namespace) -> tuple[str, str]:
+    for kind, _help in _KIND_HELP:
+        value = getattr(args, kind)
+        if value is not None:
+            return kind, str(value)
+    raise CaseError("one of " + ", ".join(_kind_flag(kind) for kind, _ in _KIND_HELP) + " is required")
+
+
+def _cmd_criteria_add(args: argparse.Namespace) -> int:
+    case_dir = Path(args.case)
+    try:
+        kind, value = _selected_kind(args)
+        data = case_mod.load_case(case_dir)
+        criterion = checks.build_criterion(
+            data["criteria"], kind, value, criterion_id=args.id, note=args.note or ""
+        )
+        data = case_mod.add_criterion(case_dir, criterion.to_dict())
+    except CaseError as exc:
+        return _usage_error(str(exc))
+    if args.json:
+        payload = {"case_dir": str(case_dir.resolve()), "criterion": criterion.to_dict(), "criteria": len(data["criteria"])}
+        _emit_json("optimize criteria add", "success", payload)
+        return EXIT_SUCCESS
+    print(f"criteria: added {criterion.id}  {criterion.kind:<16} {criterion.value}")
+    return EXIT_SUCCESS
+
+
+def _cmd_criteria_list(args: argparse.Namespace) -> int:
+    case_dir = Path(args.case)
+    try:
+        data = case_mod.load_case(case_dir)
+    except CaseError as exc:
+        return _usage_error(str(exc))
+    criteria = data["criteria"]
+    if args.json:
+        _emit_json("optimize criteria list", "success", {"case_dir": str(case_dir.resolve()), "criteria": criteria})
+        return EXIT_SUCCESS
+    print(f"criteria: {len(criteria)}")
+    for item in criteria:
+        print(checks.criterion_row(item))
+    return EXIT_SUCCESS
+
+
+def _cmd_verdict(args: argparse.Namespace) -> int:
+    case_dir = Path(args.case)
+    try:
+        data = case_mod.load_case(case_dir)
+        criterion = checks.find_criterion(data["criteria"], args.criterion)
+        if criterion["kind"] != checks.KIND_MANUAL:
+            raise CaseError(
+                f"criterion {criterion['id']} is {criterion['kind']}; verdicts apply only to manual criteria"
+            )
+        checks.require_revision(data, args.revision)
+        entry = checks.record_verdict(case_dir, args.revision, criterion["id"], args.result, args.note or "")
+    except CaseError as exc:
+        return _usage_error(str(exc))
+    rel_path = f"{checks.CHECKS_DIR}/{checks.VERDICTS_FILE}"
+    if args.json:
+        payload = {"case_dir": str(case_dir.resolve()), "verdict": entry, "path": rel_path}
+        _emit_json("optimize verdict", "success", payload)
+        return EXIT_SUCCESS
+    result = checks.PASS if entry["result"] == checks.VERDICT_PASS else checks.FAIL
+    print(f"verdict: v{entry['revision']} {entry['criterion']} = {result} -> {rel_path}")
+    return EXIT_SUCCESS
+
+
+def _cmd_check(args: argparse.Namespace) -> int:
+    case_dir = Path(args.case)
+    try:
+        data = case_mod.load_case(case_dir)
+        numbers = checks.revision_numbers(data, revision=args.revision, all_revisions=args.all)
+        verdicts = checks.load_verdicts(case_dir)
+        reports = [checks.check_revision(case_dir, data["criteria"], n, verdicts) for n in numbers]
+    except CaseError as exc:
+        return _usage_error(str(exc))
+    overall = checks.PASS if all(report["overall"] == checks.PASS for report in reports) else checks.FAIL
+    exit_code = EXIT_SUCCESS if overall == checks.PASS else EXIT_CHECK_FAILED
+    resolved_dir = case_dir.resolve()
+    if args.json:
+        payload = {"case_dir": str(resolved_dir), "revisions": reports, "overall": overall}
+        _emit_json("optimize check", "success" if exit_code == EXIT_SUCCESS else "error", payload)
+        return exit_code
+    print(f"check: {resolved_dir}")
+    for report in reports:
+        print(checks.matrix_line(report))
+    return exit_code
+
+
+def _add_checks(opt_sub: argparse._SubParsersAction) -> None:
+    p_criteria = opt_sub.add_parser(
+        "criteria",
+        help="Declare your own acceptance criteria for a case (textual checks or manual judgements).",
+    )
+    criteria_sub = p_criteria.add_subparsers(dest="criteria_command", required=True)
+
+    p_add = criteria_sub.add_parser("add", help="Add one criterion; exactly one kind flag per call.")
+    p_add.add_argument("--case", required=True, help="Case directory.")
+    kind_group = p_add.add_mutually_exclusive_group(required=True)
+    for kind, help_text in _KIND_HELP:
+        if kind == checks.KIND_MAX_WORDS:
+            kind_group.add_argument(_kind_flag(kind), dest=kind, type=int, metavar="N", help=help_text)
+        else:
+            kind_group.add_argument(_kind_flag(kind), dest=kind, metavar="TEXT", help=help_text)
+    p_add.add_argument("--id", default=None, help="Criterion id (default: next C1, C2, ...).")
+    p_add.add_argument("--note", default=None, help="Free-text note stored with the criterion.")
+    p_add.add_argument("--json", action="store_true", help="Emit a single JSON object.")
+    p_add.set_defaults(func=_cmd_criteria_add)
+
+    p_list = criteria_sub.add_parser("list", help="List the declared criteria.")
+    p_list.add_argument("--case", required=True, help="Case directory.")
+    p_list.add_argument("--json", action="store_true", help="Emit a single JSON object.")
+    p_list.set_defaults(func=_cmd_criteria_list)
+
+    p_verdict = opt_sub.add_parser(
+        "verdict",
+        help="Record your pass/fail judgement of a manual criterion for one revision.",
+    )
+    p_verdict.add_argument("--case", required=True, help="Case directory.")
+    p_verdict.add_argument("--revision", required=True, type=int, help="Revision number the judgement applies to.")
+    p_verdict.add_argument("--criterion", required=True, help="Id of a manual criterion.")
+    p_verdict.add_argument("--result", required=True, choices=checks.VERDICT_RESULTS, help="Your judgement.")
+    p_verdict.add_argument("--note", default=None, help="Free-text note stored with the verdict.")
+    p_verdict.add_argument("--json", action="store_true", help="Emit a single JSON object.")
+    p_verdict.set_defaults(func=_cmd_verdict)
+
+    p_check = opt_sub.add_parser(
+        "check",
+        help="Evaluate the criteria against recorded revisions: PASS/FAIL/UNJUDGED per criterion; exit 3 on any FAIL.",
+    )
+    p_check.add_argument("--case", required=True, help="Case directory.")
+    which = p_check.add_mutually_exclusive_group()
+    which.add_argument("--revision", type=int, default=None, help="Revision number to check (default: latest).")
+    which.add_argument("--all", action="store_true", help="Check every recorded revision, oldest first.")
+    p_check.add_argument("--json", action="store_true", help="Emit a single JSON object.")
+    p_check.set_defaults(func=_cmd_check)
+
+
 def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
     p_opt = subparsers.add_parser(
         "optimize",
@@ -408,6 +560,8 @@ def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
     p_status.add_argument("--case", required=True, help="Case directory.")
     p_status.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_status.set_defaults(func=_cmd_optimize_status)
+
+    _add_checks(opt_sub)
 
 
 def add_local_commands(subparsers: argparse._SubParsersAction) -> None:

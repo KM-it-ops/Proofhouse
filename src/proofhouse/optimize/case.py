@@ -266,6 +266,14 @@ def compile_case(case_dir: Path, answers_path: Path | None = None) -> Path:
     return out_path
 
 
+def add_criterion(case_dir: Path, criterion: dict) -> dict:
+    """Append a user-declared criterion to ``case.json.criteria`` and save."""
+    data = load_case(case_dir)
+    data.setdefault("criteria", []).append(criterion)
+    save_case(case_dir, data)
+    return data
+
+
 def latest_revision_number(data: dict) -> int:
     return max((int(item["n"]) for item in data["revisions"]), default=0)
 
