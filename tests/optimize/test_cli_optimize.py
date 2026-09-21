@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 from proofhouse.compiler import cli_compiler
-from proofhouse.optimize import registry
+from proofhouse.optimize import packets, registry
 from proofhouse.optimize.case import CASE_SCHEMA
 
 OBJECTIVE = "Summarise a security advisory for a SOC audience"
@@ -214,6 +214,37 @@ def test_revise_from_earlier_revision_quotes_that_prompt(tmp_path: Path, capsys)
     case = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
     assert case["stage"] == "revise"
     assert case["revisions"][2]["feedback_on_previous"] == "shorter"
+
+
+def test_user_text_with_template_markers_survives_new_compile_revise(tmp_path: Path, capsys) -> None:
+    case_dir = tmp_path / "case-m"
+    objective = "Draft a Jinja template that prints {{x}} and {{ user.name }}"
+    code, out, err = _run(["optimize", "new", "--case", str(case_dir), "--objective", objective, "--model", "Sonnet 5"], capsys)
+    assert code == 0 and err == ""
+    assert objective in (case_dir / "01-clarify.md").read_text(encoding="utf-8")
+    (case_dir / "answers.json").write_text(json.dumps({"engine": "use {{loop.index}} inside"}), encoding="utf-8")
+    code, out, err = _run(["optimize", "compile", "--case", str(case_dir)], capsys)
+    assert code == 0 and err == ""
+    assert "- engine: use {{loop.index}} inside" in (case_dir / "02-compile.md").read_text(encoding="utf-8")
+    assert _record(case_dir, tmp_path, "pm.txt", "Render {{slot}} then stop.", capsys)[0] == 0
+    code, out, err = _run(["optimize", "revise", "--case", str(case_dir), "--feedback", "keep {{x}} literal"], capsys)
+    assert code == 0 and err == ""
+    text = (case_dir / "03-revise-v1.md").read_text(encoding="utf-8")
+    assert "Render {{slot}} then stop." in text
+    assert 'User feedback on that version: "keep {{x}} literal"' in text
+
+
+def test_unknown_template_key_is_usage_error_not_traceback(tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch) -> None:
+    case_dir = tmp_path / "case-n"
+    assert _new(case_dir, capsys)[0] == 0
+    (case_dir / "answers.json").write_text(json.dumps({"q": "a"}), encoding="utf-8")
+    broken = json.loads(json.dumps(packets.framework()))
+    broken["systemPrompts"]["compilePrompt"]["userTemplateFirstPass"] += "\n{{notAKey}}"
+    monkeypatch.setattr(packets, "framework", lambda: broken)
+    code, out, err = _run(["optimize", "compile", "--case", str(case_dir)], capsys)
+    assert code == 2 and out == ""
+    assert err == "error: unfilled placeholder {{notAKey}} in template\n"
+    assert not (case_dir / "02-compile.md").exists()
 
 
 def test_notes_file_is_researched_and_not_cached(tmp_path: Path, home: Path, capsys) -> None:

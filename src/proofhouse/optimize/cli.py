@@ -243,7 +243,7 @@ def _cmd_optimize_new(args: argparse.Namespace) -> int:
         notes_path = Path(args.notes_file) if args.notes_file else None
         resolved = case_mod.resolve_case_model(args.model, notes_path)
         data = case_mod.new_case(case_dir, objective=objective, resolved=resolved, preset_key=args.preset, loop=args.loop)
-    except CaseError as exc:
+    except ValueError as exc:  # CaseError, or an unfilled template placeholder from packets.render
         return _usage_error(str(exc))
     status = "warning" if _warn_if_stale(resolved) else "success"
     resolved_dir = case_dir.resolve()
@@ -266,7 +266,7 @@ def _cmd_optimize_compile(args: argparse.Namespace) -> int:
     case_dir = Path(args.case)
     try:
         packet_path = case_mod.compile_case(case_dir, Path(args.answers) if args.answers else None)
-    except CaseError as exc:
+    except ValueError as exc:  # CaseError, or an unfilled template placeholder from packets.render
         return _usage_error(str(exc))
     resolved_dir = case_dir.resolve()
     if args.json:
@@ -308,7 +308,7 @@ def _cmd_optimize_revise(args: argparse.Namespace) -> int:
         feedback = _read_text_arg(args.feedback, args.feedback_file, "feedback")
         packet_path, n = case_mod.revise_case(case_dir, feedback, args.revision)
         latest = case_mod.latest_revision_number(case_mod.load_case(case_dir))
-    except CaseError as exc:
+    except ValueError as exc:  # CaseError, or an unfilled template placeholder from packets.render
         return _usage_error(str(exc))
     if args.json:
         data = {
