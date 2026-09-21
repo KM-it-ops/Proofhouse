@@ -32,6 +32,16 @@ def test_render_fills_every_placeholder_and_rejects_unknown() -> None:
         packets.render("{{resolvedModel}} and {{nope}}", {"resolvedModel": "X"})
 
 
+def test_render_keeps_template_markers_inside_user_text() -> None:
+    objective = "Write a Jinja template that prints {{x}} and {{ user.name }} verbatim"
+    assert packets.render("Raw request: {{rawRequest}}", {"rawRequest": objective}) == f"Raw request: {objective}"
+    resolved = resolve_model_notes("Sonnet 5")
+    revise = packets.revise_packet(objective, resolved, "balanced", False, "Prompt with {{slot}}.", "keep {{x}}")
+    assert objective in revise.user
+    assert "Prompt with {{slot}}." in revise.user
+    assert 'User feedback on that version: "keep {{x}}"' in revise.user
+
+
 def test_clarify_compile_revise_fill_every_placeholder(framework: dict) -> None:
     resolved = resolve_model_notes("Sonnet 5")
     clarify = packets.clarify_packet(OBJECTIVE, resolved, "balanced", False)

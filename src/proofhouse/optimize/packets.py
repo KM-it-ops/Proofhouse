@@ -53,14 +53,20 @@ def token_estimate(text: str) -> int:
 
 
 def render(template: str, mapping: dict[str, str]) -> str:
-    """Substitute every ``{{key}}`` from ``mapping``; any placeholder left over is an error."""
-    rendered = template
-    for key, value in mapping.items():
-        rendered = rendered.replace("{{" + key + "}}", value)
-    leftover = _PLACEHOLDER.search(rendered)
-    if leftover:
-        raise ValueError(f"unfilled placeholder {{{{{leftover.group(1)}}}}} in template")
-    return rendered
+    """Substitute the template's own ``{{key}}`` placeholders from ``mapping`` in one pass.
+
+    Only placeholders present in ``template`` are inspected, so ``{{...}}`` inside
+    the substituted values (user objective, answers, recorded prompt, feedback)
+    is copied verbatim. A template placeholder missing from ``mapping`` is an error.
+    """
+
+    def repl(match: re.Match) -> str:
+        key = match.group(1)
+        if key not in mapping:
+            raise ValueError(f"unfilled placeholder {{{{{key}}}}} in template")
+        return mapping[key]
+
+    return _PLACEHOLDER.sub(repl, template)
 
 
 def _token_discipline(loop: bool) -> str:
