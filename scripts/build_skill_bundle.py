@@ -27,6 +27,8 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent.parent
 SKILL_DIR = REPO_ROOT / "skills" / "proofhouse"
 BUNDLE = SKILL_DIR / "proofhouse.skill"
+# Byte-identical copy shipped as package data so `pip install` carries the skill.
+PACKAGE_BUNDLE = REPO_ROOT / "src" / "proofhouse" / "optimize" / "data" / "proofhouse.skill"
 ROOT_PREFIX = "proofhouse"
 
 # The zip epoch. A real mtime would make the bundle differ on every rebuild.
@@ -71,11 +73,14 @@ def build(destination: Path | None = None) -> Path:
 
 def main() -> int:
     build()
+    PACKAGE_BUNDLE.parent.mkdir(parents=True, exist_ok=True)
+    PACKAGE_BUNDLE.write_bytes(BUNDLE.read_bytes())
     with zipfile.ZipFile(BUNDLE) as archive:
         names = archive.namelist()
     print(f"wrote {BUNDLE}")
     for name in names:
         print(f"  {name}")
+    print(f"wrote {PACKAGE_BUNDLE}")
     return 0
 
 

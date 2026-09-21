@@ -34,6 +34,7 @@ It was designed for coding agents, Custom GPTs, Cursor skills, and security-adja
 
 Built-in `modelNotes` cover prompting quirks, API ids, and cost and caching levers for each model:
 
+<!-- supported-models:begin -->
 | Tier | Models |
 |---|---|
 | **Anthropic** | Claude Fable 5.1 · Mythos 5.1 · Opus 5 · Sonnet 5 · Haiku 4.5 |
@@ -42,10 +43,13 @@ Built-in `modelNotes` cover prompting quirks, API ids, and cost and caching leve
 | **xAI** | Grok 4.6 |
 | **Meta** | Muse Spark 1.3 |
 | **Moonshot** | Kimi K3 |
-| **Legacy** | Fable 5 · Mythos 5 · Opus 4.8 · GPT-5.5 · Gemini (generic) |
-| **Other** | Auto-research via web search, cached for reuse |
+| **Legacy** | GPT-5.5 · Gemini (generic) · Fable 5 · Mythos 5 · Opus 4.8 |
+| **Other** | Skill and artifact: the host agent or the artifact web-researches the model and caches the paragraph. CLI (`proofhouse-compiler`): offline; `models remember` stores your own notes, otherwise the generic profile is used and labeled `fallback`. |
+
+Profiles verified 2026-09-03; a profile older than 90 days is flagged stale. `proofhouse-compiler models list` shows per-model ids, aliases, and dates.
 
 Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human-readable [`proofhouse-framework.md`](proofhouse-framework.md)
+<!-- supported-models:end -->
 
 ---
 
