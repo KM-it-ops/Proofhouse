@@ -1096,6 +1096,7 @@
     "hosted-export",
     "hosted-view",
     "inspect",
+    "install-skill",
     "missionrig-generate",
     "models",
     "optimize",
@@ -1125,6 +1126,7 @@
     "workspace-consume"
   ],
   "x-local-only": [
+    "install-skill",
     "models",
     "optimize"
   ],
