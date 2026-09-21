@@ -1,0 +1,10 @@
+SYNTHETIC ADVISORY -- fictional product, for Proofhouse examples only.
+
+ExampleCorp FlowGate Security Advisory EC-2026-017
+
+1. Severity: High (CVSS 8.1).
+2. Affected versions: FlowGate 2.1 through 2.4. Version 2.5 is not affected.
+3. Remediation: upgrade to FlowGate 2.5. As a temporary mitigation, disable the
+   legacy import endpoint.
+4. Exploitation: ExampleCorp has not published whether this issue is being
+   exploited.
