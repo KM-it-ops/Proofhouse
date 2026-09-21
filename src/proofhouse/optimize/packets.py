@@ -128,13 +128,20 @@ def revise_packet(
     loop: bool,
     previous_prompt: str,
     feedback: str,
+    *,
+    answered_entries: list[tuple[str, str]] | None = None,
+    accepted_constraints: list[tuple[str, str]] | None = None,
 ) -> Packet:
+    """Self-heal packet. The clarification answers and accepted constraints ride along (review F11)."""
     prompts = framework()["systemPrompts"]["compilePrompt"]
     system = render(prompts["template"], _system_mapping(resolved, preset_key, loop))
+    constraints_text = "\n".join(f"- [{kid}] {text}" for kid, text in (accepted_constraints or [])) or "(none recorded)"
     user = render(
         prompts["userTemplateSelfHeal"],
         {
             "rawRequest": objective,
+            "answeredEntries": format_answered_entries(answered_entries or []) or "(none recorded)",
+            "acceptedConstraints": constraints_text,
             "tokenEstimate": str(token_estimate(previous_prompt)),
             "previousPrompt": previous_prompt,
             "feedback": feedback,

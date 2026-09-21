@@ -23,7 +23,9 @@ from . import case as case_mod
 from . import checks
 from . import install_skill as install_mod
 from . import model_notes
+from . import workflow
 from .case import CaseError
+from .cli_workflow import add_workflow_commands
 from .model_notes import ResolvedNotes, resolve_model_notes
 from .packets import PRESET_KEYS
 from .registry import load_registry
@@ -345,6 +347,12 @@ def _cmd_optimize_status(args: argparse.Namespace) -> int:
             "loop": data["loop"],
             "revisions": len(data["revisions"]),
             "criteria": len(data["criteria"]),
+            "lineage": case_mod.lineage(data),
+            "constraints": {
+                state: sum(1 for c in workflow.constraints(data) if c["state"] == state)
+                for state in workflow.CONSTRAINT_STATES
+            },
+            "outputs": len(data.get("runs", [])),
         }
         _emit_json("optimize status", status, payload)
         return EXIT_SUCCESS
@@ -384,7 +392,7 @@ def _cmd_criteria_add(args: argparse.Namespace) -> int:
         kind, value = _selected_kind(args)
         data = case_mod.load_case(case_dir)
         criterion = checks.build_criterion(
-            data["criteria"], kind, value, criterion_id=args.id, note=args.note or ""
+            data["criteria"], kind, value, criterion_id=args.id, note=args.note or "", target=args.target
         )
         data = case_mod.add_criterion(case_dir, criterion.to_dict())
     except CaseError as exc:
@@ -423,7 +431,9 @@ def _cmd_verdict(args: argparse.Namespace) -> int:
                 f"criterion {criterion['id']} is {criterion['kind']}; verdicts apply only to manual criteria"
             )
         checks.require_revision(data, args.revision)
-        entry = checks.record_verdict(case_dir, args.revision, criterion["id"], args.result, args.note or "")
+        entry = checks.record_verdict(
+            case_dir, args.revision, criterion["id"], args.result, args.note or "", run_id=args.run
+        )
     except CaseError as exc:
         return _usage_error(str(exc))
     rel_path = f"{checks.CHECKS_DIR}/{checks.VERDICTS_FILE}"
@@ -474,6 +484,12 @@ def _add_checks(opt_sub: argparse._SubParsersAction) -> None:
         else:
             kind_group.add_argument(_kind_flag(kind), dest=kind, metavar="TEXT", help=help_text)
     p_add.add_argument("--id", default=None, help="Criterion id (default: next C1, C2, ...).")
+    p_add.add_argument(
+        "--target",
+        choices=checks.TARGETS,
+        default=checks.TARGET_PROMPT,
+        help="Check the prompt text (default) or each recorded output of the revision.",
+    )
     p_add.add_argument("--note", default=None, help="Free-text note stored with the criterion.")
     p_add.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_add.set_defaults(func=_cmd_criteria_add)
@@ -491,6 +507,7 @@ def _add_checks(opt_sub: argparse._SubParsersAction) -> None:
     p_verdict.add_argument("--revision", required=True, type=int, help="Revision number the judgement applies to.")
     p_verdict.add_argument("--criterion", required=True, help="Id of a manual criterion.")
     p_verdict.add_argument("--result", required=True, choices=checks.VERDICT_RESULTS, help="Your judgement.")
+    p_verdict.add_argument("--run", default=None, help="Recorded output you judged (required for output criteria).")
     p_verdict.add_argument("--note", default=None, help="Free-text note stored with the verdict.")
     p_verdict.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_verdict.set_defaults(func=_cmd_verdict)
@@ -564,6 +581,7 @@ def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
     p_status.set_defaults(func=_cmd_optimize_status)
 
     _add_checks(opt_sub)
+    add_workflow_commands(opt_sub)
 
 
 def _cmd_install_skill(args: argparse.Namespace) -> int:
