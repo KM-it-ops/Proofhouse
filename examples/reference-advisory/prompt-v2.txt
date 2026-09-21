@@ -1,0 +1,1 @@
+Summarise the vendor advisory below for Tier-1 SOC analysts in plain text, under 120 words. Lead with severity, then affected versions, then remediation. If the advisory does not state something, write UNKNOWN; never infer exploitation status. Cite the advisory section number for each claim.

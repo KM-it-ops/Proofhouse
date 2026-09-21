@@ -113,3 +113,13 @@ jobs:
       - name: Installed consumer smoke
         run: |
           /tmp/pr-wheel/bin/python tests/compiler/fixtures/external_consumer_closed_loop.py tests/compiler/fixtures/closed_loop_requirements_minimal.json
+
+      - name: Reference workflow on the installed wheel
+        env:
+          PROOFHOUSE_HOME: /tmp/pr-wheel-home
+        run: |
+          /tmp/pr-wheel/bin/python scripts/reference_workflow.py --cli /tmp/pr-wheel/bin/proofhouse-compiler --quiet
+
+      - name: Generated model surfaces and skill bundle are in sync
+        run: |
+          /tmp/pr-wheel/bin/python scripts/generate_model_surfaces.py --check

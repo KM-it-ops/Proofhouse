@@ -1,0 +1,1 @@
+Summarise the vendor advisory below for Tier-1 SOC analysts. Lead with severity, then affected versions, then what to do.

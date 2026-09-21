@@ -1,0 +1,1 @@
+Severity: High (CVSS 8.1). Affects FlowGate 2.1-2.4. Upgrade to 2.5 or disable the legacy import endpoint. Actively exploited in the wild.

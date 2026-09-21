@@ -1,0 +1,5 @@
+{
+  "Who reads the summary?": "Tier-1 SOC analysts",
+  "What if the advisory is silent on something?": "Write UNKNOWN; never guess exploitation status",
+  "Format and length?": "Plain text, under 120 words"
+}

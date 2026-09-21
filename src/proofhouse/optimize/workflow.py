@@ -333,11 +333,26 @@ def compare_reports(before: dict, after: dict) -> dict:
 # --- report --------------------------------------------------------------------------------
 
 
+def _cell(value: object) -> str:
+    """One Markdown table cell: no line breaks, pipes escaped."""
+    return " ".join(str(value).split()).replace("|", r"\|")
+
+
+def _evidence_class(row: dict) -> str:
+    if row["kind"] == "manual":
+        return "human judgement"
+    return "recorded-output check" if row.get("target") == "output" else "prompt-text check"
+
+
 def render_report(data: dict, report: dict, model_line: str) -> str:
+    objective = "\n".join(f"> {line}" if line else ">" for line in data["objective"].splitlines())
     lines = [
         f"# Proofhouse evidence report: revision v{report['revision']}",
         "",
-        f"- Objective: {data['objective']}",
+        "Objective:",
+        "",
+        objective,
+        "",
         f"- Target model notes: {model_line}",
         f"- Revision sha256: `{report['revision_sha256']}`",
         f"- Check run: `{report['run_id']}` ({report['checks_version']}) at {report['checked_at']}",
@@ -348,17 +363,19 @@ def render_report(data: dict, report: dict, model_line: str) -> str:
     ]
     for item in data["revisions"]:
         feedback = item.get("feedback_on_previous") or "-"
-        lines.append(f"- v{item['n']} `{item['sha256'][:12]}` feedback on previous: {feedback}")
+        lines.append(f"- v{item['n']} `{item['sha256'][:12]}` feedback on previous: {_cell(feedback)}")
     lines += ["", "## Constraints", "", "| Id | Origin | State | Linked checks | Status | Text |", "|---|---|---|---|---|---|"]
     status_by_id = {row["id"]: row["status"] for row in report.get("constraints", [])}
     for item in constraints(data):
         lines.append(
             f"| {item['id']} | {item['origin']} | {item['state']} | {', '.join(item['criteria']) or '-'} | "
-            f"{status_by_id.get(item['id'], '-')} | {item['text']} |"
+            f"{status_by_id.get(item['id'], '-')} | {_cell(item['text'])} |"
         )
-    lines += ["", "## Checks", "", "| Id | Target | Kind | Value | Result |", "|---|---|---|---|---|"]
+    lines += ["", "## Checks", "", "| Id | Evidence | Kind | Value | Result |", "|---|---|---|---|---|"]
     for row in report["results"]:
-        lines.append(f"| {row['id']} | {row.get('target', 'prompt')} | {row['kind']} | {row['value']} | {row['result']} |")
+        lines.append(
+            f"| {row['id']} | {_evidence_class(row)} | {row['kind']} | {_cell(row['value'])} | {row['result']} |"
+        )
     run_rows = [(row["id"], r) for row in report["results"] for r in row.get("runs", [])]
     if run_rows:
         lines += ["", "## Outputs tested", "", "| Check | Run | Input | Output sha256 | Result |", "|---|---|---|---|---|"]
