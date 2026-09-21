@@ -1098,6 +1098,7 @@
     "inspect",
     "missionrig-generate",
     "models",
+    "optimize",
     "proof",
     "route",
     "validate",
@@ -1124,7 +1125,8 @@
     "workspace-consume"
   ],
   "x-local-only": [
-    "models"
+    "models",
+    "optimize"
   ],
   "x-opt-in-live": [
     "execute-openai"
