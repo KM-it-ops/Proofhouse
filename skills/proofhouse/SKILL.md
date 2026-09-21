@@ -50,7 +50,8 @@ Built-in profiles for Claude Fable 5.1, Claude Mythos 5.1, Claude Opus 5, Claude
 <!-- model-list:end -->
 
 1. Check whether you (or a prior Proofhouse run) already have notes on it in this
-   conversation's memory or an artifact's persistent storage.
+   conversation's memory, an artifact's persistent storage, or -- when a Proofhouse
+   checkout is at hand -- the local cache (`proofhouse-compiler models show "<name>"`).
 2. If not, research it -- web search for the model's actual prompting behavior, context
    window, and known quirks -- before compiling the prompt. Don't guess.
 3. Condense findings into one dense paragraph matching the style of the built-in profiles,
@@ -92,7 +93,9 @@ security language for tasks that don't need it.
 
 Certified path is offline. Package is `proofhouse` 0.2.1 (`src/proofhouse/`).
 CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler, including
-`route` / `assay` / `proof`). Aliases `promptrig` / `promptrig-compiler` until 0.3.0.
+`route` / `assay` / `proof`, and the offline optimize / models / install-skill
+commands; optimize renders packets and never calls a model). Aliases `promptrig` /
+`promptrig-compiler` until 0.3.0.
 Approved profiles `structured_minimal_v0`, `structured_developer_v0`. Requirements
 compiler `PARTIAL`, not CERTIFIED. Latest Accepted OARs: OAR-028 (rename), OAR-030
 (orchestration implementation), OAR-031 (media not CERTIFIED), OAR-032 (Q1
