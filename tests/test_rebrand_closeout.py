@@ -13,7 +13,6 @@ HISTORICAL_PREFIXES = (
     "apps/dashboard/backups/original-tactical/",
 )
 HISTORICAL_FILES = {"CHANGELOG.md"}
-OPERATIONAL_PREFIXES = ("work/",)
 
 
 def _tracked_paths() -> list[str]:
@@ -35,11 +34,7 @@ def _is_historical(path: str) -> bool:
 def test_only_explicit_historical_files_retain_legacy_brand() -> None:
     offenders: list[str] = []
     for path in _tracked_paths():
-        if (
-            path == "tests/test_rebrand_closeout.py"
-            or _is_historical(path)
-            or path.startswith(OPERATIONAL_PREFIXES)
-        ):
+        if path == "tests/test_rebrand_closeout.py" or _is_historical(path):
             continue
         candidate = ROOT / path
         if not candidate.exists():
