@@ -92,7 +92,7 @@ CAPABILITY_LIMITS = {
             "Anthropic's API genuinely supports server-executed tools (e.g. web_search, "
             "web_fetch, code_execution, tool_search) that run on Anthropic's own infrastructure "
             "with no caller-side handler. Proofhouse's frozen IR v0.1 `tools` array schema "
-            "(PROOFHOUSE_IR_V0_1.schema.json) only supports the caller-defined custom-tool shape "
+            "(proofhouse_ir_v0_1.schema.json) only supports the caller-defined custom-tool shape "
             "(id/description/input_schema/side_effecting/approval) -- there is no IR field to "
             "select a specific Anthropic server tool or supply its configuration. This adapter "
             "reports tools.server_executed@1 as unsupported to reflect that IR-representational "
