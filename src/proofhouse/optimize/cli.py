@@ -181,8 +181,9 @@ def _add_models(subparsers: argparse._SubParsersAction) -> None:
     p_models = subparsers.add_parser(
         "models",
         help=(
-            "Model-note provenance: builtin|cached|researched|fallback, canonical id, "
-            "verified_at, stale warning. Local cache under PROOFHOUSE_HOME; no network."
+            "Model-note provenance: source (builtin|cached|researched|user_supplied|fallback), "
+            "evidence (unverified|sourced|reviewed), canonical id, review date, stale warning. "
+            "Local cache under PROOFHOUSE_HOME; no network."
         ),
     )
     models_sub = p_models.add_subparsers(dest="models_command", required=True)
