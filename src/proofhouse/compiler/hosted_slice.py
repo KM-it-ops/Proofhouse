@@ -188,8 +188,11 @@ class HostedSlice:
         if profile == "simple_mode_ui" or intake.get("authoring_mode") == "simple_ui_only":
             raise HostedSliceError(SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC, SIMPLE_MODE_FORBIDDEN_DIAGNOSTIC)
         raw_budget = intake.get("repair_budget", 1)
-        budget = raw_budget if raw_budget in (0, 1, 2) else 1
-        result: ClosedLoopResult = run_closed_loop(intake, ClosedLoopOptions(repair_budget=int(budget)))
+        budget = raw_budget if type(raw_budget) is int and raw_budget in (0, 1, 2) else 1
+        # The clamp is this experimental slice's documented contract; hand the
+        # closed loop the clamped value so strict intake validation agrees with it.
+        intake = {**intake, "repair_budget": budget} if "repair_budget" in intake else intake
+        result: ClosedLoopResult = run_closed_loop(intake, ClosedLoopOptions(repair_budget=budget))
         pid = project_id or str(uuid.uuid4())
         evidence = result.evidence_bundle or {}
         record = ProjectRecord(
