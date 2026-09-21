@@ -67,7 +67,7 @@ def _warn_if_stale(resolved: ResolvedNotes) -> bool:
     if not resolved.stale:
         return False
     _warn(
-        f"notes for {resolved.display_name} were verified {resolved.verified_at} "
+        f"notes for {resolved.display_name} were last reviewed {resolved.verified_at} "
         f"({resolved.age_days} days ago; threshold {resolved.stale_after_days}); "
         "re-check pricing, context, and settings against vendor docs"
     )
@@ -93,12 +93,12 @@ def _cmd_models_list(args: argparse.Namespace) -> int:
     for entry in builtin:
         print(
             f"  {entry.canonical_id:<20} {entry.display_name:<20} {entry.provider or '-':<10} "
-            f"{entry.tier:<8} verified {entry.verified_at or '-'}{_stale_suffix(entry)}"
+            f"{entry.tier:<8} reviewed {entry.verified_at or '-'} {entry.verification}{_stale_suffix(entry)}"
         )
     for entry in cached:
         print(
             f"  {entry.canonical_id:<20} {entry.entered_name:<20} {'-':<10} "
-            f"{'cached':<8} verified {entry.verified_at}{_stale_suffix(entry)}"
+            f"{'cached':<8} reviewed {entry.verified_at} {entry.verification}{_stale_suffix(entry)}"
         )
     return EXIT_SUCCESS
 
@@ -126,6 +126,7 @@ def _cmd_models_show(args: argparse.Namespace) -> int:
         f"stale: {_yes_no(resolved.stale)}"
     )
     print(f"  sources: {', '.join(resolved.sources) or 'none recorded'}")
+    print(f"  evidence: {resolved.verification}")
     print(f"  notes: {resolved.notes}")
     return EXIT_SUCCESS
 

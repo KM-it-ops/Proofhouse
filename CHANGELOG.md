@@ -16,6 +16,74 @@
   contract evidence, the original dashboard backup, and changelog history keep
   their historical names intentionally.
 
+### Evidence integrity (adversarial review of 78e512c, findings F01-F12)
+
+Behavior changes a user will notice are marked **(breaking)**. See
+[docs/decisions/](docs/decisions/) for the reasoning and
+[docs/assurance/](docs/assurance/) for what was verified.
+
+#### Fixed
+
+- **Live requests keep every mandatory field (F01).** `execute-openai` renders
+  requirements (id, mandatory flag, acceptance), success/failure criteria,
+  uncertainty and evidence policies, workflow, autonomy and assumptions into
+  the system message from an explicit per-field map; fields a single request
+  cannot honor refuse with `EXE-SEM-0001` before sending. The envelope records
+  the mapping and the system-message digest.
+- **(breaking)** **Duplicate evaluation ids are rejected (F02).** `case_id` and
+  `criterion_id` duplicates, malformed rows and non-finite values raise with
+  the line number; scores use structured keys; aggregation is order-independent.
+- **(breaking)** **Coverage and binding (F03).** A mandatory requirement with no
+  product-eval case is `BLOCKED` (`EVR-COV-0001`); rows declaring another
+  candidate digest are `BLOCKED` (`EVR-BND-0001`). Results carry dataset/rubric
+  digests and per-case results.
+- **(breaking)** **Edited revisions and stale verdicts (F04).** Revisions are
+  digest-checked on load; verdicts bind to revision and criterion digests and
+  go stale when either changes; check runs are immutable files; `case.json`
+  writes are atomic; revision files are never overwritten.
+- **(breaking)** **Model-note provenance (F05).** Notes files are
+  `user_supplied`, undated and unverified (they were `researched`, verified
+  today). Every profile carries an `evidence` label; unsourced profiles say
+  `unverified`; `models list` says "reviewed", not "verified". The Opus 5
+  note no longer advises stripping verification, and every compile prompt says
+  efficiency advice never removes a required gate.
+- **Stage identity and repair (F06).** Closed-loop evidence reports compile,
+  deterministic evaluation, product evaluation and repair as separate stages
+  with true evaluator identities; a failing product evaluation stops with
+  `EVR-REP-0005` and a terminal reason instead of a silent zero-attempt FAIL.
+- **Malformed input (F07).** Closed-loop intake rejects non-object roots,
+  wrong nested types, non-boolean `network_allowed`, non-finite numbers,
+  duplicate keys/ids and excessive nesting with `EVR-INP-*`/`EVR-DUP-0001`
+  instead of raising or passing.
+- **Transactional skill install (F08).** A failed forced install leaves the
+  previous skill unchanged; replacements keep a backup under
+  `PROOFHOUSE_HOME/skill-backups/`; unsafe archive paths and oversized
+  bundles are refused.
+- **Budget inputs (F09).** `NaN`/`Infinity`/non-positive ceilings are rejected
+  without raising; the envelope states the cost ceiling is declared only.
+- **Artifact responses (F10).** The JSX artifact schema-validates every model
+  response, excludes answers to hidden questions, and adds timeout/cancel.
+- **Revision context (F11).** Revise packets (CLI and artifact) carry the
+  clarification answers and accepted constraints.
+- **Public trust docs (F12).** SECURITY.md names a private reporting route;
+  CONTRIBUTING installs the test extra and documents a public decision
+  process; CLI help no longer cites unpublished internal ids.
+- `proofhouse.__version__` reads the installed version (it said 0.1.1).
+
+#### Added
+
+- `optimize constraints add|list|propose|accept|reject|link`: a constraint
+  ledger outside the prompt, seeded from clarification answers.
+- `optimize output add|list`: record imported outputs bound to a revision.
+- `criteria add --target output`, `verdict --run`: checks on recorded outputs.
+- **(breaking)** `optimize check` passes only when every accepted constraint
+  is satisfied by linked criteria ([decision 0002](docs/decisions/0002-what-pass-means.md)).
+- `optimize compare`, `optimize report`, `optimize export|import`.
+- `examples/reference-advisory/` and `scripts/reference_workflow.py`, run by
+  the test suite and by the wheel-install CI job.
+- Docs: product scope, architecture, surfaces and contracts, evidence format,
+  reference workflow, troubleshooting, decision records, assurance statement.
+
 ### Added
 
 - `[test]` extra declaring pytest, locked in `uv.lock`, so `uv sync --extra test`

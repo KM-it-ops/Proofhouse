@@ -299,7 +299,7 @@ def test_status_reports_stage_counts_and_stale_warning(tmp_path: Path, capsys, m
     monkeypatch.setattr(registry, "today", lambda: date(2027, 1, 1))
     age = (date(2027, 1, 1) - date(2026, 9, 3)).days
     warning = (
-        f"warning: notes for Claude Sonnet 5 were verified 2026-09-03 ({age} days ago; threshold 90); "
+        f"warning: notes for Claude Sonnet 5 were last reviewed 2026-09-03 ({age} days ago; threshold 90); "
         "re-check pricing, context, and settings against vendor docs\n"
     )
     code, out, err = _run(["optimize", "status", "--case", str(case_dir), "--json"], capsys)
