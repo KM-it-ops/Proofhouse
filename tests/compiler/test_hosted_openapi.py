@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 from proofhouse.compiler.cli_compiler import build_parser
-from proofhouse.compiler.hosted_openapi import build_openapi, dump_openapi
+from proofhouse.compiler.hosted_openapi import LOCAL_ONLY_COMMANDS, build_openapi, dump_openapi
 
 ROOT = Path(__file__).resolve().parents[2]
 OPENAPI_PATH = ROOT / "tests" / "fixtures" / "hosted-slice-v0.1" / "openapi.json"
@@ -49,11 +49,17 @@ def test_openapi_matches_cli_and_excludes_live_from_default_slice(monkeypatch) -
     default_slice = set(generated["x-default-hosted-slice"])
     opt_in_live = set(generated["x-opt-in-live"])
     assert opt_in_live == OPT_IN_LIVE_COMMANDS
-    assert default_slice == cli_names - opt_in_live
+    local_only = set(generated["x-local-only"])
+    assert local_only == cli_names & LOCAL_ONLY_COMMANDS
+    assert "models" in local_only
+    assert default_slice == cli_names - opt_in_live - local_only
     assert default_slice.isdisjoint(opt_in_live)
+    assert default_slice.isdisjoint(local_only)
     assert DEFAULT_SLICE_COMMANDS <= default_slice
 
     paths = generated["paths"]
+    for command in LOCAL_ONLY_COMMANDS:
+        assert f"/v0/compiler/{command}" not in paths, command
     for command in DEFAULT_SLICE_COMMANDS:
         path = f"/v0/compiler/{command}"
         assert path in paths, path

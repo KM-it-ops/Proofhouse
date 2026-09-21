@@ -2,13 +2,33 @@
   "name": "Proofhouse",
   "version": "1.3",
   "description": "A meta prompt-optimizer: natural language in, a model-specific optimized prompt out, with branching upfront clarification, a self-heal refinement loop, built-in token discipline, auto-research/indexing of unfamiliar models, and optional loop-engineering structure for recurring tasks.",
-  "flow": ["input", "clarify", "compile", "self_heal_loop"],
+  "flow": [
+    "input",
+    "clarify",
+    "compile",
+    "self_heal_loop"
+  ],
   "tokenDiscipline": {
     "universalDirective": "Apply strict token discipline, in your own output and in the prompt you produce: eliminate redundant framing, merge overlapping constraints into single directives, never restate information already established, and default to the shortest phrasing that fully preserves meaning. Where the target model supports prompt caching (e.g., Claude models via cache_control), structure the compiled prompt so stable/reusable instructions are clearly separated from per-call variable content, and say so explicitly in settings. Do not pad with filler transitions, meta-commentary about your own process, hedging, or restated instructions.",
     "efficiencyPresets": {
-      "efficient": { "label": "Efficient", "questionCount": "6-10", "promptWordCap": 250, "note": "tightest possible prompt, minimum viable questions" },
-      "balanced": { "label": "Balanced", "questionCount": "10-16", "promptWordCap": 500, "note": "standard coverage" },
-      "thorough": { "label": "Thorough", "questionCount": "14-22", "promptWordCap": 800, "note": "maximum coverage, more explicit guardrails" }
+      "efficient": {
+        "label": "Efficient",
+        "questionCount": "6-10",
+        "promptWordCap": 250,
+        "note": "tightest possible prompt, minimum viable questions"
+      },
+      "balanced": {
+        "label": "Balanced",
+        "questionCount": "10-16",
+        "promptWordCap": 500,
+        "note": "standard coverage"
+      },
+      "thorough": {
+        "label": "Thorough",
+        "questionCount": "14-22",
+        "promptWordCap": 800,
+        "note": "maximum coverage, more explicit guardrails"
+      }
     },
     "tokenEstimateFormula": "Math.ceil(text.length / 4) -- computed locally, no extra API call",
     "selfHealCategory": "token bloat / too verbose is a named diagnosis category alongside scope mismatch, wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, other"
@@ -22,7 +42,12 @@
       "Write it back to persistent storage at the same key so future sessions/users reuse it instantly",
       "On research failure, fall back to the generic 'Other' notes and say so explicitly rather than inventing specifics"
     ],
-    "sourceLabels": ["builtin", "cached", "researched", "fallback"],
+    "sourceLabels": [
+      "builtin",
+      "cached",
+      "researched",
+      "fallback"
+    ],
     "researchPromptTemplate": "Research the AI model/provider \"{{name}}\". Find its known prompting best practices, behavioral quirks, context window, and anything a prompt engineer should know to optimize prompts for it specifically. Write ONE dense paragraph under 120 words, in this style: \"Fast, capable default model for most tasks. Responds well to concise, direct instructions and doesn't need heavy scaffolding.\" Return ONLY that paragraph -- no preamble, no markdown, no citations, no \"based on my research.\""
   },
   "loopEngineering": {
@@ -49,19 +74,254 @@
     "Claude Fable 5": "Legacy. Mythos-tier, built for long autonomous self-verifying runs, not rapid back-and-forth. State goals/success criteria, not steps -- over-specifying degrades it. Default effort: high (xhigh for the hardest work). Delegates to subagents on its own. Benefits from a persistent lessons file across sessions. Runs safety classifiers on offensive-cybersecurity and bio/life-science content that can flag legitimate defensive/detection work -- frame technique descriptions defensively. Never ask it to echo/explain its internal reasoning as response text (risks refusal fallback to Opus 4.8). Define explicit pause-vs-continue checkpoints for long tasks.",
     "Claude Mythos 5": "Legacy. Same model as Fable 5, without the added cyber/bio safety layer, restricted to trusted orgs. Same prompting patterns as Fable 5.",
     "Claude Opus 4.8": "Legacy. Strong general reasoning. Benefits from clear step structure, explicit success criteria, worked examples for style-sensitive tasks. Less suited to fully autonomous multi-hour runs than Fable 5.",
-    "Other": "General best practice: explicit goal, constraints, format, audience. Note in rationale that this is generic guidance."
+    "Other": "No verified vendor-specific behavior available. General best practice: explicit goal, constraints, format, audience. Note in rationale that this is generic guidance."
+  },
+  "modelRegistry": {
+    "source": "src/proofhouse/optimize/data/model_registry.json",
+    "staleAfterDays": 90,
+    "models": [
+      {
+        "id": "claude-fable-5-1",
+        "displayName": "Claude Fable 5.1",
+        "triggerLabel": "Claude Fable 5.1",
+        "provider": "Anthropic",
+        "tier": "current",
+        "apiId": "claude-fable-5-1",
+        "aliases": [
+          "fable 5.1"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "claude-mythos-5-1",
+        "displayName": "Claude Mythos 5.1",
+        "triggerLabel": "Mythos 5.1",
+        "provider": "Anthropic",
+        "tier": "current",
+        "apiId": null,
+        "aliases": [
+          "mythos 5.1"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "claude-opus-5",
+        "displayName": "Claude Opus 5",
+        "triggerLabel": "Opus 5",
+        "provider": "Anthropic",
+        "tier": "current",
+        "apiId": "claude-opus-5",
+        "aliases": [
+          "opus 5"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "claude-sonnet-5",
+        "displayName": "Claude Sonnet 5",
+        "triggerLabel": "Sonnet 5",
+        "provider": "Anthropic",
+        "tier": "current",
+        "apiId": null,
+        "aliases": [
+          "sonnet 5"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "claude-haiku-4-5",
+        "displayName": "Claude Haiku 4.5",
+        "triggerLabel": "Haiku 4.5",
+        "provider": "Anthropic",
+        "tier": "current",
+        "apiId": null,
+        "aliases": [
+          "haiku 4.5"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "gpt-5-6-sol",
+        "displayName": "GPT-5.6 Sol",
+        "triggerLabel": "GPT-5.6 Sol",
+        "provider": "OpenAI",
+        "tier": "current",
+        "apiId": "gpt-5.6-sol",
+        "aliases": [
+          "gpt-5.6"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "gpt-5-6-terra",
+        "displayName": "GPT-5.6 Terra",
+        "triggerLabel": "Terra",
+        "provider": "OpenAI",
+        "tier": "current",
+        "apiId": "gpt-5.6-terra",
+        "aliases": [],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "gpt-5-6-luna",
+        "displayName": "GPT-5.6 Luna",
+        "triggerLabel": "Luna",
+        "provider": "OpenAI",
+        "tier": "current",
+        "apiId": "gpt-5.6-luna",
+        "aliases": [],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "gpt-5-5",
+        "displayName": "GPT-5.5",
+        "triggerLabel": "GPT-5.5",
+        "provider": "OpenAI",
+        "tier": "legacy",
+        "apiId": "gpt-5.5",
+        "aliases": [],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "gemini-3-8-flash",
+        "displayName": "Gemini 3.8 Flash",
+        "triggerLabel": "Gemini 3.8 Flash",
+        "provider": "Google",
+        "tier": "current",
+        "apiId": "gemini-3.8-flash",
+        "aliases": [
+          "gemini flash"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "grok-4-6",
+        "displayName": "Grok 4.6",
+        "triggerLabel": "Grok 4.6",
+        "provider": "xAI",
+        "tier": "current",
+        "apiId": "grok-4.6",
+        "aliases": [],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "muse-spark-1-3",
+        "displayName": "Muse Spark 1.3",
+        "triggerLabel": "Muse Spark 1.3",
+        "provider": "Meta",
+        "tier": "current",
+        "apiId": "muse-spark-1.3",
+        "aliases": [
+          "muse spark"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "kimi-k3",
+        "displayName": "Kimi K3",
+        "triggerLabel": "Kimi K3",
+        "provider": "Moonshot",
+        "tier": "current",
+        "apiId": "kimi-k3",
+        "aliases": [
+          "kimi"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "gemini",
+        "displayName": "Gemini",
+        "triggerLabel": "Gemini (generic)",
+        "provider": "Google",
+        "tier": "legacy",
+        "apiId": null,
+        "aliases": [
+          "google gemini"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "claude-fable-5",
+        "displayName": "Claude Fable 5",
+        "triggerLabel": "Fable 5",
+        "provider": "Anthropic",
+        "tier": "legacy",
+        "apiId": null,
+        "aliases": [
+          "fable 5"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "claude-mythos-5",
+        "displayName": "Claude Mythos 5",
+        "triggerLabel": "Mythos 5",
+        "provider": "Anthropic",
+        "tier": "legacy",
+        "apiId": null,
+        "aliases": [
+          "mythos 5"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "claude-opus-4-8",
+        "displayName": "Claude Opus 4.8",
+        "triggerLabel": "Opus 4.8",
+        "provider": "Anthropic",
+        "tier": "legacy",
+        "apiId": null,
+        "aliases": [
+          "opus 4.8"
+        ],
+        "verifiedAt": "2026-09-03"
+      },
+      {
+        "id": "other",
+        "displayName": "Other",
+        "triggerLabel": "Other",
+        "provider": null,
+        "tier": "generic",
+        "apiId": null,
+        "aliases": [
+          "unspecified",
+          "other/unspecified"
+        ],
+        "verifiedAt": null
+      }
+    ]
   },
   "systemPrompts": {
     "generateQuestions": {
       "template": "You are an expert prompt engineer. You generate a single batch of clarifying questions that will let you fully optimize a prompt for a specific target model, given a user's raw natural-language request.\n\nTarget model: {{resolvedModel}}\nKnown behavior of this target: {{modelNotes}}\n\n{{TOKEN_DISCIPLINE}}\n\nBecause this target is not always well suited to rapid back-and-forth (especially long-horizon models), ask everything you'll need in ONE batch rather than iteratively. Group questions into 3-5 categories relevant to the request (choose from: Scope & Goal, Constraints & Format, Tone & Audience, Autonomy & Iteration Cadence, Security & Reliability, Technical Environment -- only include categories relevant to this specific request). Within groups, include conditional follow-up questions that only make sense given a particular answer (a domino-effect branch), marked with dependsOn.\n\nUser's efficiency preference: {{preset.label}} ({{preset.note}}). Keep every question under 15 words and every option under 5 words. Produce {{preset.questionCount}} total questions including branches -- ask only what materially changes the compiled prompt, skip anything you can reasonably default.\n\nReturn ONLY valid JSON (no markdown fences, no prose) matching exactly this schema:\n[{\"group\":\"string\",\"questions\":[{\"id\":\"short_snake_case\",\"text\":\"string\",\"type\":\"single_select|multi_select|text\",\"options\":[\"...\"],\"dependsOn\":null}]}]\n\nFor conditional questions, dependsOn must be {\"questionId\":\"parent_id\",\"values\":[\"option\",\"that\",\"triggers\",\"it\"]} -- otherwise null. For type \"text\", options must be an empty array.",
       "userTemplate": "Raw request: \"{{rawRequest}}\"\n\nGenerate the question batch now.",
-      "placeholders": ["resolvedModel", "modelNotes", "rawRequest", "TOKEN_DISCIPLINE", "preset.label", "preset.note", "preset.questionCount"]
+      "placeholders": [
+        "resolvedModel",
+        "modelNotes",
+        "rawRequest",
+        "TOKEN_DISCIPLINE",
+        "preset.label",
+        "preset.note",
+        "preset.questionCount"
+      ]
     },
     "compilePrompt": {
       "template": "You are an expert prompt engineer. Synthesize a fully optimized prompt for the target model below, using the user's raw request and their clarifying answers.\n\nTarget model: {{resolvedModel}}\nKnown behavior of this target: {{modelNotes}}\n\n{{TOKEN_DISCIPLINE}}\n\nOptimize for: user satisfaction, feasibility, usability, and top-tier performance on this specific model. If the request involves building software, systems, or handling sensitive data, include a short \"Security & Reliability\" section in the prompt capturing relevant constraints -- omit it entirely if not applicable.\n\nUser's efficiency preference: {{preset.label}} ({{preset.note}}). Keep the compiled prompt itself under {{preset.promptWordCap}} words -- trim aggressively rather than covering every edge case when the mode is efficient. Keep your whole response (including rationale) under 550 words total.\n\nReturn ONLY valid JSON (no markdown fences, no prose) matching exactly this schema:\n{\"prompt\":\"the full optimized prompt text, ready to paste as-is\",\"rationale\":\"2-4 sentences on key choices made for this model\",\"settings\":\"one line of suggested settings for this model (effort level, temperature, etc.) or empty string if not applicable\",\"efficiency\":\"one sentence naming the concrete token-saving choices made in this specific prompt\"}",
       "userTemplateFirstPass": "Raw request: \"{{rawRequest}}\"\n\nClarifying answers:\n{{answeredEntries}}\n\nCompile the optimized prompt now.",
       "userTemplateSelfHeal": "Original request: \"{{rawRequest}}\"\n\nPrevious optimized prompt (~{{tokenEstimate}} tokens):\n{{previousPrompt}}\n\nUser feedback on that version: \"{{feedback}}\"\n\nDiagnose what's wrong (scope mismatch, wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, token bloat/too verbose, or other) and produce a revised version that fixes it. Reflect the diagnosis briefly in the rationale.",
-      "placeholders": ["resolvedModel", "modelNotes", "rawRequest", "answeredEntries", "previousPrompt", "feedback", "TOKEN_DISCIPLINE", "preset.label", "preset.note", "preset.promptWordCap", "tokenEstimate"]
+      "placeholders": [
+        "resolvedModel",
+        "modelNotes",
+        "rawRequest",
+        "answeredEntries",
+        "previousPrompt",
+        "feedback",
+        "TOKEN_DISCIPLINE",
+        "preset.label",
+        "preset.note",
+        "preset.promptWordCap",
+        "tokenEstimate"
+      ]
     }
   },
   "schemas": {

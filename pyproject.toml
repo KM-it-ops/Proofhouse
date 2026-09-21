@@ -33,3 +33,4 @@ addopts = "-m \"not live\""
 
 [tool.setuptools.package-data]
 "proofhouse.compiler" = ["schemas/*.json"]
+"proofhouse.optimize" = ["data/*"]

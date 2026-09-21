@@ -34,6 +34,7 @@ It was designed for coding agents, Custom GPTs, Cursor skills, and security-adja
 
 Built-in `modelNotes` cover prompting quirks, API ids, and cost and caching levers for each model:
 
+<!-- supported-models:begin -->
 | Tier | Models |
 |---|---|
 | **Anthropic** | Claude Fable 5.1 · Mythos 5.1 · Opus 5 · Sonnet 5 · Haiku 4.5 |
@@ -42,10 +43,26 @@ Built-in `modelNotes` cover prompting quirks, API ids, and cost and caching leve
 | **xAI** | Grok 4.6 |
 | **Meta** | Muse Spark 1.3 |
 | **Moonshot** | Kimi K3 |
-| **Legacy** | Fable 5 · Mythos 5 · Opus 4.8 · GPT-5.5 · Gemini (generic) |
-| **Other** | Auto-research via web search, cached for reuse |
+| **Legacy** | GPT-5.5 · Gemini (generic) · Fable 5 · Mythos 5 · Opus 4.8 |
+| **Other** | Skill and artifact: the host agent or the artifact web-researches the model and caches the paragraph. CLI (`proofhouse-compiler`): offline; `models remember` stores your own notes, otherwise the generic profile is used and labeled `fallback`. |
+
+Profiles verified 2026-09-03; a profile older than 90 days is flagged stale. `proofhouse-compiler models list` shows per-model ids, aliases, and dates.
 
 Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human-readable [`proofhouse-framework.md`](proofhouse-framework.md)
+<!-- supported-models:end -->
+
+---
+
+## Surfaces (what runs where)
+
+| Surface | Entry | Runs | Network | Model notes | Unknown model |
+|---|---|---|---|---|---|
+| Conversational skill | `proofhouse-compiler install-skill`, then "Proofhouse" in a new Cursor chat | host agent (Cursor) | host agent's tools | `references/proofhouse-framework.json` `modelNotes` + `modelRegistry` (`verifiedAt`) | host agent may web-research and reuse within the conversation |
+| Interactive artifact | `apps/proofhouse.jsx` as a Claude artifact | Claude artifact runtime | calls `api.anthropic.com` | `MODEL_NOTES` in the JSX | web-researches, caches in artifact storage, labels `researched`/`cached`/`fallback` |
+| Offline compiler | `proofhouse-compiler` | your machine | none on the certified path (`execute-openai` is opt-in) | `models list/show/remember/forget`, local cache under `~/.proofhouse` | **no research**: your notes via `models remember`, else generic `fallback` |
+| Eval harness | `proofhouse` | your machine | none | n/a | n/a |
+
+`proofhouse-compiler optimize` renders the framework's clarify / compile / self-heal prompts as packets you run in the host agent or model of your choice, records revisions, and checks them against criteria you declare. It does not call a model and it does not score quality.
 
 ---
 
@@ -53,19 +70,13 @@ Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human
 
 ### 1. Conversational (default)
 
-Install the Cursor skill. The bundle is the zipped `skills/proofhouse/` directory; `tests/test_skill_bundle.py` keeps the two identical.
+Install the Cursor skill with the console script (the bundle ships inside the package; `tests/test_skill_bundle.py` keeps it identical to `skills/proofhouse/`):
 
 ```powershell
-# Windows PowerShell, from the repository root
-uv run python -m zipfile -e skills/proofhouse/proofhouse.skill "$env:USERPROFILE\.cursor\skills"
+uv run proofhouse-compiler install-skill        # -> ~/.cursor/skills/proofhouse, verifies name: proofhouse
 ```
 
-```bash
-# macOS / Linux
-python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills
-```
-
-That lands `~/.cursor/skills/proofhouse/SKILL.md`, the user-level location Cursor scans for skills. Start a **new** Agent chat afterwards, say **Proofhouse**, and then:
+Equivalent without the script: `python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills`. Start a **new** Agent chat afterwards, say **Proofhouse**, and then:
 
 1. State your objective and target model
 2. Answer one batched clarification form
@@ -95,7 +106,7 @@ Two console scripts ship in one package: `proofhouse-compiler` (offline compiler
 
 | Command | Surface | Subcommands |
 |---|---|---|
-| `proofhouse-compiler` | Compiler: requirements → IR → adapter artifact → evaluation/repair evidence | `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` |
+| `proofhouse-compiler` | Compiler: requirements → IR → adapter artifact → evidence; plus offline optimize packets, model-notes cache, skill installer | `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` `optimize` `models` `install-skill` |
 | `proofhouse` | Eval harness: JSONL datasets, rubrics, report skeletons | `validate` `report` `loadouts` `compile-loadout` `generate` |
 
 Clean clone with [uv](https://docs.astral.sh/uv/). Tested on Windows; the same commands work in bash without the `$env:` line.
@@ -148,7 +159,7 @@ apps/proofhouse.jsx      Interactive compile UI
 prompts/                Core, modes, modules, Custom GPT pack
 evals/                  JSONL datasets, YAML rubrics
 examples/               Static demo inputs (examples/ir_minimal.json) and a prompt-audit request
-src/proofhouse/          Stdlib eval harness + headless compiler
+src/proofhouse/          Stdlib eval harness + headless compiler + optimize (registry, packets, cases, cache)
 tests/fixtures/         Contract schemas and validation fixtures
 ```
 

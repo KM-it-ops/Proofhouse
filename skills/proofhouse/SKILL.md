@@ -45,13 +45,13 @@ questions that only matter *if* an earlier answer goes a certain way -- present 
 
 ## Model notes
 
-Built-in profiles for Claude Fable 5.1, Claude Mythos 5.1, Opus 5, Sonnet 5, Haiku 4.5,
-GPT-5.6 Sol/Terra/Luna, Gemini 3.8 Flash, Grok 4.6, Muse Spark 1.3, Kimi K3, and Gemini (plus legacy Fable 5 / Mythos 5 / Opus 4.8 / GPT-5.5)
-are in `references/proofhouse-framework.json` under `modelNotes`. For anything
-else the user names:
+<!-- model-list:begin -->
+Built-in profiles for Claude Fable 5.1, Claude Mythos 5.1, Claude Opus 5, Claude Sonnet 5, Claude Haiku 4.5, GPT-5.6 Sol, GPT-5.6 Terra, GPT-5.6 Luna, Gemini 3.8 Flash, Grok 4.6, Muse Spark 1.3, and Kimi K3 (plus legacy GPT-5.5, Gemini, Claude Fable 5, Claude Mythos 5, and Claude Opus 4.8) are in `references/proofhouse-framework.json` under `modelNotes`; canonical ids, aliases, and `verifiedAt` dates (profiles verified 2026-09-03) are under `modelRegistry`. Say which profile you used and its verified date; if it is older than 90 days, tell the user to re-check pricing, context, and settings against vendor docs. For anything else the user names:
+<!-- model-list:end -->
 
 1. Check whether you (or a prior Proofhouse run) already have notes on it in this
-   conversation's memory or an artifact's persistent storage.
+   conversation's memory, an artifact's persistent storage, or -- when a Proofhouse
+   checkout is at hand -- the local cache (`proofhouse-compiler models show "<name>"`).
 2. If not, research it -- web search for the model's actual prompting behavior, context
    window, and known quirks -- before compiling the prompt. Don't guess.
 3. Condense findings into one dense paragraph matching the style of the built-in profiles,
@@ -93,7 +93,9 @@ security language for tasks that don't need it.
 
 Certified path is offline. Package is `proofhouse` 0.2.1 (`src/proofhouse/`).
 CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler, including
-`route` / `assay` / `proof`). Aliases `promptrig` / `promptrig-compiler` until 0.3.0.
+`route` / `assay` / `proof`, and the offline optimize / models / install-skill
+commands; optimize renders packets and never calls a model). Aliases `promptrig` /
+`promptrig-compiler` until 0.3.0.
 Approved profiles `structured_minimal_v0`, `structured_developer_v0`. Requirements
 compiler `PARTIAL`, not CERTIFIED. Latest Accepted OARs: OAR-028 (rename), OAR-030
 (orchestration implementation), OAR-031 (media not CERTIFIED), OAR-032 (Q1

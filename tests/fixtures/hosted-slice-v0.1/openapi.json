@@ -1096,7 +1096,10 @@
     "hosted-export",
     "hosted-view",
     "inspect",
+    "install-skill",
     "missionrig-generate",
+    "models",
+    "optimize",
     "proof",
     "route",
     "validate",
@@ -1121,6 +1124,11 @@
     "route",
     "validate",
     "workspace-consume"
+  ],
+  "x-local-only": [
+    "install-skill",
+    "models",
+    "optimize"
   ],
   "x-opt-in-live": [
     "execute-openai"

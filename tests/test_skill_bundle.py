@@ -16,6 +16,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 BUNDLE = REPO_ROOT / "skills" / "proofhouse" / "proofhouse.skill"
+PACKAGE_BUNDLE = REPO_ROOT / "src" / "proofhouse" / "optimize" / "data" / "proofhouse.skill"
 
 
 def _load_builder():
@@ -61,6 +62,17 @@ def test_committed_bundle_matches_regenerated_output(tmp_path: Path) -> None:
     assert rebuilt.read_bytes() == BUNDLE.read_bytes(), (
         "committed bundle differs from a fresh build; "
         "run scripts/build_skill_bundle.py and commit the result"
+    )
+
+
+def test_package_bundle_copy_matches_committed_bundle() -> None:
+    """The copy shipped as package data is byte-identical to the committed bundle."""
+    builder = _load_builder()
+    assert builder.PACKAGE_BUNDLE == PACKAGE_BUNDLE
+    assert PACKAGE_BUNDLE.is_file(), "run scripts/build_skill_bundle.py"
+    assert PACKAGE_BUNDLE.read_bytes() == BUNDLE.read_bytes(), (
+        "package-data bundle differs from skills/proofhouse/proofhouse.skill; "
+        "run scripts/build_skill_bundle.py"
     )
 
 

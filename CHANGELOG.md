@@ -13,6 +13,22 @@
   (`proofhouse-compiler`, `proofhouse`), lead with tested uv commands, and give
   the Cursor skill install command (`python -m zipfile -e … ~/.cursor/skills`).
   `docs/showcase.md` is an executable 5-minute offline script.
+- `proofhouse-compiler optimize new|compile|record|revise|status|criteria|verdict|check`:
+  offline case workflow that renders the framework's clarify / compile / self-heal
+  prompts as packets for the user's own host agent, records revisions, and checks
+  them against user-declared criteria. No provider call, no scoring.
+- `proofhouse-compiler models list|show|remember|forget`: model-note provenance
+  (`builtin|cached|researched|fallback`), canonical ids, aliases, `verified_at`,
+  stale warnings, and a local cache under `~/.proofhouse/` (`PROOFHOUSE_HOME`).
+  The CLI never researches online.
+- `proofhouse-compiler install-skill`: extracts the bundled `proofhouse.skill` into
+  `~/.cursor/skills` and verifies `name: proofhouse`. The bundle, the framework
+  JSON, and the model registry ship as package data.
+- One reviewed registry (`src/proofhouse/optimize/data/model_registry.json`) now
+  generates the framework `modelNotes` + `modelRegistry`, the framework Markdown
+  table, the JSX `MODEL_NOTES`, the skill model paragraph, and the README
+  supported-models table (`scripts/generate_model_surfaces.py --check` is a test).
+- README "Surfaces" matrix scopes auto-research to the skill and artifact.
 
 ### Changed
 

@@ -19,6 +19,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from ..optimize.cli import add_local_commands, LOCAL_COMMANDS
 from . import api, paths
 from .contracts import CONTRACT_VERSION, CompileOptions, Diagnostic, ResultEnvelope
 from .diagnostics import DiagnosticFactory, DiagnosticRegistry
@@ -470,7 +471,7 @@ COMPILER_COMMANDS = frozenset({
     "hosted-delete",
     "missionrig-generate",
     "workspace-consume",
-})
+}) | LOCAL_COMMANDS
 
 
 def _emit_route_decision(decision: object, *, as_json: bool) -> int:
@@ -762,6 +763,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_exec.add_argument("--json", action="store_true", help="Emit a JSON execution envelope.")
     p_exec.set_defaults(func=_cmd_execute_openai)
+
+    add_local_commands(subparsers)
 
     if os.environ.get("PROOFHOUSE_EXPERIMENTAL") == "1":
         p_hc = subparsers.add_parser(

@@ -13,6 +13,7 @@ from .cli_compiler import build_parser
 
 OPENAPI_VERSION = "3.0.3"
 OPT_IN_LIVE_COMMANDS = frozenset({"execute-openai"})
+LOCAL_ONLY_COMMANDS = frozenset({"optimize", "models", "install-skill"})
 ENVELOPE_FIELDS = ("contract_version", "command", "status", "data", "diagnostics")
 
 
@@ -69,9 +70,14 @@ def build_openapi() -> dict[str, Any]:
     commands = _subparsers(parser)
     cli_names = sorted(commands)
     opt_in_live = sorted(name for name in cli_names if name in OPT_IN_LIVE_COMMANDS)
-    default_slice = sorted(name for name in cli_names if name not in OPT_IN_LIVE_COMMANDS)
+    local_only = sorted(name for name in cli_names if name in LOCAL_ONLY_COMMANDS)
+    default_slice = sorted(
+        name for name in cli_names if name not in OPT_IN_LIVE_COMMANDS and name not in LOCAL_ONLY_COMMANDS
+    )
     paths: dict[str, Any] = {}
     for name, subparser in sorted(commands.items()):
+        if name in LOCAL_ONLY_COMMANDS:
+            continue
         in_default = name not in OPT_IN_LIVE_COMMANDS
         paths[f"/v0/compiler/{name}"] = {
             "post": {
@@ -118,6 +124,7 @@ def build_openapi() -> dict[str, Any]:
         "x-cli-commands": cli_names,
         "x-default-hosted-slice": default_slice,
         "x-opt-in-live": opt_in_live,
+        "x-local-only": sorted(local_only),
         "x-q2-ratified": False,
         "paths": paths,
         "components": {
