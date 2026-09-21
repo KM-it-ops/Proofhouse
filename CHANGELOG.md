@@ -40,7 +40,9 @@ Behavior changes a user will notice are marked **(breaking)**. See
 - **(breaking)** **Edited revisions and stale verdicts (F04).** Revisions are
   digest-checked on load; verdicts bind to revision and criterion digests and
   go stale when either changes; check runs are immutable files; `case.json`
-  writes are atomic; revision files are never overwritten.
+  writes are atomic; revision files are never overwritten. Verdicts recorded
+  before this change carry no digests and now show as stale (`UNJUDGED`);
+  record them again with `optimize verdict`.
 - **(breaking)** **Model-note provenance (F05).** Notes files are
   `user_supplied`, undated and unverified (they were `researched`, verified
   today). Every profile carries an `evidence` label; unsourced profiles say
@@ -61,6 +63,8 @@ Behavior changes a user will notice are marked **(breaking)**. See
   bundles are refused.
 - **Budget inputs (F09).** `NaN`/`Infinity`/non-positive ceilings are rejected
   without raising; the envelope states the cost ceiling is declared only.
+  Library callers must pass `max_cost_usd` as a decimal string (as the CLI
+  does) and `max_output_tokens` as a positive `int` (not `bool`).
 - **Artifact responses (F10).** The JSX artifact schema-validates every model
   response, excludes answers to hidden questions, and adds timeout/cancel.
 - **Revision context (F11).** Revise packets (CLI and artifact) carry the
