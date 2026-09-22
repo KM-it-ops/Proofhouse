@@ -131,3 +131,53 @@ def test_oversized_bundle_is_refused_before_touching_anything(existing: Path, tm
     with pytest.raises(InstallSkillError, match="too large"):
         install(existing, bundle, force=True)
     _assert_unchanged(existing, before)
+
+
+def test_locked_live_skill_is_never_copied_and_deleted(existing: Path, tmp_path: Path, monkeypatch) -> None:
+    """Review of 8b5a187: on Windows a folder holding an open file cannot be renamed.
+
+    ``shutil.move`` then falls back to copy-and-delete, and the delete stops at the
+    locked file after removing SKILL.md. The live skill must only ever be moved by
+    an atomic rename; when that fails, nothing changes and the error says so.
+    """
+    import os
+
+    before = _snapshot(existing)
+    live = existing / "proofhouse"
+    bundle = _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD})
+    real_rename = os.rename
+
+    def locked(src, dst, *args, **kwargs):
+        if Path(src) == live:
+            raise PermissionError(32, "The process cannot access the file because it is being used")
+        return real_rename(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(os, "rename", locked)
+    with pytest.raises(InstallSkillError, match="was not changed") as info:
+        install(existing, bundle, force=True)
+    assert "close" in str(info.value).lower()
+    _assert_unchanged(existing, before)
+
+
+def test_backup_path_is_named_when_the_swap_cannot_be_undone(existing: Path, tmp_path: Path, monkeypatch) -> None:
+    import os
+
+    live = existing / "proofhouse"
+    bundle = _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD})
+    real_rename = os.rename
+    calls = {"n": 0}
+
+    def flaky(src, dst, *args, **kwargs):
+        if Path(dst) == live:
+            calls["n"] += 1
+            raise PermissionError("simulated lock on destination")  # both the swap and the restore fail
+        return real_rename(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(os, "rename", flaky)
+    with pytest.raises(InstallSkillError) as info:
+        install(existing, bundle, force=True)
+    message = str(info.value)
+    assert calls["n"] == 2
+    assert str(tmp_path / "home") in message
+    backups = list((tmp_path / "home").rglob("custom.txt"))
+    assert [p.read_text(encoding="utf-8") for p in backups] == ["user modification"]
