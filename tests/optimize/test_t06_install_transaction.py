@@ -181,3 +181,49 @@ def test_backup_path_is_named_when_the_swap_cannot_be_undone(existing: Path, tmp
     assert str(tmp_path / "home") in message
     backups = list((tmp_path / "home").rglob("custom.txt"))
     assert [p.read_text(encoding="utf-8") for p in backups] == ["user modification"]
+
+
+def _no_leftovers(dest: Path) -> None:
+    assert sorted(p.name for p in dest.iterdir()) == ["proofhouse"]
+
+
+def test_successful_force_install_over_a_read_only_skill_leaves_no_second_copy(existing: Path, tmp_path: Path) -> None:
+    """Review of e928ec5: a read-only file made the set-aside copy undeletable, leaving two SKILL.md."""
+    import os
+    import stat
+
+    os.chmod(existing / "proofhouse" / "SKILL.md", stat.S_IREAD)
+    bundle = _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD})
+    result = install(existing, bundle, force=True)
+    _no_leftovers(existing)
+    assert result.leftover is None
+    assert (existing / "proofhouse" / "SKILL.md").read_text(encoding="utf-8") == GOOD_MD
+    assert (result.backup / "custom.txt").read_text(encoding="utf-8") == "user modification"
+
+
+@pytest.mark.skipif(__import__("sys").platform != "win32", reason="directory junctions are Windows-only")
+def test_successful_force_install_over_a_junction_removes_only_the_link(tmp_path: Path, monkeypatch) -> None:
+    """A skill installed as a junction to the user's checkout: the link goes, the checkout stays."""
+    import _winapi
+
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    (checkout / "SKILL.md").write_text("---\nname: proofhouse\n---\nmine\n", encoding="utf-8")
+    dest = tmp_path / "skills"
+    dest.mkdir()
+    _winapi.CreateJunction(str(checkout), str(dest / "proofhouse"))
+    bundle = _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD})
+    result = install(dest, bundle, force=True)
+    _no_leftovers(dest)
+    assert result.leftover is None
+    assert (checkout / "SKILL.md").read_text(encoding="utf-8").endswith("mine\n")  # the user's checkout is untouched
+    assert (dest / "proofhouse" / "SKILL.md").read_text(encoding="utf-8") == GOOD_MD
+
+
+def test_an_undeletable_set_aside_copy_is_reported_not_ignored(existing: Path, tmp_path: Path, monkeypatch) -> None:
+    bundle = _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD})
+    monkeypatch.setattr(install_skill, "_discard", lambda path: False)
+    result = install(existing, bundle, force=True)
+    assert result.leftover is not None and result.leftover.parent == existing
+    assert (result.leftover / "custom.txt").exists()

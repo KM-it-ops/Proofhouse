@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import os
 import shutil
+import stat
+import sys
 import tempfile
 import zipfile
 from dataclasses import dataclass
@@ -59,6 +61,8 @@ class InstallResult:
     verified: bool
     # The replaced installation, kept for rollback; ``None`` on a fresh install.
     backup: Path | None = None
+    # A set-aside copy of the old skill that could not be removed; the caller must say so.
+    leftover: Path | None = None
 
 
 def default_dest() -> Path:
@@ -167,26 +171,28 @@ def install(dest: Path | None = None, bundle: Path | None = None, *, force: bool
                 verify_skill_md(staged / SKILL_FILE)
             except InstallSkillError as exc:
                 raise InstallSkillError(f"{exc}; nothing was installed at {skill_dir}", exc.exit_code) from exc
-            backup = _swap_in(staged, skill_dir)
+            backup, leftover = _swap_in(staged, skill_dir)
         finally:
             shutil.rmtree(staging_root, ignore_errors=True)
-    return InstallResult(dest=skill_dir, files=files, bundle=bundle_path, verified=True, backup=backup)
+    return InstallResult(
+        dest=skill_dir, files=files, bundle=bundle_path, verified=True, backup=backup, leftover=leftover
+    )
 
 
-def _swap_in(staged: Path, skill_dir: Path) -> Path | None:
+def _swap_in(staged: Path, skill_dir: Path) -> tuple[Path | None, Path | None]:
     """Replace ``skill_dir`` with ``staged``; the live skill only ever moves by atomic rename.
 
     1. Copy the live skill to a backup under ``PROOFHOUSE_HOME`` (nothing live is touched).
     2. Rename the live skill aside, within the same directory.
     3. Rename the staged skill into place; if that fails, rename the old one back.
-    4. Remove the set-aside copy.
+    4. Remove the set-aside copy; returns ``(backup, leftover)``, leftover set if that failed.
     """
     if not skill_dir.exists():
         try:
             _move(staged, skill_dir)
         except OSError as exc:
             raise InstallSkillError(f"cannot place the new skill at {skill_dir}: {exc}", EXIT_ENVIRONMENT_FAILURE) from exc
-        return None
+        return None, None
     backup = _backup_path()
     try:
         backup.parent.mkdir(parents=True, exist_ok=True)
@@ -222,5 +228,34 @@ def _swap_in(staged: Path, skill_dir: Path) -> Path | None:
             f"(a copy is also at {backup})",
             EXIT_ENVIRONMENT_FAILURE,
         ) from exc
-    shutil.rmtree(aside, ignore_errors=True)
-    return backup
+    return backup, (None if _discard(aside) else aside)
+
+
+def _is_link(path: Path) -> bool:
+    """A symlink or a Windows directory junction: remove the link, never what it points at."""
+    if os.path.islink(path):
+        return True
+    attributes = getattr(os.lstat(path), "st_file_attributes", 0)
+    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
+
+
+def _discard(path: Path) -> bool:
+    """Remove the set-aside old skill; ``False`` if anything is left (never ignored silently)."""
+    try:
+        if _is_link(path):
+            try:
+                os.unlink(path)
+            except OSError:
+                os.rmdir(path)  # a junction on Windows
+        else:
+            def make_writable_and_retry(func, target, *_):
+                os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
+                func(target)
+
+            if sys.version_info >= (3, 12):
+                shutil.rmtree(path, onexc=make_writable_and_retry)
+            else:
+                shutil.rmtree(path, onerror=make_writable_and_retry)
+    except OSError:
+        pass
+    return not os.path.lexists(path)
