@@ -84,6 +84,8 @@ def parse_json_object(raw: bytes | str) -> dict[str, Any]:
         raise IntakeError(f"{INP_BOUNDS}: nesting deeper than {MAX_DEPTH} levels") from None
     except json.JSONDecodeError as exc:
         raise IntakeError(f"{INP_NOT_OBJECT}: invalid JSON at line {exc.lineno} column {exc.colno}: {exc.msg}") from None
+    except ValueError as exc:  # e.g. an integer longer than Python's int-conversion limit
+        raise IntakeError(f"{INP_NOT_OBJECT}: invalid JSON: {exc}") from None
     if not isinstance(doc, dict):
         raise IntakeError(f"{INP_NOT_OBJECT}: document root must be a JSON object, got {_type_name(doc)}")
     _check_bounds(doc)
