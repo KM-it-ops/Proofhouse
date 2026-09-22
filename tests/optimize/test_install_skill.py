@@ -191,3 +191,18 @@ def test_help_is_ascii(capsys) -> None:
     (out + err).encode("ascii")
     for flag in ("--dest", "--bundle", "--force", "--json"):
         assert flag in out
+
+
+def test_cli_warns_when_the_replaced_copy_could_not_be_removed(tmp_path: Path, monkeypatch, capsys) -> None:
+    from proofhouse.compiler import cli_compiler
+    from proofhouse.optimize import install_skill
+
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    dest = tmp_path / "skills"
+    assert cli_compiler.main(["install-skill", "--dest", str(dest)]) == 0
+    monkeypatch.setattr(install_skill, "_discard", lambda path: False)
+    capsys.readouterr()
+    assert cli_compiler.main(["install-skill", "--dest", str(dest), "--force"]) == 0
+    err = capsys.readouterr().err
+    assert err.startswith("warning: could not remove the replaced copy at ")
+    assert "delete it so the host does not load two copies" in err

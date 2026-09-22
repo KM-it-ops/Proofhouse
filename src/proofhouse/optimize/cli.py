@@ -594,6 +594,11 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
     except install_mod.InstallSkillError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exc.exit_code
+    if result.leftover is not None:
+        _warn(
+            f"could not remove the replaced copy at {result.leftover}; "
+            "delete it so the host does not load two copies of the skill"
+        )
     if args.json:
         data = {
             "dest": str(result.dest),
