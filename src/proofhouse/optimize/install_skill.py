@@ -18,6 +18,7 @@ No network.
 
 from __future__ import annotations
 
+import os
 import shutil
 import tempfile
 import zipfile
@@ -120,8 +121,13 @@ def verify_skill_md(skill_md: Path) -> None:
 
 
 def _move(src: Path, dst: Path) -> None:
-    """One filesystem move; a seam so tests can simulate a locked destination."""
-    shutil.move(str(src), str(dst))
+    """One atomic rename; a seam so tests can simulate a locked destination.
+
+    Deliberately not ``shutil.move``: when a rename fails (on Windows, a folder
+    holding a file another program has open), it falls back to copy-and-delete
+    and can leave the live skill half deleted.
+    """
+    os.rename(src, dst)
 
 
 def _backup_path() -> Path:
@@ -168,34 +174,53 @@ def install(dest: Path | None = None, bundle: Path | None = None, *, force: bool
 
 
 def _swap_in(staged: Path, skill_dir: Path) -> Path | None:
-    """Replace ``skill_dir`` with ``staged``; restore the previous copy if the swap fails."""
-    backup: Path | None = None
-    if skill_dir.exists():
-        backup = _backup_path()
+    """Replace ``skill_dir`` with ``staged``; the live skill only ever moves by atomic rename.
+
+    1. Copy the live skill to a backup under ``PROOFHOUSE_HOME`` (nothing live is touched).
+    2. Rename the live skill aside, within the same directory.
+    3. Rename the staged skill into place; if that fails, rename the old one back.
+    4. Remove the set-aside copy.
+    """
+    if not skill_dir.exists():
         try:
-            backup.parent.mkdir(parents=True, exist_ok=True)
-            _move(skill_dir, backup)
+            _move(staged, skill_dir)
         except OSError as exc:
-            raise InstallSkillError(
-                f"cannot back up {skill_dir}: {exc}; the existing installation was not changed",
-                EXIT_ENVIRONMENT_FAILURE,
-            ) from exc
+            raise InstallSkillError(f"cannot place the new skill at {skill_dir}: {exc}", EXIT_ENVIRONMENT_FAILURE) from exc
+        return None
+    backup = _backup_path()
+    try:
+        backup.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(skill_dir, backup)
+    except OSError as exc:
+        raise InstallSkillError(
+            f"cannot back up {skill_dir} to {backup}: {exc}; the existing installation was not changed",
+            EXIT_ENVIRONMENT_FAILURE,
+        ) from exc
+    aside = skill_dir.with_name(f".{SKILL_NAME}-replaced-{backup.parent.name}")
+    try:
+        _move(skill_dir, aside)
+    except OSError as exc:
+        raise InstallSkillError(
+            f"cannot move {skill_dir} aside: {exc}; the existing installation was not changed. "
+            "If an editor or agent has a file in it open, close it and run install-skill --force again. "
+            f"A copy was also saved at {backup}",
+            EXIT_ENVIRONMENT_FAILURE,
+        ) from exc
     try:
         _move(staged, skill_dir)
     except OSError as exc:
-        if backup is not None:
-            shutil.rmtree(skill_dir, ignore_errors=True)
-            try:
-                _move(backup, skill_dir)
-            except OSError as restore_exc:
-                raise InstallSkillError(
-                    f"cannot place the new skill at {skill_dir}: {exc}; automatic restore also failed "
-                    f"({restore_exc}); your previous installation is intact at {backup}",
-                    EXIT_ENVIRONMENT_FAILURE,
-                ) from exc
+        try:
+            _move(aside, skill_dir)
+        except OSError as restore_exc:
             raise InstallSkillError(
-                f"cannot place the new skill at {skill_dir}: {exc}; previous installation restored",
+                f"cannot place the new skill at {skill_dir}: {exc}; automatic restore also failed "
+                f"({restore_exc}); your previous installation is intact at {aside} and backed up at {backup}",
                 EXIT_ENVIRONMENT_FAILURE,
             ) from exc
-        raise InstallSkillError(f"cannot place the new skill at {skill_dir}: {exc}", EXIT_ENVIRONMENT_FAILURE) from exc
+        raise InstallSkillError(
+            f"cannot place the new skill at {skill_dir}: {exc}; previous installation restored "
+            f"(a copy is also at {backup})",
+            EXIT_ENVIRONMENT_FAILURE,
+        ) from exc
+    shutil.rmtree(aside, ignore_errors=True)
     return backup
