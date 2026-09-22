@@ -31,12 +31,18 @@ Behavior changes a user will notice are marked **(breaking)**. See
   cannot honor refuse with `EXE-SEM-0001` before sending. The envelope records
   the mapping and the system-message digest.
 - **(breaking)** **Duplicate evaluation ids are rejected (F02).** `case_id` and
-  `criterion_id` duplicates, malformed rows and non-finite values raise with
-  the line number; scores use structured keys; aggregation is order-independent.
+  `criterion_id` duplicates, duplicate JSON keys inside a dataset row or rubric,
+  malformed rows and non-finite values raise with the line number; scores use
+  structured keys; aggregation is order-independent. A rubric must name
+  `rubric_id` and `version` as non-empty strings.
 - **(breaking)** **Coverage and binding (F03).** A mandatory requirement with no
   product-eval case is `BLOCKED` (`EVR-COV-0001`); rows declaring another
   candidate digest are `BLOCKED` (`EVR-BND-0001`). Results carry dataset/rubric
-  digests and per-case results.
+  digests and per-case results. `closed-loop` withholds a candidate PASS unless
+  every row declares the candidate's `candidate_digest`: unbound or partially
+  bound rows give `BLOCKED` (`EVR-BND-0002`, exit 5), which includes every
+  dataset written before this change. Standalone `evaluate-product` still
+  PASSes them; a declared digest is caller-supplied, not authenticated.
 - **(breaking)** **Edited revisions and stale verdicts (F04).** Revisions are
   digest-checked on load; verdicts bind to revision and criterion digests and
   go stale when either changes; check runs are immutable files; `case.json`

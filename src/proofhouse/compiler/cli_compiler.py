@@ -250,6 +250,9 @@ def _cmd_closed_loop(args: argparse.Namespace) -> int:
         for code in result.diagnostics:
             print(f"  [{code}]")
         print(f"  requirements: {result.evidence_bundle.get('requirement_ids')}")
+        product_stage = (result.evidence_bundle.get("stages") or {}).get("product_evaluation") or {}
+        if product_stage.get("candidate_binding"):
+            print(f"  candidate_binding: {product_stage['candidate_binding']}")
         print(f"  failed_attempts: {len(result.failed_attempts)}")
     if result.status == "PASS":
         return EXIT_SUCCESS
