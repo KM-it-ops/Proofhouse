@@ -180,3 +180,9 @@ def test_property_random_type_substitution_never_raises() -> None:
         if result.status == "PASS":
             # A PASS is only acceptable if the substitution kept a valid shape.
             assert result.evidence_bundle["requirement_ids"], (path, result)
+
+
+def test_integer_beyond_the_int_conversion_limit_is_rejected_not_raised() -> None:
+    """Review of 8b5a187: a >4300-digit integer raised a bare ValueError."""
+    raw = FIXTURE.read_text(encoding="utf-8").replace('"network_allowed": false,', '"network_allowed": false, "n": ' + "9" * 5000 + ",")
+    _blocked_with(closed_loop_from_json(raw), "EVR-INP-0001")

@@ -22,9 +22,19 @@ def _reject_constant(name: str) -> object:
     raise ValueError(f"non-finite number {name}")
 
 
+def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
+    """``object_pairs_hook``: a repeated key is an error, never last-value-wins."""
+    out: dict[str, object] = {}
+    for key, value in pairs:
+        if key in out:
+            raise ValueError(f"duplicate JSON key {key!r}")
+        out[key] = value
+    return out
+
+
 def _parse_line(line: str, line_no: int) -> DatasetCase:
     try:
-        raw = json.loads(line, parse_constant=_reject_constant)
+        raw = json.loads(line, object_pairs_hook=reject_duplicate_keys, parse_constant=_reject_constant)
     except ValueError as exc:
         raise ValueError(f"line {line_no}: invalid JSON ({exc})") from None
     if not isinstance(raw, dict):

@@ -271,3 +271,44 @@ def test_default_closed_loop_records_stages_without_product(tmp_path: Path) -> N
     # The structural oracle never claims to have measured output quality.
     assert result.evidence_bundle["evidence_classes"] == ["structural_compile_check"]
     assert "semantic_quality" in result.evidence_bundle["not_measured"]
+
+
+# --- Review of 8b5a187: duplicate JSON keys inside a row or rubric ------------------------
+
+
+def test_duplicate_observation_key_cannot_turn_a_fail_into_pass(tmp_path: Path) -> None:
+    dataset = tmp_path / "d.jsonl"
+    dataset.write_text(
+        '{"case_id": "a", "req_ids": ["REQ-EVAL-001"], "observations": {"ok": false, "ok": true}}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="line 1: .*duplicate JSON key 'ok'"):
+        load_dataset(dataset)
+
+
+def test_duplicate_top_level_key_in_a_row_is_rejected(tmp_path: Path) -> None:
+    dataset = tmp_path / "d.jsonl"
+    dataset.write_text('{"case_id": "a", "case_id": "b", "req_ids": ["REQ-EVAL-001"], "observations": {}}\n', encoding="utf-8")
+    with pytest.raises(ValueError, match="duplicate JSON key 'case_id'"):
+        load_dataset(dataset)
+
+
+def test_rubric_with_two_criteria_arrays_is_rejected(tmp_path: Path) -> None:
+    rubric = tmp_path / "r.json"
+    rubric.write_text(
+        '{"rubric_id": "r", "version": "1", "criteria": [{"criterion_id": "ok", "field": "ok", "expected": true}],'
+        ' "criteria": [{"criterion_id": "x", "field": "x", "expected": true}]}',
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicate JSON key 'criteria'"):
+        load_rubric(rubric)
+
+
+@pytest.mark.parametrize("missing", ["rubric_id", "version"])
+def test_rubric_without_identity_is_rejected_not_recorded_as_none(tmp_path: Path, missing: str) -> None:
+    doc = {"rubric_id": "r", "version": "1", "criteria": [{"criterion_id": "ok", "field": "ok", "expected": True}]}
+    del doc[missing]
+    rubric = tmp_path / "r.json"
+    rubric.write_text(json.dumps(doc), encoding="utf-8")
+    with pytest.raises(ValueError, match=f"{missing} must be a non-empty string"):
+        load_rubric(rubric)
