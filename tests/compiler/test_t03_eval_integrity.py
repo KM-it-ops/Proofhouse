@@ -198,11 +198,15 @@ def test_probe_unrelated_requirement_coverage_is_blocked(tmp_path: Path) -> None
     assert coverage["not_declared"] == ["REQ-OTHER-001"]
 
 
-def test_covered_requirements_pass_and_record_binding(tmp_path: Path) -> None:
+def test_covered_requirements_record_binding(tmp_path: Path) -> None:
     dataset = _write_rows(tmp_path / "d.jsonl", [_case("c1", True)])
     rubric = _rubric(tmp_path / "r.json")
     result = _closed_loop(dataset, rubric)
-    assert result.status == "PASS"
+    # Unbound rows score (stage PASS) but cannot vouch for this candidate; see
+    # test_closed_loop_candidate_binding.py.
+    assert result.status == "BLOCKED"
+    assert any(code.startswith("EVR-BND-0002") for code in result.diagnostics)
+    assert result.evidence_bundle["stages"]["product_evaluation"]["status"] == "PASS"
     evidence = result.evidence_bundle
     assert evidence["requirement_coverage"]["missing"] == []
     assert evidence["requirement_coverage"]["covered"] == ["REQ-EVAL-001"]

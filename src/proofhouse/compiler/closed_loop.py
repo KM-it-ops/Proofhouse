@@ -16,6 +16,7 @@ from . import api
 from .canonical import canonical_sha256, canonicalize
 from .contracts import CompileOptions, ResultEnvelope
 from .eval_product import (
+    BINDING_BOUND,
     PRODUCT_EVALUATOR_ID,
     PRODUCT_EVALUATOR_VERSION,
     ProductEvalRequest,
@@ -47,6 +48,9 @@ _EVAL_RANK = {"FAIL": 0, "BLOCKED": 0, "UNRESOLVED_DEFECT": 0, "PASS": 1}
 # Repair cannot change imported observations, so re-evaluating after a repair
 # would re-score the same static data. The loop stops and says so instead.
 REPAIR_UNSUPPORTED = "EVR-REP-0005"
+# Imported observations that do not all declare this candidate's digest can score
+# a rubric, but cannot vouch for this candidate: the closed loop withholds PASS.
+CANDIDATE_UNBOUND = "EVR-BND-0002"
 
 
 @dataclass
@@ -416,7 +420,20 @@ def run_closed_loop(
                 final_eval = product_eval
                 final_evaluator_id = product_stage["evaluator"]["id"]
                 final_evaluator_version = product_stage["evaluator"]["version"]
-                if product_eval["status"] != "PASS":
+                binding = product_stage["candidate_binding"]
+                if product_eval["status"] == "PASS" and binding != BINDING_BOUND:
+                    final_eval = {
+                        **product_eval,
+                        "status": "BLOCKED",
+                        "diagnostic_codes": [
+                            *product_eval["diagnostic_codes"],
+                            f"{CANDIDATE_UNBOUND}: product observations are {binding}; candidate PASS withheld "
+                            f"until every dataset row declares candidate_digest {candidate_digest}",
+                        ],
+                        "scores": {"primary": None},
+                    }
+                    terminal_reason = "blocked_unbound_observations"
+                elif product_eval["status"] != "PASS":
                     if product_eval["status"] in {"FAIL", "REGRESSION"}:
                         if options.repair_budget - attempt_index > 0:
                             terminal_reason = "repair_unsupported_imported_observations"
@@ -532,7 +549,8 @@ def run_closed_loop(
         },
         evidence_classes=["structural_compile_check"]
         + ([] if product_stage is None else ["imported_observation_check"]),
-        not_measured=["live_model_output"] + (["semantic_quality"] if product_stage is None else []),
+        not_measured=["live_model_output"]
+        + ([] if product_stage is not None and product_stage["candidate_binding"] == BINDING_BOUND else ["semantic_quality"]),
     )
 
     return ClosedLoopResult(
