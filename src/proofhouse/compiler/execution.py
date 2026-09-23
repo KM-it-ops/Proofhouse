@@ -304,7 +304,7 @@ def execute_openai(
     else:
         lowered = json.loads(artifact.get("data") or "{}")
 
-    semantic = lowered.get("promptrig_semantic_context")
+    semantic = lowered.get("proofhouse_semantic_context")
     ir_document = semantic.get("ir") if isinstance(semantic, dict) else None
     if not isinstance(ir_document, dict):
         return finish(

@@ -35,7 +35,6 @@ A package release can change any of these; the changelog says which.
 | `proofhouse` (eval harness: validate, report, loadouts, generate) | supported (legacy) | none | Dataset validation and report skeletons. |
 | `apps/proofhouse.jsx` artifact | experimental | calls `api.anthropic.com` | Responses schema-validated; hidden answers excluded; timeout and cancel. Hosting and authentication behavior are the artifact runtime's, not verified here. |
 | `apps/dashboard/` | prototype | none | Design exploration with simulated telemetry. Not the product; do not demo it as one. |
-| `promptrig`, `promptrig-compiler` console scripts | deprecated | - | Compatibility aliases from the rename; scheduled for removal in 0.3.0. |
 
 ## Diagnostic codes added by the evidence-integrity work
 
