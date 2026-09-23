@@ -19,7 +19,7 @@ from proofhouse.compiler.runtime_context import RUNTIME_FIELD_MAP, render_runtim
 
 from .fixtures.ir_fixtures import ir_with_openai_structured_output, minimal_valid_ir
 
-SCHEMA = Path(__file__).resolve().parents[2] / "src" / "proofhouse" / "compiler" / "schemas" / "promptrig_ir_v0_1.schema.json"
+SCHEMA = Path(__file__).resolve().parents[2] / "src" / "proofhouse" / "compiler" / "schemas" / "proofhouse_ir_v0_1.schema.json"
 
 
 class RecordingTransport:
