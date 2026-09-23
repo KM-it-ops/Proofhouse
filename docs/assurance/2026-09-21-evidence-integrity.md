@@ -7,7 +7,7 @@
 | Package | `proofhouse` 0.2.1, framework 1.3 |
 | Platform | Windows 11, CPython 3.14.6, uv; Node 24.14.0 for artifact checks |
 | Maintainer | KM-it-ops (repository owner); implementation assisted by an AI coding agent, reviewed by the maintainer before merge |
-| Independent review | **Not yet performed.** The plan requires one before promotion. |
+| Independent review | Review of `97bbfe0` on 2026-09-23 found PASS paths the fixes left open; the review fixes that close them were ported (section below). **The combined head has not been independently reviewed.** |
 
 ## Commands and results
 
@@ -41,6 +41,47 @@ Re-run on the rebased head, same platform:
 | `python scripts/generate_model_surfaces.py --check` | in sync (18 models) |
 
 The wheel install, dashboard build and artifact checks above were not re-run.
+
+## Review fixes ported from `join/evidence-workflow`, 2026-09-23
+
+An independent review of `97bbfe0` confirmed that all 18 original probe scenarios behave as the
+table below says. It also found that a candidate PASS survived when:
+- dataset rows declared no candidate digest (so edited requirements still passed);
+- a dataset row or rubric repeated a JSON key (the later value hid a failing one).
+
+The local branch `join/evidence-workflow`, reviewed in three rounds on its own, already fixed both. Its
+commits that are not duplicates of this branch's own T01–T13 work were ported:
+
+| Source | Port | Change |
+|---|---|---|
+| `67e0063`, `3313804` | cherry-picked | `install-skill --force` moves the live skill only by atomic rename and never leaves the replaced copy beside the new one silently |
+| `fb884bf` | cherry-picked | duplicate JSON keys in dataset rows and rubrics are rejected; out-of-range numbers in intake are a diagnostic, not a crash |
+| `c02943f` | cherry-picked (CHANGELOG merged by hand) | `closed-loop` withholds a candidate PASS unless every dataset row declares its digest (`EVR-BND-0002`) |
+| `8500fe4` | JSX and test hunks only | the artifact's research call is cancellable; compile answers stay in force unless feedback changes one |
+| `d067e7a` | intake hunk only | the invalid-JSON diagnostic is capped at 160 characters |
+
+Not ported, because this branch has its own design for them: that branch's versions of T01–T13, its
+legacy-verdict renewal output (`da0b3d7`, the rest of `d067e7a`), and its documentation commits.
+
+Re-run on the ported head, same platform:
+
+| Command | Result |
+|---|---|
+| `uv run pytest -q` | 890 passed, 1 deselected (869 + 21 ported tests) |
+| `python scripts/mutation_check.py` | 15/15 killed |
+| Reverting each ported safeguard (dataset and rubric duplicate-key hooks, the `EVR-BND-0002` guard, the guarded research call) | 4/4 caught by tests |
+| The 18 probe scenarios | unchanged |
+| The review's PASS-path probes (unbound, partially bound, duplicate keys) | all `BLOCKED` |
+| `python scripts/reference_workflow.py` (source tree) | OK, ~37 s |
+| `python scripts/generate_model_surfaces.py --check` | in sync (18 models) |
+| `scripts/build_skill_bundle.py` | deterministic; only the JSX asset changed in both bundles |
+
+Still open from the same review, on neither branch:
+- `hosted-compile` (experimental) and `closed-loop-bridged-008` parse with plain `json.loads`, so a
+  duplicate `priority` key can silently make a mandatory requirement optional.
+- `evaluate-product` and the benchmark scorer do not require requirement coverage.
+- A deeply nested dataset row raises `RecursionError` out of `closed-loop`.
+- Rubric matching treats `1` as equal to `true`.
 
 ## Review findings
 
