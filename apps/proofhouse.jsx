@@ -204,7 +204,7 @@ function validateCompiledVersion(value) {
 function buildRevisionUser({ rawRequest, answeredText, previousPrompt, feedback, estimate }) {
   return (
     `Original request: "${rawRequest}"\n\n` +
-    `Clarifying answers from the original compile (authoritative; keep every one; if the feedback conflicts with one, keep it and name the conflict in the rationale):\n${answeredText || "(none provided)"}\n\n` +
+    `Clarifying answers from the original compile (still in force unless the feedback below changes one; name any conflict in the rationale):\n${answeredText || "(none provided)"}\n\n` +
     `Previous optimized prompt (~${estimate} tokens):\n${previousPrompt}\n\n` +
     `User feedback on that version: "${feedback}"\n\n` +
     "Diagnose what's wrong (scope mismatch, wrong tone, missing constraint, too rigid, too vague, model mismatch, security gap, token bloat/too verbose, or other) and produce a revised version that fixes it. Reflect the diagnosis briefly in the rationale."
@@ -216,8 +216,9 @@ function estimateTokens(text) {
   return Math.ceil((text || "").length / 4);
 }
 
-async function researchModel(name) {
+async function researchModel(name, signal) {
   const response = await fetch("https://api.anthropic.com/v1/messages", {
+    signal,
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -292,16 +293,20 @@ export default function Proofhouse() {
   const abortRef = useRef(null);
 
   // One in-flight request at a time, with a timeout and a user-visible cancel.
-  async function guardedCall(system, user) {
+  async function guarded(run) {
     const controller = new AbortController();
     abortRef.current = controller;
     const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
     try {
-      return await callClaude(system, user, controller.signal);
+      return await run(controller.signal);
     } finally {
       clearTimeout(timer);
       abortRef.current = null;
     }
+  }
+
+  function guardedCall(system, user) {
+    return guarded((signal) => callClaude(system, user, signal));
   }
 
   function cancelRequest() {
@@ -325,10 +330,11 @@ export default function Proofhouse() {
 
     setResearching(true);
     try {
-      const notes = await researchModel(raw);
+      const notes = await guarded((signal) => researchModel(raw, signal));
       window.storage.set(`model-notes:${key}`, notes, true).catch(() => {});
       return { notes, source: "researched" };
     } catch (e) {
+      if (e && e.name === "AbortError") throw e; // cancelled or timed out: stop, don't fall back
       return { notes: `${MODEL_NOTES["Other"]} (research attempt failed: ${e.message})`, source: "fallback" };
     } finally {
       setResearching(false);

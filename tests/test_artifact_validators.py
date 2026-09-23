@@ -109,7 +109,8 @@ def test_hidden_answers_never_reach_compilation(results: dict) -> None:
 def test_revision_request_carries_clarifying_answers(results: dict) -> None:
     text = results["revisionUser"]
     assert "audience: soc" in text
-    assert "authoritative" in text
+    assert "Clarifying answers from the original compile" in text
+    assert "still in force unless the feedback below changes one" in text
 
 
 def test_artifact_uses_the_validators_on_every_model_response() -> None:
@@ -122,4 +123,7 @@ def test_artifact_uses_the_validators_on_every_model_response() -> None:
     assert "formatAnswers(visibleAnswers(questionGroups, answers))" in text
     assert "buildRevisionUser(" in text
     assert "AbortController" in text and "cancelRequest" in text
+    # The unfamiliar-model research call runs under the same timeout/cancel (review of 8b5a187).
+    assert "guarded((signal) => researchModel(raw, signal))" in component
+    assert "async function researchModel(name, signal)" in text
     assert "POLICY_PRECEDENCE" in text.split("// validators:end")[1]
