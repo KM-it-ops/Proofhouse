@@ -72,9 +72,13 @@ Behavior changes a user will notice are marked **(breaking)**. See
   Library callers must pass `max_cost_usd` as a decimal string (as the CLI
   does) and `max_output_tokens` as a positive `int` (not `bool`).
 - **Artifact responses (F10).** The JSX artifact schema-validates every model
-  response, excludes answers to hidden questions, and adds timeout/cancel.
+  response, excludes answers to hidden questions, and adds timeout/cancel,
+  including for the unfamiliar-model research call (a cancel stops the run
+  rather than falling back to generic notes).
 - **Revision context (F11).** Revise packets (CLI and artifact) carry the
-  clarification answers and accepted constraints.
+  clarification answers and accepted constraints. The artifact describes the
+  answers as still in force unless the new feedback changes one, not as
+  overriding it.
 - **Public trust docs (F12).** SECURITY.md names a private reporting route;
   CONTRIBUTING installs the test extra and documents a public decision
   process; CLI help no longer cites unpublished internal ids.
