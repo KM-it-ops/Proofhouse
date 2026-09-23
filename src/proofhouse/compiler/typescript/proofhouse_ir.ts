@@ -30,45 +30,45 @@ export interface PolicyBlock {
   rules: NonEmptyStringArray;
 }
 
-export interface PromptRigIRProject {
+export interface ProofhouseIRProject {
   name: NonEmpty;
   description?: string;
   mode: "creative" | "balanced" | "enterprise";
   compilation_level: "prompt" | "prompt_system" | "agent_blueprint" | "application_specification";
 }
 
-export interface PromptRigIRObjective {
+export interface ProofhouseIRObjective {
   goal: NonEmpty;
   target_users: NonEmptyStringArray;
   success_criteria: NonEmptyStringArray;
   failure_conditions: NonEmptyStringArray;
 }
 
-export interface PromptRigIRBehavior {
+export interface ProofhouseIRBehavior {
   instructions: NonEmptyStringArray;
   constraints: NonEmptyStringArray;
   uncertainty_policy: NonEmpty;
   evidence_policy: NonEmpty;
 }
 
-export interface PromptRigIRKnowledgeSourcesItem {
+export interface ProofhouseIRKnowledgeSourcesItem {
   id: Identifier;
   kind: "inline" | "file" | "retrieval_snapshot";
   required: boolean;
   sha256?: Sha256;
 }
 
-export interface PromptRigIRKnowledge {
-  sources: PromptRigIRKnowledgeSourcesItem[];
+export interface ProofhouseIRKnowledge {
+  sources: ProofhouseIRKnowledgeSourcesItem[];
 }
 
-export interface PromptRigIRMemory {
+export interface ProofhouseIRMemory {
   mode: "none" | "session" | "persistent";
   retention: NonEmpty;
   sensitive_data_allowed?: boolean;
 }
 
-export interface PromptRigIRToolsItem {
+export interface ProofhouseIRToolsItem {
   id: Identifier;
   description: NonEmpty;
   input_schema: JsonSchema;
@@ -77,62 +77,62 @@ export interface PromptRigIRToolsItem {
   approval: "never" | "policy" | "always";
 }
 
-export interface PromptRigIRWorkflowStepsItem {
+export interface ProofhouseIRWorkflowStepsItem {
   id: Identifier;
   action: NonEmpty;
   on_failure: "stop" | "continue" | "request_approval";
 }
 
-export interface PromptRigIRWorkflow {
-  steps: PromptRigIRWorkflowStepsItem[];
+export interface ProofhouseIRWorkflow {
+  steps: ProofhouseIRWorkflowStepsItem[];
 }
 
-export interface PromptRigIRAutonomy {
+export interface ProofhouseIRAutonomy {
   approval_policy: "read_only" | "bounded_write" | "human_approval";
   max_tool_calls: number;
   stop_conditions?: NonEmptyStringArray;
 }
 
-export interface PromptRigIRProviderRequirements {
+export interface ProofhouseIRProviderRequirements {
   required_capabilities: Capabilities;
   optional_capabilities: Capabilities;
 }
 
-export interface PromptRigIREvaluation {
+export interface ProofhouseIREvaluation {
   dimensions: NonEmptyStringArray;
   repair_limit: number;
   baseline_required: boolean;
   test_categories: NonEmptyStringArray;
 }
 
-export interface PromptRigIRDeployment {
+export interface ProofhouseIRDeployment {
   targets: NonEmptyStringArray;
 }
 
-export interface PromptRigIRProvenance {
+export interface ProofhouseIRProvenance {
   source_id: NonEmpty;
   source_sha256: Sha256;
 }
 
-export interface PromptRigIR {
+export interface ProofhouseIR {
   spec_version: "0.1.0";
-  project: PromptRigIRProject;
-  objective: PromptRigIRObjective;
+  project: ProofhouseIRProject;
+  objective: ProofhouseIRObjective;
   requirements: Requirement[];
   input_contracts?: DataContract[];
   output_contracts?: DataContract[];
-  behavior: PromptRigIRBehavior;
-  knowledge?: PromptRigIRKnowledge;
-  memory?: PromptRigIRMemory;
-  tools?: PromptRigIRToolsItem[];
-  workflow?: PromptRigIRWorkflow;
-  autonomy?: PromptRigIRAutonomy;
+  behavior: ProofhouseIRBehavior;
+  knowledge?: ProofhouseIRKnowledge;
+  memory?: ProofhouseIRMemory;
+  tools?: ProofhouseIRToolsItem[];
+  workflow?: ProofhouseIRWorkflow;
+  autonomy?: ProofhouseIRAutonomy;
   security?: PolicyBlock;
   privacy?: PolicyBlock;
-  provider_requirements?: PromptRigIRProviderRequirements;
-  evaluation: PromptRigIREvaluation;
-  deployment?: PromptRigIRDeployment;
+  provider_requirements?: ProofhouseIRProviderRequirements;
+  evaluation: ProofhouseIREvaluation;
+  deployment?: ProofhouseIRDeployment;
   assumptions?: NonEmpty[];
   open_questions?: NonEmpty[];
-  provenance: PromptRigIRProvenance;
+  provenance: ProofhouseIRProvenance;
 }

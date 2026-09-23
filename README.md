@@ -9,7 +9,7 @@
 
 I built Proofhouse because I kept rewriting the same prompt for different models and never had a good answer for which version was better. It takes a plain-language objective, asks its clarifying questions in one batch instead of a drip, compiles a prompt tuned for the model you named, and evaluates the result against cases you control. When the output misses, it diagnoses why (scope, tone, bloat, wrong model assumptions) and revises without throwing away the history.
 
-Version 0.2.1 ships two command-line tools in one Python package: `proofhouse-compiler`, an offline compiler, and `proofhouse`, an eval harness. The certified path runs entirely on your machine with no API key. There is a Cursor skill if you want the conversational flow. This is a local tool, not a hosted service, and I make no benchmark claims for it.
+Version 0.3.0 ships two command-line tools in one Python package: `proofhouse-compiler`, an offline compiler, and `proofhouse`, an eval harness. The certified path runs entirely on your machine with no API key. There is a Cursor skill if you want the conversational flow. This is a local tool, not a hosted service, and I make no benchmark claims for it.
 
 Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/) · Skill: `skills/proofhouse/` · Showcase: [docs/showcase.md](docs/showcase.md)
 

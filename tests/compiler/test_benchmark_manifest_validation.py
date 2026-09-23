@@ -49,7 +49,7 @@ def _valid_manifest(
 ) -> dict[str, Any]:
     manifest: dict[str, Any] = {
         "manifest_version": "0.1.0",
-        "benchmark_id": "promptrig-sealed-offline-v0.1",
+        "benchmark_id": "proofhouse-sealed-offline-v0.1",
         "network_mode": "offline",
         "network_allowed": False,
         "environment_digest": environment_digest,

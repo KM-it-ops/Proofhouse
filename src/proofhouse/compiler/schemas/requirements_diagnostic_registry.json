@@ -1,5 +1,5 @@
 {
-  "registry_id": "promptrig.requirements-compiler.diagnostics",
+  "registry_id": "proofhouse.requirements-compiler.diagnostics",
   "registry_version": "0.1.0-draft",
   "status": "PROPOSED",
   "diagnostics": [

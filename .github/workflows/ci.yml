@@ -53,9 +53,7 @@ jobs:
       - name: Compiler Core smoke test -- installed script
         run: |
           proofhouse-compiler doctor --json
-          promptrig-compiler doctor --json
           proofhouse-compiler adapters --json
-          promptrig-compiler adapters --json
 
       - name: Compiler Core smoke test -- python -m invocation
         run: |
@@ -111,7 +109,6 @@ jobs:
       - name: Doctor on installed wheel
         run: |
           /tmp/pr-wheel/bin/proofhouse-compiler doctor --json
-          /tmp/pr-wheel/bin/promptrig-compiler doctor --json
 
       - name: Installed consumer smoke
         run: |

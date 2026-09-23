@@ -1,6 +1,6 @@
 # Proofhouse Quickstart
 
-Two offline surfaces, one package (`proofhouse` 0.2.1):
+Two offline surfaces, one package (`proofhouse` 0.3.0):
 
 - `proofhouse-compiler` — the compiler. Requirements → IR → fake-adapter artifact → evaluation/repair evidence.
 - `proofhouse` — the eval harness. JSONL dataset validation, rubric checks, markdown report skeletons.
@@ -84,12 +84,12 @@ uv run proofhouse-compiler optimize revise --case build/case-demo --feedback "to
 ```
 
 ```text
-optimize: new case C:\AI\projects\PromptRig\.worktrees\T-S\build\case-demo
+optimize: new case C:\AI\projects\Proofhouse\.worktrees\T-S\build\case-demo
   model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no
   preset: balanced  loop: no
   wrote: case.json, 01-clarify.md, answers.json
-  next: run 01-clarify.md in your host agent, put answers in answers.json, then: proofhouse-compiler optimize compile --case C:\AI\projects\PromptRig\.worktrees\T-S\build\case-demo
-check: C:\AI\projects\PromptRig\.worktrees\T-S\build\case-demo
+  next: run 01-clarify.md in your host agent, put answers in answers.json, then: proofhouse-compiler optimize compile --case C:\AI\projects\Proofhouse\.worktrees\T-S\build\case-demo
+check: C:\AI\projects\Proofhouse\.worktrees\T-S\build\case-demo
   v1: PASS  C1=PASS C2=PASS
 ```
 

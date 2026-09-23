@@ -179,13 +179,13 @@ def test_happy_path_opt_in_test_double_audit_and_stable_compile(forbid_network: 
 
 
 def test_credential_redaction_in_envelope_and_diagnostics(forbid_network: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PROMPTRIG_TEST_OPENAI_KEY", SECRET)
+    monkeypatch.setenv("PROOFHOUSE_TEST_OPENAI_KEY", SECRET)
     result = execute_openai(
         _raw(),
         LiveOpenAIRequest(
             opt_in=True,
             model=CALLER_MODEL,
-            credential_env_name="PROMPTRIG_TEST_OPENAI_KEY",
+            credential_env_name="PROOFHOUSE_TEST_OPENAI_KEY",
             max_output_tokens=8,
             max_cost_usd="0.01",
             transport=RecordingTransport(),
@@ -198,13 +198,13 @@ def test_credential_redaction_in_envelope_and_diagnostics(forbid_network: None, 
 
 
 def test_empty_credential_env_fail_closed(forbid_network: None, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("PROMPTRIG_TEST_OPENAI_KEY", "")
+    monkeypatch.setenv("PROOFHOUSE_TEST_OPENAI_KEY", "")
     result = execute_openai(
         _raw(),
         LiveOpenAIRequest(
             opt_in=True,
             model=CALLER_MODEL,
-            credential_env_name="PROMPTRIG_TEST_OPENAI_KEY",
+            credential_env_name="PROOFHOUSE_TEST_OPENAI_KEY",
             max_output_tokens=8,
             max_cost_usd="0.01",
             transport=RecordingTransport(),
@@ -355,7 +355,7 @@ def test_cli_execute_openai_without_opt_in_fail_closed(tmp_path: Any, capsys: py
             "--model",
             CALLER_MODEL,
             "--credential-env",
-            "PROMPTRIG_TEST_OPENAI_KEY",
+            "PROOFHOUSE_TEST_OPENAI_KEY",
             "--max-output-tokens",
             "8",
             "--max-cost-usd",
