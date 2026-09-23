@@ -115,17 +115,17 @@ def test_successful_artifact_retains_exact_deterministic_semantic_context_and_di
     payload = json.loads(base64.b64decode(artifact["data_base64"]))
     provenance = artifact["provenance"]
 
-    assert payload["promptrig_semantic_context"]["ir"] == document
+    assert payload["proofhouse_semantic_context"]["ir"] == document
     assert provenance["source_ir_paths"] == list(semantic_leaf_pointers(document))
     assert provenance["semantic_coverage"] == provenance["source_ir_paths"]
     dispositions = provenance["semantic_dispositions"]
     assert dispositions
     assert [item["source_path"] for item in dispositions] == provenance["source_ir_paths"]
-    assert all(not path.startswith("/promptrig_semantic_context") for path in provenance["source_ir_paths"])
+    assert all(not path.startswith("/proofhouse_semantic_context") for path in provenance["source_ir_paths"])
     assert {item["disposition"] for item in dispositions} <= {"lowered", "enforced", "retained"}
     assert all(item["artifact_paths"] for item in dispositions)
     assert all(
-        path.startswith("/promptrig_semantic_context/ir")
+        path.startswith("/proofhouse_semantic_context/ir")
         for item in dispositions
         for path in item["artifact_paths"]
     )

@@ -42,7 +42,7 @@ MODE_SOURCE_KINDS = {
     "developer": frozenset({"developer_config", "decision", "contract"}),
     "prs": frozenset({"prs", "decision", "contract"}),
 }
-PRODUCER_VAL_DIGEST = hashlib.sha256(b"promptrig-mission-017-producer").hexdigest()
+PRODUCER_VAL_DIGEST = hashlib.sha256(b"proofhouse-mission-017-producer").hexdigest()
 INPUT_ID_PATTERN = re.compile(r"^INP-[A-Z0-9-]+$")
 
 

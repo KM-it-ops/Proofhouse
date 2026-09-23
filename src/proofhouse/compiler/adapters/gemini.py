@@ -110,7 +110,7 @@ CAPABILITY_LIMITS = {
             "grounding, code_execution, Maps grounding) that run on Google's own infrastructure "
             "with no caller-side handler, combinable with caller-defined function tools via "
             "Gemini 3's tool-context-circulation model. Proofhouse's frozen IR v0.1 `tools` array "
-            "schema (PROMPTRIG_IR_V0_1.schema.json) only supports the caller-defined custom-tool "
+            "schema (proofhouse_ir_v0_1.schema.json) only supports the caller-defined custom-tool "
             "shape (id/description/input_schema/side_effecting/approval) -- there is no IR field "
             "to select a specific Gemini built-in tool or supply its configuration. This adapter "
             "reports tools.server_executed@1 as unsupported to reflect that IR-representational "
@@ -330,7 +330,7 @@ class GeminiAdapter:
         digest = canonical_sha256(payload)
         artifact = Artifact(
             name="gemini_request_payload",
-            media_type="application/vnd.promptrig.gemini.request-payload+json",
+            media_type="application/vnd.proofhouse.gemini.request-payload+json",
             sha256=digest,
             data=body,
         )

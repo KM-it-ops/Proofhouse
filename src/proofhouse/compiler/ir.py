@@ -4,7 +4,7 @@ Parsing (structural JSON correctness under the canonical-JSON profile) is
 kept separate from schema validation, which is a pass-protocol concern
 (see passes/validation.py). This module owns only: turning raw bytes/text
 into a parsed+digested document, and running that document against the
-frozen `PROMPTRIG_IR_V0_1.schema.json`.
+frozen `proofhouse_ir_v0_1.schema.json`.
 """
 from __future__ import annotations
 

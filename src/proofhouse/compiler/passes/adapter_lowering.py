@@ -67,7 +67,7 @@ class AdapterLoweringPass:
             return state.with_updates(stopped=True, lowering_status="failure"), (diag,)
 
         descriptor = self._adapter.describe()
-        semantic_root = "/promptrig_semantic_context/ir"
+        semantic_root = "/proofhouse_semantic_context/ir"
         dispositions = tuple(
             SemanticDisposition(
                 source_path=source_path,
@@ -146,7 +146,7 @@ class AdapterLoweringPass:
             payload = json.loads(artifact.data.decode("utf-8"))
             if not isinstance(payload, dict):
                 raise ValueError("semantic context requires a JSON object artifact")
-            payload["promptrig_semantic_context"] = {"version": "0.1.0", "ir": ir_document}
+            payload["proofhouse_semantic_context"] = {"version": "0.1.0", "ir": ir_document}
             data = canonicalize(payload)
             enriched.append(
                 Artifact(

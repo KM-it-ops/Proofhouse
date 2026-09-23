@@ -100,7 +100,7 @@ class FakeAdapter:
         digest = canonical_sha256(payload)
         artifact = Artifact(
             name="compiled_prompt",
-            media_type="application/vnd.promptrig.fake.compiled-prompt+json",
+            media_type="application/vnd.proofhouse.fake.compiled-prompt+json",
             sha256=digest,
             data=body,
         )

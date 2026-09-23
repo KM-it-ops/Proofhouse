@@ -8,8 +8,6 @@ module must not call the network. Do not treat collection as a CI live job.
 from __future__ import annotations
 
 import os
-import warnings
-
 import pytest
 
 from proofhouse.compiler.execution import LiveOpenAIRequest, execute_openai
@@ -17,31 +15,11 @@ from proofhouse.compiler.execution import LiveOpenAIRequest, execute_openai
 pytestmark = pytest.mark.live
 
 _PREFIX = "PROOFHOUSE_LIVE"
-_LEGACY_PREFIX = "PROMPTRIG_LIVE"
-_legacy_warned = False
 
 
 def _live_env(suffix: str = "") -> str | None:
-    """Read PROOFHOUSE_LIVE*, falling back to the pre-rename PROMPTRIG_LIVE* name.
-
-    The fallback is kept for one minor version and is removable at 0.3.0. It
-    warns once per process however many legacy names are set, so a run with
-    several of them does not bury the notice in repeats.
-    """
-    global _legacy_warned
-    value = os.environ.get(_PREFIX + suffix)
-    if value is not None:
-        return value
-    legacy = os.environ.get(_LEGACY_PREFIX + suffix)
-    if legacy is not None and not _legacy_warned:
-        _legacy_warned = True
-        warnings.warn(
-            f"{_LEGACY_PREFIX}* environment variables are deprecated; "
-            f"use {_PREFIX}* instead. The fallback is removable at 0.3.0.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-    return legacy
+    """Read the Proofhouse live-test environment namespace."""
+    return os.environ.get(_PREFIX + suffix)
 
 
 def test_real_network_fail_closed_until_q1_picked() -> None:
