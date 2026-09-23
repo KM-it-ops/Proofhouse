@@ -25,6 +25,23 @@
 | esbuild transpile of `apps/proofhouse.jsx` and the skill copy | OK |
 | `tests/test_artifact_validators.py` (artifact validators under node) | 31 passed |
 
+## Rebase onto 0.3.0, 2026-09-23
+
+`16d4c04` is the pre-rebase revision. The branch was rebased onto the rebrand closeout
+(PR #39, `proofhouse` 0.3.0), so its commit ids changed. The rebase surfaced one code defect that
+merged cleanly as text: `execute-openai` still read the pre-rename semantic-context key and refused
+every artifact. The commit `fix: align evidence-integrity with the Proofhouse rebrand` corrects it.
+Re-run on the rebased head, same platform:
+
+| Command | Result |
+|---|---|
+| `uv run pytest -q` | 869 passed, 1 deselected |
+| `python scripts/mutation_check.py` | 15/15 killed |
+| `python scripts/reference_workflow.py` (source tree) | OK, ~18 s |
+| `python scripts/generate_model_surfaces.py --check` | in sync (18 models) |
+
+The wheel install, dashboard build and artifact checks above were not re-run.
+
 ## Review findings
 
 | Finding | Before (`78e512c`) | After (`16d4c04`) | Regression tests |
