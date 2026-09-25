@@ -45,7 +45,7 @@ HEAD: $HeadSha
     git diff --stat "$BaseSha..$HeadSha" | Add-Content -LiteralPath $OutFile -Encoding utf8
     Add-Content -LiteralPath $OutFile -Value "`n## Diff`n``````diff`n" -Encoding utf8
     git diff -U10 "$BaseSha..$HeadSha" | Add-Content -LiteralPath $OutFile -Encoding utf8
-    Add-Content -LiteralPath $OutFile -Value "``````n" -Encoding utf8
+    Add-Content -LiteralPath $OutFile -Value "``````" -Encoding utf8
 
     Write-Output $OutFile
 }
