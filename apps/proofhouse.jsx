@@ -48,6 +48,11 @@ const MODEL_NOTES = {
 
 const MODEL_OPTIONS = Object.keys(MODEL_NOTES);
 
+// Model this artifact calls. Must be a real Anthropic Messages API model id the host
+// accepts, not a marketing name. A host can override it with window.PROOFHOUSE_MODEL.
+const ARTIFACT_MODEL =
+  (typeof window !== "undefined" && window.PROOFHOUSE_MODEL) || "claude-sonnet-4-6";
+
 // Universal token-discipline directive, applied to every call this tool makes AND
 // baked into every prompt it produces. Two separate concerns: (1) keep Proofhouse's
 // own API usage lean, (2) make the compiled prompt itself token-efficient to run.
@@ -222,7 +227,7 @@ async function researchModel(name, signal) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model: ARTIFACT_MODEL,
       max_tokens: 1000,
       tools: [{ type: "web_search_20250305", name: "web_search" }],
       messages: [
@@ -250,7 +255,7 @@ async function callClaude(system, user, signal) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "claude-sonnet-4-6",
+      model: ARTIFACT_MODEL,
       max_tokens: 1000,
       system,
       messages: [{ role: "user", content: user }],
