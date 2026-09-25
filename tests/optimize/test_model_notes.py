@@ -222,6 +222,7 @@ def test_to_dict_exposes_every_field_with_json_types(home: Path) -> None:
         "provider",
         "tier",
         "source",
+        "verification",
         "verified_at",
         "stale",
         "age_days",

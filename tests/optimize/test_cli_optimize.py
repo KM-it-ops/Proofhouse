@@ -78,7 +78,7 @@ def test_new_writes_case_files_and_builtin_model(tmp_path: Path, capsys) -> None
     lines = out.splitlines()
     resolved_dir = case_dir.resolve()
     assert lines[0] == f"optimize: new case {resolved_dir}"
-    assert lines[1] == "  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no"
+    assert lines[1] == "  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no evidence=unverified"
     assert lines[2] == "  preset: balanced  loop: no"
     assert lines[3] == "  wrote: case.json, 01-clarify.md, answers.json"
     assert lines[4] == (
@@ -171,7 +171,10 @@ def test_record_twice_creates_v1_v2_with_distinct_sha(tmp_path: Path, capsys) ->
     assert [r["n"] for r in case["revisions"]] == [1, 2]
     assert case["revisions"][0]["path"] == "revisions/v1.json"
     assert case["revisions"][0]["sha256"] == sha_one
-    assert set(case["revisions"][0]) == {"n", "path", "sha256", "token_estimate", "created_at", "feedback_on_previous"}
+    assert set(case["revisions"][0]) == {
+        "n", "path", "sha256", "token_estimate", "created_at", "feedback_on_previous", "parent"
+    }
+    assert case["revisions"][0]["parent"] is None  # T09 lineage: v1 was not revised from anything
 
 
 def test_revise_from_earlier_revision_quotes_that_prompt(tmp_path: Path, capsys) -> None:
@@ -247,7 +250,7 @@ def test_unknown_template_key_is_usage_error_not_traceback(tmp_path: Path, capsy
     assert not (case_dir / "02-compile.md").exists()
 
 
-def test_notes_file_is_researched_and_not_cached(tmp_path: Path, home: Path, capsys) -> None:
+def test_notes_file_is_user_supplied_unverified_and_not_cached(tmp_path: Path, home: Path, capsys) -> None:
     notes = tmp_path / "zeta.md"
     notes.write_text("Zeta 9 prefers numbered constraints.\n", encoding="utf-8")
     case_dir = tmp_path / "case-g"
@@ -262,9 +265,11 @@ def test_notes_file_is_researched_and_not_cached(tmp_path: Path, home: Path, cap
     payload = _json(out)
     assert payload["command"] == "optimize new"
     model = payload["data"]["case"]["model"]
-    assert model["source"] == "researched"
+    # T07 (review F05): a local notes file is user-supplied and never dated as verified.
+    assert model["source"] == "user_supplied"
+    assert model["verification"] == "unverified"
     assert model["provenance"] == "notes file zeta.md"
-    assert model["verified_at"] == registry.today().isoformat()
+    assert model["verified_at"] is None
     assert model["canonical_id"] == "zeta-9"
     assert model["entered_name"] == "Zeta 9"
     assert model["notes"] == "Zeta 9 prefers numbered constraints."
@@ -273,7 +278,8 @@ def test_notes_file_is_researched_and_not_cached(tmp_path: Path, home: Path, cap
     assert "Zeta 9 prefers numbered constraints." in clarify
     assert "Loop & Recurrence" in clarify
     assert "Efficient (tightest possible prompt, minimum viable questions)" in clarify
-    assert "source=researched" in clarify
+    assert "source=user_supplied" in clarify
+    assert "evidence=unverified" in clarify
 
 
 def test_status_reports_stage_counts_and_stale_warning(tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -285,7 +291,7 @@ def test_status_reports_stage_counts_and_stale_warning(tmp_path: Path, capsys, m
     assert out.splitlines() == [
         f"case: {case_dir.resolve()}",
         "  stage: clarify",
-        "  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no",
+        "  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no evidence=unverified",
         "  revisions: 1",
         "  criteria: 0",
     ]
@@ -293,7 +299,7 @@ def test_status_reports_stage_counts_and_stale_warning(tmp_path: Path, capsys, m
     monkeypatch.setattr(registry, "today", lambda: date(2027, 1, 1))
     age = (date(2027, 1, 1) - date(2026, 9, 3)).days
     warning = (
-        f"warning: notes for Claude Sonnet 5 were verified 2026-09-03 ({age} days ago; threshold 90); "
+        f"warning: notes for Claude Sonnet 5 were last reviewed 2026-09-03 ({age} days ago; threshold 90); "
         "re-check pricing, context, and settings against vendor docs\n"
     )
     code, out, err = _run(["optimize", "status", "--case", str(case_dir), "--json"], capsys)

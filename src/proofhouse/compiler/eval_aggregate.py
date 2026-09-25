@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import math
+from collections.abc import Hashable, Mapping
 from typing import Literal
 
 Aggregation = Literal["min", "max", "mean", "any_fail", "all_pass"]
 
 
 def aggregate_scores(
-    scores: dict[str, float | None], method: Aggregation
+    scores: Mapping[Hashable, float | None], method: Aggregation
 ) -> tuple[float | None, tuple[str, ...]]:
     if any(value is None for value in scores.values()):
         return None, ("EVR-SCR-0001",)
@@ -17,7 +19,8 @@ def aggregate_scores(
     if method == "max":
         return max(values), ()
     if method == "mean":
-        return sum(values) / len(values), ()
+        # fsum is exact, so the mean does not depend on case order.
+        return math.fsum(values) / len(values), ()
     if method == "any_fail":
         return (0.0 if any(value < 1.0 for value in values) else 1.0), ()
     if method == "all_pass":

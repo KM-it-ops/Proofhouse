@@ -20,6 +20,12 @@ EXPECTED_FILES = [
 ]
 
 
+@pytest.fixture(autouse=True)
+def _isolated_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Forced replacements write a rollback backup under PROOFHOUSE_HOME (T06).
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+
+
 def _run(argv: list[str], capsys) -> tuple[int, str, str]:
     code = cli_compiler.main(argv)
     captured = capsys.readouterr()
@@ -97,7 +103,8 @@ def test_bundle_with_wrong_name_fails_verification_exit_7_and_is_removed(tmp_pat
     assert code == 7 and out == ""
     assert err.startswith("error: installed skill failed verification: ")
     assert "name: proofhouse" in err
-    assert f"removed {(dest / 'proofhouse').resolve()}" in err
+    # T06: verification happens in staging, so nothing reaches the destination.
+    assert f"nothing was installed at {(dest / 'proofhouse').resolve()}" in err
     assert not (dest / "proofhouse").exists()
 
 
@@ -147,7 +154,8 @@ def test_json_output_lists_files_and_bundle(tmp_path: Path, capsys) -> None:
     assert payload["command"] == "install-skill"
     assert payload["status"] == "success"
     data = payload["data"]
-    assert set(data) == {"dest", "files", "verified", "bundle"}
+    assert set(data) == {"dest", "files", "verified", "bundle", "backup"}
+    assert data["backup"] is None
     assert data["dest"] == str((dest / "proofhouse").resolve())
     assert data["files"] == EXPECTED_FILES
     assert data["verified"] is True
@@ -183,3 +191,18 @@ def test_help_is_ascii(capsys) -> None:
     (out + err).encode("ascii")
     for flag in ("--dest", "--bundle", "--force", "--json"):
         assert flag in out
+
+
+def test_cli_warns_when_the_replaced_copy_could_not_be_removed(tmp_path: Path, monkeypatch, capsys) -> None:
+    from proofhouse.compiler import cli_compiler
+    from proofhouse.optimize import install_skill
+
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    dest = tmp_path / "skills"
+    assert cli_compiler.main(["install-skill", "--dest", str(dest)]) == 0
+    monkeypatch.setattr(install_skill, "_discard", lambda path: False)
+    capsys.readouterr()
+    assert cli_compiler.main(["install-skill", "--dest", str(dest), "--force"]) == 0
+    err = capsys.readouterr().err
+    assert err.startswith("warning: could not remove the replaced copy at ")
+    assert "delete it so the host does not load two copies" in err

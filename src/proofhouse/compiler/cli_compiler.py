@@ -250,6 +250,9 @@ def _cmd_closed_loop(args: argparse.Namespace) -> int:
         for code in result.diagnostics:
             print(f"  [{code}]")
         print(f"  requirements: {result.evidence_bundle.get('requirement_ids')}")
+        product_stage = (result.evidence_bundle.get("stages") or {}).get("product_evaluation") or {}
+        if product_stage.get("candidate_binding"):
+            print(f"  candidate_binding: {product_stage['candidate_binding']}")
         print(f"  failed_attempts: {len(result.failed_attempts)}")
     if result.status == "PASS":
         return EXIT_SUCCESS
@@ -592,9 +595,9 @@ def build_parser() -> argparse.ArgumentParser:
     p_loop = subparsers.add_parser(
         "closed-loop",
         help=(
-            "Headless closed-loop (OAR-006 certified slice): structured requirements or "
+            "Offline closed loop (the tested offline path): structured requirements or "
             "plain_language_v0 envelope -> IR -> fake adapter -> eval/repair -> evidence. "
-            "Not a live provider. Not full MISSION-008."
+            "Structural checks only; not a live provider and not the full requirements contract."
         ),
     )
 
@@ -607,7 +610,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--enable-model-suggestions",
         action="store_true",
         default=False,
-        help="Opt-in MISSION-014 fake-suggester-v0 sidecar (proposals are not canonical).",
+        help="Opt-in fake model-suggestion sidecar (proposals are not canonical).",
     )
     p_loop.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
     p_loop.add_argument(
@@ -625,7 +628,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_req = subparsers.add_parser(
         "compile-requirements",
         help=(
-            "Evaluate canonical MISSION-008 artifact JSON, a file/api/simple/developer/prs "
+            "Evaluate a canonical requirements-contract artifact JSON, a file/api/simple/developer/prs "
             "envelope, or a plain_language_v0 text envelope (constrained prose; not freeform NLP; "
             "not closed-loop)."
         ),
@@ -643,8 +646,8 @@ def build_parser() -> argparse.ArgumentParser:
     p_pe = subparsers.add_parser(
         "evaluate-product",
         help=(
-            "Run the opt-in evaluation/repair product bar (not CERTIFIED). "
-            "Oracle compile/security/network checks still rank first."
+            "Experimental: evaluate imported observations (JSONL cases + rubric) against a candidate. "
+            "Oracle compile/security/network checks still rank first; duplicate ids are rejected."
         ),
     )
     p_pe.add_argument("--dataset", required=True, help="Path to JSONL dataset.")
@@ -669,7 +672,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_bridge = subparsers.add_parser(
         "closed-loop-bridged-008",
         help=(
-            "Bridge canonical MISSION-008 artifact JSON (compile-requirements SUCCESS "
+            "Bridge a canonical requirements-contract artifact JSON (compile-requirements SUCCESS "
             "or representable PARTIAL) into structured_minimal_v0, then fake closed-loop. "
             "Does not teach closed-loop to parse 008 envelopes; unbridged closed-loop "
             "stays EVR-RQC-0001."
@@ -677,7 +680,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     p_bridge.add_argument(
         "input",
-        help="Path to canonical MISSION-008 artifact JSON, or '-' for stdin.",
+        help="Path to a canonical requirements-contract artifact JSON, or '-' for stdin.",
     )
     p_bridge.add_argument("--repair-budget", type=int, choices=(0, 1, 2), default=1)
     p_bridge.add_argument("--json", action="store_true", help="Emit a single JSON evidence envelope.")
@@ -685,7 +688,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_route = subparsers.add_parser(
         "route",
-        help="Classify artifact class upstream of IR (ADR-008). Does not compile IR.",
+        help="Experimental: classify the artifact class upstream of IR. Does not compile IR.",
     )
     p_route.add_argument("--objective", required=True, help="Natural-language objective to classify.")
     p_route.add_argument(
@@ -698,7 +701,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_assay = subparsers.add_parser(
         "assay",
-        help="Evaluate an in-run claim ledger (ADR-008). Offline; caller supplies evidence text.",
+        help="Experimental: evaluate an in-run claim ledger. Offline; caller supplies evidence text.",
     )
     p_assay.add_argument("--claims", required=True, help="Path to JSON array of Claim objects.")
     p_assay.add_argument(
@@ -712,7 +715,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_proof = subparsers.add_parser(
         "proof",
-        help="Two-pass expand/contract audit (ADR-008). Offline default ships with empty passes.",
+        help="Experimental: two-pass expand/contract audit. Offline default ships with empty passes.",
     )
     p_proof.add_argument("--artifact", required=True, help="Artifact text to audit.")
     p_proof.add_argument("--spec", required=True, help="Spec text the artifact must satisfy.")
@@ -724,7 +727,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Fail-closed opt-in single-request live OpenAI execution. "
             "Not closed-loop. Model, ceilings, and credential env name are "
-            "required at call time. Q1 is gpt-5.6-luna (OAR-032); --model has no default."
+            "required at call time; --model has no default. Budget is recorded, not enforced pre-send."
         ),
     )
     p_exec.add_argument("input", help="Path to an IR JSON file, or '-' for stdin.")

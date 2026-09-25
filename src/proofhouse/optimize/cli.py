@@ -23,7 +23,9 @@ from . import case as case_mod
 from . import checks
 from . import install_skill as install_mod
 from . import model_notes
+from . import workflow
 from .case import CaseError
+from .cli_workflow import add_workflow_commands
 from .model_notes import ResolvedNotes, resolve_model_notes
 from .packets import PRESET_KEYS
 from .registry import load_registry
@@ -65,7 +67,7 @@ def _warn_if_stale(resolved: ResolvedNotes) -> bool:
     if not resolved.stale:
         return False
     _warn(
-        f"notes for {resolved.display_name} were verified {resolved.verified_at} "
+        f"notes for {resolved.display_name} were last reviewed {resolved.verified_at} "
         f"({resolved.age_days} days ago; threshold {resolved.stale_after_days}); "
         "re-check pricing, context, and settings against vendor docs"
     )
@@ -91,12 +93,12 @@ def _cmd_models_list(args: argparse.Namespace) -> int:
     for entry in builtin:
         print(
             f"  {entry.canonical_id:<20} {entry.display_name:<20} {entry.provider or '-':<10} "
-            f"{entry.tier:<8} verified {entry.verified_at or '-'}{_stale_suffix(entry)}"
+            f"{entry.tier:<8} reviewed {entry.verified_at or '-'} {entry.verification}{_stale_suffix(entry)}"
         )
     for entry in cached:
         print(
             f"  {entry.canonical_id:<20} {entry.entered_name:<20} {'-':<10} "
-            f"{'cached':<8} verified {entry.verified_at}{_stale_suffix(entry)}"
+            f"{'cached':<8} reviewed {entry.verified_at} {entry.verification}{_stale_suffix(entry)}"
         )
     return EXIT_SUCCESS
 
@@ -124,6 +126,7 @@ def _cmd_models_show(args: argparse.Namespace) -> int:
         f"stale: {_yes_no(resolved.stale)}"
     )
     print(f"  sources: {', '.join(resolved.sources) or 'none recorded'}")
+    print(f"  evidence: {resolved.verification}")
     print(f"  notes: {resolved.notes}")
     return EXIT_SUCCESS
 
@@ -179,8 +182,9 @@ def _add_models(subparsers: argparse._SubParsersAction) -> None:
     p_models = subparsers.add_parser(
         "models",
         help=(
-            "Model-note provenance: builtin|cached|researched|fallback, canonical id, "
-            "verified_at, stale warning. Local cache under PROOFHOUSE_HOME; no network."
+            "Model-note provenance: source (builtin|cached|researched|user_supplied|fallback), "
+            "evidence (unverified|sourced|reviewed), canonical id, review date, stale warning. "
+            "Local cache under PROOFHOUSE_HOME; no network."
         ),
     )
     models_sub = p_models.add_subparsers(dest="models_command", required=True)
@@ -234,7 +238,8 @@ def _read_text_arg(text: str | None, file_arg: str | None, label: str) -> str:
 def _model_line(resolved: ResolvedNotes) -> str:
     return (
         f"  model: {resolved.display_name} ({resolved.canonical_id}) source={resolved.source} "
-        f"verified_at={resolved.verified_at or '-'} stale={_yes_no(resolved.stale)}"
+        f"verified_at={resolved.verified_at or '-'} stale={_yes_no(resolved.stale)} "
+        f"evidence={resolved.verification}"
     )
 
 
@@ -344,6 +349,12 @@ def _cmd_optimize_status(args: argparse.Namespace) -> int:
             "loop": data["loop"],
             "revisions": len(data["revisions"]),
             "criteria": len(data["criteria"]),
+            "lineage": case_mod.lineage(data),
+            "constraints": {
+                state: sum(1 for c in workflow.constraints(data) if c["state"] == state)
+                for state in workflow.CONSTRAINT_STATES
+            },
+            "outputs": len(data.get("runs", [])),
         }
         _emit_json("optimize status", status, payload)
         return EXIT_SUCCESS
@@ -383,7 +394,7 @@ def _cmd_criteria_add(args: argparse.Namespace) -> int:
         kind, value = _selected_kind(args)
         data = case_mod.load_case(case_dir)
         criterion = checks.build_criterion(
-            data["criteria"], kind, value, criterion_id=args.id, note=args.note or ""
+            data["criteria"], kind, value, criterion_id=args.id, note=args.note or "", target=args.target
         )
         data = case_mod.add_criterion(case_dir, criterion.to_dict())
     except CaseError as exc:
@@ -422,7 +433,9 @@ def _cmd_verdict(args: argparse.Namespace) -> int:
                 f"criterion {criterion['id']} is {criterion['kind']}; verdicts apply only to manual criteria"
             )
         checks.require_revision(data, args.revision)
-        entry = checks.record_verdict(case_dir, args.revision, criterion["id"], args.result, args.note or "")
+        entry = checks.record_verdict(
+            case_dir, args.revision, criterion["id"], args.result, args.note or "", run_id=args.run
+        )
     except CaseError as exc:
         return _usage_error(str(exc))
     rel_path = f"{checks.CHECKS_DIR}/{checks.VERDICTS_FILE}"
@@ -473,6 +486,12 @@ def _add_checks(opt_sub: argparse._SubParsersAction) -> None:
         else:
             kind_group.add_argument(_kind_flag(kind), dest=kind, metavar="TEXT", help=help_text)
     p_add.add_argument("--id", default=None, help="Criterion id (default: next C1, C2, ...).")
+    p_add.add_argument(
+        "--target",
+        choices=checks.TARGETS,
+        default=checks.TARGET_PROMPT,
+        help="Check the prompt text (default) or each recorded output of the revision.",
+    )
     p_add.add_argument("--note", default=None, help="Free-text note stored with the criterion.")
     p_add.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_add.set_defaults(func=_cmd_criteria_add)
@@ -490,6 +509,7 @@ def _add_checks(opt_sub: argparse._SubParsersAction) -> None:
     p_verdict.add_argument("--revision", required=True, type=int, help="Revision number the judgement applies to.")
     p_verdict.add_argument("--criterion", required=True, help="Id of a manual criterion.")
     p_verdict.add_argument("--result", required=True, choices=checks.VERDICT_RESULTS, help="Your judgement.")
+    p_verdict.add_argument("--run", default=None, help="Recorded output you judged (required for output criteria).")
     p_verdict.add_argument("--note", default=None, help="Free-text note stored with the verdict.")
     p_verdict.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_verdict.set_defaults(func=_cmd_verdict)
@@ -528,7 +548,7 @@ def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
         "--notes-file",
         dest="notes_file",
         default=None,
-        help="Your own notes for the target model, used for this case only (source=researched; not cached).",
+        help="Your own notes for the target model, used for this case only (source=user_supplied, unverified; not cached).",
     )
     p_new.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_new.set_defaults(func=_cmd_optimize_new)
@@ -563,6 +583,7 @@ def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
     p_status.set_defaults(func=_cmd_optimize_status)
 
     _add_checks(opt_sub)
+    add_workflow_commands(opt_sub)
 
 
 def _cmd_install_skill(args: argparse.Namespace) -> int:
@@ -573,17 +594,25 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
     except install_mod.InstallSkillError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exc.exit_code
+    if result.leftover is not None:
+        _warn(
+            f"could not remove the replaced copy at {result.leftover}; "
+            "delete it so the host does not load two copies of the skill"
+        )
     if args.json:
         data = {
             "dest": str(result.dest),
             "files": list(result.files),
             "verified": result.verified,
             "bundle": str(result.bundle),
+            "backup": None if result.backup is None else str(result.backup),
         }
         _emit_json("install-skill", "success", data)
         return EXIT_SUCCESS
     print(f"install-skill: installed {len(result.files)} files -> {result.dest}")
     print(f"  verified: {install_mod.NAME_LINE}")
+    if result.backup is not None:
+        print(f"  previous installation kept at: {result.backup}")
     print('  next: start a new Cursor Agent chat and say "Proofhouse"')
     return EXIT_SUCCESS
 

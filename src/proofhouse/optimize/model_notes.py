@@ -1,8 +1,14 @@
 """Local model-notes cache and provenance resolution.
 
 Answers "where did this profile come from, how old is it, what is its
-canonical id" for ``builtin``, ``cached``, ``researched`` and ``fallback``
-notes. The cache lives under ``PROOFHOUSE_HOME`` (default ``~/.proofhouse``)
+canonical id" for ``builtin``, ``cached``, ``researched``, ``user_supplied``
+and ``fallback`` notes.
+
+``verification`` is separate from ``source`` (T07, review F05): notes with
+no sources are ``unverified`` whatever their origin, and a date alone
+(``verified_at``) records when someone last looked at them, not that anyone
+checked them against vendor documentation. Notes supplied from a local file
+are ``user_supplied`` and never dated. The cache lives under ``PROOFHOUSE_HOME`` (default ``~/.proofhouse``)
 as ``model-notes/<normalized-key>.json``.
 
 Stdlib only; nothing here opens a network connection. ``resolve_model_notes``
@@ -27,7 +33,12 @@ SOURCE_BUILTIN = "builtin"
 SOURCE_CACHED = "cached"
 SOURCE_RESEARCHED = "researched"
 SOURCE_FALLBACK = "fallback"
+SOURCE_USER_SUPPLIED = "user_supplied"
 FALLBACK_ID = "other"
+
+VERIFICATION_UNVERIFIED = "unverified"
+VERIFICATION_SOURCED = "sourced"
+VERIFICATION_REVIEWED = "reviewed"
 
 Researcher = Callable[[str], tuple[str, list[str]]]
 
@@ -47,6 +58,7 @@ class ResolvedNotes:
     sources: tuple[str, ...]
     provenance: str | None
     notes: str
+    verification: str = VERIFICATION_UNVERIFIED
 
     def to_dict(self) -> dict:
         return {
@@ -63,7 +75,15 @@ class ResolvedNotes:
             "sources": list(self.sources),
             "provenance": self.provenance,
             "notes": self.notes,
+            "verification": self.verification,
         }
+
+
+def verification_for(sources: tuple[str, ...] | list[str], reviewed_by: str | None = None) -> str:
+    """``reviewed`` needs sources and a named reviewer; ``sourced`` needs sources; else ``unverified``."""
+    if not sources:
+        return VERIFICATION_UNVERIFIED
+    return VERIFICATION_REVIEWED if reviewed_by else VERIFICATION_SOURCED
 
 
 def proofhouse_home() -> Path:
@@ -129,6 +149,7 @@ def _from_builtin(entered_name: str, entry: ModelEntry, reg: Registry) -> Resolv
         sources=entry.sources,
         provenance=None,
         notes=entry.notes,
+        verification=verification_for(entry.sources),
     )
 
 
@@ -156,6 +177,7 @@ def _from_cache(
         sources=tuple(cached.get("sources") or ()),
         provenance=cached.get("provenance"),
         notes=cached["notes"],
+        verification=verification_for(tuple(cached.get("sources") or ()), cached.get("reviewed_by")),
     )
 
 

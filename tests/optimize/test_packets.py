@@ -93,7 +93,8 @@ def test_packet_markdown_layout_is_fixed() -> None:
     assert lines[0] == "# Proofhouse packet: clarify"
     assert lines[1] == ""
     assert lines[2] == (
-        "Target model: Claude Sonnet 5 (claude-sonnet-5) -- source=builtin, verified_at=2026-09-03, stale=no"
+        "Target model: Claude Sonnet 5 (claude-sonnet-5) -- source=builtin, verified_at=2026-09-03, stale=no, "
+        "evidence=unverified"
     )
     assert lines[3] == ""
     assert lines[4] == "## System prompt"
