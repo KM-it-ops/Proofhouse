@@ -67,9 +67,9 @@ def test_models_list_human_header_and_rows(capsys, tmp_path: Path) -> None:
     assert code == 0 and err == ""
     lines = out.splitlines()
     assert lines[0] == "models: 18 builtin, 1 cached (registry v1.3, stale after 90 days)"
-    assert lines[1] == f"  {'claude-fable-5-1':<20} {'Claude Fable 5.1':<20} {'Anthropic':<10} {'current':<8} verified 2026-09-03"
-    assert lines[18] == f"  {'other':<20} {'Other':<20} {'-':<10} {'generic':<8} verified -"
-    assert lines[19] == f"  {'zeta-9':<20} {'Zeta 9':<20} {'-':<10} {'cached':<8} verified 2026-09-20"
+    assert lines[1] == f"  {'claude-fable-5-1':<20} {'Claude Fable 5.1':<20} {'Anthropic':<10} {'current':<8} reviewed 2026-09-03 unverified"
+    assert lines[18] == f"  {'other':<20} {'Other':<20} {'-':<10} {'generic':<8} reviewed - unverified"
+    assert lines[19] == f"  {'zeta-9':<20} {'Zeta 9':<20} {'-':<10} {'cached':<8} reviewed 2026-09-20 unverified"
     assert len(lines) == 20
     assert "STALE" not in out
 
@@ -101,7 +101,8 @@ def test_models_show_unknown_is_fallback_with_warning(capsys) -> None:
     assert lines[3] == "  provider: -  tier: generic"
     assert lines[4] == "  source: fallback  verified_at: -  stale: no"
     assert lines[5] == "  sources: none recorded"
-    assert lines[6].startswith("  notes: No verified vendor-specific behavior available.")
+    assert lines[6] == "  evidence: unverified"
+    assert lines[7].startswith("  notes: No verified vendor-specific behavior available.")
 
     code, out, err = _run(["models", "show", "Zeta 9", "--json"], capsys)
     assert code == 0
@@ -178,7 +179,8 @@ def test_models_show_human_first_line(capsys) -> None:
     assert lines[3] == "  provider: Anthropic  tier: current"
     assert lines[4] == "  source: builtin  verified_at: 2026-09-03  stale: no"
     assert lines[5] == "  sources: none recorded"
-    assert lines[6].startswith("  notes: ")
+    assert lines[6] == "  evidence: unverified"
+    assert lines[7].startswith("  notes: ")
 
 
 def test_models_show_stale_warning_from_injected_today(capsys, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -187,15 +189,15 @@ def test_models_show_stale_warning_from_injected_today(capsys, monkeypatch: pyte
     code, out, err = _run(["models", "show", "Sonnet 5"], capsys)
     assert code == 0
     assert err == (
-        f"warning: notes for Claude Sonnet 5 were verified 2026-09-03 ({age} days ago; threshold 90); "
+        f"warning: notes for Claude Sonnet 5 were last reviewed 2026-09-03 ({age} days ago; threshold 90); "
         "re-check pricing, context, and settings against vendor docs\n"
     )
     assert "  source: builtin  verified_at: 2026-09-03  stale: yes" in out
 
     code, out, err = _run(["models", "list"], capsys)
     assert code == 0
-    assert out.splitlines()[4].endswith("verified 2026-09-03  STALE")
-    assert out.splitlines()[18].endswith("verified -")
+    assert out.splitlines()[4].endswith("reviewed 2026-09-03 unverified  STALE")
+    assert out.splitlines()[18].endswith("reviewed - unverified")
 
     code, out, err = _run(["models", "show", "Sonnet 5", "--json"], capsys)
     payload = _json(out)

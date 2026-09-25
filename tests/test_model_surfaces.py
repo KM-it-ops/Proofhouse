@@ -78,10 +78,11 @@ def test_readme_supported_models_table_is_generated() -> None:
     assert "<!-- supported-models:begin -->" in readme and "<!-- supported-models:end -->" in readme
 
 
-def test_framework_markdown_table_has_verified_column() -> None:
+def test_framework_markdown_table_has_reviewed_and_evidence_columns() -> None:
     md = (REPO_ROOT / "proofhouse-framework.md").read_text(encoding="utf-8")
-    assert "<!-- model-notes:begin -->\n| Model | Verified | Notes |\n|---|---|---|\n" in md
-    assert "| **Other** | - | No verified vendor-specific behavior available." in md
+    # T07 / review F05: a review date is not verification; the evidence column says which is which.
+    assert "<!-- model-notes:begin -->\n| Model | Reviewed | Evidence | Notes |\n|---|---|---|---|\n" in md
+    assert "| **Other** | - | unverified | No verified vendor-specific behavior available." in md
 
 
 def test_skill_md_paragraph_and_description_cover_current_models() -> None:

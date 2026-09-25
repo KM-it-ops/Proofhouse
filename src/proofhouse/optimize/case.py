@@ -11,12 +11,21 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
 from . import registry
-from .model_notes import SOURCE_RESEARCHED, ResolvedNotes, cache_key, resolve_model_notes
+from .model_notes import (
+    SOURCE_USER_SUPPLIED,
+    VERIFICATION_UNVERIFIED,
+    ResolvedNotes,
+    cache_key,
+    resolve_model_notes,
+    verification_for,
+)
 from .packets import clarify_packet, compile_packet, packet_markdown, revise_packet, token_estimate
 from .registry import find_model, load_registry
 
@@ -86,12 +95,44 @@ def revise_packet_name(n: int) -> str:
 
 
 def _write_text(path: Path, text: str) -> None:
-    with path.open("w", encoding="utf-8", newline="\n") as handle:
-        handle.write(text)
+    """Atomic replace: write a sibling temp file, then ``os.replace`` it into place.
+
+    An interrupted write leaves the previous file intact and no temp file behind.
+    """
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex[:8]}.tmp")
+    try:
+        with tmp.open("w", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
+        os.replace(tmp, path)
+    finally:
+        if tmp.exists():
+            tmp.unlink()
+
+
+def _write_new_text(path: Path, text: str) -> None:
+    """Exclusive create: never replaces a file another writer already created."""
+    try:
+        with path.open("x", encoding="utf-8", newline="\n") as handle:
+            handle.write(text)
+    except FileExistsError:
+        raise CaseError(
+            f"{path.name} already exists; another writer may have recorded it. "
+            "Inspect it before recording again."
+        ) from None
+
+
+def _json_text(payload: dict) -> str:
+    return json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n"
 
 
 def _write_json(path: Path, payload: dict) -> None:
-    _write_text(path, json.dumps(payload, indent=2, sort_keys=True, ensure_ascii=False) + "\n")
+    _write_text(path, _json_text(payload))
+
+
+def prompt_sha256(prompt: str) -> str:
+    return hashlib.sha256(prompt.encode("utf-8")).hexdigest()
 
 
 def _read_json(path: Path):
@@ -99,7 +140,11 @@ def _read_json(path: Path):
 
 
 def notes_from_file(name: str, notes_path: Path) -> ResolvedNotes:
-    """Notes supplied for this case only: ``source=researched``, verified today, never cached."""
+    """Notes supplied for this case only: ``user_supplied``, undated, unverified, never cached.
+
+    A local file is whatever its author wrote; it is never promoted to
+    researched or verified material (T07, review F05).
+    """
     if not notes_path.is_file():
         raise CaseError(f"notes file not found: {notes_path}")
     notes = notes_path.read_text(encoding="utf-8").strip()
@@ -112,15 +157,16 @@ def notes_from_file(name: str, notes_path: Path) -> ResolvedNotes:
         canonical_id=cache_key(name, reg),
         display_name=builtin.display_name if builtin else name,
         provider=builtin.provider if builtin else None,
-        tier=builtin.tier if builtin else SOURCE_RESEARCHED,
-        source=SOURCE_RESEARCHED,
-        verified_at=registry.today().isoformat(),
+        tier=builtin.tier if builtin else SOURCE_USER_SUPPLIED,
+        source=SOURCE_USER_SUPPLIED,
+        verified_at=None,
         stale=False,
-        age_days=0,
+        age_days=None,
         stale_after_days=reg.stale_after_days,
         sources=(),
         provenance=f"notes file {notes_path.name}",
         notes=notes,
+        verification=VERIFICATION_UNVERIFIED,
     )
 
 
@@ -153,6 +199,7 @@ def model_from_case(data: dict) -> ResolvedNotes:
         sources=tuple(stored["sources"]),
         provenance=stored["provenance"],
         notes=stored["notes"],
+        verification=stored.get("verification") or verification_for(tuple(stored["sources"])),
     )
 
 
@@ -254,10 +301,16 @@ def _answer_text(value) -> str:
 
 def compile_case(case_dir: Path, answers_path: Path | None = None) -> Path:
     """Write ``02-compile.md`` from the answers and move the stage to ``compile``."""
+    from .workflow import seed_clarification
+
     data = load_case(case_dir)
-    entries = read_answers(answers_path or case_dir / ANSWERS_FILE)
+    source = answers_path or case_dir / ANSWERS_FILE
+    entries = read_answers(source)
     resolved = model_from_case(data)
     packet = compile_packet(data["objective"], resolved, data["preset"], data["loop"], entries)
+    # T09 / review F11: the answers outlive this packet. They are snapshotted in
+    # case.json and seeded as accepted constraints so every revision gets them.
+    seed_clarification(data, entries, hashlib.sha256(source.read_bytes()).hexdigest())
     next_line = f"Run this packet, save the compiled prompt text, then: {record_command(case_dir.resolve())}"
     out_path = case_dir / COMPILE_FILE
     _write_text(out_path, packet_markdown("compile", resolved, packet, next_line))
@@ -274,16 +327,55 @@ def add_criterion(case_dir: Path, criterion: dict) -> dict:
     return data
 
 
+def lineage(data: dict) -> list[dict]:
+    """Recorded revisions oldest first, each with the revision it was revised from."""
+    rows = []
+    for item in sorted(data["revisions"], key=lambda row: int(row["n"])):
+        rows.append(
+            {
+                "n": int(item["n"]),
+                "sha256": item["sha256"],
+                "parent": item.get("parent"),
+                "feedback_on_previous": item.get("feedback_on_previous"),
+                "created_at": item.get("created_at"),
+            }
+        )
+    return rows
+
+
 def latest_revision_number(data: dict) -> int:
     return max((int(item["n"]) for item in data["revisions"]), default=0)
 
 
 def load_revision(case_dir: Path, n: int) -> Revision:
+    """Load revision N and prove it is the content that was recorded.
+
+    The prompt must hash to the file's ``sha256`` and that digest must equal
+    the one ``case.json`` recorded for vN. Either mismatch is a usage error:
+    an edited revision is never evaluated as if it were the original. This
+    detects drift and accidental edits; it is not tamper-proofing against
+    someone who controls the whole directory.
+    """
     path = case_dir / revision_relpath(n)
     if not path.is_file():
         raise CaseError(f"revision file missing: {revision_relpath(n)}")
-    raw = _read_json(path)
-    return Revision(**{key: raw[key] for key in Revision.__dataclass_fields__})
+    try:
+        raw = _read_json(path)
+        revision = Revision(**{key: raw[key] for key in Revision.__dataclass_fields__})
+    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        raise CaseError(f"revision file {revision_relpath(n)} is unreadable: {exc}") from None
+    if not isinstance(revision.prompt, str) or revision.n != n:
+        raise CaseError(f"revision file {revision_relpath(n)} does not describe v{n}")
+    actual = prompt_sha256(revision.prompt)
+    if actual != revision.sha256:
+        raise CaseError(
+            f"revision v{n} content does not match its recorded sha256 "
+            f"(recorded {revision.sha256[:12]}, actual {actual[:12]}); it was edited after recording"
+        )
+    summary = next((item for item in load_case(case_dir)["revisions"] if int(item["n"]) == n), None)
+    if summary is not None and summary.get("sha256") != revision.sha256:
+        raise CaseError(f"revision v{n} sha256 differs from the digest recorded in case.json")
+    return revision
 
 
 def record_revision(
@@ -306,14 +398,16 @@ def record_revision(
         rationale=rationale,
         settings=settings,
         efficiency=efficiency,
-        sha256=hashlib.sha256(prompt.encode("utf-8")).hexdigest(),
+        sha256=prompt_sha256(prompt),
         token_estimate=token_estimate(prompt),
         created_at=now_iso(),
         feedback_on_previous=pending["feedback"] if pending else None,
     )
     (case_dir / REVISIONS_DIR).mkdir(exist_ok=True)
-    _write_json(case_dir / revision_relpath(n), revision.to_dict())
-    data["revisions"].append(revision.summary())
+    _write_new_text(case_dir / revision_relpath(n), _json_text(revision.to_dict()))
+    summary = revision.summary()
+    summary["parent"] = pending["revision"] if pending else None
+    data["revisions"].append(summary)
     data["pending_feedback"] = None
     save_case(case_dir, data)
     return revision
@@ -331,9 +425,16 @@ def revise_case(case_dir: Path, feedback: str, revision_n: int | None = None) ->
     n = latest if revision_n is None else revision_n
     if n < 1 or all(int(item["n"]) != n for item in data["revisions"]):
         raise CaseError(f"revision v{n} does not exist (latest is v{latest})")
+    from .workflow import accepted_constraints
+
     previous = load_revision(case_dir, n)
     resolved = model_from_case(data)
-    packet = revise_packet(data["objective"], resolved, data["preset"], data["loop"], previous.prompt, feedback)
+    answers = [(label, answer) for label, answer in (data.get("clarification") or {}).get("answers", [])]
+    ledger = [(item["id"], item["text"]) for item in accepted_constraints(data)]
+    packet = revise_packet(
+        data["objective"], resolved, data["preset"], data["loop"], previous.prompt, feedback,
+        answered_entries=answers, accepted_constraints=ledger,
+    )
     next_line = f"Run this packet, then record the result as v{latest + 1}: {record_command(case_dir.resolve())}"
     out_path = case_dir / revise_packet_name(n)
     _write_text(out_path, packet_markdown(f"revise v{n}", resolved, packet, next_line))

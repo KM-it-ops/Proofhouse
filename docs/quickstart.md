@@ -84,16 +84,16 @@ uv run proofhouse-compiler optimize revise --case build/case-demo --feedback "to
 ```
 
 ```text
-optimize: new case C:\AI\projects\Proofhouse\.worktrees\T-S\build\case-demo
-  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no
+optimize: new case <your clone>\build\case-demo
+  model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no evidence=unverified
   preset: balanced  loop: no
   wrote: case.json, 01-clarify.md, answers.json
-  next: run 01-clarify.md in your host agent, put answers in answers.json, then: proofhouse-compiler optimize compile --case C:\AI\projects\Proofhouse\.worktrees\T-S\build\case-demo
-check: C:\AI\projects\Proofhouse\.worktrees\T-S\build\case-demo
+  next: run 01-clarify.md in your host agent, put answers in answers.json, then: proofhouse-compiler optimize compile --case <your clone>\build\case-demo
+check: <your clone>\build\case-demo
   v1: PASS  C1=PASS C2=PASS
 ```
 
-Criteria are yours: substring, word cap, regex, or a manual verdict (`optimize verdict`). `check` prints PASS/FAIL/UNJUDGED per criterion per revision and exits 3 on any FAIL. There is no score and no comparison across models.
+Criteria are yours: substring, word cap, regex, or a manual verdict (`optimize verdict`), checked against the prompt text or, with `--target output`, against outputs you record with `optimize output add`. `check` prints PASS/FAIL/UNJUDGED/NOT_EVALUATED per criterion per revision and exits 3 unless everything passes. After `optimize compile`, your answers are accepted constraints that must be linked to passing checks (`optimize constraints link`) before a revision passes. There is no quality rating and no comparison across models. The full journey, including outputs, compare, report and export, is in [reference-workflow.md](reference-workflow.md).
 
 ## Model notes: where a profile comes from and how old it is
 
@@ -111,7 +111,8 @@ model: Claude Opus 5
   provider: Anthropic  tier: current
   source: builtin  verified_at: 2026-09-03  stale: no
   sources: none recorded
-  notes: Anthropic's default for complex agentic coding. 1M context, 128k output (`claude-opus-5`), thinking on by default (disable only at effort high or below), default effort high, $5/$25. Give the full task spec and let it run -- it finishes rather than stubbing. Strip verify/self-check/subagent-QA instructions (they cause over-verification). Cap subagent spawns; it delegates eagerly. Ask for concise progress explicitly; default replies run long. Constrain scope on large jobs or it will expand them. Step up to Fable 5.1 only when Opus 5 at higher effort still fails evals.
+  evidence: unverified
+  notes: Anthropic's default for complex agentic coding. 1M context, 128k output (`claude-opus-5`), thinking on by default (disable only at effort high or below), default effort high, $5/$25. Give the full task spec and let it run -- it finishes rather than stubbing. Drop redundant generic 'double-check your work' wording (it causes over-verification); keep every user-required test, acceptance check and approval gate. Cap subagent spawns; it delegates eagerly. Ask for concise progress explicitly; default replies run long. Constrain scope on large jobs or it will expand them. Step up to Fable 5.1 only when Opus 5 at higher effort still fails evals.
 warning: no notes for "Zeta 9"; using the generic profile (source=fallback)
 model: Zeta 9
   entered: Zeta 9
@@ -119,10 +120,11 @@ model: Zeta 9
   provider: -  tier: generic
   source: fallback  verified_at: -  stale: no
   sources: none recorded
+  evidence: unverified
   notes: No verified vendor-specific behavior available. General best practice: explicit goal, constraints, format, audience. Note in rationale that this is generic guidance.
 ```
 
-`source` is `builtin` (shipped registry), `cached` (your `models remember`), `researched` (notes file passed to `optimize new --notes-file`), or `fallback` (generic profile; the CLI does not research unknown models). Profiles older than 90 days print a stale warning. Aliases such as `opus 5` or `anthropic/claude-opus-5` resolve to the canonical id while your entered name is kept. Cache lives under `~/.proofhouse/model-notes/` (override with `PROOFHOUSE_HOME`); `models remember NAME --notes-file F [--source-url U]` stores or refreshes an entry, `models forget NAME` removes it.
+`source` is `builtin` (shipped registry), `cached` (your `models remember`), `user_supplied` (a notes file passed to `optimize new --notes-file`; never dated or labeled researched), `researched` (only from an injected researcher, which the CLI never uses), or `fallback` (generic profile; the CLI does not research unknown models). `evidence` is `unverified` unless the profile cites sources; `verified_at` is the last review date, not an independent check. Profiles older than 90 days print a stale warning. Aliases such as `opus 5` or `anthropic/claude-opus-5` resolve to the canonical id while your entered name is kept. Cache lives under `~/.proofhouse/model-notes/` (override with `PROOFHOUSE_HOME`); `models remember NAME --notes-file F [--source-url U]` stores or refreshes an entry, `models forget NAME` removes it.
 
 ## Eval harness
 

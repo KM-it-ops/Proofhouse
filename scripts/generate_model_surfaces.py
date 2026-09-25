@@ -84,6 +84,15 @@ def _max_verified_at(registry: Registry) -> str:
     return max(dates)
 
 
+def _evidence_sentence(registry: Registry) -> str:
+    """How many profiles cite sources; unsourced profiles are unverified (review F05)."""
+    sourced = sum(1 for m in registry.models if m.sources)
+    total = len(registry.models)
+    if sourced == 0:
+        return f"None of the {total} profiles cites sources yet, so every profile is labeled unverified."
+    return f"{sourced} of {total} profiles cite sources; the rest are labeled unverified."
+
+
 def _lines(text: str) -> list[str]:
     return text.split("\n")
 
@@ -146,6 +155,8 @@ def _registry_row(entry: ModelEntry) -> dict:
         "apiId": entry.api_id,
         "aliases": list(entry.aliases),
         "verifiedAt": entry.verified_at,
+        "sources": list(entry.sources),
+        "evidence": "sourced" if entry.sources else "unverified",
     }
 
 
@@ -173,9 +184,10 @@ def render_framework_json(current: str, registry: Registry) -> str:
 
 
 def render_framework_md(current: str, registry: Registry) -> str:
-    rows = ["| Model | Verified | Notes |", "|---|---|---|"]
+    rows = ["| Model | Reviewed | Evidence | Notes |", "|---|---|---|---|"]
     rows.extend(
-        f"| **{m.display_name}** | {m.verified_at or '-'} | {m.notes} |" for m in registry.models
+        f"| **{m.display_name}** | {m.verified_at or '-'} | {'sourced' if m.sources else 'unverified'} | {m.notes} |"
+        for m in registry.models
     )
     return replace_region(
         current,
@@ -222,8 +234,9 @@ def render_readme(current: str, registry: Registry) -> str:
     rows.append(README_OTHER_ROW)
     rows.append("")
     rows.append(
-        f"Profiles verified {_max_verified_at(registry)}; a profile older than "
-        f"{registry.stale_after_days} days is flagged stale. `proofhouse-compiler models list` "
+        f"Profiles last reviewed {_max_verified_at(registry)}; a profile older than "
+        f"{registry.stale_after_days} days is flagged stale. {_evidence_sentence(registry)} "
+        "They are prompting guidance, not vendor specifications. `proofhouse-compiler models list` "
         "shows per-model ids, aliases, and dates."
     )
     rows.append("")
@@ -248,10 +261,12 @@ def render_skill_md(current: str, registry: Registry) -> str:
     paragraph = (
         f"Built-in profiles for {_join_and(current_names)} (plus legacy {_join_and(legacy_names)}) "
         "are in `references/proofhouse-framework.json` under `modelNotes`; canonical ids, aliases, "
-        f"and `verifiedAt` dates (profiles verified {_max_verified_at(registry)}) are under "
-        "`modelRegistry`. Say which profile you used and its verified date; if it is older than "
+        f"and `verifiedAt` review dates (last reviewed {_max_verified_at(registry)}) are under "
+        "`modelRegistry`. Say which profile you used, its review date, and its `evidence` label; an "
+        "`unverified` profile has no cited sources. If it is older than "
         f"{registry.stale_after_days} days, tell the user to re-check pricing, context, and settings "
-        "against vendor docs. For anything else the user names:"
+        "against vendor docs. Never drop a user-required test, acceptance check, or approval gate "
+        "because a model note suggests brevity. For anything else the user names:"
     )
     return replace_region(
         current,

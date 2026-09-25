@@ -1,0 +1,1 @@
+Summarise a vendor security advisory for Tier-1 SOC analysts: severity first, affected versions, and what to do. Anything the advisory does not state must be labeled UNKNOWN.
