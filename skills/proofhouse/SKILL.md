@@ -42,7 +42,9 @@ conversational walkthrough.
    (see `docs/reference-workflow.md` in the repository).
 
 Run this conversationally when there's no artifact in play: ask the clarifying batch as a
-single message (numbered, grouped), collect the answers in one reply, then compile.
+single message (numbered, grouped), collect the answers in one reply, then compile. One
+clarifying batch per compile -- don't drip-feed follow-up questions. Don't schedule Proofhouse
+runs, run them in the background, or set them to repeat unless the user asks.
 
 ## Why batched, not iterative
 
@@ -61,7 +63,8 @@ Built-in profiles for Claude Fable 5.1, Claude Mythos 5.1, Claude Opus 5, Claude
    conversation's memory, an artifact's persistent storage, or -- when a Proofhouse
    checkout is at hand -- the local cache (`proofhouse-compiler models show "<name>"`).
 2. If not, research it -- web search for the model's actual prompting behavior, context
-   window, and known quirks -- before compiling the prompt. Don't guess.
+   window, and known quirks -- before compiling the prompt. Don't guess. Tell the user you
+   are researching and why, since it costs time and tokens the built-in profiles don't.
 3. Condense findings into one dense paragraph matching the style of the built-in profiles,
    and treat it as reusable knowledge for the rest of the conversation (or write it to
    storage if running inside the artifact).
@@ -96,6 +99,20 @@ If the objective involves building software, handling sensitive data, or touchin
 production systems, add a short section to the compiled prompt covering the relevant
 constraints. Omit entirely when not applicable -- don't pad prompts with boilerplate
 security language for tasks that don't need it.
+
+## Offline compiler
+
+Reach for the CLI instead of compiling in chat when the user wants a reproducible,
+inspectable compile result rather than a pasteable prompt. Check the environment with
+`proofhouse-compiler doctor`. The closed-loop path takes structured requirements JSON (or
+`-` for stdin) and runs requirements -> IR -> adapter compile -> eval/repair -> evidence:
+
+```
+proofhouse-compiler closed-loop <input.json> [--repair-budget {0,1,2}] [--json]
+```
+
+`structured_developer_v0` additionally requires `tool_permissions.allowed_tools` and
+`stop_conditions`.
 
 ## Honesty gates
 
