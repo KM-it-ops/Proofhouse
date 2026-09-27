@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Changed
+
+- README leads with one story, the offline prompt-revision workflow, and moves
+  experimental and prototype parts into their own section. It now states the CI
+  matrix (Linux, macOS, Windows; Python 3.11 to 3.14) and shows the CI badge.
+
+## 0.3.0 - Evidence Integrity
+
 ### Removed
 
 - Removed the deprecated pre-Proofhouse console-script aliases and live-test
