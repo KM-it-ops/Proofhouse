@@ -12,6 +12,10 @@ I built Proofhouse because I kept rewriting the same prompt for different models
 
 It runs on your machine with no API key. Proofhouse writes the prompts it needs as packets; you run them in the agent or model you already use and paste the results back. It is a local tool, not a hosted service, and I make no benchmark or quality claims for it.
 
+[![Proofhouse in 23 seconds: a prompt revision that invents an exploitation claim fails its checks, and the next revision passes with every constraint kept](docs/assets/proofhouse-demo.jpg)](docs/assets/proofhouse-demo.mp4)
+
+*23-second demo (click to play). The terminal lines are the real `optimize check` output from the reference workflow below.*
+
 Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/)
 
 ---
