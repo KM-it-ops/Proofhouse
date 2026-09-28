@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- `proofhouse-compiler install-skill --host claude` installs the skill into
+  Claude Code's `~/.claude/skills`. The default (`--host cursor`) is unchanged.
+
 ## 0.3.0 - Evidence Integrity
 
 ### Removed

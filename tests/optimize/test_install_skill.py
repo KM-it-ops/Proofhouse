@@ -50,6 +50,35 @@ def test_default_dest_is_cursor_skills_and_bundle_is_package_data() -> None:
     assert "install-skill" in cli_compiler.COMPILER_COMMANDS
 
 
+def test_claude_host_default_dest_is_claude_skills() -> None:
+    assert install_skill.default_dest("claude") == Path.home() / ".claude" / "skills"
+    assert install_skill.default_dest("cursor") == install_skill.default_dest()
+
+
+def test_host_claude_installs_to_home_claude_skills_and_says_claude_code(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    code, out, err = _run(["install-skill", "--host", "claude"], capsys)
+    assert code == 0 and err == ""
+    skill_dir = tmp_path / ".claude" / "skills" / "proofhouse"
+    assert out.splitlines() == [
+        f"install-skill: installed 4 files -> {skill_dir.resolve()}",
+        "  verified: name: proofhouse",
+        '  next: start a new Claude Code session and say "Proofhouse"',
+    ]
+    installed = sorted(str(p.relative_to(skill_dir.parent)).replace("\\", "/") for p in skill_dir.rglob("*") if p.is_file())
+    assert installed == EXPECTED_FILES
+    assert not (tmp_path / ".cursor").exists()
+
+
+def test_unknown_host_is_a_usage_error(tmp_path: Path, capsys) -> None:
+    code, out, err = _run(["install-skill", "--host", "vscode", "--dest", str(tmp_path / "skills")], capsys)
+    assert code == 2 and out == ""
+    assert "invalid choice" in err
+    assert not (tmp_path / "skills").exists()
+
+
 def test_fresh_install_extracts_four_files_and_verifies_name(tmp_path: Path, capsys) -> None:
     dest = tmp_path / "skills"
     code, out, err = _run(["install-skill", "--dest", str(dest)], capsys)
@@ -189,7 +218,7 @@ def test_help_is_ascii(capsys) -> None:
     code, out, err = _run(["install-skill", "--help"], capsys)
     assert code == 0
     (out + err).encode("ascii")
-    for flag in ("--dest", "--bundle", "--force", "--json"):
+    for flag in ("--host", "--dest", "--bundle", "--force", "--json"):
         assert flag in out
 
 

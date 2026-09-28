@@ -590,7 +590,7 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
     dest = Path(args.dest) if args.dest else None
     bundle = Path(args.bundle) if args.bundle else None
     try:
-        result = install_mod.install(dest, bundle, force=args.force)
+        result = install_mod.install(dest, bundle, force=args.force, host=args.host)
     except install_mod.InstallSkillError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exc.exit_code
@@ -613,7 +613,7 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
     print(f"  verified: {install_mod.NAME_LINE}")
     if result.backup is not None:
         print(f"  previous installation kept at: {result.backup}")
-    print('  next: start a new Cursor Agent chat and say "Proofhouse"')
+    print(f'  next: start {install_mod.HOSTS[args.host][1]} and say "Proofhouse"')
     return EXIT_SUCCESS
 
 
@@ -621,14 +621,20 @@ def _add_install_skill(subparsers: argparse._SubParsersAction) -> None:
     p_install = subparsers.add_parser(
         "install-skill",
         help=(
-            "Extract the bundled proofhouse.skill into ~/.cursor/skills (package data; no checkout needed) "
-            "and verify its frontmatter line name: proofhouse."
+            "Extract the bundled proofhouse.skill into ~/.cursor/skills or, with --host claude, "
+            "~/.claude/skills (package data; no checkout needed) and verify its frontmatter line name: proofhouse."
         ),
+    )
+    p_install.add_argument(
+        "--host",
+        choices=sorted(install_mod.HOSTS),
+        default="cursor",
+        help="Agent to install for: cursor (~/.cursor/skills, the default) or claude (Claude Code, ~/.claude/skills).",
     )
     p_install.add_argument(
         "--dest",
         default=None,
-        help="Skills directory to install into (default: ~/.cursor/skills); the skill lands in <dest>/proofhouse.",
+        help="Skills directory to install into (default: the --host directory); the skill lands in <dest>/proofhouse.",
     )
     p_install.add_argument(
         "--bundle",

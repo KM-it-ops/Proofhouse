@@ -109,11 +109,11 @@ Details: [docs/architecture.md](docs/architecture.md), [decision 0002](docs/deci
 | Entry | Use it when | Status | Network |
 |---|---|---|---|
 | **Command line**: `proofhouse-compiler optimize` | You want the evidence trail above: constraints, recorded outputs, checks, compare, report | supported | none |
-| **Cursor skill**: `proofhouse-compiler install-skill`, then say "Proofhouse" in a new Cursor chat | You want the same clarify → compile → self-heal loop as a conversation | supported entry point | the host agent's tools |
+| **Cursor or Claude Code skill**: `proofhouse-compiler install-skill` (Cursor) or `install-skill --host claude` (Claude Code), then say "Proofhouse" in a new chat or session | You want the same clarify → compile → self-heal loop as a conversation | supported entry point | the host agent's tools |
 
 Proofhouse is two products in one repo, at different levels of maturity. The **PromptOps skill and framework (v1.3)**, the conversational meta-optimizer with current frontier model profiles, is the most mature part of the project. The headless compiler's maturity is listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
 
-Both entries use the same framework ([`proofhouse-framework.json`](proofhouse-framework.json)) and the same model notes. The framework also covers Efficient / Balanced / Thorough token presets, loops for recurring agents (trigger, body, exit, escalation), prompt audits with missing-context labels, and agent design (permission maps, tool boundaries, stop conditions). The skill is installed to `~/.cursor/skills/proofhouse` and the installer checks it (the bundle ships inside the package; `tests/test_skill_bundle.py` keeps it identical to `skills/proofhouse/`); without the console script, `python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills` does the same. The skill can research an unfamiliar model with the host agent's tools; the command line never goes online, and uses your own notes (`models remember`) or a generic profile labeled `fallback`.
+Both entries use the same framework ([`proofhouse-framework.json`](proofhouse-framework.json)) and the same model notes. The framework also covers Efficient / Balanced / Thorough token presets, loops for recurring agents (trigger, body, exit, escalation), prompt audits with missing-context labels, and agent design (permission maps, tool boundaries, stop conditions). The skill is installed to `~/.cursor/skills/proofhouse` (or `~/.claude/skills/proofhouse` with `--host claude`) and the installer checks it (the bundle ships inside the package; `tests/test_skill_bundle.py` keeps it identical to `skills/proofhouse/`); without the console script, `python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills` (or `~/.claude/skills`) does the same. The skill can research an unfamiliar model with the host agent's tools; the command line never goes online, and uses your own notes (`models remember`) or a generic profile labeled `fallback`.
 
 ---
 
@@ -200,7 +200,7 @@ It was designed for coding agents, Custom GPTs, Cursor skills, and security-adja
 
 ```text
 proofhouse-framework.*   Portable meta-optimizer spec (v1.3 model profiles)
-skills/proofhouse/       Cursor skill bundle + artifact JSX
+skills/proofhouse/       Cursor / Claude Code skill bundle + artifact JSX
 src/proofhouse/          Eval harness, headless compiler, optimize (cases, constraints, runs, checks, export)
 examples/                Demo inputs, including reference-advisory/ for the reference workflow
 scripts/                 Generators (model surfaces, skill bundle, contracts) and reference_workflow.py

@@ -1,4 +1,4 @@
-"""Install the bundled ``proofhouse.skill`` into a Cursor skills directory and verify its frontmatter.
+"""Install the bundled ``proofhouse.skill`` into a Cursor or Claude Code skills directory and verify its frontmatter.
 
 The bundle ships as package data (``registry.PACKAGE_BUNDLE_PATH``), so a pip
 install works without a checkout. Every zip entry must live under
@@ -39,6 +39,11 @@ DEFAULT_BUNDLE = PACKAGE_BUNDLE_PATH
 MAX_UNCOMPRESSED_BYTES = 16 * 1024 * 1024
 MAX_ENTRIES = 256
 BACKUP_DIR = "skill-backups"
+# Host agent -> (config directory under the home directory, where to start using the skill).
+HOSTS = {
+    "cursor": (".cursor", "a new Cursor Agent chat"),
+    "claude": (".claude", "a new Claude Code session"),
+}
 
 # Same values as cli.py / compiler.cli_compiler.
 EXIT_USAGE_ERROR = 2
@@ -65,8 +70,8 @@ class InstallResult:
     leftover: Path | None = None
 
 
-def default_dest() -> Path:
-    return Path.home() / ".cursor" / "skills"
+def default_dest(host: str = "cursor") -> Path:
+    return Path.home() / HOSTS[host][0] / "skills"
 
 
 def _unreadable(bundle: Path, reason: str) -> InstallSkillError:
@@ -139,8 +144,10 @@ def _backup_path() -> Path:
     return proofhouse_home() / BACKUP_DIR / stamp / SKILL_NAME
 
 
-def install(dest: Path | None = None, bundle: Path | None = None, *, force: bool = False) -> InstallResult:
-    dest_dir = (dest if dest is not None else default_dest()).resolve()
+def install(
+    dest: Path | None = None, bundle: Path | None = None, *, force: bool = False, host: str = "cursor"
+) -> InstallResult:
+    dest_dir = (dest if dest is not None else default_dest(host)).resolve()
     bundle_path = bundle if bundle is not None else DEFAULT_BUNDLE
     skill_dir = dest_dir / SKILL_NAME
 
