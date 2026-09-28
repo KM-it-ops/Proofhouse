@@ -87,7 +87,7 @@ pc optimize verdict --case advisory-case --revision 2 --criterion ACC --run R2 -
 pc optimize check --case advisory-case        # exit 0: v2 PASS, K1-K4 satisfied
 ```
 
-**5. Compare, report and hand it on.** `compare` shows what newly passes or regresses between revisions, `report` writes the evidence as Markdown, and `export` / `import` move a case to another workspace, refusing any altered byte.
+**5. Compare, report and hand it on.** `compare` shows what newly passes or regresses between revisions, `report` writes the evidence as Markdown, and `export` / `import` move a case to another workspace, refusing any file that does not match the bundle's manifest (the manifest is not signed).
 
 ### What a PASS proves, and what it does not
 
