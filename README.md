@@ -37,6 +37,8 @@ Without [uv](https://docs.astral.sh/uv/): `python -m pip install -e ".[test]"`, 
 
 ## How it works
 
+`proofhouse-compiler optimize` renders the framework's clarify / compile / self-heal prompts as packets you run in the agent or model of your choice, and checks what you paste back against the criteria you declare. It does not call a model and it does not rate quality.
+
 These are the [reference workflow](docs/reference-workflow.md)'s steps, and they run as written. `pc` below is `proofhouse-compiler` (`uv run proofhouse-compiler` from a clone). Work in a scratch folder holding copies of the example inputs:
 
 ```bash
@@ -104,12 +106,14 @@ Details: [docs/architecture.md](docs/architecture.md), [decision 0002](docs/deci
 
 ## Two ways in
 
-| Entry | Use it when | Network |
-|---|---|---|
-| **Command line**: `proofhouse-compiler optimize` | You want the evidence trail above: constraints, recorded outputs, checks, compare, report | none |
-| **Cursor skill**: `proofhouse-compiler install-skill`, then say "Proofhouse" in a new Cursor chat | You want the same clarify → compile → self-heal loop as a conversation | the host agent's tools |
+| Entry | Use it when | Status | Network |
+|---|---|---|---|
+| **Command line**: `proofhouse-compiler optimize` | You want the evidence trail above: constraints, recorded outputs, checks, compare, report | supported | none |
+| **Cursor skill**: `proofhouse-compiler install-skill`, then say "Proofhouse" in a new Cursor chat | You want the same clarify → compile → self-heal loop as a conversation | supported entry point | the host agent's tools |
 
-Both use the same framework ([`proofhouse-framework.json`](proofhouse-framework.json)) and the same model notes. The framework also covers Efficient / Balanced / Thorough token presets, loops for recurring agents (trigger, body, exit, escalation), prompt audits with missing-context labels, and agent design (permission maps, tool boundaries, stop conditions). The skill is installed to `~/.cursor/skills/proofhouse` and the installer checks it; without the console script, `python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills` does the same. The skill can research an unfamiliar model with the host agent's tools; the command line never goes online, and uses your own notes (`models remember`) or a generic profile labeled `fallback`.
+Proofhouse is two products in one repo, at different levels of maturity. The **PromptOps skill and framework (v1.3)**, the conversational meta-optimizer with current frontier model profiles, is the most mature part of the project. The headless compiler's maturity is listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
+
+Both entries use the same framework ([`proofhouse-framework.json`](proofhouse-framework.json)) and the same model notes. The framework also covers Efficient / Balanced / Thorough token presets, loops for recurring agents (trigger, body, exit, escalation), prompt audits with missing-context labels, and agent design (permission maps, tool boundaries, stop conditions). The skill is installed to `~/.cursor/skills/proofhouse` and the installer checks it (the bundle ships inside the package; `tests/test_skill_bundle.py` keeps it identical to `skills/proofhouse/`); without the console script, `python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills` does the same. The skill can research an unfamiliar model with the host agent's tools; the command line never goes online, and uses your own notes (`models remember`) or a generic profile labeled `fallback`.
 
 ---
 
@@ -145,6 +149,8 @@ One Python package, version 0.3.0, ships two console scripts:
 | `proofhouse-compiler` | The prompt workspace above, plus an offline compiler (requirements → IR → adapter artifact → evidence), the model-notes cache and the skill installer | `optimize` `models` `install-skill` `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` |
 | `proofhouse` | Eval harness: JSONL datasets, YAML rubrics, report skeletons | `validate` `report` `loadouts` `compile-loadout` `generate` |
 
+Supported: the `optimize` case workflow, `models`, `install-skill`, and `validate` / `compile` / `closed-loop`. The experimental commands are listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
+
 ```bash
 uv sync --extra test                                    # package + pytest into .venv
 uv run proofhouse-compiler doctor                       # doctor: success
@@ -170,8 +176,9 @@ These ship in the repository but are not the supported path. Treat them as previ
 |---|---|---|
 | `proofhouse-compiler execute-openai`: a fail-closed live OpenAI call that refuses to send unless every mandatory requirement is in the request; its cost ceiling is recorded, not enforced | experimental, opt-in | yes, only when opted in |
 | `evaluate-product`, the requirements-contract commands, `route` / `assay` / `proof` | experimental | none |
-| [`apps/proofhouse.jsx`](apps/proofhouse.jsx): a Claude artifact with a model picker, efficiency modes and a live compile loop | experimental | calls `api.anthropic.com` |
-| `apps/dashboard/`, the `hosted-*` and `missionrig-*` library slices (their tenant label is not isolation) | prototypes | none |
+| [`apps/proofhouse.jsx`](apps/proofhouse.jsx): a Claude artifact with a model picker, efficiency modes and a live compile loop; for an unknown model it web-researches, caches the result in artifact storage and labels it `researched` / `cached` / `fallback` | experimental | calls `api.anthropic.com` |
+| The `missionrig-*` modules: experimental library slices, not a hosted service (their tenant label is not isolation) | experimental | none |
+| `apps/dashboard/`, the `hosted-*` slices (their tenant label is not isolation) | prototypes | none |
 
 The headless requirements compiler's maturity is still `PARTIAL`. Full map with versions and diagnostic codes: [docs/surfaces.md](docs/surfaces.md).
 
