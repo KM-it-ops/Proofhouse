@@ -177,8 +177,8 @@ These ship in the repository but are not the supported path. Treat them as previ
 | `proofhouse-compiler execute-openai`: a fail-closed live OpenAI call that refuses to send unless every mandatory requirement is in the request; its cost ceiling is recorded, not enforced | experimental, opt-in | yes, only when opted in |
 | `evaluate-product`, the requirements-contract commands, `route` / `assay` / `proof` | experimental | none |
 | [`apps/proofhouse.jsx`](apps/proofhouse.jsx): a Claude artifact with a model picker, efficiency modes and a live compile loop; for an unknown model it web-researches, caches the result in artifact storage and labels it `researched` / `cached` / `fallback` | experimental | calls `api.anthropic.com` |
-| The `missionrig-*` modules: experimental library slices, not a hosted service (their tenant label is not isolation) | experimental | none |
-| `apps/dashboard/`, the `hosted-*` slices (their tenant label is not isolation) | prototypes | none |
+| The `hosted-*` and `missionrig-*` modules: experimental library slices, not a hosted service (their tenant label is not isolation) | experimental | none |
+| `apps/dashboard/` | prototype | none |
 
 The headless requirements compiler's maturity is still `PARTIAL`. Full map with versions and diagnostic codes: [docs/surfaces.md](docs/surfaces.md).
 
