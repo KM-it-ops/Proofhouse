@@ -2,7 +2,7 @@
 
 - No README or docs page may say import refuses "any altered byte": import checks each
   file against the bundle's own manifest, and that manifest is not signed.
-- The README keeps the maturity and status lines Boss chose to restore.
+- The README keeps the maturity and status lines chosen to be restored.
 """
 from __future__ import annotations
 
