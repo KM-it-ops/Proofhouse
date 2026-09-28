@@ -12,7 +12,8 @@
 
 - `docs/assets/proofhouse-demo.mp4` (23 s) and its poster, linked from the top
   of the README. The terminal lines in it are the reference workflow's real
-  `optimize check` output; the soundtrack is original and synthesized.
+  `optimize check` output (case path shortened); the soundtrack is original
+  and synthesized.
 
 ## 0.3.0 - Evidence Integrity
 

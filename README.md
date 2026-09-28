@@ -14,7 +14,7 @@ It runs on your machine with no API key. Proofhouse writes the prompts it needs 
 
 [![Proofhouse in 23 seconds: a prompt revision that invents an exploitation claim fails its checks, and the next revision passes with every constraint kept](docs/assets/proofhouse-demo.jpg)](docs/assets/proofhouse-demo.mp4)
 
-*23-second demo (click to play). The terminal lines are the real `optimize check` output from the reference workflow below.*
+*23-second demo (click to play). The terminal lines are the real `optimize check` output from the reference workflow below (case path shortened).*
 
 Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/)
 
