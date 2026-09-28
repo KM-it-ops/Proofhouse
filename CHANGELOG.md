@@ -1,20 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Changed
-
-- README leads with one story, the offline prompt-revision workflow, and moves
-  experimental and prototype parts into their own section. It now states the CI
-  matrix (Linux, macOS, Windows; Python 3.11 to 3.14) and shows the CI badge.
-
-### Added
-
-- `docs/assets/proofhouse-demo.mp4` (23 s) and its poster, linked from the top
-  of the README. The terminal lines in it are the reference workflow's real
-  `optimize check` output (case path shortened); the soundtrack is original
-  and synthesized.
-
 ## 0.3.0 - Evidence Integrity
 
 ### Removed
@@ -30,6 +15,9 @@
 - Bumped the package to 0.3.0. Frozen v0.5 contract fixtures, requirements
   contract evidence, the original dashboard backup, and changelog history keep
   their historical names intentionally.
+- README leads with one story, the offline prompt-revision workflow, and moves
+  experimental and prototype parts into their own section. It now states the CI
+  matrix (Linux, macOS, Windows; Python 3.11 to 3.14) and shows the CI badge.
 
 ### Evidence integrity (adversarial review of 78e512c, findings F01-F12)
 
@@ -115,6 +103,10 @@ Behavior changes a user will notice are marked **(breaking)**. See
 
 ### Added
 
+- `docs/assets/proofhouse-demo.mp4` (23 s) and its poster, linked from the top
+  of the README. The terminal lines in it are the reference workflow's real
+  `optimize check` output (case path shortened); the soundtrack is original
+  and synthesized.
 - `[test]` extra declaring pytest, locked in `uv.lock`, so `uv sync --extra test`
   and `pip install -e ".[test]"` establish the test prerequisite on a clean clone.
 - `examples/ir_minimal.json` — static, human-readable copy of the canonical
