@@ -88,7 +88,7 @@ pc optimize import --bundle advisory-case.zip --case elsewhere/advisory-case
 pc optimize check --case elsewhere/advisory-case              # same result
 ```
 
-`report.md` lists lineage, the constraint ledger with status, every check with its evidence class, the exact outputs tested, and what the report does not show. The export leaves out the `.md` packets because they embed local paths; import refuses any altered byte.
+`report.md` lists lineage, the constraint ledger with status, every check with its evidence class, the exact outputs tested, and what the report does not show. The export leaves out the `.md` packets because they embed local paths; import refuses any file that does not match the bundle's manifest (the manifest is not signed).
 
 ## What this demonstrates, and what it does not
 
