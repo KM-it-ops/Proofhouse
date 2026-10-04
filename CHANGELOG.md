@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 - 2026-10-04
 
 ### Added
 
@@ -18,12 +18,12 @@
 
 ### Changed
 
-- `install-skill` no longer defaults to Cursor. With no `--host` and no `--dest` in a terminal,
+- **(breaking)** `install-skill` no longer defaults to Cursor. With no `--host` and no `--dest` in a terminal,
   it asks which agent: every known agent (marked when its folder exists) or another agent you
   name with its skills folder. Run by a program, it installs for the one agent whose folder
   (`~/.cursor` or `~/.claude`) exists; with none or both it exits 2 and lists the choices.
   `--json` output now includes `host` and `agent`.
-- The Python `install()` and `default_dest()` functions no longer assume Cursor either: they
+- **(breaking)** The Python `install()` and `default_dest()` functions no longer assume Cursor either: they
   need an agent or a destination folder, and refuse with exit code 2 otherwise.
 
 ## 0.3.0 - Evidence Integrity

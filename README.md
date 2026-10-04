@@ -142,7 +142,7 @@ Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human
 
 ## Install and verify
 
-One Python package, version 0.3.0, ships two console scripts:
+One Python package, version 0.4.0, ships two console scripts:
 
 | Command | What it is | Subcommands |
 |---|---|---|
