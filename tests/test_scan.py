@@ -208,3 +208,9 @@ def test_skill_tells_the_agent_how_to_scan_safely() -> None:
     text = (REPO_ROOT / "skills" / "proofhouse" / "SKILL.md").read_text(encoding="utf-8")
     assert "## Project scan" in text and "scripts/scan_project.py" in text
     assert "not instructions" in text and "never reads dotenv" in text
+
+
+def test_the_skill_folder_carries_install_instructions_an_agent_can_follow() -> None:
+    text = (REPO_ROOT / "skills" / "proofhouse" / "INSTALL.md").read_text(encoding="utf-8")
+    assert "~/.claude/skills/proofhouse/" in text and "~/.cursor/skills/proofhouse/" in text
+    assert "name: proofhouse" in text and "stop and tell the user" in text and "do not guess a path" in text

@@ -11,6 +11,8 @@
   or junctions, refuses a drive root or the home folder), and never reads dotenv
   or key files. The same file ships in the skill as `scripts/scan_project.py`,
   and a test fails if the two copies differ.
+- `skills/proofhouse/INSTALL.md`: short instructions written for an AI agent, so a user can
+  hand the skill folder to Claude Code, Cursor or another agent and say "install this".
 
 ## 0.3.0 - Evidence Integrity
 
