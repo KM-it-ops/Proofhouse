@@ -145,7 +145,7 @@ proofhouse-compiler closed-loop <input.json> [--repair-budget {0,1,2}] [--json]
 
 ## Honesty gates
 
-The tested path is offline. Package is `proofhouse` 0.3.0 (`src/proofhouse/`).
+The tested path is offline. Package is `proofhouse` 0.4.0 (`src/proofhouse/`).
 CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler, including
 `route` / `assay` / `proof`, and the offline optimize / models / install-skill
 commands; optimize renders packets and never calls a model).
