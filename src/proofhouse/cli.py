@@ -1,10 +1,13 @@
 from __future__ import annotations
 
 import argparse
+import json
+import sys
 from pathlib import Path
 
 from .loadouts import compile_loadout, load_legendary_loadouts
 from .runner import build_markdown_report, validate_dataset
+from .scan import ScanError, emit as emit_scan, render as render_scan, scan as scan_project
 from .templates import PromptArchitectInputs, export_prompt_architect
 
 
@@ -43,6 +46,16 @@ def cmd_compile_loadout(args: argparse.Namespace) -> int:
         print(f"Loadout compiled: {out}")
     else:
         print(compiled, end="")
+    return 0
+
+
+def cmd_scan(args: argparse.Namespace) -> int:
+    try:
+        result = scan_project(args.path)
+    except ScanError as exc:
+        print(f"scan: {exc}", file=sys.stderr)
+        return 2
+    emit_scan(json.dumps(result, indent=2) if args.json else render_scan(result))
     return 0
 
 
@@ -88,6 +101,11 @@ def build_parser() -> argparse.ArgumentParser:
     compile_parser.add_argument("--id", required=True, help="Loadout id to compile")
     compile_parser.add_argument("--out", help="Optional output markdown path")
     compile_parser.set_defaults(func=cmd_compile_loadout)
+
+    scan_cmd = subparsers.add_parser("scan", help="Read-only scan of a project folder, so fewer questions are needed")
+    scan_cmd.add_argument("path", nargs="?", default=".", help="Project folder (default: current folder)")
+    scan_cmd.add_argument("--json", action="store_true", help="Machine-readable output")
+    scan_cmd.set_defaults(func=cmd_scan)
 
     generate = subparsers.add_parser("generate", help="Render versioned prompt templates")
     generate.add_argument("--template", default="prompt-architect", choices=["prompt-architect"])

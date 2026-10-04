@@ -17,6 +17,7 @@ EXPECTED_FILES = [
     "proofhouse/assets/proofhouse.jsx",
     "proofhouse/references/proofhouse-framework.json",
     "proofhouse/references/proofhouse-framework.md",
+    "proofhouse/scripts/scan_project.py",
 ]
 
 
@@ -50,13 +51,13 @@ def test_default_dest_is_cursor_skills_and_bundle_is_package_data() -> None:
     assert "install-skill" in cli_compiler.COMPILER_COMMANDS
 
 
-def test_fresh_install_extracts_four_files_and_verifies_name(tmp_path: Path, capsys) -> None:
+def test_fresh_install_extracts_five_files_and_verifies_name(tmp_path: Path, capsys) -> None:
     dest = tmp_path / "skills"
     code, out, err = _run(["install-skill", "--dest", str(dest)], capsys)
     assert code == 0 and err == ""
     skill_dir = dest / "proofhouse"
     assert out.splitlines() == [
-        f"install-skill: installed 4 files -> {skill_dir.resolve()}",
+        f"install-skill: installed 5 files -> {skill_dir.resolve()}",
         "  verified: name: proofhouse",
         '  next: start a new Cursor Agent chat and say "Proofhouse"',
     ]
@@ -91,7 +92,7 @@ def test_force_replaces_existing_install(tmp_path: Path, capsys) -> None:
 
     code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
     assert code == 0 and err == ""
-    assert out.splitlines()[0] == f"install-skill: installed 4 files -> {skill_dir.resolve()}"
+    assert out.splitlines()[0] == f"install-skill: installed 5 files -> {skill_dir.resolve()}"
     assert (skill_dir / "SKILL.md").read_text(encoding="utf-8").splitlines()[1] == "name: proofhouse"
     assert not (skill_dir / "stray.txt").exists()
 
