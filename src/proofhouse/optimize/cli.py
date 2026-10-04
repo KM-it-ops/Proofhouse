@@ -586,11 +586,85 @@ def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
     add_workflow_commands(opt_sub)
 
 
+def _stdin_is_terminal() -> bool:
+    """True only for a person at a keyboard.
+
+    On Windows the null device also reports ``isatty()``, so a real console is
+    confirmed with ``GetConsoleMode``; a stream with no OS handle is trusted as is.
+    """
+    try:
+        if sys.stdin is None or not sys.stdin.isatty():
+            return False
+        if sys.platform != "win32":
+            return True
+        try:
+            fd = sys.stdin.fileno()
+        except (OSError, ValueError):
+            return True
+        import ctypes
+        import msvcrt
+
+        mode = ctypes.c_ulong()
+        handle = msvcrt.get_osfhandle(fd)
+        return bool(ctypes.windll.kernel32.GetConsoleMode(handle, ctypes.byref(mode)))
+    except (AttributeError, OSError, ValueError):
+        return False
+
+
+def _prompt(text: str) -> str | None:
+    """One answer typed on the terminal; ``None`` at end of input."""
+    sys.stderr.write(text)
+    sys.stderr.flush()
+    line = sys.stdin.readline()
+    return line.strip() if line else None
+
+
+def _ask_agent() -> tuple[str | None, Path | None, str]:
+    """Ask which agent to install for: every known agent, or a new one by name and folder.
+
+    Returns ``(host, dest, agent name)``. Never picks an agent by itself; no valid
+    answer is a usage error and nothing is installed.
+    """
+    hosts = sorted(install_mod.HOSTS)
+    other = len(hosts) + 1
+    lines = ["Which agent should Proofhouse be installed for?"]
+    for number, name in enumerate(hosts, 1):
+        folder, label, _ = install_mod.HOSTS[name]
+        found = "  (found)" if (Path.home() / folder).is_dir() else ""
+        lines.append(f"  {number}) {label:<12} -> {install_mod.default_dest(name)}{found}")
+    lines.append(f"  {other}) Another agent: type its name and its skills folder")
+    print("\n".join(lines), file=sys.stderr)
+    refused = install_mod.InstallSkillError(
+        f"no agent chosen; nothing was installed. Re-run and choose, or pass --host {{{','.join(hosts)}}} or --dest",
+        EXIT_USAGE_ERROR,
+    )
+    for _ in range(3):
+        answer = _prompt(f"Choose 1-{other}: ")
+        if answer is None:
+            raise refused
+        if answer in {str(n) for n in range(1, len(hosts) + 1)}:
+            host = hosts[int(answer) - 1]
+            return host, None, install_mod.HOSTS[host][1]
+        if answer == str(other):
+            name = _prompt("Agent name: ")
+            folder = _prompt("Its skills folder (the skill goes in <folder>/proofhouse): ")
+            if not name or not folder:
+                raise refused
+            return None, Path(folder).expanduser(), name
+        print(f"  type a number from 1 to {other}", file=sys.stderr)
+    raise refused
+
+
 def _cmd_install_skill(args: argparse.Namespace) -> int:
     dest = Path(args.dest) if args.dest else None
     bundle = Path(args.bundle) if args.bundle else None
     try:
-        result = install_mod.install(dest, bundle, force=args.force)
+        if args.host is None and dest is None and _stdin_is_terminal():
+            host, dest, agent = _ask_agent()
+        else:
+            host = install_mod.resolve_host(args.host, dest)
+            agent = install_mod.HOSTS[host][1] if host else None
+        result = install_mod.install(dest, bundle, force=args.force, host=host)
     except install_mod.InstallSkillError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exc.exit_code
@@ -601,6 +675,8 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
         )
     if args.json:
         data = {
+            "host": host,
+            "agent": agent,
             "dest": str(result.dest),
             "files": list(result.files),
             "verified": result.verified,
@@ -613,7 +689,8 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
     print(f"  verified: {install_mod.NAME_LINE}")
     if result.backup is not None:
         print(f"  previous installation kept at: {result.backup}")
-    print('  next: start a new Cursor Agent chat and say "Proofhouse"')
+    where = install_mod.HOSTS[host][2] if host else f"a new chat or session in {agent or 'your agent'}"
+    print(f'  next: start {where} and say "Proofhouse"')
     return EXIT_SUCCESS
 
 
@@ -621,14 +698,25 @@ def _add_install_skill(subparsers: argparse._SubParsersAction) -> None:
     p_install = subparsers.add_parser(
         "install-skill",
         help=(
-            "Extract the bundled proofhouse.skill into ~/.cursor/skills (package data; no checkout needed) "
-            "and verify its frontmatter line name: proofhouse."
+            "Extract the bundled proofhouse.skill into an agent's skills folder (package data; no checkout "
+            "needed) and verify its frontmatter line name: proofhouse. Asks which agent when none is named."
+        ),
+    )
+    p_install.add_argument(
+        "--host",
+        choices=sorted(install_mod.HOSTS),
+        default=None,
+        help=(
+            "Agent to install for: cursor (~/.cursor/skills) or claude (Claude Code, ~/.claude/skills). "
+            "No default: if omitted in a terminal, you are asked to choose from every known agent or to name "
+            "another agent and its skills folder. Run by a program, the agent whose folder is the only one in "
+            "your home directory is used; otherwise the command stops and lists the choices."
         ),
     )
     p_install.add_argument(
         "--dest",
         default=None,
-        help="Skills directory to install into (default: ~/.cursor/skills); the skill lands in <dest>/proofhouse.",
+        help="Skills directory to install into (overrides --host); the skill lands in <dest>/proofhouse.",
     )
     p_install.add_argument(
         "--bundle",

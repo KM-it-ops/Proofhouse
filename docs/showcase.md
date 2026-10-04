@@ -88,7 +88,7 @@ Report written: evals/reports/prompt_audit_report.md
 Skill install (once, then a new Agent chat):
 
 ```powershell
-uv run proofhouse-compiler install-skill
+uv run proofhouse-compiler install-skill --host cursor
 uv run proofhouse-compiler models show "Sonnet 5"
 ```
 

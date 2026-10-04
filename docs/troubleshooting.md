@@ -14,6 +14,7 @@
 | closed-loop `FAIL` with `EVR-REP-0005` | Product evaluation failed; repair is not attempted against imported observations | Revise the prompt, produce new outputs, and evaluate again. |
 | `execute-openai` `EXE-SEM-0001` | The IR needs something a single request cannot provide (required knowledge content, persistent memory) | Nothing was sent. Remove or restructure that requirement, or use another path. |
 | `execute-openai` `EXE-CEIL-0001` | Missing or invalid ceilings (`NaN`, `Infinity`, non-positive) | Pass a positive integer `--max-output-tokens` and a positive finite `--max-cost-usd`. The cost value is recorded, not enforced. |
+| `install-skill` error mentioning `no agent chosen`, `name an agent` or `found ... agent folder` | No agent was named and none could be chosen: the question got no valid answer, or a program ran it with no single agent folder in your home directory | Nothing was installed. Answer the question in a terminal, or pass `--host claude`, `--host cursor` or `--dest <skills folder>`. |
 | `install-skill` error mentioning `nothing was installed` or `previous installation restored` | The new bundle failed validation or could not be placed | Your previous skill is unchanged. Forced replacements keep the old copy under `PROOFHOUSE_HOME/skill-backups/`. |
 | import: `sha256 does not match the manifest` | The bundle was altered after export | Get a fresh export; nothing was written. |
 | Garbled output on Windows consoles | Legacy code page | Set `PYTHONUTF8=1`. |

@@ -1,4 +1,4 @@
-"""Install the bundled ``proofhouse.skill`` into a Cursor skills directory and verify its frontmatter.
+"""Install the bundled ``proofhouse.skill`` into a Cursor or Claude Code skills directory and verify its frontmatter.
 
 The bundle ships as package data (``registry.PACKAGE_BUNDLE_PATH``), so a pip
 install works without a checkout. Every zip entry must live under
@@ -39,6 +39,11 @@ DEFAULT_BUNDLE = PACKAGE_BUNDLE_PATH
 MAX_UNCOMPRESSED_BYTES = 16 * 1024 * 1024
 MAX_ENTRIES = 256
 BACKUP_DIR = "skill-backups"
+# Host agent -> (config directory under the home directory, display name, where to start using the skill).
+HOSTS = {
+    "cursor": (".cursor", "Cursor", "a new Cursor Agent chat"),
+    "claude": (".claude", "Claude Code", "a new Claude Code session"),
+}
 
 # Same values as cli.py / compiler.cli_compiler.
 EXIT_USAGE_ERROR = 2
@@ -65,8 +70,36 @@ class InstallResult:
     leftover: Path | None = None
 
 
-def default_dest() -> Path:
-    return Path.home() / ".cursor" / "skills"
+def _check_host(host: str) -> None:
+    if host not in HOSTS:
+        raise InstallSkillError(f"unknown host {host!r}; choose from {', '.join(sorted(HOSTS))}", EXIT_USAGE_ERROR)
+
+
+def default_dest(host: str) -> Path:
+    _check_host(host)
+    return Path.home() / HOSTS[host][0] / "skills"
+
+
+def resolve_host(host: str | None, dest: Path | None) -> str | None:
+    """The agent to install for, without guessing.
+
+    An explicit ``host`` wins. With ``dest`` the folder is already chosen, so no agent is needed
+    (``None``). Otherwise exactly one agent folder must already exist under the home directory;
+    none or several is a usage error that lists the ``--host`` choices.
+    """
+    if host is not None:
+        _check_host(host)
+        return host
+    if dest is not None:
+        return None
+    present = [name for name, (folder, *_) in sorted(HOSTS.items()) if (Path.home() / folder).is_dir()]
+    if len(present) == 1:
+        return present[0]
+    reason = "found more than one agent folder" if present else "found no agent folder"
+    raise InstallSkillError(
+        f"no agent named and {reason} under {Path.home()}; re-run with --host {{{','.join(sorted(HOSTS))}}} or --dest",
+        EXIT_USAGE_ERROR,
+    )
 
 
 def _unreadable(bundle: Path, reason: str) -> InstallSkillError:
@@ -139,8 +172,16 @@ def _backup_path() -> Path:
     return proofhouse_home() / BACKUP_DIR / stamp / SKILL_NAME
 
 
-def install(dest: Path | None = None, bundle: Path | None = None, *, force: bool = False) -> InstallResult:
-    dest_dir = (dest if dest is not None else default_dest()).resolve()
+def install(
+    dest: Path | None = None, bundle: Path | None = None, *, force: bool = False, host: str | None = None
+) -> InstallResult:
+    """Install into ``dest``, or into ``host``'s skills folder; never assumes an agent."""
+    if dest is None and host is None:
+        raise InstallSkillError(
+            f"name an agent (--host {{{','.join(sorted(HOSTS))}}}) or a skills folder (--dest); nothing was installed",
+            EXIT_USAGE_ERROR,
+        )
+    dest_dir = (dest if dest is not None else default_dest(host)).resolve()
     bundle_path = bundle if bundle is not None else DEFAULT_BUNDLE
     skill_dir = dest_dir / SKILL_NAME
 
