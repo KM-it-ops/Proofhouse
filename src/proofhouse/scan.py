@@ -20,6 +20,7 @@ import argparse
 import json
 import os
 import re
+import stat
 import sys
 from pathlib import Path
 
@@ -103,8 +104,20 @@ def _read(path: Path) -> str:
 
 def _is_plain(path: Path) -> bool:
     """Not a symlink and not a Windows junction: neither is followed, so the scan cannot leave the folder."""
-    junction = getattr(path, "is_junction", None)
-    return not path.is_symlink() and not (junction and junction())
+    return not path.is_symlink() and not _is_junction(path)
+
+
+def _is_junction(path: Path) -> bool:
+    """Path.is_junction arrived in Python 3.12; before that, read the Windows reparse tag directly."""
+    native = getattr(path, "is_junction", None)
+    if native:
+        return native()
+    if os.name == "nt":
+        try:
+            return os.lstat(path).st_reparse_tag == stat.IO_REPARSE_TAG_MOUNT_POINT
+        except (OSError, AttributeError):
+            return False
+    return False
 
 
 def _names_from_pyproject(text: str) -> tuple[set[str], list[str]]:
