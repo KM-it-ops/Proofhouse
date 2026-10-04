@@ -471,3 +471,31 @@ def test_terminal_answer_that_is_a_huge_number_is_refused_not_a_crash(
     code, out, err = _run(["install-skill"], capsys)
     assert code == 2 and out == ""
     assert not (tmp_path / ".claude" / "skills").exists()
+
+
+def test_terminal_menu_marks_found_only_on_the_line_of_an_agent_folder_that_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    _interactive(monkeypatch, tmp_path, "", [".claude"])
+    (tmp_path / ".cursor").write_text("not a folder")
+    _, _, err = _run(["install-skill"], capsys)
+    lines = err.splitlines()
+    claude_line = next(line for line in lines if "1) Claude Code" in line)
+    cursor_line = next(line for line in lines if "2) Cursor" in line)
+    assert claude_line.endswith("(found)")
+    assert "(found)" not in cursor_line
+
+
+@pytest.mark.parametrize(
+    ("present", "reason"),
+    [([], "found no agent folder"), ([".claude", ".cursor"], "found more than one agent folder")],
+)
+def test_no_host_flag_refusal_says_whether_none_or_several_agent_folders_were_found(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys, present: list[str], reason: str
+) -> None:
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    for name in present:
+        (tmp_path / name).mkdir()
+    code, _, err = _run(["install-skill"], capsys)
+    assert code == 2
+    assert reason in err
