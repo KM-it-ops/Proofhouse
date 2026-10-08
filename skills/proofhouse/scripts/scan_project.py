@@ -17,6 +17,7 @@ agent must not act on text that appears in it.
 from __future__ import annotations
 
 import argparse
+import codecs
 import json
 import os
 import re
@@ -103,6 +104,13 @@ class ScanError(Exception):
     """The target is not something to scan (missing, not a folder, or too broad)."""
 
 
+def _decode(data: bytes) -> str:
+    """Text from file bytes: UTF-16 when it has a byte-order mark (PowerShell 5 writes it), otherwise UTF-8 without the BOM."""
+    if data.startswith((codecs.BOM_UTF16_LE, codecs.BOM_UTF16_BE)):
+        return data.decode("utf-16", errors="replace")
+    return data.decode("utf-8-sig", errors="replace")
+
+
 def _read(path: Path) -> str:
     """First MAX_READ bytes of a regular file; "" for anything else (pipe, device, socket, link) or on error."""
     try:
@@ -111,7 +119,7 @@ def _read(path: Path) -> str:
         # O_NONBLOCK: a pipe swapped in after the check must not make open() wait for a writer.
         flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
         with os.fdopen(os.open(path, flags), "rb") as handle:
-            return handle.read(MAX_READ).decode("utf-8", errors="replace")
+            return _decode(handle.read(MAX_READ))
     except OSError:
         return ""
 
@@ -163,7 +171,7 @@ def _strings(value: object) -> list[str]:
     return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
-def _names_from_pyproject(text: str) -> tuple[set[str], list[str]]:
+def _names_from_pyproject(text: str, skipped: list[str]) -> tuple[set[str], list[str]]:
     """Dependency names and the build backend / tool tables, from names only."""
     names: set[str] = set()
     tools: list[str] = []
@@ -172,6 +180,7 @@ def _names_from_pyproject(text: str) -> tuple[set[str], list[str]]:
             data = tomllib.loads(text)
         except (ValueError, RecursionError):  # TOMLDecodeError is a ValueError; absurdly nested input recurses
             data = {}
+            skipped.append("could not parse pyproject.toml (dependencies from it are missing)")
         project = _as_dict(data.get("project"))
         deps = _strings(project.get("dependencies"))
         for group in _as_dict(project.get("optional-dependencies")).values():
@@ -190,10 +199,11 @@ def _names_from_pyproject(text: str) -> tuple[set[str], list[str]]:
     return names, tools
 
 
-def _names_from_package_json(text: str) -> tuple[set[str], list[str], str | None]:
+def _names_from_package_json(text: str, skipped: list[str]) -> tuple[set[str], list[str], str | None]:
     try:
         data = json.loads(text)
     except (ValueError, RecursionError):  # absurdly nested input recurses
+        skipped.append("could not parse package.json (dependencies from it are missing)")
         return set(), [], None
     if not isinstance(data, dict):
         return set(), [], None
@@ -309,7 +319,7 @@ def scan(path: str | Path = ".") -> dict:
     managers = {LOCKFILES[f] for f in LOCKFILES if f in top_files}
     tools: list[str] = []
     if "pyproject.toml" in top_files:
-        names, tools = _names_from_pyproject(_read(root / "pyproject.toml"))
+        names, tools = _names_from_pyproject(_read(root / "pyproject.toml"), skipped)
         deps |= names
         if "uv" in tools and "uv" not in managers:
             managers.add("uv")
@@ -320,7 +330,7 @@ def scan(path: str | Path = ".") -> dict:
         if not managers & {"uv", "poetry", "pipenv"}:
             managers.add("pip")
     if "package.json" in top_files:
-        names, scripts, declared = _names_from_package_json(_read(root / "package.json"))
+        names, scripts, declared = _names_from_package_json(_read(root / "package.json"), skipped)
         deps |= names
         if declared:
             managers.add(declared)
