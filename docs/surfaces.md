@@ -24,6 +24,7 @@ A package release can change any of these; the changelog says which.
 | `proofhouse-compiler optimize ...` (new, compile, record, revise, status, criteria, verdict, check, constraints, output, compare, report, export, import) | **supported** | none | The local evidence workflow in [product-scope.md](product-scope.md). Digests verified on load; PASS as defined in [decision 0002](decisions/0002-what-pass-means.md). |
 | `proofhouse-compiler models ...` | **supported** | none | Profile source, evidence label, review date, staleness. Notes are guidance, not specifications. |
 | `proofhouse-compiler install-skill` | **supported** | none | Transactional install; a failed install leaves the previous one unchanged; replaced copies kept under `PROOFHOUSE_HOME/skill-backups/`. |
+| `proofhouse-compiler demo` | **supported** | none | The reference advisory workflow, from files shipped in the package. Recorded outputs only; no model call and no checkout. |
 | Cursor or Claude Code skill (`skills/proofhouse/`; `install-skill --host claude` for Claude Code) | **supported** entry point | host agent's tools | The conversational way into the same workflow. Host behavior is outside this repo's tests. |
 | `proofhouse-compiler validate / inspect / compile / adapters / doctor` | **supported** | none | Deterministic IR validation and offline lowering. |
 | `proofhouse-compiler closed-loop` | **supported** (structural) | none | Offline fake-adapter loop; strict intake validation; stage-separated evidence. A PASS is a structural check, not a quality measurement. |

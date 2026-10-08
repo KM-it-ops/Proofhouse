@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.4.1 - 2026-10-08
+
+### Added
+
+- `proofhouse-compiler demo` runs the reference advisory workflow from files shipped in the package. It replays recorded outputs, calls no model, and does not need a git clone.
+
+### Changed
+
+- Package metadata for a PyPI page: SPDX `MIT` license, project links, and classifiers. The README leads with `uv tool install proofhouse` / `pip install proofhouse`.
+
 ## 0.4.0 - 2026-10-04
 
 ### Added

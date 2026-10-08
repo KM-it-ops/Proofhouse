@@ -120,6 +120,14 @@ jobs:
         run: |
           /tmp/pr-wheel/bin/python scripts/reference_workflow.py --cli /tmp/pr-wheel/bin/proofhouse-compiler --quiet
 
+      - name: Demo command on the installed wheel, outside the checkout
+        env:
+          PROOFHOUSE_HOME: /tmp/pr-wheel-demo-home
+          PYTHONUTF8: "1"
+        run: |
+          cd /tmp
+          /tmp/pr-wheel/bin/proofhouse-compiler demo --quiet
+
       - name: Generated model surfaces and skill bundle are in sync
         run: |
           /tmp/pr-wheel/bin/python scripts/generate_model_surfaces.py --check

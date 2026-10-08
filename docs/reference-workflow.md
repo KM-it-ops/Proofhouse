@@ -1,11 +1,17 @@
 # Reference workflow: an advisory summary that keeps its constraints
 
-This walks one real failure to a verified fix, offline. The inputs are in [`examples/reference-advisory/`](../examples/reference-advisory/): a synthetic advisory, clarification answers, two prompt revisions and the output each produced. [`scripts/reference_workflow.py`](../scripts/reference_workflow.py) runs exactly these steps and fails if any result differs; CI runs it against the installed wheel.
+This walks one real failure to a verified fix, offline. The inputs are in [`examples/reference-advisory/`](../examples/reference-advisory/): a synthetic advisory, clarification answers, two prompt revisions and the output each produced. The same files ship inside the package. `proofhouse-compiler demo` runs the case from that copy. [`scripts/reference_workflow.py`](../scripts/reference_workflow.py) is the clone wrapper and fails if any result differs; CI runs it against the installed wheel, and also runs `demo` from the wheel outside the checkout.
 
-Run it in one go:
+Run it in one go after install:
 
 ```bash
-python scripts/reference_workflow.py                # prints each command and its output
+proofhouse-compiler demo                # recorded outputs, no model call
+```
+
+From a clone:
+
+```bash
+python scripts/reference_workflow.py    # prints each command and its output
 ```
 
 Measured on the maintainer's Windows machine: about 13 seconds for the script. How long a person takes to follow it by hand has not been measured.

@@ -12,7 +12,7 @@ I built Proofhouse because I kept rewriting the same prompt for different models
 
 It runs on your machine with no API key. Proofhouse writes the prompts it needs as packets; you run them in the agent or model you already use and paste the results back. It is a local tool, not a hosted service, and I make no benchmark or quality claims for it.
 
-[![Proofhouse in 23 seconds: a prompt revision that invents an exploitation claim fails its checks, and the next revision passes with every constraint kept](docs/assets/proofhouse-demo.jpg)](docs/assets/proofhouse-demo.mp4)
+[![Proofhouse in 23 seconds: a prompt revision that invents an exploitation claim fails its checks, and the next revision passes with every constraint kept](https://github.com/KM-it-ops/Proofhouse/raw/main/docs/assets/proofhouse-demo.jpg)](https://github.com/KM-it-ops/Proofhouse/raw/main/docs/assets/proofhouse-demo.mp4)
 
 *23-second demo (click to play). The terminal lines are the real `optimize check` output from the reference workflow below (case path shortened).*
 
@@ -23,15 +23,15 @@ Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/)
 ## Try it in two minutes
 
 ```bash
-git clone https://github.com/KM-it-ops/Proofhouse.git
-cd Proofhouse
-uv sync --extra test
-uv run python scripts/reference_workflow.py
+uv tool install proofhouse
+proofhouse-compiler demo
 ```
 
-That runs the [reference workflow](docs/reference-workflow.md) end to end, offline: a security-advisory summary whose first revision invents an exploitation claim and fails its checks, and whose second revision passes without losing a constraint. On Windows, set `$env:PYTHONUTF8='1'` first for reliable console output.
+That runs the [reference workflow](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/reference-workflow.md) end to end, offline, from files shipped in the package. It replays recorded outputs: a security-advisory summary whose first revision invents an exploitation claim and fails its checks, and whose second revision passes without losing a constraint. It does not call a model. On Windows, set `$env:PYTHONUTF8='1'` first for reliable console output.
 
-Without [uv](https://docs.astral.sh/uv/): `python -m pip install -e ".[test]"`, then `python scripts/reference_workflow.py`.
+With pip: `python -m pip install proofhouse`, then `proofhouse-compiler demo`.
+
+From a clone, the same check is `uv run python scripts/reference_workflow.py` (or `python -m pip install -e ".[test]"` without [uv](https://docs.astral.sh/uv/)). The by-hand steps later on this page copy `examples/reference-advisory`, which is in the repository, not in the wheel.
 
 ---
 
@@ -142,14 +142,14 @@ Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human
 
 ## Install and verify
 
-One Python package, version 0.4.0, ships two console scripts:
+One Python package, version 0.4.1, ships two console scripts:
 
 | Command | What it is | Subcommands |
 |---|---|---|
-| `proofhouse-compiler` | The prompt workspace above, plus an offline compiler (requirements → IR → adapter artifact → evidence), the model-notes cache and the skill installer | `optimize` `models` `install-skill` `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` |
+| `proofhouse-compiler` | The prompt workspace above, plus an offline compiler (requirements → IR → adapter artifact → evidence), the model-notes cache, the skill installer, and the packaged reference demo | `optimize` `models` `install-skill` `demo` `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` |
 | `proofhouse` | Eval harness: JSONL datasets, YAML rubrics, report skeletons | `validate` `report` `loadouts` `compile-loadout` `generate` |
 
-Supported: the `optimize` case workflow, `models`, `install-skill`, and `validate` / `compile` / `closed-loop`. The experimental commands are listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
+Supported: the `optimize` case workflow, `models`, `install-skill`, `demo`, and `validate` / `compile` / `closed-loop`. The experimental commands are listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
 
 ```bash
 uv sync --extra test                                    # package + pytest into .venv
@@ -159,10 +159,11 @@ uv run proofhouse-compiler closed-loop tests/compiler/fixtures/closed_loop_requi
 uv run proofhouse validate --dataset evals/datasets/prompt_audit_cases.jsonl
                                                         # Dataset validation passed: ...
 uv run pytest -q                                        # all passed, 1 deselected (live tests are opt-in)
-uv run python scripts/reference_workflow.py --quiet     # reference workflow: OK
+uv run proofhouse-compiler demo --quiet                 # reference workflow: OK
+uv run python scripts/reference_workflow.py --quiet     # same run via the script wrapper
 ```
 
-CI runs the test suite on Linux, macOS and Windows with Python 3.11 to 3.14, and runs the reference workflow against the built wheel. Everything above is offline: no network, no API key. Nothing here is a benchmark.
+CI runs the test suite on Linux, macOS and Windows with Python 3.11 to 3.14, runs the reference workflow against the built wheel, and runs `proofhouse-compiler demo` from that wheel outside the checkout. Everything above is offline: no network, no API key. Nothing here is a benchmark.
 
 The compiler's `closed-loop` PASS is structural: the prompt compiles offline with the fake adapter and passes security gates, and its evidence lists what it did not measure. Its approved headless profiles are `structured_minimal_v0` and `structured_developer_v0`.
 
@@ -217,11 +218,11 @@ Internal mission reports and review corpora are not published in this repository
 
 ## Start here
 
-- [Reference workflow](docs/reference-workflow.md): one failed check to a verified fix, offline
-- [Product scope](docs/product-scope.md) · [Architecture](docs/architecture.md) · [Surfaces and contracts](docs/surfaces.md) · [Evidence format](docs/evidence-format.md)
-- [Decision records](docs/decisions/) · [Assurance statements](docs/assurance/) · [Troubleshooting](docs/troubleshooting.md)
-- [Quickstart](docs/quickstart.md) · [Showcase](docs/showcase.md) · [Custom GPT setup](docs/custom-gpt-setup.md)
-- [Changelog](CHANGELOG.md) · [Contributing](CONTRIBUTING.md) · [Security policy](SECURITY.md)
+- [Reference workflow](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/reference-workflow.md): one failed check to a verified fix, offline
+- [Product scope](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/product-scope.md) · [Architecture](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/architecture.md) · [Surfaces and contracts](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/surfaces.md) · [Evidence format](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/evidence-format.md)
+- [Decision records](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/decisions/) · [Assurance statements](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/assurance/) · [Troubleshooting](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/troubleshooting.md)
+- [Quickstart](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/quickstart.md) · [Showcase](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/showcase.md) · [Custom GPT setup](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/custom-gpt-setup.md)
+- [Changelog](https://github.com/KM-it-ops/Proofhouse/blob/main/CHANGELOG.md) · [Contributing](https://github.com/KM-it-ops/Proofhouse/blob/main/CONTRIBUTING.md) · [Security policy](https://github.com/KM-it-ops/Proofhouse/blob/main/SECURITY.md)
 
 ---
 

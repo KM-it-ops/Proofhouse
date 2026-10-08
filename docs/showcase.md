@@ -13,7 +13,9 @@ Presenting from a checkout that is already synced? Add `--no-sync` after `uv run
 
 ## 0:00–0:30 — Frame it
 
-"Proofhouse turns structured prompt requirements into deterministic, inspectable artifacts, and ships an offline eval harness. Two CLIs, one package, version 0.4.0. This demo makes no provider or benchmark claim."
+"Proofhouse turns structured prompt requirements into deterministic, inspectable artifacts, and ships an offline eval harness. Two CLIs, one package, version 0.4.1. This demo makes no provider or benchmark claim."
+
+An installed package runs the reference advisory with `proofhouse-compiler demo` (recorded outputs, no clone). The timed script below is the checkout tour.
 
 ## 0:30–1:00 — Prove the environment
 

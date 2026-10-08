@@ -1,4 +1,4 @@
-"""Local-workstation commands for ``proofhouse-compiler``: ``optimize``, ``models``, ``install-skill``.
+"""Local-workstation commands for ``proofhouse-compiler``: ``optimize``, ``models``, ``install-skill``, ``demo``.
 
 ``add_local_commands`` registers them into the compiler parser. They are
 listed under ``x-local-only`` in the hosted OpenAPI document and have no
@@ -23,6 +23,7 @@ from . import case as case_mod
 from . import checks
 from . import install_skill as install_mod
 from . import model_notes
+from . import reference_workflow
 from . import workflow
 from .case import CaseError
 from .cli_workflow import add_workflow_commands
@@ -30,7 +31,7 @@ from .model_notes import ResolvedNotes, resolve_model_notes
 from .packets import PRESET_KEYS
 from .registry import load_registry
 
-LOCAL_COMMANDS = frozenset({"optimize", "models", "install-skill"})
+LOCAL_COMMANDS = frozenset({"optimize", "models", "install-skill", "demo"})
 
 # Same values as compiler.cli_compiler; importing that module here would be circular.
 EXIT_SUCCESS = 0
@@ -732,8 +733,27 @@ def _add_install_skill(subparsers: argparse._SubParsersAction) -> None:
     p_install.set_defaults(func=_cmd_install_skill)
 
 
+def _cmd_demo(args: argparse.Namespace) -> int:
+    return reference_workflow.run(
+        cli=reference_workflow.module_cli(),
+        workspace=args.workspace,
+        quiet=bool(args.quiet),
+    )
+
+
+def _add_demo(subparsers: argparse._SubParsersAction) -> None:
+    p_demo = subparsers.add_parser(
+        "demo",
+        help="Run the offline reference workflow shipped in the package (recorded outputs, no model call, no git checkout).",
+    )
+    p_demo.add_argument("--workspace", default=None, help="Directory to work in (default: a new temp directory).")
+    p_demo.add_argument("--quiet", action="store_true", help="Print only the summary.")
+    p_demo.set_defaults(func=_cmd_demo)
+
+
 def add_local_commands(subparsers: argparse._SubParsersAction) -> None:
     """Register the local-only command groups into the compiler parser."""
     _add_optimize(subparsers)
+    _add_demo(subparsers)
     _add_models(subparsers)
     _add_install_skill(subparsers)

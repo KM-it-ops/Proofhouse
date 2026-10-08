@@ -34,7 +34,7 @@ def _json(out: str) -> dict:
 
 
 def test_local_commands_and_exit_codes_match_compiler() -> None:
-    assert optimize_cli.LOCAL_COMMANDS == frozenset({"optimize", "models", "install-skill"})
+    assert optimize_cli.LOCAL_COMMANDS == frozenset({"optimize", "models", "install-skill", "demo"})
     assert optimize_cli.LOCAL_COMMANDS <= cli_compiler.COMPILER_COMMANDS
     assert "models" in cli_compiler.COMPILER_COMMANDS
     assert optimize_cli.EXIT_SUCCESS == cli_compiler.EXIT_SUCCESS == 0

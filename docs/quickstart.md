@@ -1,6 +1,6 @@
 # Proofhouse Quickstart
 
-Two offline surfaces, one package (`proofhouse` 0.4.0):
+Two offline surfaces, one package (`proofhouse` 0.4.1):
 
 - `proofhouse-compiler` — the compiler. Requirements → IR → fake-adapter artifact → evaluation/repair evidence.
 - `proofhouse` — the eval harness. JSONL dataset validation, rubric checks, markdown report skeletons.
@@ -8,6 +8,18 @@ Two offline surfaces, one package (`proofhouse` 0.4.0):
 No API key is used on any path in this document. The certified path is offline by construction (fake adapter, `network_allowed=false`). `doctor` asserts this; it does not probe the network.
 
 ## Install
+
+The tools, including `proofhouse-compiler demo`:
+
+```powershell
+$env:PYTHONUTF8='1'          # Windows only; bash users skip this
+uv tool install proofhouse
+proofhouse-compiler demo
+```
+
+With pip: `python -m pip install proofhouse`, then `proofhouse-compiler demo`. That command replays recorded outputs from files inside the package. It does not call a model.
+
+Working in a clone (tests, fixtures, the by-hand reference files under `examples/`):
 
 With uv (recommended, tested on Windows):
 

@@ -1088,6 +1088,7 @@
     "closed-loop-bridged-008",
     "compile",
     "compile-requirements",
+    "demo",
     "doctor",
     "evaluate-product",
     "execute-openai",
@@ -1126,6 +1127,7 @@
     "workspace-consume"
   ],
   "x-local-only": [
+    "demo",
     "install-skill",
     "models",
     "optimize"

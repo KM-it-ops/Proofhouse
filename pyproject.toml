@@ -1,21 +1,40 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=77", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "proofhouse"
-version = "0.4.0"
+version = "0.4.1"
 description = "Prompt operations framework for prompt architecture, audits, rewrites, and evals."
 readme = "README.md"
 requires-python = ">=3.11"
 authors = [{ name = "Proofhouse Maintainers" }]
-license = { text = "MIT" }
+license = "MIT"
+license-files = ["LICENSE"]
+keywords = ["prompts", "prompt-engineering", "evals", "agents"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
 dependencies = ["jsonschema>=4.18", "rfc8785==0.1.4"]
 
 [project.optional-dependencies]
 live = ["httpx>=0.27"]
 # Test runner only. Not a runtime dependency; runtime deps stay jsonschema + rfc8785.
 test = ["pytest>=8"]
+
+[project.urls]
+Homepage = "https://github.com/KM-it-ops/Proofhouse"
+Repository = "https://github.com/KM-it-ops/Proofhouse"
+Issues = "https://github.com/KM-it-ops/Proofhouse/issues"
+Changelog = "https://github.com/KM-it-ops/Proofhouse/blob/main/CHANGELOG.md"
 
 [project.scripts]
 proofhouse = "proofhouse.cli:main"
@@ -27,6 +46,9 @@ testpaths = ["tests"]
 markers = ["live: real or optional live-path tests; not collected by default"]
 addopts = "-m \"not live\""
 
+[tool.setuptools.packages.find]
+where = ["src"]
+
 [tool.setuptools.package-data]
 "proofhouse.compiler" = ["schemas/*.json"]
-"proofhouse.optimize" = ["data/*"]
+"proofhouse.optimize" = ["data/*", "data/reference-advisory/*"]

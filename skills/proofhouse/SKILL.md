@@ -145,10 +145,11 @@ proofhouse-compiler closed-loop <input.json> [--repair-budget {0,1,2}] [--json]
 
 ## Honesty gates
 
-The tested path is offline. Package is `proofhouse` 0.4.0 (`src/proofhouse/`).
+The tested path is offline. Package is `proofhouse` 0.4.1 (`src/proofhouse/`).
 CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler, including
-`route` / `assay` / `proof`, and the offline optimize / models / install-skill
-commands; optimize renders packets and never calls a model).
+`route` / `assay` / `proof`, and the offline optimize / models / install-skill / demo
+commands; optimize renders packets and never calls a model; `demo` replays the
+reference advisory from package data).
 Approved profiles `structured_minimal_v0`, `structured_developer_v0`. Requirements
 compiler maturity is `PARTIAL`. `route` / `assay` / `proof` and media are experimental.
 `execute-openai` is fail-closed and opt-in: it sends every mandatory requirement or refuses,
