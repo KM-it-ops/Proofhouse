@@ -220,8 +220,12 @@ def _names_from_package_json(text: str, skipped: list[str]) -> tuple[set[str], l
 
 
 def _readme_excerpt(root: Path) -> str:
-    for name in ("README.md", "README.rst", "README.txt", "README"):
-        path = root / name
+    # Match names case-insensitively against the listing, so readme.md is found on a case-sensitive disk too.
+    listing: dict[str, list[Path]] = {}
+    for entry in sorted(root.iterdir(), key=lambda e: e.name):
+        listing.setdefault(entry.name.lower(), []).append(entry)
+    candidates = [p for name in ("README.md", "README.rst", "README.txt", "README") for p in listing.get(name.lower(), [])]
+    for path in candidates:
         if _is_plain(path) and path.is_file():
             kept: list[str] = []
             # Redact whole key blocks first: the line filter below would otherwise drop the "-----BEGIN" line
