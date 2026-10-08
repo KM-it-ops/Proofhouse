@@ -7,6 +7,8 @@ dist/
 build/
 *.egg-info/
 node_modules/
+videos/readme-hype/bed.wav
+videos/readme-hype/public/
 .npm-cache/
 *.tsbuildinfo
 .vite-*.log

@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        @font-face { font-family: "Cascadia Mono"; src: local("Cascadia Mono"); }
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+          color: #c8f5d8;
+        }
+        .app {
+          width: 1080px;
+          margin: 70px auto 0;
+          background: #0a0f0c;
+          border: 1px solid #1e3a2a;
+          border-radius: 12px;
+          padding: 22px 26px 26px;
+        }
+        .brand { color: #3ddc84; font-weight: 800; letter-spacing: 6px; font-size: 26px; }
+        .tag { color: #5a8a6a; font-size: 14px; margin: 6px 0 16px; }
+        .card { border: 1px solid #1e3a2a; background: #0d1410; border-radius: 8px; padding: 18px; }
+        .label { color: #5a8a6a; font-size: 13px; letter-spacing: 1.4px; text-transform: uppercase; }
+        .field { margin-top: 8px; border: 1px solid #1e3a2a; background: #0a0f0c; border-radius: 6px; padding: 12px 14px; font-size: 20px; min-height: 28px; }
+        .row { display: flex; gap: 8px; margin-top: 8px; }
+        .pill { flex: 1; text-align: center; border: 1px solid #1e3a2a; color: #8ab89a; border-radius: 6px; padding: 8px 0; font-size: 14px; }
+        .pill.on { background: #3ddc84; color: #0a0f0c; border-color: #3ddc84; font-weight: 800; }
+        .go { margin-top: 16px; background: #3ddc84; color: #0a0f0c; text-align: center; font-weight: 800; border-radius: 6px; padding: 12px 0; }
+        #letters span { display: inline-block; white-space: pre; }
+      </style>
+      <div id="root" data-composition-id="screen-input" data-width="1920" data-height="1080">
+        <div class="app">
+          <div class="brand">PROOFHOUSE</div>
+          <div class="tag">natural language in &gt; model-optimized prompt out &gt; refine until it's right</div>
+          <div class="card">
+            <div class="label">Objective</div>
+            <div class="field" id="letters" data-text="I want to create an app like Facebook"></div>
+            <div class="label" style="margin-top: 14px">Target model / provider</div>
+            <div class="field" style="font-size: 18px; position: relative; height: 24px">
+              <span id="model-a">Claude Sonnet 5</span>
+              <span id="model-b" style="position: absolute; left: 14px; top: 12px">Grok 4.7</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: center; margin-top: 14px">
+              <div id="check" style="width: 16px; height: 16px; border: 1px solid #3ddc84; border-radius: 3px"></div>
+              <div style="color: #8ab89a; font-size: 14px">LOOP / RECURRING TASK — trigger, verify, exit, checkpoints</div>
+            </div>
+            <div class="label" style="margin-top: 14px">Token efficiency</div>
+            <div class="row">
+              <div class="pill on">Efficient</div>
+              <div class="pill">Balanced</div>
+              <div class="pill">Thorough</div>
+            </div>
+            <div id="go" class="go">Initialize &gt;</div>
+          </div>
+        </div>
+      </div>
+      <script>
+        const text = "I want to create an app like Facebook";
+        const box = document.getElementById("letters");
+        for (let i = 0; i < text.length; i++) {
+          const span = document.createElement("span");
+          span.id = "ch-" + i;
+          span.textContent = text[i];
+          box.appendChild(span);
+        }
+        const tl = gsap.timeline({ paused: true });
+        for (let i = 0; i < text.length; i++) {
+          tl.fromTo("#ch-" + i, { opacity: 0, y: 8 }, { opacity: 1, y: 0, duration: 0.08, ease: "power2.out" }, 0.4 + i * 0.045);
+        }
+        tl.fromTo("#model-a", { opacity: 1 }, { opacity: 0, duration: 0.15 }, 6.1);
+        tl.fromTo("#model-b", { opacity: 0 }, { opacity: 1, duration: 0.2 }, 6.15);
+        tl.fromTo("#check", { backgroundColor: "transparent", scale: 0.7 }, { backgroundColor: "#3ddc84", scale: 1, duration: 0.25, ease: "back.out(2)" }, 7.2);
+        tl.fromTo("#go", { scale: 1 }, { scale: 0.97, duration: 0.12, yoyo: true, repeat: 1 }, 11.2);
+        window.__timelines["screen-input"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

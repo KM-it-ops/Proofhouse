@@ -1,0 +1,9 @@
+{
+  "What should this prompt produce?": "A full goal with nonidempotent loops and instructions for production of a fully working Facebook clone.",
+  "Which pieces should it include?": "Let Grok decide.",
+  "Who is it for?": "Social media users.",
+  "Phone, web, or both?": "Both.",
+  "What must it avoid?": "Trademarked or registered copyrights and names.",
+  "Who chooses the stack?": "The agent chooses the stack.",
+  "Do people sign in?": "People sign in."
+}

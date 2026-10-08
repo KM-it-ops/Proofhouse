@@ -1,0 +1,12 @@
+Goal
+Produce a fully working social app for social media users, on phone and on web, where people sign in. It must do what Facebook does. You choose the pieces. You choose the stack. Do not use trademarked or registered names, or copyrighted material, in the product.
+
+Loop Structure
+Trigger: start the next pass when the last build is saved and the app is still not finished.
+Loop body: plan one slice, build it, and prove that slice runs. The loop is nonidempotent: each pass must change the product. Do not repeat a slice that already works.
+Exit: stop only when a person can sign in on the phone and on the web and use the finished app. Finishing one slice does not end the loop.
+Checkpoint: stop and ask before any name that could be trademarked or registered, and before a step that cannot be undone.
+Memory: keep one notes file, one lesson per entry. When a slice fails or is confirmed, update that entry. Do not add a duplicate.
+
+Security & Reliability
+People sign in. Keep passwords out of this prompt and out of the notes file.

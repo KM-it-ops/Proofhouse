@@ -12,9 +12,9 @@ I built Proofhouse because I kept rewriting the same prompt for different models
 
 It runs on your machine with no API key. Proofhouse writes the prompts it needs as packets; you run them in the agent or model you already use and paste the results back. It is a local tool, not a hosted service, and I make no benchmark or quality claims for it.
 
-[![Proofhouse in 23 seconds: a prompt revision that invents an exploitation claim fails its checks, and the next revision passes with every constraint kept](https://github.com/KM-it-ops/Proofhouse/raw/main/docs/assets/proofhouse-demo.jpg)](https://github.com/KM-it-ops/Proofhouse/raw/main/docs/assets/proofhouse-demo.mp4)
+[![Raw request, the clarifying answers, and the compiled prompt from a Grok 4.7 run](https://github.com/KM-it-ops/Proofhouse/raw/main/docs/assets/proofhouse-demo.jpg)](https://github.com/KM-it-ops/Proofhouse/raw/main/docs/assets/proofhouse-demo.mp4)
 
-*23-second demo (click to play). The terminal lines are the real `optimize check` output from the reference workflow below (case path shortened).*
+*42-second demo of the standalone app (click to play). The terminal in `apps/proofhouse.jsx` types the Facebook objective, sets Grok 4.7, checks the loop, and compiles the prompt. The grid, particles, and cursor keep moving the whole time. Remotion draws it. Hyperframes runs the same timeline in `videos/readme-hype`.*
 
 Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/)
 

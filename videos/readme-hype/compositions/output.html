@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        @font-face { font-family: "Cascadia Mono"; src: local("Cascadia Mono"); }
+        #root {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          font-family: "Cascadia Mono", Consolas, ui-monospace, monospace;
+          color: #c8f5d8;
+        }
+        .app {
+          width: 1080px;
+          margin: 36px auto 0;
+          background: #0a0f0c;
+          border: 1px solid #1e3a2a;
+          border-radius: 12px;
+          padding: 16px 20px;
+        }
+        .brand { color: #3ddc84; font-weight: 800; letter-spacing: 6px; font-size: 20px; }
+        .card { margin-top: 10px; border: 1px solid #1e3a2a; background: #0d1410; border-radius: 8px; padding: 12px 14px; }
+        .head { color: #3ddc84; letter-spacing: 2px; font-size: 13px; font-weight: 700; }
+        .line { font-size: 15px; line-height: 1.35; min-height: 20px; }
+        .line.title { color: #3ddc84; font-weight: 800; }
+        .line.gap { min-height: 8px; }
+        .foot { color: #5a8a6a; font-size: 12px; margin-top: 8px; }
+      </style>
+      <div id="root" data-composition-id="screen-output" data-width="1920" data-height="1080">
+        <div class="app" id="out-app">
+          <div class="brand">PROOFHOUSE</div>
+          <div class="card">
+            <div class="head">OPTIMIZED PROMPT · GROK 4.7</div>
+            <div style="margin-top: 8px">
+              <div class="line title" id="out-0">Goal</div>
+              <div class="line" id="out-1">Produce a fully working social app for social media users, on phone and on web, where people sign in. It must do what Facebook does. You choose the pieces. You choose the stack. Do not use trademarked or registered names, or copyrighted material, in the product.</div>
+              <div class="line gap" id="out-2"></div>
+              <div class="line title" id="out-3">Loop Structure</div>
+              <div class="line" id="out-4">Trigger: start the next pass when the last build is saved and the app is still not finished.</div>
+              <div class="line" id="out-5">Loop body: plan one slice, build it, and prove that slice runs. The loop is nonidempotent: each pass must change the product. Do not repeat a slice that already works.</div>
+              <div class="line" id="out-6">Exit: stop only when a person can sign in on the phone and on the web and use the finished app. Finishing one slice does not end the loop.</div>
+              <div class="line" id="out-7">Checkpoint: stop and ask before any name that could be trademarked or registered, and before a step that cannot be undone.</div>
+              <div class="line" id="out-8">Memory: keep one notes file, one lesson per entry. When a slice fails or is confirmed, update that entry. Do not add a duplicate.</div>
+              <div class="line gap" id="out-9"></div>
+              <div class="line title" id="out-10">Security &amp; Reliability</div>
+              <div class="line" id="out-11">People sign in. Keep passwords out of this prompt and out of the notes file.</div>
+            </div>
+            <div class="foot">~260 tokens (est.) · efficient mode · loop-structured</div>
+          </div>
+        </div>
+      </div>
+      <script>
+        const tl = gsap.timeline({ paused: true });
+        tl.fromTo("#out-app", { scale: 0.96, opacity: 0 }, { scale: 1, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.05);
+        for (let i = 0; i < 12; i++) {
+          if (i === 2 || i === 9) continue;
+          tl.fromTo("#out-" + i, { clipPath: "inset(0 100% 0 0)" }, { clipPath: "inset(0 0% 0 0)", duration: 0.28, ease: "power3.out" }, 0.25 + i * 0.06);
+        }
+        window.__timelines["screen-output"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

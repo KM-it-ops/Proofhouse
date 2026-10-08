@@ -9,6 +9,7 @@
 ### Changed
 
 - Package metadata for a PyPI page: SPDX `MIT` license, project links, and classifiers. The README leads with `uv tool install proofhouse` / `pip install proofhouse`.
+- README demo is a 42-second walk through the standalone app (`apps/proofhouse.jsx`) on the Grok 4.7 Facebook run: objective, loop, answers, compiled prompt. Remotion animates the terminal, cursor, particles, and spinning light. Hyperframes runs the same screens as sub-compositions. The soundtrack is original and synthesized.
 
 ## 0.4.0 - 2026-10-04
 

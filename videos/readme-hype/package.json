@@ -1,0 +1,24 @@
+{
+  "name": "proofhouse-readme-hype",
+  "private": true,
+  "description": "Hype cut for the README demo. Remotion draws the motion. Hyperframes runs the same timeline. Not part of the Python package.",
+  "scripts": {
+    "orchestrate": "node orchestrate.mjs",
+    "still": "remotion still remotion/index.ts Hype",
+    "render:remotion": "remotion render remotion/index.ts Hype",
+    "check": "hyperframes check",
+    "render:hyperframes": "hyperframes render"
+  },
+  "dependencies": {
+    "gsap": "^3.14.2",
+    "hyperframes": "^0.8.140",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "remotion": "^4.0.0"
+  },
+  "devDependencies": {
+    "@remotion/cli": "^4.0.0",
+    "@types/react": "^19.0.0",
+    "typescript": "^5.8.0"
+  }
+}
