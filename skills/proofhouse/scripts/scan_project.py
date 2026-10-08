@@ -89,7 +89,9 @@ AGENT_FILES = [
 HOST_MARKERS = {"CLAUDE.md": "Claude Code", ".claude": "Claude Code", ".cursor": "Cursor", ".cursorrules": "Cursor"}
 SECRET_SHAPES = re.compile(
     r"(sk-[A-Za-z0-9_\-]{16,}|AKIA[0-9A-Z]{12,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[abprs]-[A-Za-z0-9\-]{10,}"
-    r"|eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
+    r"|eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----"
+    r"|[sr]k_(?:live|test)_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_\-]{16,}"
+    r"|AIza[0-9A-Za-z_\-]{30,}|npm_[A-Za-z0-9]{30,}|hf_[A-Za-z0-9]{30,})"
 )
 # A whole PEM private-key block (header, body, footer). An unterminated block is redacted to the end of the text.
 PEM_PRIVATE_KEY_BLOCK = re.compile(
@@ -207,8 +209,9 @@ def _readme_excerpt(root: Path) -> str:
                 kept.append(line.lstrip("# ").strip())
                 if sum(len(k) for k in kept) > README_CHARS:
                     break
-            text = SECRET_SHAPES.sub("[redacted]", _clean(" ".join(kept)))
-            return re.sub(r"[*`]", "", text)[:README_CHARS]
+            # Strip the markdown marks before redacting, so a key split by `*` or a backtick is whole again.
+            text = re.sub(r"[*`]", "", _clean(" ".join(kept)))
+            return SECRET_SHAPES.sub("[redacted]", text)[:README_CHARS]
     return ""
 
 
