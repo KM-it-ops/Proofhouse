@@ -242,25 +242,38 @@ def _shown(name: str) -> bool:
 
 
 def _layout(root: Path, skipped: list[str]) -> list[str]:
-    """Top-level folders with a file count, and up to LAYOUT_DEPTH levels of names beneath them."""
-    counted = 0
-    counts: dict[str, int] = {}
-    for current, dirs, files in os.walk(root, followlinks=False):
-        dirs[:] = sorted(d for d in dirs if _shown(d) and _is_plain(Path(current) / d))
-        rel = Path(current).relative_to(root)
-        top = rel.parts[0] if rel.parts else ""
-        if top:
-            counts[top] = counts.get(top, 0) + len(files)
-        counted += len(files)
-        if counted > MAX_ENTRIES:
-            skipped.append(f"stopped counting files after {MAX_ENTRIES}")
-            break
+    """Every top-level folder with a file count, and up to LAYOUT_DEPTH levels of names beneath them.
+
+    Folders and files both count toward MAX_ENTRIES, and no one folder may use more than a quarter of it, so a huge
+    early folder cannot hide the later ones: they are still listed, with a "+" on any count that is only a lower bound.
+    """
+    tops = sorted(d.name for d in root.iterdir() if _shown(d.name) and _is_plain(d) and d.is_dir())
+    budget = MAX_ENTRIES
+    per_folder = max(MAX_ENTRIES // 4, 1)
     out = []
-    for name in sorted(counts):
+    cut: list[str] = []
+    for name in tops:
+        files = entries = 0
+        limit = min(per_folder, budget)
+        partial = limit <= 0
+        if not partial:
+            for current, dirs, names in os.walk(root / name, followlinks=False):
+                dirs[:] = sorted(d for d in dirs if _shown(d) and _is_plain(Path(current) / d))
+                files += len(names)
+                entries += 1 + len(names)
+                if entries >= limit:
+                    partial = True
+                    break
+        budget -= entries
+        if partial:
+            cut.append(_clean(name, NAME_CHARS))
         subs = sorted(d.name for d in (root / name).iterdir() if _shown(d.name) and _is_plain(d) and d.is_dir())
         subs = [_clean(sub, NAME_CHARS) for sub in subs]
         deeper = f" > {', '.join(subs[:6])}{', ...' if len(subs) > 6 else ''}" if subs and LAYOUT_DEPTH > 1 else ""
-        out.append(f"{_clean(name, NAME_CHARS)}/ ({counts[name]} files){deeper}")
+        out.append(f"{_clean(name, NAME_CHARS)}/ ({files}{'+' if partial else ''} files){deeper}")
+    if cut:
+        shown = ", ".join(cut[:5]) + (", ..." if len(cut) > 5 else "")
+        skipped.append(f"stopped counting files in {shown} after {MAX_ENTRIES} entries in all; a + marks a count that is a lower bound")
     if len(out) > MAX_LAYOUT_ROWS:
         skipped.append(f"layout shows {MAX_LAYOUT_ROWS} of {len(out)} top-level folders")
         out = out[:MAX_LAYOUT_ROWS]
