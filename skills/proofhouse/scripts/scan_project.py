@@ -104,8 +104,13 @@ class ScanError(Exception):
 
 
 def _read(path: Path) -> str:
+    """First MAX_READ bytes of a regular file; "" for anything else (pipe, device, socket, link) or on error."""
     try:
-        with path.open("rb") as handle:
+        if not stat.S_ISREG(os.lstat(path).st_mode):
+            return ""
+        # O_NONBLOCK: a pipe swapped in after the check must not make open() wait for a writer.
+        flags = os.O_RDONLY | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_BINARY", 0)
+        with os.fdopen(os.open(path, flags), "rb") as handle:
             return handle.read(MAX_READ).decode("utf-8", errors="replace")
     except OSError:
         return ""
