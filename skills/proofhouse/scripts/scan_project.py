@@ -233,8 +233,12 @@ def _git_branch(root: Path) -> str | None:
     head = root / ".git" / "HEAD"
     if not _exists_plain(root, ".git/HEAD") or not head.is_file():
         return None
-    text = _read(head).strip()
-    return _clean(text.removeprefix("ref: refs/heads/"), NAME_CHARS) if text.startswith("ref: refs/heads/") else "(detached)"
+    lines = _read(head).strip().splitlines()
+    first = lines[0].strip() if lines else ""
+    if not first.startswith("ref: refs/heads/"):
+        return "(detached)"
+    name = _clean(first.removeprefix("ref: refs/heads/"), NAME_CHARS)
+    return name if name and " " not in name else "(unrecognised)"   # git branch names cannot hold a space
 
 
 def _shown(name: str) -> bool:
