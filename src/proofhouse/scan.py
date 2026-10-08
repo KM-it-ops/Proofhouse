@@ -88,6 +88,10 @@ SECRET_SHAPES = re.compile(
     r"(sk-[A-Za-z0-9_\-]{16,}|AKIA[0-9A-Z]{12,}|gh[pousr]_[A-Za-z0-9]{20,}|xox[abprs]-[A-Za-z0-9\-]{10,}"
     r"|eyJ[A-Za-z0-9_\-]{20,}\.[A-Za-z0-9_\-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY-----)"
 )
+# A whole PEM private-key block (header, body, footer). An unterminated block is redacted to the end of the text.
+PEM_PRIVATE_KEY_BLOCK = re.compile(
+    r"-----BEGIN [A-Z ]*PRIVATE KEY[A-Z ]*-----.*?(?:-----END [A-Z ]*PRIVATE KEY[A-Z ]*-----|\Z)", re.S
+)
 
 
 class ScanError(Exception):
@@ -167,7 +171,9 @@ def _readme_excerpt(root: Path) -> str:
         path = root / name
         if path.is_file() and _is_plain(path):
             kept: list[str] = []
-            for line in _read(path).splitlines():
+            # Redact whole key blocks first: the line filter below would otherwise drop the "-----BEGIN" line
+            # (it starts with "---") and let the key body through.
+            for line in PEM_PRIVATE_KEY_BLOCK.sub("[redacted]", _read(path)).splitlines():
                 line = line.strip()
                 if not line or line.startswith(("[![", "![", "<img", "<!--", "---", "===")):
                     continue
