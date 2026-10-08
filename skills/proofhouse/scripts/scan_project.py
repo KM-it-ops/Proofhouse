@@ -171,6 +171,23 @@ def _strings(value: object) -> list[str]:
     return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
 
 
+_TOML_SECTION = re.compile(r"^[ \t]*\[([^\[\]\n]+)\][ \t\r]*(?:#.*)?$", re.M)
+# `key = [ ... ]`, treating quoted strings as units so a "]" inside one (like "pkg[extra]") does not end the list
+_TOML_LIST = re.compile(r"""^[ \t]*([A-Za-z0-9_\-]+)[ \t]*=[ \t]*\[((?:"[^"\n]*"|'[^'\n]*'|[^\]"'])*)\]""", re.M)
+_TOML_STRING = re.compile(r""""([^"\n]*)"|'([^'\n]*)'""")
+
+
+def _dependency_strings_without_tomllib(text: str) -> list[str]:
+    """Items of `[project] dependencies`, `[project.optional-dependencies]` and `[dependency-groups]` lists."""
+    sections = [(m.start(), m.group(1).strip()) for m in _TOML_SECTION.finditer(text)]
+    found: list[str] = []
+    for m in _TOML_LIST.finditer(text):
+        section = next((name for start, name in reversed(sections) if start < m.start()), "")
+        if (section == "project" and m.group(1) == "dependencies") or section in ("project.optional-dependencies", "dependency-groups"):
+            found += [a or b for a, b in _TOML_STRING.findall(m.group(2))]
+    return found
+
+
 def _names_from_pyproject(text: str, skipped: list[str]) -> tuple[set[str], list[str]]:
     """Dependency names and the build backend / tool tables, from names only."""
     names: set[str] = set()
@@ -189,8 +206,8 @@ def _names_from_pyproject(text: str, skipped: list[str]) -> tuple[set[str], list
             deps += _strings(group)
         deps += list(_as_dict(_as_dict(_as_dict(data.get("tool")).get("poetry")).get("dependencies")))
         tools = sorted(_as_dict(data.get("tool")))
-    else:  # pragma: no cover
-        deps = re.findall(r'"([A-Za-z0-9_.\-]+)\s*[<>=!~\[;]', text)
+    else:  # Python < 3.11: no TOML parser, so read the dependency lists by pattern (best effort)
+        deps = _dependency_strings_without_tomllib(text)
         tools = re.findall(r"^\[tool\.([A-Za-z0-9_\-]+)", text, re.M)
     for dep in deps:
         match = re.match(r"[A-Za-z0-9_.\-]+", str(dep))
