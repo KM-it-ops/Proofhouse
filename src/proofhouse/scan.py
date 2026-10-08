@@ -316,6 +316,14 @@ def _layout(root: Path, skipped: list[str]) -> list[str]:
 
 
 def scan(path: str | Path = ".") -> dict:
+    """Scan a project folder. Raises ScanError, never a bare OS error, when the folder cannot be read."""
+    try:
+        return _scan(path)
+    except OSError as exc:  # an unreadable folder (permissions, vanished mid-scan, ...)
+        raise ScanError(f"cannot read {path}: {exc.strerror or type(exc).__name__}") from exc
+
+
+def _scan(path: str | Path) -> dict:
     root = Path(path).expanduser()
     if not root.exists():
         raise ScanError(f"not found: {root}")
