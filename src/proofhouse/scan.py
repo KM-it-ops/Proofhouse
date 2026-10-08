@@ -155,6 +155,14 @@ def _is_junction(path: Path) -> bool:
     return False
 
 
+def _as_dict(value: object) -> dict:
+    return value if isinstance(value, dict) else {}
+
+
+def _strings(value: object) -> list[str]:
+    return [item for item in value if isinstance(item, str)] if isinstance(value, list) else []
+
+
 def _names_from_pyproject(text: str) -> tuple[set[str], list[str]]:
     """Dependency names and the build backend / tool tables, from names only."""
     names: set[str] = set()
@@ -162,15 +170,16 @@ def _names_from_pyproject(text: str) -> tuple[set[str], list[str]]:
     if tomllib is not None:
         try:
             data = tomllib.loads(text)
-        except tomllib.TOMLDecodeError:
+        except (ValueError, RecursionError):  # TOMLDecodeError is a ValueError; absurdly nested input recurses
             data = {}
-        deps = list(data.get("project", {}).get("dependencies", []))
-        for group in data.get("project", {}).get("optional-dependencies", {}).values():
-            deps += list(group)
-        for group in data.get("dependency-groups", {}).values():
-            deps += [d for d in group if isinstance(d, str)]
-        deps += list(data.get("tool", {}).get("poetry", {}).get("dependencies", {}))
-        tools = sorted(data.get("tool", {}))
+        project = _as_dict(data.get("project"))
+        deps = _strings(project.get("dependencies"))
+        for group in _as_dict(project.get("optional-dependencies")).values():
+            deps += _strings(group)
+        for group in _as_dict(data.get("dependency-groups")).values():
+            deps += _strings(group)
+        deps += list(_as_dict(_as_dict(_as_dict(data.get("tool")).get("poetry")).get("dependencies")))
+        tools = sorted(_as_dict(data.get("tool")))
     else:  # pragma: no cover
         deps = re.findall(r'"([A-Za-z0-9_.\-]+)\s*[<>=!~\[;]', text)
         tools = re.findall(r"^\[tool\.([A-Za-z0-9_\-]+)", text, re.M)
@@ -184,7 +193,7 @@ def _names_from_pyproject(text: str) -> tuple[set[str], list[str]]:
 def _names_from_package_json(text: str) -> tuple[set[str], list[str], str | None]:
     try:
         data = json.loads(text)
-    except ValueError:
+    except (ValueError, RecursionError):  # absurdly nested input recurses
         return set(), [], None
     if not isinstance(data, dict):
         return set(), [], None
