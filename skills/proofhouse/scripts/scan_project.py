@@ -111,6 +111,16 @@ def _is_plain(path: Path) -> bool:
     return not path.is_symlink() and not _is_junction(path)
 
 
+def _exists_plain(root: Path, rel: str) -> bool:
+    """`rel` exists under `root` and neither it nor any folder on the way is a link (never asks a link's target)."""
+    current = root
+    for part in rel.split("/"):
+        current = current / part
+        if not os.path.lexists(current) or not _is_plain(current):
+            return False
+    return True
+
+
 def _is_junction(path: Path) -> bool:
     """Path.is_junction arrived in Python 3.12; before that, read the Windows reparse tag directly."""
     native = getattr(path, "is_junction", None)
@@ -169,7 +179,7 @@ def _names_from_package_json(text: str) -> tuple[set[str], list[str], str | None
 def _readme_excerpt(root: Path) -> str:
     for name in ("README.md", "README.rst", "README.txt", "README"):
         path = root / name
-        if path.is_file() and _is_plain(path):
+        if _is_plain(path) and path.is_file():
             kept: list[str] = []
             # Redact whole key blocks first: the line filter below would otherwise drop the "-----BEGIN" line
             # (it starts with "---") and let the key body through.
@@ -188,7 +198,7 @@ def _readme_excerpt(root: Path) -> str:
 
 def _git_branch(root: Path) -> str | None:
     head = root / ".git" / "HEAD"
-    if not head.is_file():
+    if not _exists_plain(root, ".git/HEAD") or not head.is_file():
         return None
     text = _read(head).strip()
     return text.removeprefix("ref: refs/heads/") if text.startswith("ref: refs/heads/") else "(detached)"
@@ -214,7 +224,7 @@ def _layout(root: Path, skipped: list[str]) -> list[str]:
             break
     out = []
     for name in sorted(counts):
-        subs = sorted(d.name for d in (root / name).iterdir() if d.is_dir() and _shown(d.name) and _is_plain(d))
+        subs = sorted(d.name for d in (root / name).iterdir() if _shown(d.name) and _is_plain(d) and d.is_dir())
         deeper = f" > {', '.join(subs[:6])}{', ...' if len(subs) > 6 else ''}" if subs and LAYOUT_DEPTH > 1 else ""
         out.append(f"{name}/ ({counts[name]} files){deeper}")
     if len(out) > MAX_LAYOUT_ROWS:
@@ -268,10 +278,10 @@ def scan(path: str | Path = ".") -> dict:
 
     frameworks = sorted({label for dep, label in FRAMEWORKS.items() if dep in deps})
     tests = sorted({label for dep, label in TEST_TOOLS.items() if dep in deps} | ({"pytest"} if "pytest" in tools else set()))
-    ci = sorted({label for rel, label in CI_FILES.items() if (root / rel).exists()})
-    hosting = sorted({label for rel, label in HOSTING_FILES.items() if (root / rel).exists()})
-    agent_files = [rel for rel in AGENT_FILES if (root / rel).exists()]
-    markers = {HOST_MARKERS[f] for f in HOST_MARKERS if (root / f).exists()}
+    ci = sorted({label for rel, label in CI_FILES.items() if _exists_plain(root, rel)})
+    hosting = sorted({label for rel, label in HOSTING_FILES.items() if _exists_plain(root, rel)})
+    agent_files = [rel for rel in AGENT_FILES if _exists_plain(root, rel)]
+    markers = {HOST_MARKERS[f] for f in HOST_MARKERS if _exists_plain(root, f)}
     in_claude_code = os.environ.get("CLAUDECODE") == "1"
 
     return {
