@@ -22,6 +22,7 @@ import os
 import re
 import stat
 import sys
+import unicodedata
 from pathlib import Path
 
 try:  # Python 3.11+; older interpreters fall back to a name-only regex read
@@ -41,6 +42,8 @@ MAX_ENTRIES = 20_000      # files counted before the scan stops walking
 MAX_READ = 64 * 1024      # bytes read from any one manifest
 LAYOUT_DEPTH = 2
 README_CHARS = 600
+NAME_CHARS = 60           # longest folder / file / script / branch name printed
+PACKAGE_MANAGERS = {"npm", "pnpm", "yarn", "bun"}   # the only values accepted from `packageManager`
 
 LANGUAGES = {
     "pyproject.toml": "Python", "requirements.txt": "Python", "setup.py": "Python", "Pipfile": "Python",
@@ -104,6 +107,17 @@ def _read(path: Path) -> str:
             return handle.read(MAX_READ).decode("utf-8", errors="replace")
     except OSError:
         return ""
+
+
+# Control, invisible, bidi-override and "tag" characters (Unicode categories Cc, Cf, Cs) and line/paragraph breaks.
+_UNPRINTABLE = {"Cc", "Cf", "Cs", "Zl", "Zp"}
+
+
+def _clean(text: str, limit: int | None = None) -> str:
+    """Text taken from the folder, made safe to print: one line, no control/invisible characters, bounded length."""
+    text = re.sub(r"\s+", " ", text)
+    text = "".join(ch for ch in text if unicodedata.category(ch) not in _UNPRINTABLE).strip()
+    return text if limit is None else text[:limit]
 
 
 def _is_plain(path: Path) -> bool:
@@ -171,9 +185,12 @@ def _names_from_package_json(text: str) -> tuple[set[str], list[str], str | None
     for key in ("dependencies", "devDependencies", "peerDependencies"):
         if isinstance(data.get(key), dict):
             names |= {str(k).lower() for k in data[key]}
-    scripts = sorted(data["scripts"]) if isinstance(data.get("scripts"), dict) else []
+    scripts: list[str] = []
+    if isinstance(data.get("scripts"), dict):
+        scripts = [name for name in (_clean(str(k), NAME_CHARS) for k in sorted(data["scripts"])) if name]
     manager = data.get("packageManager")
-    return names, scripts, str(manager).split("@")[0] if isinstance(manager, str) else None
+    declared = manager.split("@")[0] if isinstance(manager, str) else None
+    return names, scripts, declared if declared in PACKAGE_MANAGERS else None
 
 
 def _readme_excerpt(root: Path) -> str:
@@ -190,8 +207,7 @@ def _readme_excerpt(root: Path) -> str:
                 kept.append(line.lstrip("# ").strip())
                 if sum(len(k) for k in kept) > README_CHARS:
                     break
-            text = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "", " ".join(kept))
-            text = SECRET_SHAPES.sub("[redacted]", re.sub(r"\s+", " ", text))
+            text = SECRET_SHAPES.sub("[redacted]", _clean(" ".join(kept)))
             return re.sub(r"[*`]", "", text)[:README_CHARS]
     return ""
 
@@ -201,7 +217,7 @@ def _git_branch(root: Path) -> str | None:
     if not _exists_plain(root, ".git/HEAD") or not head.is_file():
         return None
     text = _read(head).strip()
-    return text.removeprefix("ref: refs/heads/") if text.startswith("ref: refs/heads/") else "(detached)"
+    return _clean(text.removeprefix("ref: refs/heads/"), NAME_CHARS) if text.startswith("ref: refs/heads/") else "(detached)"
 
 
 def _shown(name: str) -> bool:
@@ -225,8 +241,9 @@ def _layout(root: Path, skipped: list[str]) -> list[str]:
     out = []
     for name in sorted(counts):
         subs = sorted(d.name for d in (root / name).iterdir() if _shown(d.name) and _is_plain(d) and d.is_dir())
+        subs = [_clean(sub, NAME_CHARS) for sub in subs]
         deeper = f" > {', '.join(subs[:6])}{', ...' if len(subs) > 6 else ''}" if subs and LAYOUT_DEPTH > 1 else ""
-        out.append(f"{name}/ ({counts[name]} files){deeper}")
+        out.append(f"{_clean(name, NAME_CHARS)}/ ({counts[name]} files){deeper}")
     if len(out) > MAX_LAYOUT_ROWS:
         skipped.append(f"layout shows {MAX_LAYOUT_ROWS} of {len(out)} top-level folders")
         out = out[:MAX_LAYOUT_ROWS]
@@ -251,7 +268,7 @@ def scan(path: str | Path = ".") -> dict:
             languages.setdefault(lang, []).append(fname)
     for p in root.iterdir():
         if p.suffix in (".csproj", ".sln") and _is_plain(p):
-            languages.setdefault(".NET", []).append(p.name)
+            languages.setdefault(".NET", []).append(_clean(p.name, NAME_CHARS))
 
     deps: set[str] = set()
     scripts: list[str] = []
@@ -286,7 +303,7 @@ def scan(path: str | Path = ".") -> dict:
 
     return {
         "scanned": str(root),
-        "project_name": root.name,
+        "project_name": _clean(root.name, NAME_CHARS),
         "running_in": ["Claude Code"] if in_claude_code else [],
         "agent_products_used_here": sorted(markers),
         "languages": {k: v for k, v in sorted(languages.items())},
