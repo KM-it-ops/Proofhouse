@@ -1,0 +1,163 @@
+<!doctype html>
+<!-- GENERATED from hyperframes/index.tpl.html + scene.json by build.mjs. Do not edit; edit the template or the scene. -->
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width={{width}}, height={{height}}" />
+    <title>Proofhouse app demo</title>
+    <script src="node_modules/gsap/dist/gsap.min.js"></script>
+    <style>
+      @font-face { font-family: "Cascadia Mono"; src: local("Cascadia Mono"); }
+      body { margin: 0; background: {{{theme.ink}}}; }
+      #root, #root * { box-sizing: border-box; }
+      #root {
+        position: relative;
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background-color: {{{theme.ink}}};
+        background-image:
+          linear-gradient(rgba(61, 220, 132, 0.07) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(61, 220, 132, 0.07) 1px, transparent 1px);
+        background-size: 72px 72px;
+        background-position: calc(var(--f) * 0.45px) calc(var(--f) * 0.3px);
+        --f: 0;
+      }
+      .fill { position: absolute; inset: 0; display: flex; flex-direction: column; } /* AbsoluteFill: column */
+      .glow1 {
+        position: absolute; width: 820px; height: 820px; border-radius: 50%;
+        left: calc(180px + sin(calc(var(--f) / 55)) * 160px);
+        top: calc(-80px + cos(calc(var(--f) / 47)) * 80px);
+        background: radial-gradient(circle, rgba(61, 220, 132, 0.22), transparent 68%);
+      }
+      .glow2 {
+        position: absolute; width: 640px; height: 640px; border-radius: 50%; bottom: -120px;
+        right: calc(40px + cos(calc(var(--f) / 40)) * 90px);
+        background: radial-gradient(circle, rgba(200, 245, 216, 0.08), transparent 70%);
+      }
+      .dot { position: absolute; border-radius: 50%; background: {{{theme.green}}}; }
+      .ripple {
+        position: absolute; z-index: 7; width: 220px; height: 220px; margin: -110px 0 0 -110px;
+        border: 2px solid {{{theme.green}}}; border-radius: 50%; opacity: 0;
+      }
+      .shell { width: {{shell.width}}px; margin: {{shell.marginTop}}px auto 0; position: relative; transform: scale({{shell.scale}}); transform-origin: top center; }
+      #ring {
+        position: absolute; inset: -10px; border-radius: 20px; filter: blur(10px); opacity: 0.9;
+        background: conic-gradient(from calc(var(--f) * {{shell.spinPerFrame}}deg), transparent 0deg, {{{theme.green}}} 36deg, transparent 80deg);
+      }
+      .box {
+        position: relative; background: {{{theme.ink}}}; border-radius: 12px; border: 1px solid {{{theme.line}}};
+        padding: 22px 26px 26px; font-family: {{{theme.mono}}};
+      }
+      .header { margin-bottom: 18px; }
+      .brandrow { display: flex; align-items: center; gap: 10px; }
+      .brand { color: {{{theme.green}}}; font-weight: 800; letter-spacing: 6px; font-size: 26px; }
+      #blk { width: 10px; height: 18px; background: {{{theme.green}}}; }
+      .tag { color: {{{theme.dim}}}; font-size: 14px; margin-top: 6px; }
+      #screens { position: relative; min-height: {{shell.minHeight}}px; }
+      .host { position: absolute; inset: 0; display: flex; } /* Sequence resets flex-direction to row */
+      #cursor { position: absolute; left: 0; top: 0; z-index: 8; }
+    </style>
+  </head>
+  <body>
+    <div id="root" data-composition-id="hype" data-width="{{width}}" data-height="{{height}}" data-duration="{{derived.durationSec}}">
+      <div class="glow1"></div>
+      <div class="glow2"></div>
+      <div id="dots"></div>
+      <div id="enter" class="fill">
+        <div class="shell">
+          <div id="ring"></div>
+          <div class="box">
+            <div class="header">
+              <div class="brandrow">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="{{theme.green}}" stroke-width="2"><path d="M4 6h16M4 12h16M4 18h10" /></svg>
+                <div class="brand">{{copy.brand}}</div>
+                <div id="blk"></div>
+              </div>
+              <div class="tag">{{copy.tagline}}</div>
+            </div>
+            <div id="screens">
+              <!--each derived.hosts--><div
+                id="screen-{{.name}}"
+                class="host"
+                data-layout-allow-overlap
+                data-composition-id="screen-{{.name}}"
+                data-composition-src="compositions/{{.name}}.html"
+                data-start="{{.start}}"
+                data-duration="{{.dur}}"
+                data-track-index="1"
+                data-width="{{derived.screenW}}"
+                data-height="{{shell.minHeight}}"
+              ></div><!--/each-->
+            </div>
+          </div>
+        </div>
+      </div>
+      <!--each ripples--><div class="ripple" id="ripple-{{@i}}" style="left: {{.x}}px; top: {{.y}}px"></div><!--/each-->
+      <div id="cursor">
+        <svg width="28" height="28" viewBox="0 0 24 24"><path d="M4 2 L4 18 L9 14 L13 22 L16 20 L12 12 L19 12 Z" fill="{{theme.mint}}" stroke="{{theme.ink}}" stroke-width="1" /></svg>
+      </div>
+      <audio id="bed" src="bed.wav" data-start="0" data-duration="{{derived.durationSec}}" data-track-index="3" data-volume="{{audio.volume}}"></audio>
+    </div>
+    <script>
+      /*LIB*/
+      const tl = gsap.timeline({ paused: true });
+
+      // Ambient layer: every moving value is a CSS function of one number, --f (the frame), so any frame is exact.
+      const host = document.getElementById("dots");
+      for (let i = 0; i < 56; i++) {
+        const dot = document.createElement("div");
+        dot.className = "dot";
+        const size = 1.4 + (i % 4) * 0.7;
+        dot.style.cssText =
+          "left: calc(" + ((i * 173) % 1920) + "px + sin(calc(var(--f) / 17 + " + i * 0.65 + ")) * 42px);" +
+          "top: calc(" + ((i * 89) % 1080) + "px + cos(calc(var(--f) / 21 + " + i * 0.4 + ")) * 34px);" +
+          "width: " + size + "px; height: " + size + "px;" +
+          "opacity: calc(0.25 + (sin(calc(var(--f) / 11 + " + i + ")) + 1) * 0.2);";
+        host.appendChild(dot);
+      }
+      tl.fromTo("#root", { "--f": 0 }, { "--f": S.durationFrames, duration: sec(S.durationFrames), ease: "none" }, 0);
+
+      playCurve(tl, "#enter", S.curves.shellEnter, 0, (v) => ({ opacity: v, y: S.shell.enter.rise * (1 - v) }));
+      blink(tl, "#blk", S.durationFrames, 10, { opacity: 1 }, { opacity: 0.2 });
+
+      // Screens crossfade and slide: the outgoing one lifts away while the incoming one rises in (Remotion's Screen).
+      const names = Object.keys(S.screens);
+      const { len, rise } = S.transition;
+      names.forEach((name, i) => {
+        if (i > 0) {
+          tl.fromTo("#screen-" + name, { opacity: 0, y: rise }, { opacity: 1, y: 0, duration: sec(len), ease: "power1.inOut" }, sec(S.screens[name]));
+        }
+        if (i < names.length - 1) {
+          tl.to("#screen-" + name, { opacity: 0, y: -rise, duration: sec(len), ease: "power1.inOut" }, sec(S.screens[names[i + 1]]));
+        }
+      });
+
+      // Ripples start hidden and only exist while they play (immediateRender:false keeps the start state off-screen).
+      S.ripples.forEach(({ at }, i) => {
+        tl.fromTo(
+          "#ripple-" + i,
+          { scale: 0.15, opacity: 0.8 },
+          { scale: 2.8, opacity: 0, duration: sec(S.rippleLen), ease: "none", immediateRender: false },
+          sec(at),
+        );
+      });
+
+      // Cursor: same stops, same cubic in-out between them as Remotion.
+      const stops = S.cursor.stops;
+      const tip = S.cursor.tip;
+      tl.set("#cursor", { x: stops[0].x - tip.x, y: stops[0].y - tip.y, scale: 1 }, 0);
+      for (let i = 0; i < stops.length - 1; i++) {
+        const a = stops[i];
+        const b = stops[i + 1];
+        tl.to("#cursor", { x: b.x - tip.x, y: b.y - tip.y, duration: sec(b.f - a.f), ease: "power2.inOut" }, sec(a.f));
+      }
+      S.cursor.clicks.forEach((at) => {
+        tl.set("#cursor", { scale: 0.85 }, sec(at));
+        tl.set("#cursor", { scale: 1 }, sec(at + S.cursor.clickLen));
+      });
+
+      window.__timelines["hype"] = tl;
+    </script>
+  </body>
+</html>

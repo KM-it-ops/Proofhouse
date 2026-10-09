@@ -4,9 +4,14 @@
   "description": "Hype cut for the README demo. Remotion draws the motion. Hyperframes runs the same timeline. Not part of the Python package.",
   "scripts": {
     "orchestrate": "node orchestrate.mjs",
+    "build": "node build.mjs",
+    "prestill": "node orchestrate.mjs",
     "still": "remotion still remotion/index.ts Hype",
+    "prerender:remotion": "node orchestrate.mjs",
     "render:remotion": "remotion render remotion/index.ts Hype",
+    "precheck": "node orchestrate.mjs",
     "check": "hyperframes check",
+    "prerender:hyperframes": "node orchestrate.mjs",
     "render:hyperframes": "hyperframes render"
   },
   "dependencies": {

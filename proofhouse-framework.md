@@ -102,8 +102,8 @@ Return ONLY valid JSON (no markdown fences, no prose) matching exactly this sche
 "type":"single_select|multi_select|text","options":["..."],"dependsOn":null}]}]
 
 For conditional questions, dependsOn must be {"questionId":"parent_id",
-"values":["option","that","triggers","it"]} -- otherwise null. For type "text", options
-must be an empty array.
+"values":["option","that","triggers","it"]} -- never a plain string; otherwise null. For type
+"text", options must be an empty array.
 ```
 
 User message: `Raw request: "{{rawRequest}}"\n\nGenerate the question batch now.`
