@@ -94,9 +94,13 @@ SECRET_SHAPES = re.compile(
     r"|[sr]k_(?:live|test)_[A-Za-z0-9]{16,}|github_pat_[A-Za-z0-9_]{20,}|glpat-[A-Za-z0-9_\-]{16,}"
     r"|AIza[0-9A-Za-z_\-]{30,}|npm_[A-Za-z0-9]{30,}|hf_[A-Za-z0-9]{30,})"
 )
-# A whole PEM private-key block (header, body, footer). An unterminated block is redacted to the end of the text.
-PEM_PRIVATE_KEY_BLOCK = re.compile(
-    r"-----BEGIN [A-Z ]*PRIVATE KEY[A-Z ]*-----.*?(?:-----END [A-Z ]*PRIVATE KEY[A-Z ]*-----|\Z)", re.S
+# A whole private-key block (header, body, footer) in the PEM, SSH2 (`---- BEGIN SSH2 ... PRIVATE KEY ----`) or
+# PuTTY .ppk (`PuTTY-User-Key-File-N:` ... `Private-MAC:`) text format. An unterminated block is redacted to the end.
+PRIVATE_KEY_BLOCK = re.compile(
+    r"-----BEGIN [A-Z ]*PRIVATE KEY[A-Z ]*-----.*?(?:-----END [A-Z ]*PRIVATE KEY[A-Z ]*-----|\Z)"
+    r"|---- BEGIN SSH2 [A-Z ]*PRIVATE KEY ----.*?(?:---- END SSH2 [A-Z ]*PRIVATE KEY ----|\Z)"
+    r"|PuTTY-User-Key-File-\d+:.*?(?:Private-(?:MAC|Hash):[^\n]*|\Z)",
+    re.S,
 )
 
 
@@ -245,9 +249,9 @@ def _readme_excerpt(root: Path) -> str:
     for path in candidates:
         if _is_plain(path) and path.is_file():
             kept: list[str] = []
-            # Redact whole key blocks first: the line filter below would otherwise drop the "-----BEGIN" line
-            # (it starts with "---") and let the key body through.
-            for line in PEM_PRIVATE_KEY_BLOCK.sub("[redacted]", _read(path)).splitlines():
+            # Redact whole key blocks first: the line filter below would otherwise drop a "-----BEGIN" or
+            # "---- BEGIN SSH2" line (it starts with "---") and let the key body through.
+            for line in PRIVATE_KEY_BLOCK.sub("[redacted]", _read(path)).splitlines():
                 line = line.strip()
                 if not line or line.startswith(("[![", "![", "<img", "<!--", "---", "===")):
                     continue
