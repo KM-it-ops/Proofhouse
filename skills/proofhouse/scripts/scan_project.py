@@ -24,6 +24,7 @@ import re
 import stat
 import sys
 import unicodedata
+from collections.abc import Iterator
 from pathlib import Path
 
 try:  # Python 3.11+; older interpreters fall back to a name-only regex read
@@ -280,6 +281,32 @@ def _shown(name: str) -> bool:
     return name not in IGNORED_DIRS and (not name.startswith(".") or name in KEEP_DOT_DIRS)
 
 
+def _walk(top: Path) -> Iterator[tuple[str, list[str], list[str]]]:
+    """os.walk(top), but "folder or file" is decided without looking up a link's target.
+
+    os.walk asks every entry `is_dir()`, which follows links; on Windows a link to \\\\host\\share makes that lookup
+    a network logon. Here a link is never followed: it counts as a file and is never entered. As with os.walk, the
+    caller may prune `dirs` in place, and an unreadable folder is skipped.
+    """
+    stack = [str(top)]
+    while stack:
+        current = stack.pop()
+        dirs: list[str] = []
+        names: list[str] = []
+        try:
+            with os.scandir(current) as listing:
+                for entry in listing:
+                    try:
+                        is_dir = entry.is_dir(follow_symlinks=False)
+                    except OSError:
+                        is_dir = False
+                    (dirs if is_dir else names).append(entry.name)
+        except OSError:
+            continue
+        yield current, dirs, names
+        stack.extend(os.path.join(current, d) for d in reversed(dirs))
+
+
 def _layout(root: Path, skipped: list[str]) -> list[str]:
     """Every top-level folder with a file count, and up to LAYOUT_DEPTH levels of names beneath them.
 
@@ -296,7 +323,7 @@ def _layout(root: Path, skipped: list[str]) -> list[str]:
         limit = min(per_folder, budget)
         partial = limit <= 0
         if not partial:
-            for current, dirs, names in os.walk(root / name, followlinks=False):
+            for current, dirs, names in _walk(root / name):
                 dirs[:] = sorted(d for d in dirs if _shown(d) and _is_plain(Path(current) / d))
                 files += len(names)
                 entries += 1 + len(names)
