@@ -424,7 +424,7 @@ def _scan(path: str | Path) -> dict:
     in_claude_code = os.environ.get("CLAUDECODE") == "1"
 
     return {
-        "scanned": str(root),
+        "scanned": _clean(str(root)),
         "project_name": _clean(root.name, NAME_CHARS),
         "running_in": ["Claude Code"] if in_claude_code else [],
         "agent_products_used_here": sorted(markers),
