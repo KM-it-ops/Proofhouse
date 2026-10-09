@@ -261,8 +261,9 @@ def _readme_excerpt(root: Path) -> str:
                 kept.append(line.lstrip("# ").strip())
                 if sum(len(k) for k in kept) > README_CHARS:
                     break
-            # Strip the markdown marks before redacting, so a key split by `*` or a backtick is whole again.
-            text = re.sub(r"[*`]", "", _clean(" ".join(kept)))
+            # Undo markdown backslash escapes and strip the marks before redacting, so a key written as `sk\_live\_...`
+            # or split by `*` or a backtick is whole again.
+            text = re.sub(r"[*`]", "", re.sub(r"\\([!-/:-@\[-`{-~])", r"\1", _clean(" ".join(kept))))
             return SECRET_SHAPES.sub("[redacted]", text)[:README_CHARS]
     return ""
 
