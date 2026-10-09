@@ -131,11 +131,13 @@ def _read(path: Path) -> str:
 
 # Control, invisible, bidi-override and "tag" characters (Unicode categories Cc, Cf, Cs) and line/paragraph breaks.
 _UNPRINTABLE = {"Cc", "Cf", "Cs", "Zl", "Zp"}
+# Variation selectors are invisible marks (category Mn): a run of them after one emoji can hide any text, a byte each.
+_VARIATION_SELECTOR = re.compile(r"[\uFE00-\uFE0F\U000E0100-\U000E01EF]")
 
 
 def _clean(text: str, limit: int | None = None) -> str:
     """Text taken from the folder, made safe to print: one line, no control/invisible characters, bounded length."""
-    text = re.sub(r"\s+", " ", text)
+    text = _VARIATION_SELECTOR.sub("", re.sub(r"\s+", " ", text))
     text = "".join(ch for ch in text if unicodedata.category(ch) not in _UNPRINTABLE).strip()
     return text if limit is None else text[:limit]
 
