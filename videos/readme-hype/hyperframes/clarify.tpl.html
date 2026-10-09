@@ -1,0 +1,50 @@
+<!doctype html>
+<!-- GENERATED from hyperframes/clarify.tpl.html + scene.json by build.mjs. Do not edit; edit the template or the scene. -->
+<html lang="en">
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        @font-face { font-family: "Cascadia Mono"; src: local("Cascadia Mono"); }
+        #root, #root * { box-sizing: border-box; }
+        #root { position: absolute; inset: 0; display: block; font-family: {{{theme.mono}}}; }
+        .cl-head { display: flex; justify-content: space-between; color: {{{theme.dim}}}; font-size: 13px; margin-bottom: 10px; }
+        .cl-n { display: none; }
+        .cl-row { border: 1px solid {{{theme.line}}}; background: {{{theme.card}}}; border-radius: 8px; padding: 10px 14px; margin-bottom: 8px; }
+        .cl-q { color: {{{theme.mint}}}; font-size: 15px; }
+        .cl-a { color: {{{theme.green}}}; font-size: 16px; font-weight: 700; margin-top: 3px; }
+      </style>
+      <div id="root" data-composition-id="screen-clarify" data-width="{{derived.screenW}}" data-height="{{shell.minHeight}}">
+        <div>
+          <div class="cl-head">
+            <span>{{copy.clarify.back}}</span>
+            <span><!--each derived.counts--><span class="cl-n" id="cl-n-{{@i}}">{{.}}</span><!--/each--></span>
+          </div>
+          <!--each run.answers--><div class="cl-row" id="cl-row-{{@i}}">
+            <div class="cl-q">{{.question}}</div>
+            <div class="cl-a">{{.answer}}</div>
+          </div><!--/each-->
+        </div>
+      </div>
+      <script>
+        /*LIB*/
+        const b = S.beats.clarify;
+        const tl = gsap.timeline({ paused: true });
+
+        // "n/total answered": n goes up on the first frame after each answer's beat.
+        tl.set("#cl-n-0", { display: "inline" }, 0);
+        S.run.answers.forEach((_, i) => {
+          const frame = b.answerAt + i * b.step + 1;
+          tl.set("#cl-n-" + i, { display: "none" }, sec(frame));
+          tl.set("#cl-n-" + (i + 1), { display: "inline" }, sec(frame));
+          playCurve(tl, "#cl-row-" + i, S.curves.clarifyEnter, b.enterAt + i * b.step, (v) => ({
+            opacity: v,
+            y: 22 * (1 - v),
+          }));
+        });
+
+        window.__timelines["screen-clarify"] = tl;
+      </script>
+    </template>
+  </body>
+</html>

@@ -371,7 +371,7 @@ User's efficiency preference: ${preset.label} (${preset.note}). Keep every quest
 Return ONLY valid JSON (no markdown fences, no prose) matching exactly this schema:
 [{"group":"string","questions":[{"id":"short_snake_case","text":"string","type":"single_select|multi_select|text","options":["..."],"dependsOn":null}]}]
 
-For conditional questions, dependsOn must be {"questionId":"parent_id","values":["option","that","triggers","it"]} -- otherwise null. For type "text", options must be an empty array.`;
+For conditional questions, dependsOn must be {"questionId":"parent_id","values":["option","that","triggers","it"]} -- never a plain string; otherwise null. For type "text", options must be an empty array.`;
 
       const user = `Raw request: "${rawRequest}"\n\nGenerate the question batch now.`;
       const text = await guardedCall(system, user);

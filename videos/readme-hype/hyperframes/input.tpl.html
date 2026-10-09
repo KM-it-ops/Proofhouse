@@ -1,0 +1,76 @@
+<!doctype html>
+<!-- GENERATED from hyperframes/input.tpl.html + scene.json by build.mjs. Do not edit; edit the template or the scene. -->
+<html lang="en">
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        @font-face { font-family: "Cascadia Mono"; src: local("Cascadia Mono"); }
+        #root, #root * { box-sizing: border-box; }
+        #root { position: absolute; inset: 0; display: block; font-family: {{{theme.mono}}}; }
+        .in-card { border: 1px solid {{{theme.line}}}; background: {{{theme.card}}}; border-radius: 8px; padding: 22px; }
+        .in-lbl { color: {{{theme.dim}}}; font-size: 13px; letter-spacing: 1.5px; text-transform: uppercase; }
+        .in-field { border: 1px solid {{{theme.line}}}; border-radius: 6px; background: {{{theme.ink}}}; color: {{{theme.mint}}}; margin-top: 8px; }
+        #in-obj { min-height: 92px; border-color: {{{theme.green}}}; font-size: 20px; padding: 12px 14px; }
+        #in-model { font-size: 18px; padding: 10px 14px; }
+        .in-ch { display: none; white-space: pre; }
+        #in-caret { display: inline-block; width: 8px; height: 16px; margin-left: 2px; background: {{{theme.green}}}; vertical-align: text-bottom; }
+        #in-loop { display: flex; gap: 10px; align-items: center; margin-top: 16px; }
+        #in-check { width: 16px; height: 16px; border: 1px solid {{{theme.green}}}; border-radius: 3px; }
+        #in-looptext { color: {{{theme.soft}}}; font-size: 14px; }
+        #in-pills { display: flex; gap: 8px; margin-top: 8px; }
+        .in-pill { flex: 1; text-align: center; font-size: 14px; padding: 8px 0; border-radius: 6px; }
+        .in-pill.on { border: 1px solid {{{theme.green}}}; background: {{{theme.green}}}; color: {{{theme.ink}}}; font-weight: 700; }
+        .in-pill.off { border: 1px solid {{{theme.line}}}; background: transparent; color: {{{theme.soft}}}; font-weight: 500; }
+        #in-btn { margin-top: 18px; background: {{{theme.green}}}; color: {{{theme.ink}}}; font-weight: 800; text-align: center; border-radius: 6px; padding: 12px 0; font-size: 16px; }
+      </style>
+      <div id="root" data-composition-id="screen-input" data-width="{{derived.screenW}}" data-height="{{shell.minHeight}}">
+        <div class="in-card">
+          <div class="in-lbl">{{copy.input.objectiveLabel}}</div>
+          <div id="in-obj" class="in-field"><!--each derived.chars--><span class="in-ch" data-inline id="in-ch-{{@i}}">{{.}}</span><!--/each--><span id="in-caret"></span></div>
+          <div class="in-lbl" style="margin-top: 16px">{{copy.input.modelLabel}}</div>
+          <div id="in-model" class="in-field"><span id="in-model-a">{{copy.input.modelBefore}}</span><span id="in-model-b" style="display: none">{{copy.input.modelAfter}}</span></div>
+          <div id="in-loop">
+            <div id="in-check"></div>
+            <div id="in-looptext"><span style="color: {{theme.dim}}; letter-spacing: 1px">{{copy.input.loopLabel}}</span> {{copy.input.loopRest}}</div>
+          </div>
+          <div class="in-lbl" style="margin-top: 16px">{{copy.input.efficiencyLabel}}</div>
+          <div id="in-pills"><!--each derived.pills--><div class="in-pill {{.cls}}">{{.label}}</div><!--/each--></div>
+          <div id="in-btn"><span id="in-btn-a">{{copy.input.button}}</span><span id="in-btn-b" style="display: none">{{copy.input.buttonBusy}}</span></div>
+        </div>
+      </div>
+      <script>
+        /*LIB*/
+        const b = S.beats.input;
+        const tl = gsap.timeline({ paused: true });
+
+        // Typing: character i shows on the first frame where floor(interpolate(frame, typeFrom..typeTo)) >= i + 1.
+        const n = S.run.objective.length;
+        for (let i = 0; i < n; i++) {
+          const frame = Math.ceil(b.typeFrom + ((i + 1) * (b.typeTo - b.typeFrom)) / n);
+          tl.set("#in-ch-" + i, { display: "inline" }, sec(frame));
+        }
+        blink(tl, "#in-caret", b.caretUntil, 8, { opacity: 1 }, { opacity: 0 });
+        tl.set("#in-caret", { display: "none" }, sec(b.caretUntil));
+        tl.set("#in-obj", { borderColor: T.line }, sec(b.caretUntil));
+
+        const modelFrame = b.modelSwitchAfter + 1;
+        tl.set("#in-model-a", { display: "none" }, sec(modelFrame));
+        tl.set("#in-model-b", { display: "inline" }, sec(modelFrame));
+        tl.set("#in-model", { borderColor: T.green }, sec(modelFrame));
+
+        playCurve(tl, "#in-check", S.curves.loop, b.loopSpringAt, (v) => ({
+          scale: 0.8 + 0.2 * v,
+          backgroundColor: v > 0.5 ? T.green : "rgba(61, 220, 132, 0)",
+        }));
+
+        tl.set("#in-btn", { scale: 0.97 }, sec(b.pressAfter + 1));
+        tl.set("#in-btn", { scale: 1 }, sec(b.busyAt));
+        tl.set("#in-btn-a", { display: "none" }, sec(b.busyAt));
+        tl.set("#in-btn-b", { display: "inline" }, sec(b.busyAt));
+
+        window.__timelines["screen-input"] = tl;
+      </script>
+    </template>
+  </body>
+</html>
