@@ -318,6 +318,7 @@ def _layout(root: Path, skipped: list[str]) -> list[str]:
     per_folder = max(MAX_ENTRIES // 4, 1)
     out = []
     cut: list[str] = []
+    unreadable: list[str] = []
     for name in tops:
         files = entries = 0
         limit = min(per_folder, budget)
@@ -333,13 +334,21 @@ def _layout(root: Path, skipped: list[str]) -> list[str]:
         budget -= entries
         if partial:
             cut.append(_clean(name, NAME_CHARS))
-        subs = sorted(d.name for d in (root / name).iterdir() if _shown(d.name) and _is_plain(d) and d.is_dir())
+        try:
+            subs = sorted(d.name for d in (root / name).iterdir() if _shown(d.name) and _is_plain(d) and d.is_dir())
+        except OSError:  # e.g. a database volume owned by another user: show the folder and carry on
+            unreadable.append(_clean(name, NAME_CHARS))
+            out.append(f"{_clean(name, NAME_CHARS)}/ (cannot be read)")
+            continue
         subs = [_clean(sub, NAME_CHARS) for sub in subs]
         deeper = f" > {', '.join(subs[:6])}{', ...' if len(subs) > 6 else ''}" if subs and LAYOUT_DEPTH > 1 else ""
         out.append(f"{_clean(name, NAME_CHARS)}/ ({files}{'+' if partial else ''} files){deeper}")
     if cut:
         shown = ", ".join(cut[:5]) + (", ..." if len(cut) > 5 else "")
         skipped.append(f"stopped counting files in {shown} after {MAX_ENTRIES} entries in all; a + marks a count that is a lower bound")
+    if unreadable:
+        shown = ", ".join(unreadable[:5]) + (", ..." if len(unreadable) > 5 else "")
+        skipped.append(f"could not read {shown}; its files are not counted")
     if len(out) > MAX_LAYOUT_ROWS:
         skipped.append(f"layout shows {MAX_LAYOUT_ROWS} of {len(out)} top-level folders")
         out = out[:MAX_LAYOUT_ROWS]
