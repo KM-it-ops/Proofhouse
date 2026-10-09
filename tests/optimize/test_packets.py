@@ -56,6 +56,7 @@ def test_clarify_compile_revise_fill_every_placeholder(framework: dict) -> None:
         assert OBJECTIVE in packet.user
     assert "Balanced (standard coverage)" in clarify.system
     assert "10-16 total questions" in clarify.system
+    assert "never a plain string; otherwise null" in clarify.system
     assert "under 250 words" in compile_.system
     assert "- audience: SOC analysts" in compile_.user
     assert "Previous prompt text here." in revise.user
