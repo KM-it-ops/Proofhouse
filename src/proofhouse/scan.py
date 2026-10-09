@@ -179,8 +179,14 @@ def _strings(value: object) -> list[str]:
 
 
 _TOML_SECTION = re.compile(r"^[ \t]*\[([^\[\]\n]+)\][ \t\r]*(?:#.*)?$", re.M)
-# `key = [ ... ]`, treating quoted strings as units so a "]" inside one (like "pkg[extra]") does not end the list
-_TOML_LIST = re.compile(r"""^[ \t]*([A-Za-z0-9_\-]+)[ \t]*=[ \t]*\[((?:"[^"\n]*"|'[^'\n]*'|[^\]"'])*)\]""", re.M)
+# `key = [ ... ]`, treating quoted strings as units so a "]" inside one (like "pkg[extra]") does not end the list. A list
+# may span lines but never runs into the next `key =` line, so a file of unclosed lists cannot make each search run to
+# the end of the file (work growing with the square of the file size).
+_TOML_LIST = re.compile(
+    r"""^[ \t]*([A-Za-z0-9_\-]+)[ \t]*=[ \t]*\["""
+    r"""((?:"[^"\n]*"|'[^'\n]*'|[^\]"'\n]|\n(?![ \t]*[A-Za-z0-9_\-]+[ \t]*=))*)\]""",
+    re.M,
+)
 _TOML_STRING = re.compile(r""""([^"\n]*)"|'([^'\n]*)'""")
 
 
