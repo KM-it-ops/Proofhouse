@@ -382,9 +382,9 @@ def _scan(path: str | Path) -> dict:
     for fname, lang in LANGUAGES.items():
         if fname in top_files:
             languages.setdefault(lang, []).append(fname)
-    for p in root.iterdir():
-        if p.suffix in (".csproj", ".sln") and _is_plain(p):
-            languages.setdefault(".NET", []).append(_clean(p.name, NAME_CHARS))
+    dotnet = sorted(_clean(p.name, NAME_CHARS) for p in root.iterdir() if p.suffix in (".csproj", ".sln") and _is_plain(p))
+    if dotnet:  # the first few names and a count, so a folder of thousands of projects cannot flood the report
+        languages[".NET"] = dotnet[:6] + ([f"and {len(dotnet) - 6} more"] if len(dotnet) > 6 else [])
 
     deps: set[str] = set()
     scripts: list[str] = []
