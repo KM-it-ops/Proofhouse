@@ -1,13 +1,10 @@
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
+const scene = JSON.parse(readFileSync(new URL("./scene.json", import.meta.url), "utf8"));
 const rate = 48000;
-const seconds = 42;
+const seconds = scene.durationFrames / scene.fps;
 const count = rate * seconds;
-const hits = [
-  [0.4, 196, 0.1],
-  [11.3, 330, 0.14],
-  [25.3, 392, 0.14],
-];
+const hits = scene.audio.hits;
 
 const samples = new Int16Array(count);
 for (let i = 0; i < count; i++) {

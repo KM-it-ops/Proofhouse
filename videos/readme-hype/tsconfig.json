@@ -9,7 +9,13 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
-    "isolatedModules": true
+    "isolatedModules": true,
+    "resolveJsonModule": true,
+    "allowImportingTsExtensions": true
   },
-  "include": ["remotion"]
+  "include": [
+    "remotion",
+    "studio",
+    "scene.generated.json"
+  ]
 }

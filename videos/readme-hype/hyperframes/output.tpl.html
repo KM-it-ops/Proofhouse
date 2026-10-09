@@ -1,0 +1,56 @@
+<!doctype html>
+<!-- GENERATED from hyperframes/output.tpl.html + scene.json by build.mjs. Do not edit; edit the template or the scene. -->
+<html lang="en">
+  <head><meta charset="UTF-8" /></head>
+  <body>
+    <template>
+      <style>
+        @font-face { font-family: "Cascadia Mono"; src: local("Cascadia Mono"); }
+        #root, #root * { box-sizing: border-box; }
+        #root { position: absolute; inset: 0; display: block; font-family: {{{theme.mono}}}; }
+        .ou-card { border: 1px solid {{{theme.line}}}; background: {{{theme.card}}}; border-radius: 8px; padding: 16px; }
+        .ou-top { display: flex; justify-content: space-between; margin-bottom: 8px; }
+        .ou-head { color: {{{theme.green}}}; letter-spacing: 2px; font-size: 13px; font-weight: 700; }
+        .ou-copy { font-size: 13px; color: {{{theme.soft}}}; }
+        #ou-copy-b { color: {{{theme.green}}}; }
+        .ou-body { color: {{{theme.mint}}}; font-size: 15px; line-height: 1.35; }
+        .ou-line { min-height: 22px; color: {{{theme.mint}}}; font-weight: 500; }
+        .ou-line.title { color: {{{theme.green}}}; font-weight: 800; }
+        .ou-line.gap { min-height: 8px; }
+        .ou-foot { color: {{{theme.dim}}}; font-size: 12px; margin-top: 8px; }
+      </style>
+      <div id="root" data-composition-id="screen-output" data-width="{{derived.screenW}}" data-height="{{shell.minHeight}}">
+        <div class="ou-card">
+          <div class="ou-top">
+            <div class="ou-head">{{copy.output.head}}</div>
+            <div class="ou-copy"><span id="ou-copy-a">{{copy.output.copy}}</span><span id="ou-copy-b" style="display: none">{{copy.output.copied}}</span></div>
+          </div>
+          <div class="ou-body"><!--each derived.outLines--><div class="ou-line {{.cls}}" id="ou-{{@i}}">{{.text}}</div><!--/each--></div>
+          <div class="ou-foot">{{copy.output.footer}}</div>
+        </div>
+      </div>
+      <script>
+        /*LIB*/
+        const b = S.beats.output;
+        const tl = gsap.timeline({ paused: true });
+
+        // Each non-blank line is wiped in left to right, staggered; power2.out is Remotion's Easing.out(cubic).
+        S.run.promptLines.forEach((line, i) => {
+          if (line === "") return;
+          tl.fromTo(
+            "#ou-" + i,
+            { clipPath: "inset(0 100% 0 0)" },
+            { clipPath: "inset(0 0% 0 0)", duration: sec(b.revealLen), ease: "power2.out" },
+            sec(b.revealAt + i * b.revealStep),
+          );
+        });
+        tl.set("#ou-copy-a", { display: "none" }, sec(b.copiedAfter + 1));
+        tl.set("#ou-copy-b", { display: "inline" }, sec(b.copiedAfter + 1));
+        tl.set("#ou-copy-a", { display: "inline" }, sec(b.copiedBefore));
+        tl.set("#ou-copy-b", { display: "none" }, sec(b.copiedBefore));
+
+        window.__timelines["screen-output"] = tl;
+      </script>
+    </template>
+  </body>
+</html>
