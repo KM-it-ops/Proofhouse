@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from ..parts import SKILL_HOSTS
 from .kinds import MAX_ENTRIES, MAX_UNCOMPRESSED_BYTES, SKILL_FILE
 from .kinds import is_link as _is_link  # remove the link, never what it points at
 from .model_notes import proofhouse_home
@@ -39,10 +40,8 @@ NAME_LINE = f"name: {SKILL_NAME}"
 DEFAULT_BUNDLE = PACKAGE_BUNDLE_PATH
 BACKUP_DIR = "skill-backups"
 # Host agent -> (config directory under the home directory, display name, where to start using the skill).
-HOSTS = {
-    "cursor": (".cursor", "Cursor", "a new Cursor Agent chat"),
-    "claude": (".claude", "Claude Code", "a new Claude Code session"),
-}
+# The install-skill host writer part owns the table (``proofhouse.parts``); this name stays for existing callers.
+HOSTS = SKILL_HOSTS
 
 # Same values as cli.py / compiler.cli_compiler.
 EXIT_USAGE_ERROR = 2

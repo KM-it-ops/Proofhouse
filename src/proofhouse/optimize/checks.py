@@ -23,6 +23,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..parts import TEXT_CHECK_KINDS
 from .case import CaseError, _write_new_text, _write_text, latest_revision_number, load_revision, now_iso
 
 KIND_MUST_CONTAIN = "must_contain"
@@ -30,7 +31,8 @@ KIND_MUST_NOT_CONTAIN = "must_not_contain"
 KIND_MAX_WORDS = "max_words"
 KIND_REGEX = "regex"
 KIND_MANUAL = "manual"
-KINDS = (KIND_MUST_CONTAIN, KIND_MUST_NOT_CONTAIN, KIND_MAX_WORDS, KIND_REGEX, KIND_MANUAL)
+# The text checker part owns the list (``proofhouse.parts``); this name stays for existing callers.
+KINDS = TEXT_CHECK_KINDS
 
 PASS = "PASS"
 FAIL = "FAIL"
