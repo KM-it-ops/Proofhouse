@@ -79,6 +79,7 @@ RECORDED_STATUS: Mapping[str, str] = {
 }
 
 TEXT_CHECKER_ID = "text-checker"
+SKILL_CHECKER_ID = "skill-checker"
 HOST_WRITER_ID = "install-skill"
 PART_SUITE_VERSION = "0.1.0"
 
@@ -429,16 +430,160 @@ class TextCheckerPart:
         return PartResult(status="success", evidence=tuple(evidence), not_measured=self._descriptor.not_measured)
 
 
+# --- the skill checker -------------------------------------------------------------------
+
+SKILL_CHECKER_NOT_MEASURED = (
+    "behaviour in hosts not tested",
+    "whether a host tool loads, triggers or follows the skill",
+    "what the skill's instructions or scripts do when used",
+)
+# The one check the skill checker runs, in order; each step needs the one before it.
+SKILL_CHECK_INSTALL_ROUNDTRIP = "install-roundtrip"
+SKILL_CHECK_STEPS = ("frontmatter", "write", "read_back", "reinstall_no_change", "uninstall_restores")
+PASS = "PASS"
+FAIL = "FAIL"
+NOT_EVALUATED = "NOT_EVALUATED"
+
+
+class SkillCheckerPart:
+    """Checks one skill folder: frontmatter, then an install round trip into a temporary host folder.
+
+    The round trip goes through the host writer's own install and uninstall
+    with a temporary skills folder and a temporary Proofhouse home, so it never
+    touches a real host or the user's home. The temporary skills folder holds an
+    unrelated skill and an older copy of this skill beforehand; uninstall must
+    put that prior state back exactly (same digest before and after).
+    """
+
+    part_id = SKILL_CHECKER_ID
+
+    def __init__(self, status: str) -> None:
+        manifest = {
+            "checks": [SKILL_CHECK_INSTALL_ROUNDTRIP],
+            "steps": list(SKILL_CHECK_STEPS),
+            "hosts": "a temporary skills folder only",
+        }
+        self._descriptor = PartDescriptor(
+            part_id=SKILL_CHECKER_ID,
+            part_version="0.1.0",
+            role=ROLE_CHECKER,
+            kinds_in=(_AGENT_SKILL,),
+            kinds_out=(),
+            capability_manifest=manifest,
+            manifest_digest=canonical_sha256(manifest),
+            not_measured=SKILL_CHECKER_NOT_MEASURED,
+            reproducibility=DETERMINISTIC,
+            network=NETWORK_NONE,
+            conformance_suite_version=PART_SUITE_VERSION,
+            status=status,
+            evidence_classes=("structural_check",),
+            authority_rank=AUTHORITY_DETERMINISTIC_VALIDATOR,
+        )
+
+    def describe(self) -> PartDescriptor:
+        return self._descriptor
+
+    def check(self, request: Mapping[str, Any]) -> CheckAnswer:
+        """``request``: ``{"kind", "folder", "digest"?}``; only a skill folder can be checked."""
+        kind = request.get("kind", _AGENT_SKILL)
+        items: list[dict[str, Any]] = [
+            {
+                "need": f"kind {kind}",
+                "resolution": SUPPORTED if kind in self._descriptor.kinds_in else UNSUPPORTED,
+                "reason": f"accepts {', '.join(self._descriptor.kinds_in)}",
+            },
+            {
+                "need": "skill folder",
+                "resolution": SUPPORTED if request.get("folder") is not None else UNSUPPORTED,
+                "reason": "the version's files, as a folder",
+            },
+        ]
+        return _answer(items)
+
+    def do(self, request: Mapping[str, Any]) -> PartResult:
+        """One evidence row per step; a failed step stops the rest (``NOT_EVALUATED``). Writes only temporary folders."""
+        answer = self.check(request)
+        if answer.answer == UNSUPPORTED:
+            raise PartRefusedError(self.part_id, answer)
+        import tempfile
+        from pathlib import Path
+
+        from .optimize import install_skill as writer
+
+        rows: list[dict[str, Any]] = []
+
+        def row(step: str, result: str, detail: str) -> None:
+            rows.append(
+                {
+                    "check": step,
+                    "result": result,
+                    "detail": detail,
+                    "evidence_class": "structural_check",
+                    "authority_rank": self._descriptor.authority_rank,
+                }
+            )
+
+        folder = Path(request["folder"])
+        expected = request.get("digest")
+        with tempfile.TemporaryDirectory(prefix="proofhouse-skill-check-", ignore_cleanup_errors=True) as tmp:
+            host = Path(tmp) / "host" / "skills"
+            home = Path(tmp) / "home"
+            steps = iter(SKILL_CHECK_STEPS)
+            try:
+                step = next(steps)
+                skill = writer.read_skill(folder)
+                if expected is not None and skill.digest != expected:
+                    raise writer.InstallSkillError("the folder's files do not match the version's digest", 7)
+                row(step, PASS, f"name {skill.name}; description present; {len(skill.files)} files")
+
+                # Prior state: an unrelated skill and an older copy of this one.
+                for name, text in (("other-skill", "an unrelated skill"), (skill.name, "an older copy of this skill")):
+                    (host / name).mkdir(parents=True)
+                    (host / name / "SKILL.md").write_text(
+                        f"---\nname: {name}\ndescription: {text}, placed by the skill checker\n---\n", encoding="utf-8"
+                    )
+                before = writer.folder_state_digest(host)
+
+                step = next(steps)
+                writer.install(host, folder, force=True, home=home)
+                row(step, PASS, "installed into a temporary skills folder over an older copy")
+
+                step = next(steps)
+                got = writer.installed_digest(host / skill.name)
+                if got != skill.digest:
+                    raise writer.InstallSkillError(f"installed folder digest {got} differs from {skill.digest}", 7)
+                row(step, PASS, f"installed folder digest equals the version digest {skill.digest[:12]}")
+
+                step = next(steps)
+                after_first = writer.folder_state_digest(host)
+                writer.install(host, folder, force=True, home=home)
+                if writer.folder_state_digest(host) != after_first:
+                    raise writer.InstallSkillError("reinstalling the same skill changed the skills folder", 7)
+                row(step, PASS, "reinstalling changed nothing in the skills folder")
+
+                step = next(steps)
+                writer.uninstall(skill.name, host, home=home)
+                if writer.folder_state_digest(host) != before:
+                    raise writer.InstallSkillError("uninstall did not restore the prior skills folder exactly", 7)
+                row(step, PASS, "uninstall restored the prior skills folder exactly (same digest)")
+            except (writer.InstallSkillError, OSError, ValueError) as exc:
+                row(step, FAIL, str(exc))
+                for rest in steps:
+                    row(rest, NOT_EVALUATED, f"not run: {step} failed")
+        return PartResult(status="success", evidence=tuple(rows), not_measured=self._descriptor.not_measured)
+
+
 # --- the install-skill host writer -------------------------------------------------------
 
 HOST_WRITER_NOT_MEASURED = (
     "behaviour in hosts not tested",
     "whether the host tool loads or uses the installed skill",
 )
+HOST_WRITER_ACTIONS = ("install", "uninstall")
 
 
 class SkillHostWriterPart:
-    """Copies the bundled skill into a host's skills folder; read back and fingerprinted after the write."""
+    """Installs a skill into a host's skills folder, or uninstalls what it installed; read back after the write."""
 
     part_id = HOST_WRITER_ID
 
@@ -448,6 +593,8 @@ class SkillHostWriterPart:
                 name: {"folder": folder, "label": label, "start_hint": hint}
                 for name, (folder, label, hint) in sorted(SKILL_HOSTS.items())
             },
+            "actions": list(HOST_WRITER_ACTIONS),
+            "inputs": ["zip bundle", "skill folder"],
         }
         self._descriptor = PartDescriptor(
             part_id=HOST_WRITER_ID,
@@ -468,16 +615,27 @@ class SkillHostWriterPart:
         return self._descriptor
 
     def check(self, request: Mapping[str, Any]) -> CheckAnswer:
-        """``request``: ``{"kind", "host"}`` or ``{"kind", "dest"}``; an unknown host is unsupported, never guessed."""
+        """``request``: ``{"kind", "host"}`` or ``{"kind", "dest"}``, plus ``action`` (default ``install``).
+
+        An unknown host or action is unsupported, never guessed; ``uninstall`` needs the skill ``name``.
+        """
         kind = request.get("kind", _AGENT_SKILL)
         host = request.get("host")
+        action = request.get("action", "install")
         items: list[dict[str, Any]] = [
             {
                 "need": f"kind {kind}",
                 "resolution": SUPPORTED if kind in self._descriptor.kinds_in else UNSUPPORTED,
                 "reason": f"accepts {', '.join(self._descriptor.kinds_in)}",
-            }
+            },
+            {
+                "need": f"action {action}",
+                "resolution": SUPPORTED if action in HOST_WRITER_ACTIONS else UNSUPPORTED,
+                "reason": f"actions are {', '.join(HOST_WRITER_ACTIONS)}",
+            },
         ]
+        if action == "uninstall" and not request.get("name"):
+            items.append({"need": "skill name", "resolution": UNSUPPORTED, "reason": "uninstall names the skill"})
         if host is not None:
             items.append(
                 {
@@ -491,18 +649,35 @@ class SkillHostWriterPart:
         return _answer(items)
 
     def do(self, request: Mapping[str, Any]) -> PartResult:
-        """``request`` adds optional ``bundle`` and ``force``; errors are ``InstallSkillError`` as before."""
+        """``request`` adds optional ``bundle`` (zip or folder), ``force`` and ``home``; errors are ``InstallSkillError``."""
         answer = self.check(request)
         if answer.answer == UNSUPPORTED:
             raise PartRefusedError(self.part_id, answer)
         from .optimize import install_skill
         from .optimize.kinds import folder_manifest, manifest_digest
 
+        if request.get("action", "install") == "uninstall":
+            removed = install_skill.uninstall(
+                request["name"],
+                request.get("dest"),
+                force=bool(request.get("force", False)),
+                host=request.get("host"),
+                home=request.get("home"),
+            )
+            evidence = {
+                "action": "uninstall",
+                "skill_dir": str(removed.dest),
+                "forced": removed.forced,
+                "restored": None if removed.restored is None else str(removed.restored),
+            }
+            return PartResult(status="success", evidence=(evidence,), not_measured=self._descriptor.not_measured)
+
         installed = install_skill.install(
             dest=request.get("dest"),
             bundle=request.get("bundle"),
             force=bool(request.get("force", False)),
             host=request.get("host"),
+            home=request.get("home"),
         )
         manifest = folder_manifest(installed.dest)
         return PartResult(
@@ -545,6 +720,7 @@ _TABLE: tuple[_Entry, ...] = (
     ),
     _Entry("gemini", ROLE_REQUEST_BUILDER, CERTIFIED, _request_builder("gemini", "proofhouse.compiler.adapters.gemini", "GeminiAdapter")),
     _Entry(TEXT_CHECKER_ID, ROLE_CHECKER, IMPLEMENTED_NOT_CERTIFIED, TextCheckerPart),
+    _Entry(SKILL_CHECKER_ID, ROLE_CHECKER, IMPLEMENTED_NOT_CERTIFIED, SkillCheckerPart),
     _Entry(HOST_WRITER_ID, ROLE_HOST_WRITER, IMPLEMENTED_NOT_CERTIFIED, SkillHostWriterPart),
 )
 

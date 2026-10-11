@@ -35,6 +35,7 @@ EXPECTED_PARTS = {
     "anthropic": "request_builder",
     "gemini": "request_builder",
     "text-checker": "checker",
+    "skill-checker": "checker",
     "install-skill": "host_writer",
 }
 # Where each registered part's conformance suite lives; a part added to the table without one fails here.
@@ -44,7 +45,8 @@ CONFORMANCE_SUITES = {
     "anthropic": "tests/compiler/test_t040_03_request_builder_parts.py",
     "gemini": "tests/compiler/test_t040_03_request_builder_parts.py",
     "text-checker": "tests/test_t040_03_parts.py",
-    "install-skill": "tests/test_t040_03_parts.py",
+    "skill-checker": "tests/optimize/test_t040_04_skill_parts.py",
+    "install-skill": "tests/optimize/test_t040_04_skill_parts.py",
 }
 REPO_ROOT = Path(__file__).resolve().parents[1]
 
@@ -88,6 +90,7 @@ def test_statuses_are_the_recorded_ones_and_new_parts_are_not_certified() -> Non
         "anthropic": "CERTIFIED",
         "gemini": "CERTIFIED",
         "text-checker": "IMPLEMENTED_NOT_CERTIFIED",
+        "skill-checker": "IMPLEMENTED_NOT_CERTIFIED",
         "install-skill": "IMPLEMENTED_NOT_CERTIFIED",
     }
 

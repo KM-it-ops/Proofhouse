@@ -1103,6 +1103,7 @@
     "optimize",
     "proof",
     "route",
+    "uninstall-skill",
     "validate",
     "workspace-consume"
   ],
@@ -1130,7 +1131,8 @@
     "demo",
     "install-skill",
     "models",
-    "optimize"
+    "optimize",
+    "uninstall-skill"
   ],
   "x-opt-in-live": [
     "execute-openai"

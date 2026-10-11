@@ -19,6 +19,7 @@ CODES: dict[str, str] = {
     "PHC-SKILL-0006": "duplicate path in skill files",
     "PHC-SKILL-0007": "skill folder missing or unreadable",
     "PHC-SKILL-0008": "malformed skill file manifest",
+    "PHC-SKILL-0009": "path in skill files not portable to every OS (reserved name, trailing dot or space, forbidden character)",
 }
 RETIRED_CODES: tuple[str, ...] = ()
 
