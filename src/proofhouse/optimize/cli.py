@@ -1,4 +1,5 @@
-"""Local-workstation commands for ``proofhouse-compiler``: ``optimize``, ``models``, ``install-skill``, ``demo``.
+"""Local-workstation commands for ``proofhouse-compiler``: ``optimize``, ``models``, ``install-skill``,
+``uninstall-skill``, ``demo``.
 
 ``add_local_commands`` registers them into the compiler parser. They are
 listed under ``x-local-only`` in the hosted OpenAPI document and have no
@@ -31,7 +32,7 @@ from .model_notes import ResolvedNotes, resolve_model_notes
 from .packets import PRESET_KEYS
 from .registry import load_registry
 
-LOCAL_COMMANDS = frozenset({"optimize", "models", "install-skill", "demo"})
+LOCAL_COMMANDS = frozenset({"optimize", "models", "install-skill", "uninstall-skill", "demo"})
 
 # Same values as compiler.cli_compiler; importing that module here would be circular.
 EXIT_SUCCESS = 0
@@ -374,6 +375,13 @@ _KIND_HELP = (
     (checks.KIND_MAX_WORDS, "Prompt must have at most N words."),
     (checks.KIND_REGEX, "Prompt must match this regular expression (re.MULTILINE)."),
     (checks.KIND_MANUAL, "A criterion you judge yourself; record the outcome with optimize verdict."),
+    (
+        checks.KIND_SKILL_CHECK,
+        (
+            "Skill versions only: the skill checker checks SKILL.md frontmatter, then installs into a temporary "
+            "skills folder, reads it back, reinstalls and uninstalls. Value: install-roundtrip."
+        ),
+    ),
 )
 
 
@@ -687,11 +695,45 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
         _emit_json("install-skill", "success", data)
         return EXIT_SUCCESS
     print(f"install-skill: installed {len(result.files)} files -> {result.dest}")
-    print(f"  verified: {install_mod.NAME_LINE}")
+    print(f"  verified: name: {result.name}")
     if result.backup is not None:
         print(f"  previous installation kept at: {result.backup}")
     where = install_mod.HOSTS[host][2] if host else f"a new chat or session in {agent or 'your agent'}"
-    print(f'  next: start {where} and say "Proofhouse"')
+    if result.name == install_mod.SKILL_NAME:
+        print(f'  next: start {where} and say "Proofhouse"')
+    else:
+        print(f"  next: start {where} and use the {result.name} skill")
+    return EXIT_SUCCESS
+
+
+def _cmd_uninstall_skill(args: argparse.Namespace) -> int:
+    dest = Path(args.dest) if args.dest else None
+    try:
+        host = install_mod.resolve_host(args.host, dest)
+        result = install_mod.uninstall(args.name, dest, force=args.force, host=host)
+    except install_mod.InstallSkillError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return exc.exit_code
+    if result.leftover is not None:
+        _warn(f"could not remove the set-aside copy at {result.leftover}; delete it so the host does not load it")
+    if result.missing_backup is not None:
+        _warn(f"the installation this one replaced was backed up at {result.missing_backup}, which no longer exists")
+    if args.json:
+        data = {
+            "host": host,
+            "dest": str(result.dest),
+            "name": result.name,
+            "forced": result.forced,
+            "safety_backup": None if result.safety_backup is None else str(result.safety_backup),
+            "restored": None if result.restored is None else str(result.restored),
+        }
+        _emit_json("uninstall-skill", "success", data)
+        return EXIT_SUCCESS
+    print(f"uninstall-skill: removed {result.dest}")
+    if result.safety_backup is not None:
+        print(f"  it no longer matched what was installed; a copy was kept at: {result.safety_backup}")
+    if result.restored is not None:
+        print(f"  restored the installation it had replaced, from: {result.restored}")
     return EXIT_SUCCESS
 
 
@@ -699,8 +741,9 @@ def _add_install_skill(subparsers: argparse._SubParsersAction) -> None:
     p_install = subparsers.add_parser(
         "install-skill",
         help=(
-            "Extract the bundled proofhouse.skill into an agent's skills folder (package data; no checkout "
-            "needed) and verify its frontmatter line name: proofhouse. Asks which agent when none is named."
+            "Install a skill into an agent's skills folder and verify its frontmatter: by default the bundled "
+            "proofhouse.skill (package data; no checkout needed), or any skill with --bundle. "
+            "Asks which agent when none is named."
         ),
     )
     p_install.add_argument(
@@ -722,15 +765,39 @@ def _add_install_skill(subparsers: argparse._SubParsersAction) -> None:
     p_install.add_argument(
         "--bundle",
         default=None,
-        help="Path to a proofhouse.skill zip (default: the bundle shipped inside the package).",
+        help=(
+            "A skill to install: a zip with every entry under <name>/, or a folder with SKILL.md at its root "
+            "(default: the proofhouse.skill bundle shipped inside the package). The name comes from the "
+            "SKILL.md frontmatter."
+        ),
     )
     p_install.add_argument(
         "--force",
         action="store_true",
-        help="Replace an existing <dest>/proofhouse directory.",
+        help="Replace an existing <dest>/<name> directory (it is backed up first).",
     )
     p_install.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_install.set_defaults(func=_cmd_install_skill)
+
+
+def _add_uninstall_skill(subparsers: argparse._SubParsersAction) -> None:
+    p_un = subparsers.add_parser(
+        "uninstall-skill",
+        help=(
+            "Remove a skill that install-skill installed, and put back the installation it replaced. Refuses "
+            "a folder that no longer matches what was installed unless --force (then it is backed up first)."
+        ),
+    )
+    p_un.add_argument("name", help="Skill name, as in its SKILL.md frontmatter (for example proofhouse).")
+    p_un.add_argument("--host", choices=sorted(install_mod.HOSTS), default=None, help="Agent it was installed for.")
+    p_un.add_argument("--dest", default=None, help="Skills directory it was installed into (overrides --host).")
+    p_un.add_argument(
+        "--force",
+        action="store_true",
+        help="Remove it even though it changed since install; a copy is kept under PROOFHOUSE_HOME first.",
+    )
+    p_un.add_argument("--json", action="store_true", help="Emit a single JSON object.")
+    p_un.set_defaults(func=_cmd_uninstall_skill)
 
 
 def _cmd_demo(args: argparse.Namespace) -> int:
@@ -757,3 +824,4 @@ def add_local_commands(subparsers: argparse._SubParsersAction) -> None:
     _add_demo(subparsers)
     _add_models(subparsers)
     _add_install_skill(subparsers)
+    _add_uninstall_skill(subparsers)

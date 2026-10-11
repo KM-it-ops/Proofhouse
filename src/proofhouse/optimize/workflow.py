@@ -410,6 +410,8 @@ def _cell(value: object) -> str:
 
 
 def _evidence_class(row: dict) -> str:
+    if row["kind"] == "skill_check":
+        return "skill check (temporary host folder)"
     if row["kind"] == "manual":
         return "human judgement"
     return "recorded-output check" if row.get("target") == "output" else "prompt-text check"
@@ -489,8 +491,14 @@ def render_report(data: dict, report: dict, model_line: str) -> str:
         "  revision/output digest and criterion definition they judged.",
         "- Nothing here measures general quality beyond the declared checks, and model notes labeled",
         "  `unverified` have no cited sources.",
-        "",
     ]
+    if any(row["kind"] == "skill_check" for row in report["results"]):
+        lines += [
+            "- Skill checks install the skill only into a temporary skills folder. Behaviour in hosts was not",
+            "  tested: whether Cursor, Claude Code or another host loads, triggers or follows the skill.",
+            "- No independent pass ran on this skill. A PASS here is the skill checker's structural evidence only.",
+        ]
+    lines.append("")
     return "\n".join(lines)
 
 

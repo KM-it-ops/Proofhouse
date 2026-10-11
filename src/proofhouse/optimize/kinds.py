@@ -8,7 +8,9 @@
   path, with RFC 8785 canonical JSON plus SHA-256 (``compiler.canonical``).
 
 Any other kind id is refused (``PHC-KIND-0001``). Building a manifest refuses
-links, junctions and special files, unsafe paths, paths that would collide on
+links, junctions and special files, unsafe paths, names that are not portable
+to every OS (Windows reserved device names, a trailing dot or space, characters
+Windows forbids; ``PHC-SKILL-0009``) on every OS, paths that would collide on
 a case-insensitive disk, and anything over the installer's size and entry
 limits, so the same bytes give the same digest on every operating system.
 Adding a kind later is a new row here plus its digest rule.
@@ -86,8 +88,31 @@ def is_link(path: Path) -> bool:
     return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
 
 
+# Device names Windows reserves in any folder, with or without an extension (``CON``, ``nul.txt``).
+WINDOWS_RESERVED_NAMES = frozenset(
+    {"con", "prn", "aux", "nul"}
+    | {f"{device}{n}" for device in ("com", "lpt") for n in (*"0123456789", "¹", "²", "³")}
+)
+_NOT_PORTABLE_CHARS = frozenset('<>"|?*')
+
+
+def portable_segment_problem(segment: str) -> str | None:
+    """Why one path segment cannot be written the same way on every OS, or ``None`` if it can.
+
+    Refused everywhere, not only on Windows, so a skill that installs on one
+    operating system installs the same way on the others.
+    """
+    if segment[-1] in ". ":
+        return "ends with a dot or a space"
+    if any(ch in _NOT_PORTABLE_CHARS or ord(ch) < 32 for ch in segment):
+        return "contains a character Windows forbids"
+    if segment.split(".", 1)[0].rstrip(" ").casefold() in WINDOWS_RESERVED_NAMES:
+        return "is a Windows reserved device name"
+    return None
+
+
 def check_path(path: object) -> None:
-    """Refuse anything but a plain relative forward-slash path to a file."""
+    """Refuse anything but a plain relative forward-slash path to a file, portable to every OS."""
     if (
         not isinstance(path, str)
         or not path
@@ -97,6 +122,10 @@ def check_path(path: object) -> None:
         or any(segment in ("", ".", "..") or ":" in segment for segment in path.split("/"))
     ):
         raise CodedCaseError("PHC-SKILL-0002", f"not a plain relative path: {path!r}")
+    for segment in path.split("/"):
+        problem = portable_segment_problem(segment)
+        if problem is not None:
+            raise CodedCaseError("PHC-SKILL-0009", f"{segment!r} in {path!r} {problem}")
 
 
 class _Names:

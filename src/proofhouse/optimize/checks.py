@@ -23,7 +23,7 @@ import uuid
 from dataclasses import dataclass
 from pathlib import Path
 
-from ..parts import TEXT_CHECK_KINDS
+from ..parts import SKILL_CHECK_INSTALL_ROUNDTRIP, TEXT_CHECK_KINDS
 from .case import CaseError, _write_new_text, _write_text, latest_revision_number, load_revision, now_iso
 
 KIND_MUST_CONTAIN = "must_contain"
@@ -33,6 +33,10 @@ KIND_REGEX = "regex"
 KIND_MANUAL = "manual"
 # The text checker part owns the list (``proofhouse.parts``); this name stays for existing callers.
 KINDS = TEXT_CHECK_KINDS
+# A skill version's criterion: the skill checker part runs it (``proofhouse.parts``).
+KIND_SKILL_CHECK = "skill_check"
+SKILL_CHECKS = (SKILL_CHECK_INSTALL_ROUNDTRIP,)
+CRITERION_KINDS = (*KINDS, KIND_SKILL_CHECK)
 
 PASS = "PASS"
 FAIL = "FAIL"
@@ -100,8 +104,12 @@ def criterion_digest(criterion: dict) -> str:
 
 def validate_value(kind: str, value: str) -> str:
     """Normalise and validate a criterion value for ``kind``; raise ``CaseError`` on bad input."""
-    if kind not in KINDS:
+    if kind not in CRITERION_KINDS:
         raise CaseError(f"unknown criterion kind: {kind}")
+    if kind == KIND_SKILL_CHECK:
+        if value not in SKILL_CHECKS:
+            raise CaseError(f"--skill-check must be one of: {', '.join(SKILL_CHECKS)}")
+        return value
     if kind == KIND_MAX_WORDS:
         try:
             limit = int(value)
@@ -142,6 +150,8 @@ def build_criterion(
 ) -> Criterion:
     if target not in TARGETS:
         raise CaseError(f"--target must be one of: {', '.join(TARGETS)}")
+    if kind == KIND_SKILL_CHECK and target != TARGET_PROMPT:
+        raise CaseError("a skill check judges the version itself; it takes no --target")
     value = validate_value(kind, value)
     cid = criterion_id if criterion_id is not None else next_criterion_id(existing)
     if not cid.strip():
@@ -174,6 +184,8 @@ def evaluate(criterion: dict, prompt_text: str, *, verdict: str | None = None) -
         if verdict is None:
             return UNJUDGED
         return PASS if verdict == VERDICT_PASS else FAIL
+    if kind == KIND_SKILL_CHECK:
+        raise ValueError("a skill check is run by the skill checker part on a skill version, not on text")
     raise ValueError(f"unknown criterion kind: {kind}")
 
 
@@ -328,6 +340,32 @@ def _output_row(item: dict, digest: str, revision: int, verdicts: list[dict], ru
     }
 
 
+def _skill_row(case_dir: Path, item: dict, loaded, revision: int) -> dict:
+    """Run the skill checker part on the version's files; PASS only when every step passed."""
+    from .. import parts
+    from .case import skill_files_relpath
+    from .kinds import AGENT_SKILL
+
+    if loaded.files is None:
+        raise CaseError(
+            f"criterion {item['id']} is a skill check, but v{revision} is a {loaded.kind} version"
+        )
+    result = parts.perform(
+        parts.get_part(parts.SKILL_CHECKER_ID),
+        {"kind": AGENT_SKILL, "folder": case_dir / skill_files_relpath(revision), "digest": loaded.sha256},
+    )
+    evidence = [dict(row) for row in result.evidence]
+    return {
+        "id": item["id"],
+        "kind": item["kind"],
+        "value": item["value"],
+        "result": PASS if evidence and all(row["result"] == PASS for row in evidence) else FAIL,
+        "part": parts.SKILL_CHECKER_ID,
+        "evidence": evidence,
+        "not_measured": list(result.not_measured),
+    }
+
+
 def evaluate_revision(case_dir: Path, criteria: list[dict], revision: int, verdicts: list[dict]) -> dict:
     """Evaluate every criterion and accepted constraint against revision N without writing anything."""
     from .case import load_case
@@ -345,6 +383,9 @@ def evaluate_revision(case_dir: Path, criteria: list[dict], revision: int, verdi
             if runs is None:
                 runs = runs_for_revision(case_dir, data, revision, loaded.sha256)
             results.append(_output_row(item, digest, revision, verdicts, runs))
+            continue
+        if item["kind"] == KIND_SKILL_CHECK:
+            results.append(_skill_row(case_dir, item, loaded, revision))
             continue
         if loaded.prompt is None and item["kind"] != KIND_MANUAL:
             raise CaseError(
