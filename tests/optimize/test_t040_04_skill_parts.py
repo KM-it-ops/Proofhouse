@@ -683,9 +683,9 @@ def skill_case(tmp_path: Path) -> Path:
 
 
 def test_skill_case_checks_pass_through_the_skill_checker(skill_case: Path, tmp_path: Path, capsys) -> None:
-    code, out, err = run(["optimize", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip"], capsys)
+    code, out, err = run(["case", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip"], capsys)
     assert code == 0, err
-    code, out, err = run(["optimize", "check", "--case", str(skill_case), "--json"], capsys)
+    code, out, err = run(["case", "check", "--case", str(skill_case), "--json"], capsys)
     assert code == 0, out + err
     report = json.loads(out)["data"]["revisions"][0]
     row = report["results"][0]
@@ -697,12 +697,12 @@ def test_skill_case_checks_pass_through_the_skill_checker(skill_case: Path, tmp_
     case_mod.record_skill_revision(
         skill_case, skill_folder(tmp_path / "v2", {**SKILL, "SKILL.md": b"---\nname: demo-skill\n---\n"})
     )
-    code, out, err = run(["optimize", "compare", "--case", str(skill_case), "--from", "1", "--to", "2"], capsys)
+    code, out, err = run(["case", "compare", "--case", str(skill_case), "--from", "1", "--to", "2"], capsys)
     assert code == 3, out + err
     assert "regression" in out
 
     report_path = tmp_path / "report.md"
-    code, out, err = run(["optimize", "report", "--case", str(skill_case), "--revision", "1", "--out", str(report_path)], capsys)
+    code, out, err = run(["case", "report", "--case", str(skill_case), "--revision", "1", "--out", str(report_path)], capsys)
     assert code == 0, err
     text = report_path.read_text(encoding="utf-8")
     assert "skill check (temporary host folder)" in text
@@ -712,37 +712,37 @@ def test_skill_case_checks_pass_through_the_skill_checker(skill_case: Path, tmp_
 
 def test_skill_check_on_a_prompt_version_or_an_output_target_is_refused(tmp_path: Path, skill_case: Path, capsys) -> None:
     code, _out, err = run(
-        ["optimize", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip", "--target", "output"],
+        ["case", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip", "--target", "output"],
         capsys,
     )
     assert code == 2 and "no --target" in err
-    code, _out, err = run(["optimize", "criteria", "add", "--case", str(skill_case), "--skill-check", "anything"], capsys)
+    code, _out, err = run(["case", "criteria", "add", "--case", str(skill_case), "--skill-check", "anything"], capsys)
     assert code == 2 and "install-roundtrip" in err
 
     prompt_case = tmp_path / "prompt-case"
     case_mod.new_case(prompt_case, objective="x", resolved=resolve_model_notes("Zeta 9"), preset_key="balanced", loop=False)
     case_mod.record_revision(prompt_case, "a prompt")
-    assert run(["optimize", "criteria", "add", "--case", str(prompt_case), "--skill-check", "install-roundtrip"], capsys)[0] == 0
-    code, _out, err = run(["optimize", "check", "--case", str(prompt_case)], capsys)
+    assert run(["case", "criteria", "add", "--case", str(prompt_case), "--skill-check", "install-roundtrip"], capsys)[0] == 0
+    code, _out, err = run(["case", "check", "--case", str(prompt_case)], capsys)
     assert code == 2 and "is a skill check" in err
 
 
 def test_skill_check_on_a_version_whose_files_drifted_is_refused(skill_case: Path, capsys) -> None:
-    run(["optimize", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip"], capsys)
+    run(["case", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip"], capsys)
     files = skill_case / case_mod.skill_files_relpath(1)
     (files / "SKILL.md").write_bytes(SKILL["SKILL.md"] + b"edited\n")
-    code, _out, err = run(["optimize", "check", "--case", str(skill_case)], capsys)
+    code, _out, err = run(["case", "check", "--case", str(skill_case)], capsys)
     assert code == 2 and "v1" in err
 
 
 def test_a_checked_skill_case_still_exports_and_imports(skill_case: Path, tmp_path: Path, capsys) -> None:
     from proofhouse.optimize import workflow
 
-    run(["optimize", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip"], capsys)
-    assert run(["optimize", "check", "--case", str(skill_case)], capsys)[0] == 0
+    run(["case", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip"], capsys)
+    assert run(["case", "check", "--case", str(skill_case)], capsys)[0] == 0
     workflow.export_case(skill_case, tmp_path / "b.zip")
     workflow.import_case(tmp_path / "b.zip", tmp_path / "imported")
-    code, out, err = run(["optimize", "check", "--case", str(tmp_path / "imported")], capsys)
+    code, out, err = run(["case", "check", "--case", str(tmp_path / "imported")], capsys)
     assert code == 0, out + err
 
 

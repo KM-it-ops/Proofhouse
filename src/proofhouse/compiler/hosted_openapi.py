@@ -13,7 +13,9 @@ from .cli_compiler import build_parser
 
 OPENAPI_VERSION = "3.0.3"
 OPT_IN_LIVE_COMMANDS = frozenset({"execute-openai"})
-LOCAL_ONLY_COMMANDS = frozenset({"optimize", "models", "install-skill", "uninstall-skill", "demo"})
+LOCAL_ONLY_COMMANDS = frozenset(
+    {"case", "optimize", "models", "install-skill", "uninstall-skill", "demo", "eval", "scan", "parts"}
+)
 ENVELOPE_FIELDS = ("contract_version", "command", "status", "data", "diagnostics")
 
 

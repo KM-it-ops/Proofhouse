@@ -347,11 +347,11 @@ def _backup_v0(case_dir: Path) -> None:
 
 
 def compile_command(case_dir: Path) -> str:
-    return f"proofhouse-compiler optimize compile --case {case_dir}"
+    return f"proofhouse case compile --case {case_dir}"
 
 
 def record_command(case_dir: Path) -> str:
-    return f"proofhouse-compiler optimize record --case {case_dir} --prompt-file <file>"
+    return f"proofhouse case record --case {case_dir} --prompt-file <file>"
 
 
 def new_case(

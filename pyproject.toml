@@ -38,7 +38,7 @@ Changelog = "https://github.com/KM-it-ops/Proofhouse/blob/main/CHANGELOG.md"
 
 [project.scripts]
 proofhouse = "proofhouse.cli:main"
-proofhouse-compiler = "proofhouse.compiler.cli_compiler:main"
+proofhouse-compiler = "proofhouse.cli:main"
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]

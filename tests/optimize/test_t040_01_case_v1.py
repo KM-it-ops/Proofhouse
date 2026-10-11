@@ -211,7 +211,7 @@ def test_commands_that_do_not_write_case_json_never_upgrade_it(
     before = hashes(full)
     sub = 2 if argv[0] in ("criteria", "constraints", "output") else 1
     args = [part.replace("{tmp}", str(tmp_path)) for part in argv]
-    code, out = run(["optimize", *args[:sub], "--case", str(full), *args[sub:]], capsys)
+    code, out = run(["case", *args[:sub], "--case", str(full), *args[sub:]], capsys)
     assert code in (0, 3), out  # 3: a check found failing criteria, as it did in 0.4.1
     after = hashes(full)
     assert after["case.json"] == before["case.json"]
@@ -226,7 +226,7 @@ def test_new_version_upgrades_v0_case_and_its_checks_run(full: Path, tmp_path: P
     original = (full / "case.json").read_bytes()
     before = old_records(hashes(full))
 
-    code, out = run(["optimize", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)
+    code, out = run(["case", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)
     assert code == 0, out
 
     data = case_mod.load_case(full)
@@ -245,7 +245,7 @@ def test_new_version_upgrades_v0_case_and_its_checks_run(full: Path, tmp_path: P
     assert v3["artifact"]["provenance"] == case_mod.recorded_provenance()
     assert [item["parent"] for item in data["revisions"]] == [None, 1, None]  # v0 lineage carried over
 
-    code, out = run(["optimize", "check", "--case", str(full), "--all"], capsys)
+    code, out = run(["case", "check", "--case", str(full), "--all"], capsys)
     assert code in (0, 3), out
     assert "v3:" in out
     v3_report = json.loads((full / "checks" / "v3.json").read_text(encoding="utf-8"))
@@ -261,9 +261,9 @@ def test_new_version_upgrades_v0_case_and_its_checks_run(full: Path, tmp_path: P
 
 def test_upgrade_happens_once_and_the_backup_is_kept(full: Path, tmp_path: Path, capsys) -> None:
     original = (full / "case.json").read_bytes()
-    assert run(["optimize", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)[0] == 0
+    assert run(["case", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)[0] == 0
     first = case_mod.load_case(full)["migrated_from"]
-    assert run(["optimize", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p4.txt", REV3 + " Be brief.")], capsys)[0] == 0
+    assert run(["case", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p4.txt", REV3 + " Be brief.")], capsys)[0] == 0
     data = case_mod.load_case(full)
     assert data["migrated_from"] == first
     assert [item["n"] for item in data["revisions"]] == [1, 2, 3, 4]
@@ -289,7 +289,7 @@ def test_every_command_that_writes_case_json_upgrades_it_first(
     out_file = write(tmp_path / "out.txt", "Severity: High. Exploitation: UNKNOWN.")
     args = [part.replace("{out}", out_file) for part in argv]
     sub = 2 if args[0] in ("criteria", "constraints", "output") else 1
-    code, out = run(["optimize", *args[:sub], "--case", str(case_dir), *args[sub:]], capsys)
+    code, out = run(["case", *args[:sub], "--case", str(case_dir), *args[sub:]], capsys)
     assert code == 0, out
     assert case_mod.load_case(case_dir)["schema"] == V1
     assert (case_dir / BACKUP).read_bytes() == original
@@ -300,7 +300,7 @@ def test_every_command_that_writes_case_json_upgrades_it_first(
 def test_a_different_backup_is_never_overwritten(full: Path, tmp_path: Path, capsys) -> None:
     original = (full / "case.json").read_bytes()
     (full / BACKUP).write_bytes(b'{"someone": "else"}\n')
-    code, out = run(["optimize", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)
+    code, out = run(["case", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)
     assert code == 2
     assert "never overwritten" in out
     assert (full / "case.json").read_bytes() == original
@@ -311,7 +311,7 @@ def test_a_different_backup_is_never_overwritten(full: Path, tmp_path: Path, cap
 def test_a_backup_left_by_an_interrupted_upgrade_is_reused(full: Path, tmp_path: Path, capsys) -> None:
     original = (full / "case.json").read_bytes()
     (full / BACKUP).write_bytes(original)
-    code, out = run(["optimize", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)
+    code, out = run(["case", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)
     assert code == 0, out
     assert case_mod.load_case(full)["schema"] == V1
     assert (full / BACKUP).read_bytes() == original
@@ -330,11 +330,11 @@ def test_wrong_kind_record_does_not_upgrade_a_v0_case(full: Path, tmp_path: Path
 
 def test_bundle_from_0_4_1_imports_and_reports_the_same(tmp_path: Path, capsys) -> None:
     case_dir = tmp_path / "imported"
-    code, out = run(["optimize", "import", "--bundle", str(FIXTURES / "bundle-0.4.1.zip"), "--case", str(case_dir)], capsys)
+    code, out = run(["case", "import", "--bundle", str(FIXTURES / "bundle-0.4.1.zip"), "--case", str(case_dir)], capsys)
     assert code == 0, out
     assert case_mod.load_case(case_dir)["schema"] == V0  # import restores the bytes; it does not upgrade
     assert reports_for(case_dir) == GOLDEN["reports"]
-    code, out = run(["optimize", "record", "--case", str(case_dir), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)
+    code, out = run(["case", "record", "--case", str(case_dir), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)
     assert code == 0, out
     assert case_mod.load_case(case_dir)["schema"] == V1
 
@@ -349,7 +349,7 @@ def test_unknown_case_schema_is_refused(full: Path, capsys, schema: str | None) 
     (full / "case.json").write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(CaseError, match="unrecognised case schema"):
         case_mod.load_case(full)
-    code, out = run(["optimize", "status", "--case", str(full)], capsys)
+    code, out = run(["case", "status", "--case", str(full)], capsys)
     assert code == 2
     assert "unrecognised case schema" in out
 
@@ -374,7 +374,7 @@ def test_unknown_kind_for_a_new_case_is_refused(tmp_path: Path) -> None:
 
 
 def test_unknown_revision_schema_is_refused(full: Path, tmp_path: Path, capsys) -> None:
-    assert run(["optimize", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)[0] == 0
+    assert run(["case", "record", "--case", str(full), "--prompt-file", write(tmp_path / "p3.txt", REV3)], capsys)[0] == 0
     path = full / "revisions" / "v3.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     data["schema"] = "proofhouse.optimize.revision/v9"
@@ -466,12 +466,12 @@ def test_skill_version_takes_manual_and_output_criteria_but_not_prompt_text_ones
     skill_case: Path, capsys
 ) -> None:
     c = str(skill_case)
-    assert run(["optimize", "criteria", "add", "--case", c, "--manual", "Installs cleanly"], capsys)[0] == 0
-    code, out = run(["optimize", "check", "--case", c, "--revision", "1"], capsys)
+    assert run(["case", "criteria", "add", "--case", c, "--manual", "Installs cleanly"], capsys)[0] == 0
+    code, out = run(["case", "check", "--case", c, "--revision", "1"], capsys)
     assert code in (0, 3), out
     assert "C1=UNJUDGED" in out
-    assert run(["optimize", "criteria", "add", "--case", c, "--must-contain", "demo"], capsys)[0] == 0
-    code, out = run(["optimize", "check", "--case", c, "--revision", "1"], capsys)
+    assert run(["case", "criteria", "add", "--case", c, "--must-contain", "demo"], capsys)[0] == 0
+    code, out = run(["case", "check", "--case", c, "--revision", "1"], capsys)
     assert code == 2
     assert "criterion C2 checks prompt text" in out
 

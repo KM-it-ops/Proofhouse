@@ -15,12 +15,12 @@ Presenting from a checkout that is already synced? Add `--no-sync` after `uv run
 
 "Proofhouse turns structured prompt requirements into deterministic, inspectable artifacts, and ships an offline eval harness. Two CLIs, one package, version 0.4.1. This demo makes no provider or benchmark claim."
 
-An installed package runs the reference advisory with `proofhouse-compiler demo` (recorded outputs, no clone). The timed script below is the checkout tour.
+An installed package runs the reference advisory with `proofhouse demo` (recorded outputs, no clone). The timed script below is the checkout tour.
 
 ## 0:30–1:00 — Prove the environment
 
 ```powershell
-uv run proofhouse-compiler doctor
+uv run proofhouse doctor
 ```
 
 ```text
@@ -32,7 +32,7 @@ Say: "Doctor asserts the certified path is offline. It does not probe the networ
 ## 1:00–1:30 — Show the two products
 
 ```powershell
-uv run proofhouse-compiler --help
+uv run proofhouse --help
 uv run proofhouse --help
 ```
 
@@ -41,7 +41,7 @@ First is the compiler (`validate inspect compile adapters doctor closed-loop …
 ## 1:30–3:15 — Run the real offline loop
 
 ```powershell
-uv run proofhouse-compiler closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1
+uv run proofhouse closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1
 ```
 
 ```text
@@ -53,7 +53,7 @@ closed-loop: PASS
 Then the evidence:
 
 ```powershell
-uv run proofhouse-compiler closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1 --json
+uv run proofhouse closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1 --json
 ```
 
 Point at, in order: `"status":"PASS"`, `"adapter":{"id":"fake","version":"0.1.0"}`, `"network_allowed":false`, `"network_used":false`, `"repair_budget":1`, `"requirement_ids":["REQ-EVAL-001"]`, `"ir_sha256"`, `"baseline_digest"`. Say: "Requirements in, IR, fake-adapter compile, deterministic evaluation, one repair attempt allowed and none needed, evidence with digests. Real run, no network."
@@ -61,8 +61,8 @@ Point at, in order: `"status":"PASS"`, `"adapter":{"id":"fake","version":"0.1.0"
 ## 3:15–4:00 — Validate and compile a static IR
 
 ```powershell
-uv run proofhouse-compiler validate examples/ir_minimal.json
-uv run proofhouse-compiler compile examples/ir_minimal.json --adapter fake --adapter-version 0.1.0 --output build/demo
+uv run proofhouse validate examples/ir_minimal.json
+uv run proofhouse compile examples/ir_minimal.json --adapter fake --adapter-version 0.1.0 --output build/demo
 ```
 
 ```text
@@ -76,8 +76,8 @@ Say: "One artifact, written to disk, path shown." Open `examples/ir_minimal.json
 ## 4:00–4:30 — Independent eval-harness operation
 
 ```powershell
-uv run proofhouse validate --dataset evals/datasets/prompt_audit_cases.jsonl
-uv run proofhouse report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+uv run proofhouse eval validate --dataset evals/datasets/prompt_audit_cases.jsonl
+uv run proofhouse eval report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
 ```
 
 ```text
@@ -90,8 +90,8 @@ Report written: evals/reports/prompt_audit_report.md
 Skill install (once, then a new Agent chat):
 
 ```powershell
-uv run proofhouse-compiler install-skill --host cursor
-uv run proofhouse-compiler models show "Sonnet 5"
+uv run proofhouse install-skill --host cursor
+uv run proofhouse models show "Sonnet 5"
 ```
 
 Say: "The skill installs from the package and verifies its own name. `models show` tells you the profile's source, review date and evidence label before you trust it; today every shipped profile says unverified, because none cites sources yet."

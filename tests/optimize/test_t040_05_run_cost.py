@@ -137,13 +137,13 @@ def test_v0_runs_read_as_part_none_and_cost_unknown(full: Path, capsys) -> None:
             assert workflow.run_part(row) is None
             assert workflow.run_cost(row) == UNKNOWN_COST
 
-    code, out = run(["optimize", "output", "list", "--case", str(full), "--json"], capsys)
+    code, out = run(["case", "output", "list", "--case", str(full), "--json"], capsys)
     assert code == 0, out
     listed = json.loads(out)["data"]["runs"]
     assert [row["run_id"] for row in listed] == ["R1", "R2"]
     assert all(row["part"] is None and row["cost"] == UNKNOWN_COST for row in listed)
 
-    code, out = run(["optimize", "output", "list", "--case", str(full)], capsys)
+    code, out = run(["case", "output", "list", "--case", str(full)], capsys)
     assert code == 0, out
     assert out.count("part=-  cost=unknown") == 2
 
@@ -201,10 +201,10 @@ def test_report_shows_unknown_never_zero_in_per_version_sums(prompt_case: Path, 
         {"revision": 1, "runs": 2, "cost": {f: "unknown" for f in workflow.COST_FIELDS}},
         {"revision": 2, "runs": 0, "cost": {f: "unknown" for f in workflow.COST_FIELDS}},
     ]
-    code, out = run(["optimize", "criteria", "add", "--case", str(prompt_case), "--must-contain", "UNKNOWN"], capsys)
+    code, out = run(["case", "criteria", "add", "--case", str(prompt_case), "--must-contain", "UNKNOWN"], capsys)
     assert code == 0, out
     out_path = prompt_case.parent / "report.md"
-    code, out = run(["optimize", "report", "--case", str(prompt_case), "--revision", "1", "--out", str(out_path)], capsys)
+    code, out = run(["case", "report", "--case", str(prompt_case), "--revision", "1", "--out", str(out_path)], capsys)
     assert code == 0, out
     text = out_path.read_text(encoding="utf-8")
     section = text[text.index("## Cost"):text.index("## What this report does not show")]

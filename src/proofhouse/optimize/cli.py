@@ -1,5 +1,5 @@
-"""Local-workstation commands for ``proofhouse-compiler``: ``optimize``, ``models``, ``install-skill``,
-``uninstall-skill``, ``demo``.
+"""Local-workstation commands of ``proofhouse``: ``case`` (and its deprecated alias ``optimize``),
+``models``, ``install-skill``, ``uninstall-skill``, ``demo``.
 
 ``add_local_commands`` registers them into the compiler parser. They are
 listed under ``x-local-only`` in the hosted OpenAPI document and have no
@@ -32,7 +32,7 @@ from .model_notes import ResolvedNotes, resolve_model_notes
 from .packets import PRESET_KEYS
 from .registry import load_registry
 
-LOCAL_COMMANDS = frozenset({"optimize", "models", "install-skill", "uninstall-skill", "demo"})
+LOCAL_COMMANDS = frozenset({"case", "optimize", "models", "install-skill", "uninstall-skill", "demo"})
 
 # Same values as compiler.cli_compiler; importing that module here would be circular.
 EXIT_SUCCESS = 0
@@ -251,7 +251,10 @@ def _cmd_optimize_new(args: argparse.Namespace) -> int:
         objective = _read_text_arg(args.objective, args.objective_file, "objective")
         notes_path = Path(args.notes_file) if args.notes_file else None
         resolved = case_mod.resolve_case_model(args.model, notes_path)
-        data = case_mod.new_case(case_dir, objective=objective, resolved=resolved, preset_key=args.preset, loop=args.loop)
+        data = case_mod.new_case(
+            case_dir, objective=objective, resolved=resolved, preset_key=args.preset, loop=args.loop,
+            kind=KIND_CHOICES[args.kind],
+        )
     except ValueError as exc:  # CaseError, or an unfilled template placeholder from packets.render
         return _usage_error(str(exc))
     status = "warning" if _warn_if_stale(resolved) else "success"
@@ -290,19 +293,20 @@ def _cmd_optimize_compile(args: argparse.Namespace) -> int:
 def _cmd_optimize_record(args: argparse.Namespace) -> int:
     case_dir = Path(args.case)
     try:
-        prompt = _read_text_arg(None, args.prompt_file, "prompt")
-        revision = case_mod.record_revision(
-            case_dir,
-            prompt,
-            rationale=args.rationale or "",
-            settings=args.settings or "",
-            efficiency=args.efficiency or "",
-        )
+        notes = {"rationale": args.rationale or "", "settings": args.settings or "", "efficiency": args.efficiency or ""}
+        if args.skill_folder:
+            revision = case_mod.record_skill_revision(case_dir, Path(args.skill_folder), **notes)
+        else:
+            prompt = _read_text_arg(None, args.prompt_file, "prompt")
+            revision = case_mod.record_revision(case_dir, prompt, **notes)
     except CaseError as exc:
         return _usage_error(str(exc))
     if args.json:
         data = {"case_dir": str(case_dir.resolve()), "revision": revision.summary()}
         _emit_json("optimize record", "success", data)
+        return EXIT_SUCCESS
+    if revision.files is not None:
+        print(f"optimize: recorded revision v{revision.n} ({len(revision.files)} skill files, sha256 {revision.sha256[:12]}...)")
         return EXIT_SUCCESS
     print(
         f"optimize: recorded revision v{revision.n} ({revision.token_estimate} est. tokens, "
@@ -535,14 +539,24 @@ def _add_checks(opt_sub: argparse._SubParsersAction) -> None:
     p_check.set_defaults(func=_cmd_check)
 
 
-def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
-    p_opt = subparsers.add_parser(
-        "optimize",
-        help=(
-            "Offline case workflow: render the framework's clarify -> compile -> self-heal prompts "
-            "as packets you run in your host agent; record and revise on disk. Never calls a model."
-        ),
-    )
+CASE_HELP = (
+    "Offline case workflow for a prompt or a skill: render the framework's clarify -> compile -> self-heal "
+    "prompts as packets you run in your host agent; record versions, runs and checks on disk. Never calls a model."
+)
+OPTIMIZE_NOTICE = (
+    "notice: 'proofhouse optimize' is now 'proofhouse case' (same subcommands and flags); "
+    "the optimize alias will be removed after 0.5"
+)
+KIND_CHOICES = {"prompt": "prompt.text@1", "skill": "agent.skill@1"}
+
+
+def _add_optimize(subparsers: argparse._SubParsersAction, name: str = "case") -> None:
+    """Register the case workflow as ``case``, or as the deprecated ``optimize`` alias (same subcommands)."""
+    if name == "case":
+        p_opt = subparsers.add_parser(name, help=CASE_HELP)
+    else:
+        p_opt = subparsers.add_parser(name, help="Deprecated alias of 'case' (removed after 0.5). " + CASE_HELP)
+        p_opt.set_defaults(deprecation_notice=OPTIMIZE_NOTICE)
     opt_sub = p_opt.add_subparsers(dest="optimize_command", required=True)
 
     p_new = opt_sub.add_parser("new", help="Create a case directory with case.json, 01-clarify.md, answers.json.")
@@ -553,6 +567,12 @@ def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
     p_new.add_argument("--model", required=True, help="Target model name, alias, or canonical id.")
     p_new.add_argument("--preset", choices=PRESET_KEYS, default="balanced", help="Efficiency preset (default: balanced).")
     p_new.add_argument("--loop", action="store_true", help="Recurring/autonomous loop task: add the loop directive.")
+    p_new.add_argument(
+        "--kind",
+        choices=tuple(KIND_CHOICES),
+        default="prompt",
+        help="What the case improves: prompt text (prompt.text@1, default) or a skill folder (agent.skill@1).",
+    )
     p_new.add_argument(
         "--notes-file",
         dest="notes_file",
@@ -568,9 +588,15 @@ def _add_optimize(subparsers: argparse._SubParsersAction) -> None:
     p_compile.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_compile.set_defaults(func=_cmd_optimize_compile)
 
-    p_record = opt_sub.add_parser("record", help="Record a compiled prompt as the next revision.")
+    p_record = opt_sub.add_parser("record", help="Record a compiled prompt, or a skill folder, as the next revision.")
     p_record.add_argument("--case", required=True, help="Case directory.")
-    p_record.add_argument("--prompt-file", required=True, dest="prompt_file", help="File holding the prompt text.")
+    version = p_record.add_mutually_exclusive_group(required=True)
+    version.add_argument("--prompt-file", dest="prompt_file", help="File holding the prompt text (a prompt case).")
+    version.add_argument(
+        "--skill-folder",
+        dest="skill_folder",
+        help="Folder with SKILL.md at its root (a skill case); its files are copied into the case.",
+    )
     p_record.add_argument("--rationale", default=None, help="Rationale returned with the prompt.")
     p_record.add_argument("--settings", default=None, help="Suggested settings returned with the prompt.")
     p_record.add_argument("--efficiency", default=None, help="Efficiency note returned with the prompt.")
@@ -820,7 +846,8 @@ def _add_demo(subparsers: argparse._SubParsersAction) -> None:
 
 def add_local_commands(subparsers: argparse._SubParsersAction) -> None:
     """Register the local-only command groups into the compiler parser."""
-    _add_optimize(subparsers)
+    _add_optimize(subparsers, "case")
+    _add_optimize(subparsers, "optimize")
     _add_demo(subparsers)
     _add_models(subparsers)
     _add_install_skill(subparsers)

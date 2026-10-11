@@ -4,7 +4,7 @@
 
 ```text
 advisory-case/
-  case.json               proofhouse.optimize.case/v0: objective, model profile, stage,
+  case.json               proofhouse.optimize.case/v1 (a v0 case from 0.4.1 still reads): kind, objective, model profile, stage,
                           revisions[] (n, sha256, parent, feedback_on_previous),
                           criteria[] (id, kind, value, note, target?), constraints[],
                           clarification {answers, answers_sha256}, runs[] (summaries)
