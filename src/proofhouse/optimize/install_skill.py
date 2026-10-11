@@ -28,16 +28,15 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 
+from .kinds import MAX_ENTRIES, MAX_UNCOMPRESSED_BYTES, SKILL_FILE
+from .kinds import is_link as _is_link  # remove the link, never what it points at
 from .model_notes import proofhouse_home
 from .registry import PACKAGE_BUNDLE_PATH
 
 SKILL_NAME = "proofhouse"
 SKILL_PREFIX = SKILL_NAME + "/"
-SKILL_FILE = "SKILL.md"
 NAME_LINE = f"name: {SKILL_NAME}"
 DEFAULT_BUNDLE = PACKAGE_BUNDLE_PATH
-MAX_UNCOMPRESSED_BYTES = 16 * 1024 * 1024
-MAX_ENTRIES = 256
 BACKUP_DIR = "skill-backups"
 # Host agent -> (config directory under the home directory, display name, where to start using the skill).
 HOSTS = {
@@ -270,14 +269,6 @@ def _swap_in(staged: Path, skill_dir: Path) -> tuple[Path | None, Path | None]:
             EXIT_ENVIRONMENT_FAILURE,
         ) from exc
     return backup, (None if _discard(aside) else aside)
-
-
-def _is_link(path: Path) -> bool:
-    """A symlink or a Windows directory junction: remove the link, never what it points at."""
-    if os.path.islink(path):
-        return True
-    attributes = getattr(os.lstat(path), "st_file_attributes", 0)
-    return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
 
 
 def _discard(path: Path) -> bool:
