@@ -1,0 +1,16 @@
+{
+  "evidence_class": "imported_output",
+  "input_id": "advisory-1",
+  "input_sha256": null,
+  "method": "imported",
+  "model": "Sonnet 5",
+  "output_sha256": "0e5c039a82860f05247efcff20c701adb76b8bfa71d8ce17dc13945068208287",
+  "output_text": "Severity: High (section 1). Affects 2.1-2.4 (section 2). Patch to 2.5 (section 3). Exploitation: UNKNOWN.",
+  "recorded_at": "2026-10-11T15:14:00+00:00",
+  "revision": 2,
+  "revision_sha256": "e597b8502fa3e72dd8ffadcc4adf38aeb4179e2b404fabd65a4a7d170493e55c",
+  "run_id": "R2",
+  "schema": "proofhouse.optimize.run/v1",
+  "settings": null,
+  "source": "pasted from host agent"
+}

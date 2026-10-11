@@ -23,6 +23,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import re
 import shutil
 import uuid
 import zipfile
@@ -30,6 +31,7 @@ from pathlib import Path, PurePosixPath
 
 from .case import (
     CASE_FILE,
+    REVISIONS_DIR,
     CaseError,
     _json_text,
     _write_new_text,
@@ -37,7 +39,9 @@ from .case import (
     load_revision,
     now_iso,
     save_case,
+    skill_files_relpath,
 )
+from .kinds import AGENT_SKILL, folder_files
 
 CONSTRAINT_STATES = ("accepted", "proposed", "rejected", "superseded")
 ORIGINS = ("clarification", "user")
@@ -48,7 +52,8 @@ MANIFEST = "manifest.json"
 EVIDENCE_IMPORTED_OUTPUT = "imported_output"
 METHOD_IMPORTED = "imported"
 MAX_IMPORT_BYTES = 64 * 1024 * 1024
-_EXPORT_DIRS = ("revisions", RUNS_DIR, "checks")
+_EXPORT_DIRS = (REVISIONS_DIR, RUNS_DIR, "checks")
+_SKILL_FILES_ENTRY = re.compile(r"^revisions/v[0-9]+-files/")
 
 
 def sha256_text(text: str) -> str:
@@ -408,8 +413,16 @@ def _export_files(case_dir: Path) -> list[tuple[str, bytes]]:
     for sub in _EXPORT_DIRS:
         root = case_dir / sub
         if root.is_dir():
-            for path in sorted(root.rglob("*.json")):
+            # Revision records sit at the top of revisions/; a skill's own files are added below.
+            found = root.glob("*.json") if sub == REVISIONS_DIR else root.rglob("*.json")
+            for path in sorted(found):
                 files.append((path.relative_to(case_dir).as_posix(), path.read_bytes()))
+    for item in sorted(load_case(case_dir)["revisions"], key=lambda row: int(row["n"])):
+        if item.get("kind") == AGENT_SKILL:
+            n = int(item["n"])
+            load_revision(case_dir, n)  # a bundle never carries skill files that drifted from their manifest
+            folder = skill_files_relpath(n)
+            files.extend((f"{folder}/{rel}", blob) for rel, blob in folder_files(case_dir / folder))
     return files
 
 
@@ -493,10 +506,27 @@ def import_case(bundle: Path, case_dir: Path) -> dict:
         staging.mkdir()
         for name, blob in blobs.items():
             target = staging / PurePosixPath(name)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(blob)
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                # Exclusive create: two entries that name one file on this disk are refused, not merged.
+                with target.open("xb") as handle:
+                    handle.write(blob)
+            except FileExistsError:
+                raise CaseError(f"bundle entry {name} names a file another entry already wrote on this disk") from None
+            except OSError as exc:
+                raise CaseError(f"cannot write bundle entry {name}: {exc}") from None
         data = load_case(staging)
+        skill_folders = tuple(
+            skill_files_relpath(int(item["n"])) + "/" for item in data["revisions"] if item.get("kind") == AGENT_SKILL
+        )
+        stray = sorted(
+            name for name in blobs
+            if _SKILL_FILES_ENTRY.match(name) and not name.startswith(skill_folders)
+        )
+        if stray:
+            raise CaseError(f"bundle has skill files for no recorded skill version: {', '.join(stray)}")
         for item in data["revisions"]:
+            # A skill version's files are re-verified here, one by one, against its manifest.
             load_revision(staging, int(item["n"]))
         for item in data.get("runs", []):
             load_run(staging, item["run_id"])

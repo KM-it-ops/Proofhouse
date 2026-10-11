@@ -184,7 +184,7 @@ def test_output_run_records_provenance_and_digest(tmp_path: Path, capsys) -> Non
     import hashlib
 
     assert stored["output_sha256"] == hashlib.sha256(OUTPUT_V1.encode("utf-8")).hexdigest()
-    assert stored["revision_sha256"] == json.loads((case / "revisions" / "v1.json").read_text(encoding="utf-8"))["sha256"]
+    assert stored["revision_sha256"] == json.loads((case / "revisions" / "v1.json").read_text(encoding="utf-8"))["artifact"]["digest"]
 
 
 def test_output_check_without_runs_is_not_evaluated(tmp_path: Path, capsys) -> None:

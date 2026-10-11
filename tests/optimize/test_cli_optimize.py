@@ -58,7 +58,8 @@ def test_new_writes_case_files_and_builtin_model(tmp_path: Path, capsys) -> None
     for name in ("case.json", "01-clarify.md", "answers.json"):
         assert (case_dir / name).is_file(), name
     case = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
-    assert case["schema"] == CASE_SCHEMA == "proofhouse.optimize.case/v0"
+    assert case["schema"] == CASE_SCHEMA == "proofhouse.optimize.case/v1"
+    assert case["kind"] == "prompt.text@1"
     assert case["objective"] == OBJECTIVE
     assert case["model"]["source"] == "builtin"
     assert case["model"]["canonical_id"] == "claude-sonnet-5"
@@ -157,13 +158,20 @@ def test_record_twice_creates_v1_v2_with_distinct_sha(tmp_path: Path, capsys) ->
     v1 = json.loads((case_dir / "revisions" / "v1.json").read_text(encoding="utf-8"))
     v2 = json.loads((case_dir / "revisions" / "v2.json").read_text(encoding="utf-8"))
     assert set(v1) == {
-        "n", "prompt", "rationale", "settings", "efficiency", "sha256", "token_estimate", "created_at", "feedback_on_previous"
+        "schema", "n", "artifact", "rationale", "settings", "efficiency", "token_estimate", "created_at",
+        "feedback_on_previous",
+    }
+    assert v1["schema"] == "proofhouse.optimize.revision/v1"
+    assert set(v1["artifact"]) == {"kind", "payload", "digest", "provenance"}
+    assert v1["artifact"]["kind"] == "prompt.text@1"
+    assert v1["artifact"]["provenance"] == {
+        "made_by": "recorded", "part": None, "part_version": None, "part_manifest_digest": None
     }
     assert v1["n"] == 1 and v2["n"] == 2
-    assert v1["prompt"] == prompt_one and v2["prompt"] == prompt_two
+    assert v1["artifact"]["payload"] == prompt_one and v2["artifact"]["payload"] == prompt_two
     assert v1["rationale"] == "first pass" and v2["rationale"] == ""
-    assert v1["sha256"] == sha_one
-    assert v1["sha256"] != v2["sha256"]
+    assert v1["artifact"]["digest"] == sha_one
+    assert v1["artifact"]["digest"] != v2["artifact"]["digest"]
     assert v1["token_estimate"] == est_one
     assert v1["feedback_on_previous"] is None
 
@@ -172,7 +180,7 @@ def test_record_twice_creates_v1_v2_with_distinct_sha(tmp_path: Path, capsys) ->
     assert case["revisions"][0]["path"] == "revisions/v1.json"
     assert case["revisions"][0]["sha256"] == sha_one
     assert set(case["revisions"][0]) == {
-        "n", "path", "sha256", "token_estimate", "created_at", "feedback_on_previous", "parent"
+        "n", "kind", "path", "sha256", "token_estimate", "created_at", "feedback_on_previous", "parent"
     }
     assert case["revisions"][0]["parent"] is None  # T09 lineage: v1 was not revised from anything
 

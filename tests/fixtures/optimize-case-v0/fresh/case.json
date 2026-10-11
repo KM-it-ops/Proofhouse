@@ -1,0 +1,27 @@
+{
+  "created_at": "2026-10-11T15:14:00+00:00",
+  "criteria": [],
+  "loop": false,
+  "model": {
+    "age_days": 38,
+    "canonical_id": "claude-sonnet-5",
+    "display_name": "Claude Sonnet 5",
+    "entered_name": "Sonnet 5",
+    "notes": "Fast, capable default. Concise, direct instructions; doesn't need heavy scaffolding. Good for genuine iteration.",
+    "provenance": null,
+    "provider": "Anthropic",
+    "source": "builtin",
+    "sources": [],
+    "stale": false,
+    "stale_after_days": 90,
+    "tier": "current",
+    "verification": "unverified",
+    "verified_at": "2026-09-03"
+  },
+  "objective": "Draft a short incident status update",
+  "pending_feedback": null,
+  "preset": "balanced",
+  "revisions": [],
+  "schema": "proofhouse.optimize.case/v0",
+  "stage": "clarify"
+}
