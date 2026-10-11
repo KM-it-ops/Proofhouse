@@ -10,7 +10,8 @@ Everything is a file in the case directory; nothing calls a model or the network
   supersedes the old entry instead of silently overwriting it.
 - **Runs** (``runs/<run_id>.json``, T10): one recorded model output tied to a
   revision digest, input id/digest, model, settings, method (``imported``)
-  and source. Output digests are verified on load.
+  and source, plus the part that ran it and its cost (an unmeasured figure
+  is ``unknown``, never zero). Output digests are verified on load.
 - **Compare** (T11): the same criteria evaluated on two revisions, per input.
 - **Report**: a Markdown evidence summary that says what it does not show.
 - **Export / import** (T12): a zip with a manifest of sha256 digests;
@@ -40,13 +41,19 @@ from .case import (
     now_iso,
     save_case,
     skill_files_relpath,
+    upgrade_case,
 )
 from .kinds import AGENT_SKILL, folder_files
 
 CONSTRAINT_STATES = ("accepted", "proposed", "rejected", "superseded")
 ORIGINS = ("clarification", "user")
 RUNS_DIR = "runs"
-RUN_SCHEMA = "proofhouse.optimize.run/v1"
+# v2 adds ``part`` and ``cost``. A v1 run file (0.4.1) is never rewritten; it reads as part none, cost unknown.
+RUN_SCHEMA = "proofhouse.optimize.run/v2"
+RUN_SCHEMA_V1 = "proofhouse.optimize.run/v1"
+UNKNOWN = "unknown"
+COST_FIELDS = ("tokens_in", "tokens_out", "usd", "wall_seconds", "compute_seconds")
+_COST_KEYS = frozenset(COST_FIELDS) | {"basis", "price_table_version"}
 EXPORT_SCHEMA = "proofhouse.optimize.export/v1"
 MANIFEST = "manifest.json"
 EVIDENCE_IMPORTED_OUTPUT = "imported_output"
@@ -208,6 +215,52 @@ def _runs(data: dict) -> list[dict]:
     return data.setdefault("runs", [])
 
 
+def unknown_cost() -> dict:
+    """Cost nobody measured. ``usd`` is never filled here: there is no price table (OAR-034 step 2)."""
+    return {**{field: UNKNOWN for field in COST_FIELDS}, "basis": UNKNOWN, "price_table_version": ""}
+
+
+def run_part(run: dict) -> str | None:
+    """The part that ran it; ``None`` for an imported run or a v1 run file."""
+    return run.get("part")
+
+
+def run_cost(run: dict) -> dict:
+    """The run's cost; a record written before ``cost`` existed reads as unknown, never as zero."""
+    cost = run.get("cost")
+    return unknown_cost() if cost is None else dict(cost)
+
+
+def _check_cost(run_id: str, cost: object) -> None:
+    if not isinstance(cost, dict) or set(cost) != _COST_KEYS:
+        raise CaseError(f"run {run_id} cost must have exactly {', '.join(sorted(_COST_KEYS))}")
+    for field in COST_FIELDS:
+        value = cost[field]
+        if value != UNKNOWN and (isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0):
+            raise CaseError(f"run {run_id} cost {field} must be a non-negative number or {UNKNOWN!r}")
+    if cost["usd"] != UNKNOWN or cost["price_table_version"] != "":
+        raise CaseError(f"run {run_id} cost has a usd figure; this version has no price table, so usd is always unknown")
+
+
+def sum_costs(costs: list[dict]) -> dict:
+    """Per-field sum. A sum that includes an unknown is unknown; no runs at all is unknown too, not zero."""
+    total: dict = {}
+    for field in COST_FIELDS:
+        values = [cost[field] for cost in costs]
+        total[field] = UNKNOWN if not values or UNKNOWN in values else sum(values)
+    return total
+
+
+def cost_by_revision(data: dict) -> list[dict]:
+    """One row per version: how many runs were recorded and their summed cost."""
+    rows = []
+    for item in sorted(data.get("revisions", []), key=lambda row: int(row["n"])):
+        n = int(item["n"])
+        mine = [run for run in data.get("runs", []) if int(run["revision"]) == n]
+        rows.append({"revision": n, "runs": len(mine), "cost": sum_costs([run_cost(run) for run in mine])})
+    return rows
+
+
 def add_output(
     case_dir: Path,
     *,
@@ -226,6 +279,7 @@ def add_output(
     if not input_id.strip():
         raise CaseError("--input-id must not be empty")
     rev = load_revision(case_dir, revision)
+    upgrade_case(case_dir, data)  # a v2 run file is a v1-case record: back up and upgrade a v0 case.json first
     run_id = f"R{len(_runs(data)) + 1}"
     record = {
         "schema": RUN_SCHEMA,
@@ -241,11 +295,14 @@ def add_output(
         "method": METHOD_IMPORTED,
         "evidence_class": EVIDENCE_IMPORTED_OUTPUT,
         "source": source,
+        # Imported: produced elsewhere, so no runner part made it and nothing measured its cost.
+        "part": None,
+        "cost": unknown_cost(),
         "recorded_at": now_iso(),
     }
     (case_dir / RUNS_DIR).mkdir(exist_ok=True)
     _write_new_text(case_dir / RUNS_DIR / f"{run_id}.json", _json_text(record))
-    summary = {k: record[k] for k in ("run_id", "revision", "revision_sha256", "input_id", "output_sha256", "model", "method", "evidence_class", "recorded_at")}
+    summary = {k: record[k] for k in ("run_id", "revision", "revision_sha256", "input_id", "output_sha256", "model", "method", "evidence_class", "part", "cost", "recorded_at")}
     _runs(data).append(summary)
     save_case(case_dir, data)
     return summary
@@ -258,8 +315,17 @@ def load_run(case_dir: Path, run_id: str) -> dict:
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
         text = record["output_text"]
-    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        schema = record.get("schema")
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as exc:
         raise CaseError(f"run {run_id} is unreadable: {exc}") from None
+    if schema == RUN_SCHEMA:
+        if "part" not in record or "cost" not in record:
+            raise CaseError(f"run {run_id} is a {RUN_SCHEMA} record without part and cost")
+        if record["part"] is not None and not isinstance(record["part"], str):
+            raise CaseError(f"run {run_id} part must be a part id or null")
+        _check_cost(run_id, record["cost"])
+    elif schema != RUN_SCHEMA_V1:
+        raise CaseError(f"run {run_id} has an unknown schema {schema!r}")
     if sha256_text(text) != record.get("output_sha256"):
         raise CaseError(f"run {run_id} output does not match its recorded sha256; it was edited after recording")
     summary = next((item for item in load_case(case_dir).get("runs", []) if item["run_id"] == run_id), None)
@@ -349,6 +415,31 @@ def _evidence_class(row: dict) -> str:
     return "recorded-output check" if row.get("target") == "output" else "prompt-text check"
 
 
+def cost_text(cost: dict) -> str:
+    """Short form for listings: ``unknown`` when nothing is known, never ``0``."""
+    if all(cost[field] == UNKNOWN for field in COST_FIELDS):
+        return UNKNOWN
+    return " ".join(f"{field}={cost[field]}" for field in COST_FIELDS)
+
+
+def render_cost_section(data: dict) -> list[str]:
+    lines = [
+        "",
+        "## Cost",
+        "",
+        "Summed per version over its recorded runs. A sum that includes an unknown is unknown, and a version",
+        "with no runs is unknown; nothing here is a zero standing in for a figure nobody measured. USD is",
+        "always unknown in this version: there is no price table.",
+        "",
+        "| Version | Runs | Tokens in | Tokens out | USD | Wall seconds | Compute seconds |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for row in cost_by_revision(data):
+        values = " | ".join(str(row["cost"][field]) for field in COST_FIELDS)
+        lines.append(f"| v{row['revision']} | {row['runs']} | {values} |")
+    return lines
+
+
 def render_report(data: dict, report: dict, model_line: str) -> str:
     objective = "\n".join(f"> {line}" if line else ">" for line in data["objective"].splitlines())
     lines = [
@@ -386,6 +477,7 @@ def render_report(data: dict, report: dict, model_line: str) -> str:
         lines += ["", "## Outputs tested", "", "| Check | Run | Input | Output sha256 | Result |", "|---|---|---|---|---|"]
         for cid, r in run_rows:
             lines.append(f"| {cid} | {r['run_id']} | {r['input_id']} | `{r['output_sha256'][:12]}` | {r['result']} |")
+    lines += render_cost_section(data)
     lines += [
         "",
         "## What this report does not show",

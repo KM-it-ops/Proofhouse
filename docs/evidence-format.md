@@ -13,7 +13,7 @@ advisory-case/
   02-compile.md
   03-revise-vN.md
   revisions/vN.json       immutable; prompt + sha256 + rationale/settings/efficiency
-  runs/R<k>.json          immutable; proofhouse.optimize.run/v1
+  runs/R<k>.json          immutable; proofhouse.optimize.run/v2 (v1 from 0.4.1 still reads)
   checks/verdicts.json    human verdicts, each bound to digests
   checks/vN.json          latest check view for revision N
   checks/runs/<id>.json   immutable check runs
@@ -34,7 +34,9 @@ advisory-case/
 
 ### Run (`runs/R<k>.json`)
 
-`run_id`, `revision`, `revision_sha256`, `input_id`, `input_sha256` (if an input file was given), `output_text`, `output_sha256`, `model`, `settings`, `method` (`imported`), `evidence_class` (`imported_output`), `source`, `recorded_at`.
+`run_id`, `revision`, `revision_sha256`, `input_id`, `input_sha256` (if an input file was given), `output_text`, `output_sha256`, `model`, `settings`, `method` (`imported`), `evidence_class` (`imported_output`), `source`, `part`, `cost`, `recorded_at`.
+
+`proofhouse.optimize.run/v2` adds `part` and `cost`. `part` is the part that ran it; an imported run names none (`null`). `cost` is `{tokens_in, tokens_out, usd, wall_seconds, compute_seconds, basis, price_table_version}`; a figure nobody measured is the string `unknown`, never `0`. `usd` is always `unknown` and `price_table_version` is empty: there is no price table yet. A `run/v1` file (0.4.1) is never rewritten and reads as part none, cost unknown. The report sums cost per version; a sum that includes an unknown is unknown.
 
 ### Verdict (`checks/verdicts.json`)
 

@@ -181,7 +181,13 @@ def test_v0_case_reports_what_0_4_1_reported(full: Path) -> None:
     data = case_mod.load_case(full)
     assert model_line(data) == GOLDEN["model_line"]
     assert workflow.compare_reports(reports["1"], reports["2"]) == GOLDEN["compare"]
-    assert workflow.render_report(data, reports["2"], GOLDEN["model_line"]) == GOLDEN["report_markdown_v2"]
+    # T-040-05 adds one section, the per-version cost sums; every line 0.4.1 wrote is otherwise unchanged.
+    cost_section = "\n" + "\n".join(workflow.render_cost_section(data))
+    assert "| v1 | 1 | unknown | unknown | unknown | unknown | unknown |" in cost_section
+    assert "| v2 | 1 | unknown | unknown | unknown | unknown | unknown |" in cost_section
+    rendered = workflow.render_report(data, reports["2"], GOLDEN["model_line"])
+    assert rendered.count(cost_section) == 1
+    assert rendered.replace(cost_section, "") == GOLDEN["report_markdown_v2"]
     assert case_mod.lineage(data) == GOLDEN["lineage"]
 
 
