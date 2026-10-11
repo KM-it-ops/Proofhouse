@@ -11,9 +11,11 @@ Which promises belong to which surface. "Supported" means covered by the default
 | Model profiles | last reviewed date per entry; evidence label per entry | `src/proofhouse/optimize/data/model_registry.json` |
 | IR contract | `spec_version` 0.1.0 | `src/proofhouse/compiler/schemas/` |
 | Closed-loop evidence bundle | `eeb-headless-v0.1` + `stage_schema` `proofhouse.closed-loop.stages/v1` | `compiler/evidence.py` |
-| Optimize case | `proofhouse.optimize.case/v0` (+ optional `constraints`, `clarification`, `runs`) | `optimize/case.py` |
+| Case | `proofhouse.optimize.case/v1` with a `kind` (`prompt.text@1` or `agent.skill@1`); revisions are `proofhouse.optimize.revision/v1` artifact references. A `case/v0` case (0.4.1) still opens and is upgraded one way on its first write, with `case.v0-backup.json` kept | `optimize/case.py`, `optimize/kinds.py` |
 | Check semantics | `proofhouse.optimize.checks/v1` | `optimize/checks.py` |
-| Run record / export | `proofhouse.optimize.run/v1`, `proofhouse.optimize.export/v1` | `optimize/workflow.py` |
+| Run record / export | `proofhouse.optimize.run/v2` (adds `part` and `cost`; `run/v1` still reads), `proofhouse.optimize.export/v1` | `optimize/workflow.py` |
+| Part contract | `proofhouse.part/v1`, descriptor v1 (no `cost_model`) | `parts.py` |
+| Install record | `proofhouse.skill-install/v1` under `PROOFHOUSE_HOME/skill-installs/` | `optimize/install_skill.py` |
 
 A package release can change any of these; the changelog says which.
 
@@ -21,19 +23,23 @@ A package release can change any of these; the changelog says which.
 
 | Surface | Status | Network | What it promises |
 |---|---|---|---|
-| `proofhouse-compiler optimize ...` (new, compile, record, revise, status, criteria, verdict, check, constraints, output, compare, report, export, import) | **supported** | none | The local evidence workflow in [product-scope.md](product-scope.md). Digests verified on load; PASS as defined in [decision 0002](decisions/0002-what-pass-means.md). |
-| `proofhouse-compiler models ...` | **supported** | none | Profile source, evidence label, review date, staleness. Notes are guidance, not specifications. |
-| `proofhouse-compiler install-skill` | **supported** | none | Transactional install; a failed install leaves the previous one unchanged; replaced copies kept under `PROOFHOUSE_HOME/skill-backups/`. |
-| `proofhouse-compiler demo` | **supported** | none | The reference advisory workflow, from files shipped in the package. Recorded outputs only; no model call and no checkout. |
+| `proofhouse case ...` (new, compile, record, revise, status, criteria, verdict, check, constraints, output, compare, report, export, import); `new --kind prompt` or `--kind skill` | **supported** | none | The local evidence workflow in [product-scope.md](product-scope.md), for a prompt or a skill. Digests verified on load; PASS as defined in [decision 0002](decisions/0002-what-pass-means.md). `proofhouse optimize ...` is a deprecated alias for 0.5 and prints a notice. |
+| `proofhouse models ...` | **supported** | none | Profile source, evidence label, review date, staleness. Notes are guidance, not specifications. |
+| `proofhouse install-skill` | **supported** | none | Installs Proofhouse's own skill (default) or any skill given as a zip or a folder; name from validated `SKILL.md` frontmatter. Transactional: a failed install leaves the previous one unchanged; replaced copies kept under `PROOFHOUSE_HOME/skill-backups/`. |
+| `proofhouse uninstall-skill NAME` | **supported** | none | Removes only a skill `install-skill` recorded installing, and restores what that install replaced. Refuses a changed folder unless `--force` (then backs it up first); removes a link, never what it points at. |
+| `proofhouse parts` (`--json`) | **supported** | none | Lists every registered part (request builders, text checker, skill checker, host writer) with role, kinds, status and conformance suite version. A case PASS never promotes a part. |
+| `proofhouse demo` | **supported** | none | The reference advisory workflow, from files shipped in the package. Recorded outputs only; no model call and no checkout. |
 | Cursor or Claude Code skill (`skills/proofhouse/`; `install-skill --host claude` for Claude Code) | **supported** entry point | host agent's tools | The conversational way into the same workflow. Host behavior is outside this repo's tests. |
-| `proofhouse-compiler validate / inspect / compile / adapters / doctor` | **supported** | none | Deterministic IR validation and offline lowering. |
-| `proofhouse-compiler closed-loop` | **supported** (structural) | none | Offline fake-adapter loop; strict intake validation; stage-separated evidence. A PASS is a structural check, not a quality measurement. |
-| `proofhouse-compiler evaluate-product` | experimental | none | Imported observations vs a rubric; duplicate ids rejected; coverage and candidate binding reported. |
-| `proofhouse-compiler compile-requirements`, `closed-loop-bridged-008` | experimental | none | Requirements-contract evaluation (maturity `PARTIAL`). |
-| `proofhouse-compiler route / assay / proof` | experimental | none | Orchestration-layer prototypes. |
-| `proofhouse-compiler execute-openai` | experimental, opt-in | **yes**, only with `--opt-in` and a credential | Every mandatory IR field is rendered into the request or execution refuses (`EXE-SEM-0001`). The cost ceiling is recorded, not enforced before sending. |
+| `proofhouse validate / inspect / compile / adapters / doctor` | **supported** | none | Deterministic IR validation and offline lowering. `adapters` lists the request builders only (its output is unchanged); `parts` lists every part. |
+| `proofhouse closed-loop` | **supported** (structural) | none | Offline fake-adapter loop; strict intake validation; stage-separated evidence. A PASS is a structural check, not a quality measurement. |
+| `proofhouse evaluate-product` | experimental | none | Imported observations vs a rubric; duplicate ids rejected; coverage and candidate binding reported. |
+| `proofhouse compile-requirements`, `closed-loop-bridged-008` | experimental | none | Requirements-contract evaluation (maturity `PARTIAL`). |
+| `proofhouse route / assay / proof` | experimental, not gated | none | Orchestration-layer prototypes; registered without `PROOFHOUSE_EXPERIMENTAL`. |
+| `proofhouse execute-openai` | experimental, opt-in | **yes**, only with `--opt-in` and a credential | Every mandatory IR field is rendered into the request or execution refuses (`EXE-SEM-0001`). The cost ceiling is recorded, not enforced before sending. |
 | `hosted-*`, `missionrig-generate`, `workspace-consume` | experimental, hidden unless `PROOFHOUSE_EXPERIMENTAL=1` | none | Library slices only. The tenant label is not isolation. Do not expose over HTTP. |
-| `proofhouse` (eval harness: validate, report, loadouts, generate) | supported (legacy) | none | Dataset validation and report skeletons. |
+| `proofhouse eval ...` (validate --dataset, report, loadouts, compile-loadout, generate) | supported (legacy) | none | Dataset validation and report skeletons. The old top-level forms (`proofhouse validate --dataset`, `proofhouse report`, ...) fail with a one-line pointer to the new form. |
+| `proofhouse scan` | supported | none | Read-only scan of a project folder. |
+| `proofhouse-compiler ...` | deprecated alias | as the command | Same commands as `proofhouse`; prints a one-line notice on stderr, so `--json` output on stdout stays clean. |
 | `apps/proofhouse.jsx` artifact | experimental | calls `api.anthropic.com` | Responses schema-validated; hidden answers excluded; timeout and cancel. Hosting and authentication behavior are the artifact runtime's, not verified here. |
 | `apps/dashboard/` | prototype | none | Design exploration with simulated telemetry. Not the product; do not demo it as one. |
 

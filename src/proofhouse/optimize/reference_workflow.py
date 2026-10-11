@@ -6,9 +6,9 @@ fails real checks against a recorded output; revision 2 fixes them; compare,
 report, export and import close the loop. Offline: the inputs ship in this
 package (a copy of examples/reference-advisory/). No model is called.
 
-    proofhouse-compiler demo
+    proofhouse demo
     python scripts/reference_workflow.py
-    python scripts/reference_workflow.py --cli proofhouse-compiler
+    python scripts/reference_workflow.py --cli proofhouse
 
 docs/reference-workflow.md shows the same commands. tests/optimize/test_reference_workflow.py
 and the wheel-install CI job run this body, so the documentation cannot drift.
@@ -43,8 +43,8 @@ class Step(Exception):
 
 
 def module_cli() -> list[str]:
-    """This interpreter's compiler module. Correct inside a pip or uv tool install."""
-    return [sys.executable, "-m", "proofhouse.compiler.cli_compiler"]
+    """This interpreter's front door (``proofhouse``). Correct inside a pip or uv tool install."""
+    return [sys.executable, "-m", "proofhouse.cli"]
 
 
 def run(
@@ -74,7 +74,7 @@ def _run(*, cli: list[str], workspace: str | None, quiet: bool) -> None:
         command = [*cli, *parts, *(["--json"] if as_json else [])]
         completed = subprocess.run(command, cwd=root, capture_output=True, text=True, encoding="utf-8", check=False)
         if not quiet:
-            print("$ proofhouse-compiler " + " ".join(parts))
+            print("$ proofhouse " + " ".join(parts))
             shown = completed.stdout.strip()
             if shown and not as_json:
                 print("  " + "\n  ".join(shown.splitlines()[:12]))
@@ -83,28 +83,28 @@ def _run(*, cli: list[str], workspace: str | None, quiet: bool) -> None:
         return json.loads(completed.stdout) if as_json else completed.stdout
 
     c = str(case)
-    invoke("optimize", "new", "--case", c, "--objective-file", "objective.txt", "--model", "Claude Sonnet 5", "--preset", "efficient")
+    invoke("case", "new", "--case", c, "--objective-file", "objective.txt", "--model", "Claude Sonnet 5", "--preset", "efficient")
     shutil.copy(root / "answers.json", case / "answers.json")
-    invoke("optimize", "compile", "--case", c)
-    ledger = invoke("optimize", "constraints", "list", "--case", c, as_json=True)["data"]["constraints"]
+    invoke("case", "compile", "--case", c)
+    ledger = invoke("case", "constraints", "list", "--case", c, as_json=True)["data"]["constraints"]
     by_text = {entry["text"]: entry["id"] for entry in ledger}
     audience = next(k for t, k in by_text.items() if t.startswith("Who reads"))
     missing = next(k for t, k in by_text.items() if t.startswith("What if"))
     fmt = next(k for t, k in by_text.items() if t.startswith("Format"))
-    cite = invoke("optimize", "constraints", "add", "--case", c, "--text", "Cite the advisory section for each claim", as_json=True)["data"]["constraint"]["id"]
+    cite = invoke("case", "constraints", "add", "--case", c, "--text", "Cite the advisory section for each claim", as_json=True)["data"]["constraint"]["id"]
 
-    invoke("optimize", "criteria", "add", "--case", c, "--id", "AUD", "--must-contain", "SOC analysts")
-    invoke("optimize", "criteria", "add", "--case", c, "--id", "UNK", "--target", "output", "--must-contain", "UNKNOWN")
-    invoke("optimize", "criteria", "add", "--case", c, "--id", "NOGUESS", "--target", "output", "--must-not-contain", "exploited in the wild")
-    invoke("optimize", "criteria", "add", "--case", c, "--id", "LEN", "--target", "output", "--max-words", "120")
-    invoke("optimize", "criteria", "add", "--case", c, "--id", "CITE", "--target", "output", "--regex", r"\(s\d\)")
-    invoke("optimize", "criteria", "add", "--case", c, "--id", "ACC", "--target", "output", "--manual", "Every claim matches the advisory")
+    invoke("case", "criteria", "add", "--case", c, "--id", "AUD", "--must-contain", "SOC analysts")
+    invoke("case", "criteria", "add", "--case", c, "--id", "UNK", "--target", "output", "--must-contain", "UNKNOWN")
+    invoke("case", "criteria", "add", "--case", c, "--id", "NOGUESS", "--target", "output", "--must-not-contain", "exploited in the wild")
+    invoke("case", "criteria", "add", "--case", c, "--id", "LEN", "--target", "output", "--max-words", "120")
+    invoke("case", "criteria", "add", "--case", c, "--id", "CITE", "--target", "output", "--regex", r"\(s\d\)")
+    invoke("case", "criteria", "add", "--case", c, "--id", "ACC", "--target", "output", "--manual", "Every claim matches the advisory")
     for kid, cid in ((audience, "AUD"), (missing, "UNK"), (missing, "NOGUESS"), (fmt, "LEN"), (cite, "CITE"), (cite, "ACC")):
-        invoke("optimize", "constraints", "link", "--case", c, "--id", kid, "--criterion", cid)
+        invoke("case", "constraints", "link", "--case", c, "--id", kid, "--criterion", cid)
 
-    invoke("optimize", "record", "--case", c, "--prompt-file", "prompt-v1.txt")
+    invoke("case", "record", "--case", c, "--prompt-file", "prompt-v1.txt")
     r1 = invoke(
-        "optimize",
+        "case",
         "output",
         "add",
         "--case",
@@ -124,7 +124,7 @@ def _run(*, cli: list[str], workspace: str | None, quiet: bool) -> None:
         as_json=True,
     )["data"]["run"]["run_id"]
     invoke(
-        "optimize",
+        "case",
         "verdict",
         "--case",
         c,
@@ -139,19 +139,19 @@ def _run(*, cli: list[str], workspace: str | None, quiet: bool) -> None:
         "--note",
         "claims active exploitation; the advisory does not say that",
     )
-    v1 = invoke("optimize", "check", "--case", c, expect=3, as_json=True)["data"]["revisions"][0]
+    v1 = invoke("case", "check", "--case", c, expect=3, as_json=True)["data"]["revisions"][0]
     failed_v1 = sorted(row["id"] for row in v1["results"] if row["result"] != "PASS")
     if failed_v1 != ["ACC", "CITE", "NOGUESS", "UNK"]:
         raise Step(f"revision 1 should fail ACC, CITE, NOGUESS, UNK; failed {failed_v1}")
 
-    invoke("optimize", "revise", "--case", c, "--feedback", "It claimed active exploitation, which the advisory never states, and cited nothing.")
+    invoke("case", "revise", "--case", c, "--feedback", "It claimed active exploitation, which the advisory never states, and cited nothing.")
     packet = (case / "03-revise-v1.md").read_text(encoding="utf-8")
     for needle in ("never guess exploitation status", "Cite the advisory section for each claim", "Tier-1 SOC analysts"):
         if needle not in packet:
             raise Step(f"revise packet lost the constraint: {needle}")
-    invoke("optimize", "record", "--case", c, "--prompt-file", "prompt-v2.txt")
+    invoke("case", "record", "--case", c, "--prompt-file", "prompt-v2.txt")
     r2 = invoke(
-        "optimize",
+        "case",
         "output",
         "add",
         "--case",
@@ -170,12 +170,12 @@ def _run(*, cli: list[str], workspace: str | None, quiet: bool) -> None:
         "pasted from host agent",
         as_json=True,
     )["data"]["run"]["run_id"]
-    invoke("optimize", "verdict", "--case", c, "--revision", "2", "--criterion", "ACC", "--run", r2, "--result", "pass")
-    v2 = invoke("optimize", "check", "--case", c, as_json=True)["data"]["revisions"][0]
+    invoke("case", "verdict", "--case", c, "--revision", "2", "--criterion", "ACC", "--run", r2, "--result", "pass")
+    v2 = invoke("case", "check", "--case", c, as_json=True)["data"]["revisions"][0]
     if v2["overall"] != "PASS" or {row["status"] for row in v2["constraints"]} != {"satisfied"}:
         raise Step(f"revision 2 should pass with every constraint satisfied: {v2}")
 
-    comparison = invoke("optimize", "compare", "--case", c, "--from", "1", "--to", "2", as_json=True)["data"]
+    comparison = invoke("case", "compare", "--case", c, "--from", "1", "--to", "2", as_json=True)["data"]
     changes = {row["id"]: row["change"] for row in comparison["criteria"]}
     expected = {
         "AUD": "still_passing",
@@ -187,13 +187,13 @@ def _run(*, cli: list[str], workspace: str | None, quiet: bool) -> None:
     }
     if changes != expected:
         raise Step(f"unexpected comparison {changes}")
-    invoke("optimize", "compare", "--case", c, "--from", "2", "--to", "1", expect=3)  # a regression stops promotion
+    invoke("case", "compare", "--case", c, "--from", "2", "--to", "1", expect=3)  # a regression stops promotion
 
-    invoke("optimize", "report", "--case", c, "--out", "report.md")
-    invoke("optimize", "export", "--case", c, "--out", "advisory-case.zip")
+    invoke("case", "report", "--case", c, "--out", "report.md")
+    invoke("case", "export", "--case", c, "--out", "advisory-case.zip")
     second = root / "second-workspace" / "advisory-case"
-    invoke("optimize", "import", "--bundle", "advisory-case.zip", "--case", str(second))
-    again = invoke("optimize", "check", "--case", str(second), as_json=True)["data"]["revisions"][0]
+    invoke("case", "import", "--bundle", "advisory-case.zip", "--case", str(second))
+    again = invoke("case", "check", "--case", str(second), as_json=True)["data"]["revisions"][0]
 
     def _strip(rep: dict) -> dict:
         return {k: v for k, v in rep.items() if k not in {"run_id", "checked_at"}}

@@ -42,13 +42,13 @@ def _json(out: str) -> dict:
 
 
 def _new(case_dir: Path, capsys, *extra: str) -> tuple[int, str, str]:
-    return _run(["optimize", "new", "--case", str(case_dir), "--objective", OBJECTIVE, "--model", "Sonnet 5", *extra], capsys)
+    return _run(["case", "new", "--case", str(case_dir), "--objective", OBJECTIVE, "--model", "Sonnet 5", *extra], capsys)
 
 
 def _record(case_dir: Path, tmp_path: Path, name: str, prompt: str, capsys, *extra: str) -> tuple[int, str, str]:
     prompt_file = tmp_path / name
     prompt_file.write_text(prompt, encoding="utf-8")
-    return _run(["optimize", "record", "--case", str(case_dir), "--prompt-file", str(prompt_file), *extra], capsys)
+    return _run(["case", "record", "--case", str(case_dir), "--prompt-file", str(prompt_file), *extra], capsys)
 
 
 def test_new_writes_case_files_and_builtin_model(tmp_path: Path, capsys) -> None:
@@ -84,7 +84,7 @@ def test_new_writes_case_files_and_builtin_model(tmp_path: Path, capsys) -> None
     assert lines[3] == "  wrote: case.json, 01-clarify.md, answers.json"
     assert lines[4] == (
         "  next: run 01-clarify.md in your host agent, put answers in answers.json, then: "
-        f"proofhouse-compiler optimize compile --case {resolved_dir}"
+        f"proofhouse case compile --case {resolved_dir}"
     )
     assert len(lines) == 5
 
@@ -95,14 +95,14 @@ def test_new_on_existing_dir_is_usage_error(tmp_path: Path, capsys) -> None:
     code, out, err = _new(case_dir, capsys)
     assert code == 2 and out == ""
     assert err.startswith("error: case directory already exists: ")
-    code, out, err = _run(["optimize", "new", "--case", str(tmp_path / "case-c"), "--model", "Sonnet 5"], capsys)
+    code, out, err = _run(["case", "new", "--case", str(tmp_path / "case-c"), "--model", "Sonnet 5"], capsys)
     assert code == 2 and out == ""
 
 
 def test_compile_requires_answers_then_renders_them(tmp_path: Path, capsys) -> None:
     case_dir = tmp_path / "case-d"
     assert _new(case_dir, capsys)[0] == 0
-    code, out, err = _run(["optimize", "compile", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "compile", "--case", str(case_dir)], capsys)
     assert code == 2 and out == ""
     assert err == "error: answers.json is empty; answer the clarify packet first\n"
     assert not (case_dir / "02-compile.md").exists()
@@ -110,14 +110,14 @@ def test_compile_requires_answers_then_renders_them(tmp_path: Path, capsys) -> N
     (case_dir / "answers.json").write_text(
         json.dumps({"audience": "SOC analysts", "length": "under 200 words"}), encoding="utf-8"
     )
-    code, out, err = _run(["optimize", "compile", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "compile", "--case", str(case_dir)], capsys)
     assert code == 0 and err == ""
     packet_path = (case_dir / "02-compile.md").resolve()
     lines = out.splitlines()
     assert lines[0] == f"optimize: compile packet -> {packet_path}"
     assert lines[1] == (
         "  next: run it, save the compiled prompt text, then: "
-        f"proofhouse-compiler optimize record --case {case_dir.resolve()} --prompt-file <file>"
+        f"proofhouse case record --case {case_dir.resolve()} --prompt-file <file>"
     )
     text = packet_path.read_text(encoding="utf-8")
     assert text.startswith("# Proofhouse packet: compile\n")
@@ -130,7 +130,7 @@ def test_compile_requires_answers_then_renders_them(tmp_path: Path, capsys) -> N
 
     alt = tmp_path / "alt-answers.json"
     alt.write_text(json.dumps([{"question": "Who reads it?", "answer": "the SOC lead"}]), encoding="utf-8")
-    code, out, err = _run(["optimize", "compile", "--case", str(case_dir), "--answers", str(alt), "--json"], capsys)
+    code, out, err = _run(["case", "compile", "--case", str(case_dir), "--answers", str(alt), "--json"], capsys)
     assert code == 0 and err == ""
     payload = _json(out)
     assert payload["command"] == "optimize compile"
@@ -188,7 +188,7 @@ def test_record_twice_creates_v1_v2_with_distinct_sha(tmp_path: Path, capsys) ->
 def test_revise_from_earlier_revision_quotes_that_prompt(tmp_path: Path, capsys) -> None:
     case_dir = tmp_path / "case-f"
     assert _new(case_dir, capsys)[0] == 0
-    code, out, err = _run(["optimize", "revise", "--case", str(case_dir), "--feedback", "too long"], capsys)
+    code, out, err = _run(["case", "revise", "--case", str(case_dir), "--feedback", "too long"], capsys)
     assert code == 2 and err == "error: no revisions recorded; run record first\n"
 
     prompt_one = "FIRST-PROMPT: summarise the advisory."
@@ -196,7 +196,7 @@ def test_revise_from_earlier_revision_quotes_that_prompt(tmp_path: Path, capsys)
     assert _record(case_dir, tmp_path, "p1.txt", prompt_one, capsys)[0] == 0
     assert _record(case_dir, tmp_path, "p2.txt", prompt_two, capsys)[0] == 0
 
-    code, out, err = _run(["optimize", "revise", "--case", str(case_dir), "--feedback", "too long", "--revision", "1"], capsys)
+    code, out, err = _run(["case", "revise", "--case", str(case_dir), "--feedback", "too long", "--revision", "1"], capsys)
     assert code == 0 and err == ""
     packet_path = (case_dir / "03-revise-v1.md").resolve()
     lines = out.splitlines()
@@ -210,13 +210,13 @@ def test_revise_from_earlier_revision_quotes_that_prompt(tmp_path: Path, capsys)
     assert 'User feedback on that version: "too long"' in text
     assert f"~{math.ceil(len(prompt_one) / 4)} tokens" in text
 
-    code, out, err = _run(["optimize", "revise", "--case", str(case_dir), "--feedback", "shorter"], capsys)
+    code, out, err = _run(["case", "revise", "--case", str(case_dir), "--feedback", "shorter"], capsys)
     assert code == 0 and err == ""
     assert out.splitlines()[0] == f"optimize: revise packet for v2 -> {(case_dir / '03-revise-v2.md').resolve()}"
     assert out.splitlines()[1] == "  next: run it, then record the result as v3"
     assert prompt_two in (case_dir / "03-revise-v2.md").read_text(encoding="utf-8")
 
-    code, out, err = _run(["optimize", "revise", "--case", str(case_dir), "--feedback", "x", "--revision", "9"], capsys)
+    code, out, err = _run(["case", "revise", "--case", str(case_dir), "--feedback", "x", "--revision", "9"], capsys)
     assert code == 2 and err == "error: revision v9 does not exist (latest is v2)\n"
 
     assert _record(case_dir, tmp_path, "p3.txt", "THIRD-PROMPT", capsys)[0] == 0
@@ -230,15 +230,15 @@ def test_revise_from_earlier_revision_quotes_that_prompt(tmp_path: Path, capsys)
 def test_user_text_with_template_markers_survives_new_compile_revise(tmp_path: Path, capsys) -> None:
     case_dir = tmp_path / "case-m"
     objective = "Draft a Jinja template that prints {{x}} and {{ user.name }}"
-    code, out, err = _run(["optimize", "new", "--case", str(case_dir), "--objective", objective, "--model", "Sonnet 5"], capsys)
+    code, out, err = _run(["case", "new", "--case", str(case_dir), "--objective", objective, "--model", "Sonnet 5"], capsys)
     assert code == 0 and err == ""
     assert objective in (case_dir / "01-clarify.md").read_text(encoding="utf-8")
     (case_dir / "answers.json").write_text(json.dumps({"engine": "use {{loop.index}} inside"}), encoding="utf-8")
-    code, out, err = _run(["optimize", "compile", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "compile", "--case", str(case_dir)], capsys)
     assert code == 0 and err == ""
     assert "- engine: use {{loop.index}} inside" in (case_dir / "02-compile.md").read_text(encoding="utf-8")
     assert _record(case_dir, tmp_path, "pm.txt", "Render {{slot}} then stop.", capsys)[0] == 0
-    code, out, err = _run(["optimize", "revise", "--case", str(case_dir), "--feedback", "keep {{x}} literal"], capsys)
+    code, out, err = _run(["case", "revise", "--case", str(case_dir), "--feedback", "keep {{x}} literal"], capsys)
     assert code == 0 and err == ""
     text = (case_dir / "03-revise-v1.md").read_text(encoding="utf-8")
     assert "Render {{slot}} then stop." in text
@@ -252,7 +252,7 @@ def test_unknown_template_key_is_usage_error_not_traceback(tmp_path: Path, capsy
     broken = json.loads(json.dumps(packets.framework()))
     broken["systemPrompts"]["compilePrompt"]["userTemplateFirstPass"] += "\n{{notAKey}}"
     monkeypatch.setattr(packets, "framework", lambda: broken)
-    code, out, err = _run(["optimize", "compile", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "compile", "--case", str(case_dir)], capsys)
     assert code == 2 and out == ""
     assert err == "error: unfilled placeholder {{notAKey}} in template\n"
     assert not (case_dir / "02-compile.md").exists()
@@ -264,7 +264,7 @@ def test_notes_file_is_user_supplied_unverified_and_not_cached(tmp_path: Path, h
     case_dir = tmp_path / "case-g"
     code, out, err = _run(
         [
-            "optimize", "new", "--case", str(case_dir), "--objective", OBJECTIVE, "--model", "Zeta 9",
+            "case", "new", "--case", str(case_dir), "--objective", OBJECTIVE, "--model", "Zeta 9",
             "--notes-file", str(notes), "--preset", "efficient", "--loop", "--json",
         ],
         capsys,
@@ -294,7 +294,7 @@ def test_status_reports_stage_counts_and_stale_warning(tmp_path: Path, capsys, m
     case_dir = tmp_path / "case-h"
     assert _new(case_dir, capsys)[0] == 0
     assert _record(case_dir, tmp_path, "p1.txt", "one", capsys)[0] == 0
-    code, out, err = _run(["optimize", "status", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "status", "--case", str(case_dir)], capsys)
     assert code == 0 and err == ""
     assert out.splitlines() == [
         f"case: {case_dir.resolve()}",
@@ -310,7 +310,7 @@ def test_status_reports_stage_counts_and_stale_warning(tmp_path: Path, capsys, m
         f"warning: notes for Claude Sonnet 5 were last reviewed 2026-09-03 ({age} days ago; threshold 90); "
         "re-check pricing, context, and settings against vendor docs\n"
     )
-    code, out, err = _run(["optimize", "status", "--case", str(case_dir), "--json"], capsys)
+    code, out, err = _run(["case", "status", "--case", str(case_dir), "--json"], capsys)
     assert code == 0 and err == warning
     payload = _json(out)
     assert payload["command"] == "optimize status"
@@ -322,29 +322,29 @@ def test_status_reports_stage_counts_and_stale_warning(tmp_path: Path, capsys, m
     assert code == 0 and err == warning
     assert "stale=yes" in out
 
-    code, out, err = _run(["optimize", "status", "--case", str(tmp_path / "nope")], capsys)
+    code, out, err = _run(["case", "status", "--case", str(tmp_path / "nope")], capsys)
     assert code == 2 and err.startswith("error: case not found: ")
 
 
 def test_optimize_help_is_ascii_and_packets_have_no_endpoints(tmp_path: Path, capsys) -> None:
-    code, out, err = _run(["optimize", "--help"], capsys)
+    code, out, err = _run(["case", "--help"], capsys)
     assert code == 0
     (out + err).encode("ascii")
     for name in ("new", "compile", "record", "revise", "status"):
         assert name in out
     for name in ("new", "compile", "record", "revise", "status"):
-        code, out, err = _run(["optimize", name, "--help"], capsys)
+        code, out, err = _run(["case", name, "--help"], capsys)
         assert code == 0
         (out + err).encode("ascii")
-    code, out, err = _run(["optimize"], capsys)
+    code, out, err = _run(["case"], capsys)
     assert code == 2
 
     case_dir = tmp_path / "case-j"
     assert _new(case_dir, capsys)[0] == 0
     (case_dir / "answers.json").write_text('{"a": "b"}', encoding="utf-8")
-    assert _run(["optimize", "compile", "--case", str(case_dir)], capsys)[0] == 0
+    assert _run(["case", "compile", "--case", str(case_dir)], capsys)[0] == 0
     assert _record(case_dir, tmp_path, "p.txt", "prompt", capsys)[0] == 0
-    assert _run(["optimize", "revise", "--case", str(case_dir), "--feedback", "f"], capsys)[0] == 0
+    assert _run(["case", "revise", "--case", str(case_dir), "--feedback", "f"], capsys)[0] == 0
     for path in case_dir.rglob("*"):
         if path.is_file():
             text = path.read_text(encoding="utf-8")

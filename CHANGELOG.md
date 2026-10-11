@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.5.0 - unreleased
+
+The spine slice: prompts and skills go from objective to export through the same commands, the same case, the same pass rule and the same part contract.
+
+### Upgrade notes (read first)
+
+- **(breaking, one-way)** Cases move to `proofhouse.optimize.case/v1`. A 0.4.1 case still opens, reports the same results and takes new versions; its revision and run files are never rewritten. The first command that writes its `case.json` copies the old file to `case.v0-backup.json` (never overwritten) and upgrades it. **An upgraded case no longer opens in 0.4.1**, which refuses a schema it does not know. Keep the backup, or an export made with 0.4.1, if you need to go back. Read-only commands never upgrade a case. Export bundles written by 0.4.1 still import.
+- **(breaking)** One command, `proofhouse`. Both console scripts now run the same command tree. `proofhouse-compiler` still works and prints a one-line notice on stderr (`--json` output on stdout is unchanged).
+- **(breaking)** The eval harness moved under `proofhouse eval`: `eval validate --dataset`, `eval report`, `eval loadouts`, `eval compile-loadout`, `eval generate`. The old top-level forms are not forwarded; each exits 2 with one line naming the new form. `proofhouse validate` without `--dataset` is IR validation, as `proofhouse-compiler validate` was. `scan` stays top-level.
+- `proofhouse case` carries every `optimize` subcommand with the same names and flags. `proofhouse optimize ...` still works for 0.5 and prints a notice; it will be removed after 0.5. JSON `command` values (`"optimize new"`, ...) are unchanged.
+- Run records are `proofhouse.optimize.run/v2`; `run/v1` files still read.
+
+### Added
+
+- `proofhouse case new --kind skill` opens a skill case; `case record --skill-folder DIR` records a skill folder (`SKILL.md` at its root) as a version. Kinds are `prompt.text@1` (digest = the old `prompt_sha256`) and `agent.skill@1` (digest = RFC 8785 + SHA-256 over a sorted per-file manifest); any other kind is refused (`PHC-KIND-0001`).
+- `proofhouse parts` lists every registered part with role, kinds, status and conformance suite version (`--json` for full descriptors). `adapters` keeps its output (request builders only).
+- Skill checker part and `case criteria add --skill-check install-roundtrip`: frontmatter, then an install round trip into a temporary skills folder (write, read back, reinstall changes nothing, uninstall restores the prior folder exactly). It does not test behaviour in real hosts, and the report says no independent pass ran.
+- `install-skill --bundle` takes any skill, as a zip (`<name>/...`) or a folder. The name comes from validated `SKILL.md` frontmatter. With no bundle it installs Proofhouse's own skill exactly as before.
+- `proofhouse uninstall-skill NAME` removes only a skill `install-skill` recorded installing and restores what that install replaced; it refuses a folder that changed since install unless `--force` (then backs it up first), and removes a link, never what it points at.
+- Run records carry `part` and `cost`. Nothing measures cost yet, so every figure is `unknown`, never `0`; `usd` is never filled. The report sums cost per version, and a sum that includes an unknown is unknown.
+
+### Changed
+
+- Skill file names that are not portable to every OS (Windows reserved names such as `CON` or `nul.txt`, a trailing dot or space, characters Windows forbids) are refused on every OS (`PHC-SKILL-0009`), in skill versions and in `install-skill` input.
+- README, docs and CI use `proofhouse`; CI runs `proofhouse demo` from the built wheel outside the checkout.
+
 ## 0.4.1 - 2026-10-08
 
 ### Added

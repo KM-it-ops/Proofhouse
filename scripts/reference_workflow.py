@@ -2,7 +2,7 @@
 """Run the packaged reference workflow.
 
 ``--cli`` selects the console script. With no ``--cli``, this interpreter's
-``python -m proofhouse.compiler.cli_compiler`` is used. ``proofhouse-compiler demo``
+``python -m proofhouse.cli`` is used. ``proofhouse demo``
 is the same run without ``--cli``.
 """
 

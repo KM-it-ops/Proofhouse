@@ -2,22 +2,22 @@
 
 Two offline surfaces, one package (`proofhouse` 0.4.1):
 
-- `proofhouse-compiler` — the compiler. Requirements → IR → fake-adapter artifact → evaluation/repair evidence.
+- `proofhouse` — the compiler. Requirements → IR → fake-adapter artifact → evaluation/repair evidence.
 - `proofhouse` — the eval harness. JSONL dataset validation, rubric checks, markdown report skeletons.
 
 No API key is used on any path in this document. The certified path is offline by construction (fake adapter, `network_allowed=false`). `doctor` asserts this; it does not probe the network.
 
 ## Install
 
-The tools, including `proofhouse-compiler demo`:
+The tools, including `proofhouse demo`:
 
 ```powershell
 $env:PYTHONUTF8='1'          # Windows only; bash users skip this
 uv tool install proofhouse
-proofhouse-compiler demo
+proofhouse demo
 ```
 
-With pip: `python -m pip install proofhouse`, then `proofhouse-compiler demo`. That command replays recorded outputs from files inside the package. It does not call a model.
+With pip: `python -m pip install proofhouse`, then `proofhouse demo`. That command replays recorded outputs from files inside the package. It does not call a model.
 
 Working in a clone (tests, fixtures, the by-hand reference files under `examples/`):
 
@@ -41,7 +41,7 @@ Prefix commands with `uv run` (uv) or run them inside your activated venv (pip).
 ## Compiler
 
 ```powershell
-uv run proofhouse-compiler doctor
+uv run proofhouse doctor
 ```
 
 ```text
@@ -53,7 +53,7 @@ Exit 0. `--json` shows the four checks: `python_version`, `diagnostic_registry`,
 Closed loop on the tracked requirements fixture — requirements → IR → fake adapter → evaluate → repair (budget 1) → evidence:
 
 ```powershell
-uv run proofhouse-compiler closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1
+uv run proofhouse closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1
 ```
 
 ```text
@@ -67,8 +67,8 @@ Add `--json` for the full evidence envelope (`status`, `evidence_bundle.network_
 Validate and compile a static IR file:
 
 ```powershell
-uv run proofhouse-compiler validate examples/ir_minimal.json
-uv run proofhouse-compiler compile examples/ir_minimal.json --adapter fake --adapter-version 0.1.0 --output build/demo
+uv run proofhouse validate examples/ir_minimal.json
+uv run proofhouse compile examples/ir_minimal.json --adapter fake --adapter-version 0.1.0 --output build/demo
 ```
 
 ```text
@@ -81,18 +81,18 @@ The artifact line prints the absolute path. `build/` is git-ignored. `--json` on
 
 ## Optimize packets (offline, no provider call)
 
-`optimize` turns an objective + target model into the framework's own clarify → compile → self-heal prompts, written to a case directory. You run each packet in the host agent or model you choose and record the result; Proofhouse never calls a model here.
+`case` turns an objective + target model into the framework's own clarify → compile → self-heal prompts, written to a case directory. You run each packet in the host agent or model you choose and record the result; Proofhouse never calls a model here.
 
 ```powershell
-uv run proofhouse-compiler optimize new --case build/case-demo --objective "Summarise a security advisory for a SOC audience" --model "Sonnet 5"
+uv run proofhouse case new --case build/case-demo --objective "Summarise a security advisory for a SOC audience" --model "Sonnet 5"
 # answer build/case-demo/01-clarify.md in your host agent; put answers in build/case-demo/answers.json
-uv run proofhouse-compiler optimize compile --case build/case-demo
+uv run proofhouse case compile --case build/case-demo
 # run 02-compile.md; save the compiled prompt to a file
-uv run proofhouse-compiler optimize record --case build/case-demo --prompt-file <file>
-uv run proofhouse-compiler optimize criteria add --case build/case-demo --must-contain "SOC"
-uv run proofhouse-compiler optimize criteria add --case build/case-demo --max-words 200
-uv run proofhouse-compiler optimize check --case build/case-demo --all
-uv run proofhouse-compiler optimize revise --case build/case-demo --feedback "too long"
+uv run proofhouse case record --case build/case-demo --prompt-file <file>
+uv run proofhouse case criteria add --case build/case-demo --must-contain "SOC"
+uv run proofhouse case criteria add --case build/case-demo --max-words 200
+uv run proofhouse case check --case build/case-demo --all
+uv run proofhouse case revise --case build/case-demo --feedback "too long"
 ```
 
 ```text
@@ -100,19 +100,19 @@ optimize: new case <your clone>\build\case-demo
   model: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 stale=no evidence=unverified
   preset: balanced  loop: no
   wrote: case.json, 01-clarify.md, answers.json
-  next: run 01-clarify.md in your host agent, put answers in answers.json, then: proofhouse-compiler optimize compile --case <your clone>\build\case-demo
+  next: run 01-clarify.md in your host agent, put answers in answers.json, then: proofhouse case compile --case <your clone>\build\case-demo
 check: <your clone>\build\case-demo
   v1: PASS  C1=PASS C2=PASS
 ```
 
-Criteria are yours: substring, word cap, regex, or a manual verdict (`optimize verdict`), checked against the prompt text or, with `--target output`, against outputs you record with `optimize output add`. `check` prints PASS/FAIL/UNJUDGED/NOT_EVALUATED per criterion per revision and exits 3 unless everything passes. After `optimize compile`, your answers are accepted constraints that must be linked to passing checks (`optimize constraints link`) before a revision passes. There is no quality rating and no comparison across models. The full journey, including outputs, compare, report and export, is in [reference-workflow.md](reference-workflow.md).
+Criteria are yours: substring, word cap, regex, or a manual verdict (`case verdict`), checked against the prompt text or, with `--target output`, against outputs you record with `case output add`. `check` prints PASS/FAIL/UNJUDGED/NOT_EVALUATED per criterion per revision and exits 3 unless everything passes. After `case compile`, your answers are accepted constraints that must be linked to passing checks (`case constraints link`) before a revision passes. There is no quality rating and no comparison across models. The full journey, including outputs, compare, report and export, is in [reference-workflow.md](reference-workflow.md).
 
 ## Model notes: where a profile comes from and how old it is
 
 ```powershell
-uv run proofhouse-compiler models list
-uv run proofhouse-compiler models show "opus 5"
-uv run proofhouse-compiler models show "Zeta 9"
+uv run proofhouse models list
+uv run proofhouse models show "opus 5"
+uv run proofhouse models show "Zeta 9"
 ```
 
 ```text
@@ -136,15 +136,15 @@ model: Zeta 9
   notes: No verified vendor-specific behavior available. General best practice: explicit goal, constraints, format, audience. Note in rationale that this is generic guidance.
 ```
 
-`source` is `builtin` (shipped registry), `cached` (your `models remember`), `user_supplied` (a notes file passed to `optimize new --notes-file`; never dated or labeled researched), `researched` (only from an injected researcher, which the CLI never uses), or `fallback` (generic profile; the CLI does not research unknown models). `evidence` is `unverified` unless the profile cites sources; `verified_at` is the last review date, not an independent check. Profiles older than 90 days print a stale warning. Aliases such as `opus 5` or `anthropic/claude-opus-5` resolve to the canonical id while your entered name is kept. Cache lives under `~/.proofhouse/model-notes/` (override with `PROOFHOUSE_HOME`); `models remember NAME --notes-file F [--source-url U]` stores or refreshes an entry, `models forget NAME` removes it.
+`source` is `builtin` (shipped registry), `cached` (your `models remember`), `user_supplied` (a notes file passed to `case new --notes-file`; never dated or labeled researched), `researched` (only from an injected researcher, which the CLI never uses), or `fallback` (generic profile; the CLI does not research unknown models). `evidence` is `unverified` unless the profile cites sources; `verified_at` is the last review date, not an independent check. Profiles older than 90 days print a stale warning. Aliases such as `opus 5` or `anthropic/claude-opus-5` resolve to the canonical id while your entered name is kept. Cache lives under `~/.proofhouse/model-notes/` (override with `PROOFHOUSE_HOME`); `models remember NAME --notes-file F [--source-url U]` stores or refreshes an entry, `models forget NAME` removes it.
 
 ## Eval harness
 
 ```powershell
-uv run proofhouse validate --dataset evals/datasets/prompt_audit_cases.jsonl
-uv run proofhouse validate --dataset evals/datasets/meta_prompting_cases.jsonl
-uv run proofhouse validate --dataset evals/datasets/agentic_mode_cases.jsonl
-uv run proofhouse validate --dataset evals/datasets/adversarial_cases.jsonl
+uv run proofhouse eval validate --dataset evals/datasets/prompt_audit_cases.jsonl
+uv run proofhouse eval validate --dataset evals/datasets/meta_prompting_cases.jsonl
+uv run proofhouse eval validate --dataset evals/datasets/agentic_mode_cases.jsonl
+uv run proofhouse eval validate --dataset evals/datasets/adversarial_cases.jsonl
 ```
 
 ```text
@@ -167,7 +167,7 @@ Every JSONL case must include:
 Report skeleton:
 
 ```powershell
-uv run proofhouse report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
+uv run proofhouse eval report --dataset evals/datasets/prompt_audit_cases.jsonl --out evals/reports/prompt_audit_report.md
 ```
 
 ```text
@@ -186,7 +186,7 @@ All tests pass with `1 deselected`: the `live` marker is excluded by default (`a
 
 ## Boundaries
 
-- `proofhouse-compiler --help` also lists advanced commands (`compile-requirements`, `evaluate-product`, `closed-loop-bridged-008`, `route`, `assay`, `proof`, `optimize`, `models`, `install-skill`, `execute-openai`). They run, but only the commands in this document are the presented path. `execute-openai` is fail-closed opt-in live OpenAI and is **not** certified. `optimize` renders packets and never calls a model; `models` never researches online.
+- `proofhouse --help` also lists advanced commands (`compile-requirements`, `evaluate-product`, `closed-loop-bridged-008`, `route`, `assay`, `proof`, `case`, `models`, `install-skill`, `uninstall-skill`, `parts`, `scan`, `eval`, `execute-openai`). They run, but only the commands in this document are the presented path. `execute-openai` is fail-closed opt-in live OpenAI and is **not** certified. `case` renders packets and never calls a model; `models` never researches online.
 - Requirements compiler maturity is `PARTIAL`. No benchmark, quality, latency, or cost claim is made.
 - Hosted/MissionRig commands are hidden behind `PROOFHOUSE_EXPERIMENTAL=1` and are experimental library slices, not a product. Do not set that variable for a demo.
 - `apps/proofhouse.jsx` calls the Anthropic Messages API when run as a Claude artifact and is not the offline path.

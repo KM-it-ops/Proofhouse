@@ -1,13 +1,17 @@
-"""Compiler Core v0.1 CLI: compile, validate, inspect, adapters, doctor,
+"""The one ``proofhouse`` command tree: compile, validate, inspect, adapters, doctor,
 evaluate-product, closed-loop-bridged-008, hosted-compile/view/export/delete,
-missionrig-generate, workspace-consume, execute-openai.
+missionrig-generate, workspace-consume, execute-openai, route/assay/proof, plus
+``case`` (and its ``optimize`` alias), ``models``, ``install-skill``,
+``uninstall-skill``, ``demo`` (``optimize.cli``) and ``eval``, ``scan``,
+``parts`` (``proofhouse.cli``, whose ``main`` both console scripts call).
 
 The CLI owns argument parsing, file/stdin/stdout handling, envelope
 serialization, and exit-code mapping only. All parsing, normalization,
 validation, compilation, capability resolution, and environment checks
 live in `api.py`; this module never duplicates that logic
-(Compiler Invariant #13). Legacy PromptOps commands (`report`, `loadouts`,
-`compile-loadout`, `generate`) are untouched and live in `cli.py`.
+(Compiler Invariant #13). The legacy harness commands (`report`, `loadouts`,
+`compile-loadout`, `generate`, `validate --dataset`) live under `eval`; their
+old top-level forms fail with a one-line pointer.
 `execute-openai` is fail-closed opt-in live execution, not closed-loop.
 """
 from __future__ import annotations
@@ -19,6 +23,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from ..cli import LEGACY_FORMS, add_harness_commands, legacy_form_pointer
 from ..optimize.cli import add_local_commands, LOCAL_COMMANDS
 from . import api, paths
 from .contracts import CONTRACT_VERSION, CompileOptions, Diagnostic, ResultEnvelope
@@ -474,7 +479,10 @@ COMPILER_COMMANDS = frozenset({
     "hosted-delete",
     "missionrig-generate",
     "workspace-consume",
-}) | LOCAL_COMMANDS
+    "eval",
+    "scan",
+    "parts",
+}) | LOCAL_COMMANDS | frozenset(LEGACY_FORMS)
 
 
 def _emit_route_decision(decision: object, *, as_json: bool) -> int:
@@ -768,6 +776,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_exec.set_defaults(func=_cmd_execute_openai)
 
     add_local_commands(subparsers)
+    add_harness_commands(subparsers)
 
     if os.environ.get("PROOFHOUSE_EXPERIMENTAL") == "1":
         p_hc = subparsers.add_parser(
@@ -861,12 +870,20 @@ def main(argv: list[str] | None = None) -> int:
         as_json = "--json" in argv_list
         return _emit_route_decision(dispatch(argv_list[0]), as_json=as_json)
 
+    pointer = legacy_form_pointer(argv_list)
+    if pointer is not None:
+        print(pointer, file=sys.stderr)
+        return EXIT_USAGE_ERROR
+
     parser = build_parser()
     try:
-        args = parser.parse_args(argv)
+        args = parser.parse_args(argv_list)
     except SystemExit as exc:
         # argparse calls sys.exit(2) on usage errors; normalize to our usage exit code.
         return exc.code if isinstance(exc.code, int) else EXIT_USAGE_ERROR
+    notice = getattr(args, "deprecation_notice", None)
+    if notice:
+        print(notice, file=sys.stderr)
 
     try:
         return args.func(args)

@@ -24,12 +24,12 @@ Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/)
 
 ```bash
 uv tool install proofhouse
-proofhouse-compiler demo
+proofhouse demo
 ```
 
 That runs the [reference workflow](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/reference-workflow.md) end to end, offline, from files shipped in the package. It replays recorded outputs: a security-advisory summary whose first revision invents an exploitation claim and fails its checks, and whose second revision passes without losing a constraint. It does not call a model. On Windows, set `$env:PYTHONUTF8='1'` first for reliable console output.
 
-With pip: `python -m pip install proofhouse`, then `proofhouse-compiler demo`.
+With pip: `python -m pip install proofhouse`, then `proofhouse demo`.
 
 From a clone, the same check is `uv run python scripts/reference_workflow.py` (or `python -m pip install -e ".[test]"` without [uv](https://docs.astral.sh/uv/)). The by-hand steps later on this page copy `examples/reference-advisory`, which is in the repository, not in the wheel.
 
@@ -37,9 +37,9 @@ From a clone, the same check is `uv run python scripts/reference_workflow.py` (o
 
 ## How it works
 
-`proofhouse-compiler optimize` renders the framework's clarify / compile / self-heal prompts as packets you run in the agent or model of your choice, and checks what you paste back against the criteria you declare. It does not call a model and it does not rate quality.
+`proofhouse case` renders the framework's clarify / compile / self-heal prompts as packets you run in the agent or model of your choice, and checks what you paste back against the criteria you declare. It does not call a model and it does not rate quality.
 
-These are the [reference workflow](docs/reference-workflow.md)'s steps, and they run as written. `pc` below is `proofhouse-compiler` (`uv run proofhouse-compiler` from a clone). Work in a scratch folder holding copies of the example inputs:
+These are the [reference workflow](docs/reference-workflow.md)'s steps, and they run as written. `pc` below is `proofhouse` (`uv run proofhouse` from a clone). Work in a scratch folder holding copies of the example inputs:
 
 ```bash
 mkdir -p build/try && cp examples/reference-advisory/* build/try && cd build/try
@@ -48,52 +48,52 @@ mkdir -p build/try && cp examples/reference-advisory/* build/try && cd build/try
 **1. Start a case and answer one batch of questions.** Proofhouse writes a clarify packet, `advisory-case/01-clarify.md`. You run it in your own agent and save the answers as `advisory-case/answers.json` (for this example, copy `answers.json` there). Compile turns each answer into an accepted constraint (K1-K3) that every later revision receives.
 
 ```bash
-pc optimize new --case advisory-case --objective-file objective.txt --model "Claude Sonnet 5" --preset efficient
-pc optimize compile --case advisory-case
+pc case new --case advisory-case --objective-file objective.txt --model "Claude Sonnet 5" --preset efficient
+pc case compile --case advisory-case
 ```
 
 **2. Say how each constraint will be checked.** Checks can look at the prompt text or at what a model returned (`--target output`), and some can be a human judgement (`--manual`).
 
 ```bash
-pc optimize constraints add --case advisory-case --text "Cite the advisory section for each claim"      # K4
-pc optimize criteria add --case advisory-case --id AUD --must-contain "SOC analysts"
-pc optimize criteria add --case advisory-case --id UNK --target output --must-contain UNKNOWN
-pc optimize criteria add --case advisory-case --id NOGUESS --target output --must-not-contain "exploited in the wild"
-pc optimize criteria add --case advisory-case --id LEN --target output --max-words 120
-pc optimize criteria add --case advisory-case --id CITE --target output --regex "\(s\d\)"
-pc optimize criteria add --case advisory-case --id ACC --target output --manual "Every claim matches the advisory"
-pc optimize constraints link --case advisory-case --id K1 --criterion AUD
-pc optimize constraints link --case advisory-case --id K2 --criterion UNK
-pc optimize constraints link --case advisory-case --id K2 --criterion NOGUESS
-pc optimize constraints link --case advisory-case --id K3 --criterion LEN
-pc optimize constraints link --case advisory-case --id K4 --criterion CITE
-pc optimize constraints link --case advisory-case --id K4 --criterion ACC
+pc case constraints add --case advisory-case --text "Cite the advisory section for each claim"      # K4
+pc case criteria add --case advisory-case --id AUD --must-contain "SOC analysts"
+pc case criteria add --case advisory-case --id UNK --target output --must-contain UNKNOWN
+pc case criteria add --case advisory-case --id NOGUESS --target output --must-not-contain "exploited in the wild"
+pc case criteria add --case advisory-case --id LEN --target output --max-words 120
+pc case criteria add --case advisory-case --id CITE --target output --regex "\(s\d\)"
+pc case criteria add --case advisory-case --id ACC --target output --manual "Every claim matches the advisory"
+pc case constraints link --case advisory-case --id K1 --criterion AUD
+pc case constraints link --case advisory-case --id K2 --criterion UNK
+pc case constraints link --case advisory-case --id K2 --criterion NOGUESS
+pc case constraints link --case advisory-case --id K3 --criterion LEN
+pc case constraints link --case advisory-case --id K4 --criterion CITE
+pc case constraints link --case advisory-case --id K4 --criterion ACC
 ```
 
 **3. Record a revision and what it produced, judge the manual check, then check it.**
 
 ```bash
-pc optimize record --case advisory-case --prompt-file prompt-v1.txt
-pc optimize output add --case advisory-case --revision 1 --output-file output-v1.txt --input-id EC-2026-017 --input-file advisory.txt --model "Claude Sonnet 5" --source "pasted from host agent"
-pc optimize verdict --case advisory-case --revision 1 --criterion ACC --run R1 --result fail --note "claims active exploitation; the advisory does not say that"
-pc optimize check --case advisory-case        # exit 3: v1 FAIL  UNK NOGUESS CITE ACC fail
+pc case record --case advisory-case --prompt-file prompt-v1.txt
+pc case output add --case advisory-case --revision 1 --output-file output-v1.txt --input-id EC-2026-017 --input-file advisory.txt --model "Claude Sonnet 5" --source "pasted from host agent"
+pc case verdict --case advisory-case --revision 1 --criterion ACC --run R1 --result fail --note "claims active exploitation; the advisory does not say that"
+pc case check --case advisory-case        # exit 3: v1 FAIL  UNK NOGUESS CITE ACC fail
 ```
 
 **4. Revise without losing anything.** The revise packet carries your feedback, the original answers and every accepted constraint. Run it in your agent, save the new prompt, and record revision 2 the same way.
 
 ```bash
-pc optimize revise --case advisory-case --feedback "It claimed active exploitation, which the advisory never states."
-pc optimize record --case advisory-case --prompt-file prompt-v2.txt
-pc optimize output add --case advisory-case --revision 2 --output-file output-v2.txt --input-id EC-2026-017 --input-file advisory.txt --model "Claude Sonnet 5" --source "pasted from host agent"
-pc optimize verdict --case advisory-case --revision 2 --criterion ACC --run R2 --result pass
-pc optimize check --case advisory-case        # exit 0: v2 PASS, K1-K4 satisfied
+pc case revise --case advisory-case --feedback "It claimed active exploitation, which the advisory never states."
+pc case record --case advisory-case --prompt-file prompt-v2.txt
+pc case output add --case advisory-case --revision 2 --output-file output-v2.txt --input-id EC-2026-017 --input-file advisory.txt --model "Claude Sonnet 5" --source "pasted from host agent"
+pc case verdict --case advisory-case --revision 2 --criterion ACC --run R2 --result pass
+pc case check --case advisory-case        # exit 0: v2 PASS, K1-K4 satisfied
 ```
 
 **5. Compare, report and hand it on.** `compare` shows what newly passes or regresses between revisions, `report` writes the evidence as Markdown, and `export` / `import` move a case to another workspace, refusing any file that does not match the bundle's manifest (the manifest is not signed).
 
 ### What a PASS proves, and what it does not
 
-| A PASS from `optimize check` means | It does not mean |
+| A PASS from `case check` means | It does not mean |
 |---|---|
 | Every check you declared passed on this exact revision (and, for output checks, on the outputs you recorded) | That the prompt is good in general, or better than one you did not test |
 | Every accepted constraint is linked to a check that passed | That a model will reproduce the recorded outputs |
@@ -108,8 +108,8 @@ Details: [docs/architecture.md](docs/architecture.md), [decision 0002](docs/deci
 
 | Entry | Use it when | Status | Network |
 |---|---|---|---|
-| **Command line**: `proofhouse-compiler optimize` | You want the evidence trail above: constraints, recorded outputs, checks, compare, report | supported | none |
-| **Cursor or Claude Code skill**: `proofhouse-compiler install-skill` asks which agent (Cursor, Claude Code, or another one you name with its skills folder); `--host cursor` or `--host claude` skips the question. Then say "Proofhouse" in a new chat or session | You want the same clarify → compile → self-heal loop as a conversation | supported entry point | the host agent's tools |
+| **Command line**: `proofhouse case` | You want the evidence trail above: constraints, recorded outputs, checks, compare, report | supported | none |
+| **Cursor or Claude Code skill**: `proofhouse install-skill` asks which agent (Cursor, Claude Code, or another one you name with its skills folder); `--host cursor` or `--host claude` skips the question. Then say "Proofhouse" in a new chat or session | You want the same clarify → compile → self-heal loop as a conversation | supported entry point | the host agent's tools |
 
 Proofhouse is two products in one repo, at different levels of maturity. The **PromptOps skill and framework (v1.3)**, the conversational meta-optimizer with current frontier model profiles, is the most mature part of the project. The headless compiler's maturity is listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
 
@@ -131,9 +131,9 @@ Built-in `modelNotes` cover prompting quirks, API ids, and cost and caching leve
 | **Meta** | Muse Spark 1.3 |
 | **Moonshot** | Kimi K3 |
 | **Legacy** | GPT-5.5 · Gemini (generic) · Fable 5 · Mythos 5 · Opus 4.8 |
-| **Other** | Skill and artifact: the host agent or the artifact web-researches the model and caches the paragraph. CLI (`proofhouse-compiler`): offline; `models remember` stores your own notes, otherwise the generic profile is used and labeled `fallback`. |
+| **Other** | Skill and artifact: the host agent or the artifact web-researches the model and caches the paragraph. CLI (`proofhouse`): offline; `models remember` stores your own notes, otherwise the generic profile is used and labeled `fallback`. |
 
-Profiles last reviewed 2026-09-03; a profile older than 90 days is flagged stale. None of the 18 profiles cites sources yet, so every profile is labeled unverified. They are prompting guidance, not vendor specifications. `proofhouse-compiler models list` shows per-model ids, aliases, and dates.
+Profiles last reviewed 2026-09-03; a profile older than 90 days is flagged stale. None of the 18 profiles cites sources yet, so every profile is labeled unverified. They are prompting guidance, not vendor specifications. `proofhouse models list` shows per-model ids, aliases, and dates.
 
 Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human-readable [`proofhouse-framework.md`](proofhouse-framework.md)
 <!-- supported-models:end -->
@@ -142,28 +142,29 @@ Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human
 
 ## Install and verify
 
-One Python package, version 0.4.1, ships two console scripts:
+One Python package ships one command, `proofhouse`. Every interface reaches the same command tree (`proofhouse-compiler` still works as an alias and prints a one-line notice on stderr; `proofhouse optimize` likewise forwards to `proofhouse case`):
 
-| Command | What it is | Subcommands |
+| Command group | What it is | Commands |
 |---|---|---|
-| `proofhouse-compiler` | The prompt workspace above, plus an offline compiler (requirements → IR → adapter artifact → evidence), the model-notes cache, the skill installer, and the packaged reference demo | `optimize` `models` `install-skill` `demo` `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` |
-| `proofhouse` | Eval harness: JSONL datasets, YAML rubrics, report skeletons | `validate` `report` `loadouts` `compile-loadout` `generate` |
+| Cases | The prompt or skill workspace above (`case new --kind prompt` or `--kind skill`), the skill installer, the model-notes cache, the packaged reference demo, and the part registry | `case` `install-skill` `uninstall-skill` `models` `demo` `parts` `scan` |
+| Compiler | Offline compiler: requirements → IR → request builder artifact → evidence | `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` |
+| Eval harness | JSONL datasets, YAML rubrics, report skeletons | `eval validate` `eval report` `eval loadouts` `eval compile-loadout` `eval generate` |
 
-Supported: the `optimize` case workflow, `models`, `install-skill`, `demo`, and `validate` / `compile` / `closed-loop`. The experimental commands are listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
+Supported: the `case` workflow, `models`, `install-skill`, `demo`, and `validate` / `compile` / `closed-loop`. The experimental commands are listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
 
 ```bash
 uv sync --extra test                                    # package + pytest into .venv
-uv run proofhouse-compiler doctor                       # doctor: success
-uv run proofhouse-compiler closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1
+uv run proofhouse doctor                                # doctor: success
+uv run proofhouse closed-loop tests/compiler/fixtures/closed_loop_requirements_minimal.json --repair-budget 1
                                                         # closed-loop: PASS (structural)
-uv run proofhouse validate --dataset evals/datasets/prompt_audit_cases.jsonl
+uv run proofhouse eval validate --dataset evals/datasets/prompt_audit_cases.jsonl
                                                         # Dataset validation passed: ...
 uv run pytest -q                                        # all passed, 1 deselected (live tests are opt-in)
-uv run proofhouse-compiler demo --quiet                 # reference workflow: OK
+uv run proofhouse demo --quiet                          # reference workflow: OK
 uv run python scripts/reference_workflow.py --quiet     # same run via the script wrapper
 ```
 
-CI runs the test suite on Linux, macOS and Windows with Python 3.11 to 3.14, runs the reference workflow against the built wheel, and runs `proofhouse-compiler demo` from that wheel outside the checkout. Everything above is offline: no network, no API key. Nothing here is a benchmark.
+CI runs the test suite on Linux, macOS and Windows with Python 3.11 to 3.14, runs the reference workflow against the built wheel, and runs `proofhouse demo` from that wheel outside the checkout. Everything above is offline: no network, no API key. Nothing here is a benchmark.
 
 The compiler's `closed-loop` PASS is structural: the prompt compiles offline with the fake adapter and passes security gates, and its evidence lists what it did not measure. Its approved headless profiles are `structured_minimal_v0` and `structured_developer_v0`.
 
@@ -175,7 +176,7 @@ These ship in the repository but are not the supported path. Treat them as previ
 
 | Part | Status | Network |
 |---|---|---|
-| `proofhouse-compiler execute-openai`: a fail-closed live OpenAI call that refuses to send unless every mandatory requirement is in the request; its cost ceiling is recorded, not enforced | experimental, opt-in | yes, only when opted in |
+| `proofhouse execute-openai`: a fail-closed live OpenAI call that refuses to send unless every mandatory requirement is in the request; its cost ceiling is recorded, not enforced | experimental, opt-in | yes, only when opted in |
 | `evaluate-product`, the requirements-contract commands, `route` / `assay` / `proof` | experimental | none |
 | [`apps/proofhouse.jsx`](apps/proofhouse.jsx): a Claude artifact with a model picker, efficiency modes and a live compile loop; for an unknown model it web-researches, caches the result in artifact storage and labels it `researched` / `cached` / `fallback` | experimental | calls `api.anthropic.com` |
 | The `hosted-*` and `missionrig-*` modules: experimental library slices, not a hosted service (their tenant label is not isolation) | experimental | none |
