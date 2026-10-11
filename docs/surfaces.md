@@ -34,6 +34,7 @@ A package release can change any of these; the changelog says which.
 | `proofhouse closed-loop` | **supported** (structural) | none | Offline fake-adapter loop; strict intake validation; stage-separated evidence. A PASS is a structural check, not a quality measurement. |
 | `proofhouse evaluate-product` | experimental | none | Imported observations vs a rubric; duplicate ids rejected; coverage and candidate binding reported. |
 | `proofhouse compile-requirements`, `closed-loop-bridged-008` | experimental | none | Requirements-contract evaluation (maturity `PARTIAL`). |
+| `proofhouse "<objective>"` (overseer) | experimental | none | Prints the `route` decision. A routed prompt or skill opens a case (as `case new` would) that records the route; any other class opens nothing and is appended as "no part yet" to `PROOFHOUSE_HOME/demand/no-part-yet.jsonl`; `nothing_new` / `one_prompt` do neither. |
 | `proofhouse route / assay / proof` | experimental, not gated | none | Orchestration-layer prototypes; registered without `PROOFHOUSE_EXPERIMENTAL`. |
 | `proofhouse execute-openai` | experimental, opt-in | **yes**, only with `--opt-in` and a credential | Every mandatory IR field is rendered into the request or execution refuses (`EXE-SEM-0001`). The cost ceiling is recorded, not enforced before sending. |
 | `hosted-*`, `missionrig-generate`, `workspace-consume` | experimental, hidden unless `PROOFHOUSE_EXPERIMENTAL=1` | none | Library slices only. The tenant label is not isolation. Do not expose over HTTP. |
