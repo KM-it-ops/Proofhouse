@@ -6,6 +6,7 @@ import sys
 from pathlib import Path
 
 from .loadouts import compile_loadout, load_legendary_loadouts
+from .parts import PART_CONTRACT_VERSION, PartError, list_parts
 from .runner import build_markdown_report, validate_dataset
 from .scan import ScanError, emit as emit_scan, render as render_scan, scan as scan_project
 from .templates import PromptArchitectInputs, export_prompt_architect
@@ -59,6 +60,33 @@ def cmd_scan(args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_parts(args: argparse.Namespace) -> int:
+    try:
+        descriptors = [part.describe() for part in list_parts()]
+    except PartError as exc:
+        print(f"parts: {exc}", file=sys.stderr)
+        return 7
+    if args.json:
+        payload = {"contract_version": PART_CONTRACT_VERSION, "parts": [d.to_dict() for d in descriptors]}
+        print(json.dumps(payload, indent=2, sort_keys=True))
+        return 0
+    header = ("PART", "ROLE", "KINDS IN -> OUT", "STATUS", "SUITE")
+    rows = [
+        (
+            d.part_id,
+            d.role,
+            f"{', '.join(d.kinds_in) or '-'} -> {', '.join(d.kinds_out) or '-'}",
+            d.status,
+            d.conformance_suite_version,
+        )
+        for d in descriptors
+    ]
+    widths = [max(len(row[i]) for row in (header, *rows)) for i in range(len(header) - 1)]
+    for row in (header, *rows):
+        print("  ".join(cell.ljust(width) for cell, width in zip(row, widths)) + "  " + row[-1])
+    return 0
+
+
 def cmd_generate(args: argparse.Namespace) -> int:
     if args.template != "prompt-architect":
         raise ValueError(f"Unsupported template: {args.template}")
@@ -106,6 +134,10 @@ def build_parser() -> argparse.ArgumentParser:
     scan_cmd.add_argument("path", nargs="?", default=".", help="Project folder (default: current folder)")
     scan_cmd.add_argument("--json", action="store_true", help="Machine-readable output")
     scan_cmd.set_defaults(func=cmd_scan)
+
+    parts_cmd = subparsers.add_parser("parts", help="List every registered part with its role, kinds, status and suite")
+    parts_cmd.add_argument("--json", action="store_true", help="Machine-readable output (full descriptors)")
+    parts_cmd.set_defaults(func=cmd_parts)
 
     generate = subparsers.add_parser("generate", help="Render versioned prompt templates")
     generate.add_argument("--template", default="prompt-architect", choices=["prompt-architect"])
