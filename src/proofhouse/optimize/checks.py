@@ -344,6 +344,11 @@ def evaluate_revision(case_dir: Path, criteria: list[dict], revision: int, verdi
                 runs = runs_for_revision(case_dir, data, revision, loaded.sha256)
             results.append(_output_row(item, digest, revision, verdicts, runs))
             continue
+        if loaded.prompt is None and item["kind"] != KIND_MANUAL:
+            raise CaseError(
+                f"criterion {item['id']} checks prompt text, but v{revision} is a {loaded.kind} version; "
+                "use an output criterion (--target output) or a manual one"
+            )
         verdict, stale = verdict_for(
             verdicts, revision, item["id"], revision_sha256=loaded.sha256, criterion_sha256=digest
         )
@@ -351,7 +356,7 @@ def evaluate_revision(case_dir: Path, criteria: list[dict], revision: int, verdi
             "id": item["id"],
             "kind": item["kind"],
             "value": item["value"],
-            "result": evaluate(item, loaded.prompt, verdict=verdict),
+            "result": evaluate(item, loaded.prompt or "", verdict=verdict),
         }
         if item["kind"] == KIND_MANUAL:
             row["stale_verdict"] = stale

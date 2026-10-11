@@ -1,0 +1,104 @@
+{
+  "checked_at": "2026-10-11T15:14:00+00:00",
+  "checks_version": "proofhouse.optimize.checks/v1",
+  "constraints": [
+    {
+      "criteria": [],
+      "id": "K1",
+      "origin": "clarification",
+      "status": "no_evidence",
+      "text": "Audience?: Tier-1 SOC analysts"
+    },
+    {
+      "criteria": [],
+      "id": "K2",
+      "origin": "clarification",
+      "status": "no_evidence",
+      "text": "Missing facts?: Write UNKNOWN; never guess exploitation status"
+    },
+    {
+      "criteria": [],
+      "id": "K3",
+      "origin": "clarification",
+      "status": "no_evidence",
+      "text": "Format?: Plain text, under 120 words"
+    },
+    {
+      "criteria": [
+        "C7"
+      ],
+      "id": "K4",
+      "origin": "user",
+      "status": "failed",
+      "text": "Cite the advisory section for each claim"
+    }
+  ],
+  "criteria_sha256": {
+    "C1": "c885634dd2bb896336b8e44940879003c342818d311c9735fd52293428b26e2f",
+    "C2": "058409f5c0ba6ec157b5640e8559a474c95d5fb4284cfcedccd659d573cbb7cc",
+    "C3": "e872cb00eb98f501a53553c4d8778d11e99248a60f762987f01620f227fd8a40",
+    "C4": "4e67ae746f69507ddaaa6dcfe11d704774eb0f0f08bea40b92582e3c0380669f",
+    "C5": "2ba49b9813330670a8066db322352da2732a516f82d44f132699cb6cd605cceb",
+    "C6": "0e7b9ff91e25e2713a286d5ecd4e7893d3d72afbb1b2cf472f97d81d9adbce6b",
+    "C7": "cc8b8b3533189103b7f13168c9cff53cc9fbb06456923ea3f59735378d899711"
+  },
+  "overall": "FAIL",
+  "results": [
+    {
+      "id": "C1",
+      "kind": "must_contain",
+      "result": "FAIL",
+      "value": "UNKNOWN"
+    },
+    {
+      "id": "C2",
+      "kind": "max_words",
+      "result": "PASS",
+      "value": "40"
+    },
+    {
+      "id": "C3",
+      "kind": "must_not_contain",
+      "result": "PASS",
+      "value": "guess"
+    },
+    {
+      "id": "C4",
+      "kind": "regex",
+      "result": "PASS",
+      "value": "(?i)^summarise"
+    },
+    {
+      "id": "C5",
+      "kind": "manual",
+      "result": "UNJUDGED",
+      "stale_verdict": false,
+      "value": "Reads well for a tier-1 analyst"
+    },
+    {
+      "id": "C6",
+      "kind": "must_contain",
+      "result": "FAIL",
+      "runs": [
+        {
+          "input_id": "advisory-1",
+          "output_sha256": "00abf399d0fa81cdce39522a0f8e77766e5c19072fef017e494e08b2ad333fdb",
+          "result": "FAIL",
+          "run_id": "R1"
+        }
+      ],
+      "target": "output",
+      "value": "UNKNOWN"
+    },
+    {
+      "id": "C7",
+      "kind": "must_contain",
+      "result": "FAIL",
+      "value": "section"
+    }
+  ],
+  "revision": 1,
+  "revision_sha256": "c14b1ad3e4f41e19f350e0f2f28bcbcd823f0635e99e013abb43f15e95ec7e73",
+  "run_id": "v1-2026-10-11T151400Z-860ef28d",
+  "target": "prompt_text_and_recorded_outputs"
+}

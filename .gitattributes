@@ -4,3 +4,4 @@
 *.py text eol=lf
 *.yaml text eol=lf
 *.yml text eol=lf
+tests/fixtures/optimize-case-v0/** -text
