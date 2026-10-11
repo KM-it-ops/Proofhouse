@@ -566,20 +566,17 @@ def _cmd_assay(args: argparse.Namespace) -> int:
 def _cmd_proof(args: argparse.Namespace) -> int:
     from .orchestration.proof import run_proof
 
-    result = run_proof(
-        args.artifact,
-        args.spec,
-        drafting_rationale="",
-        pass_a=lambda _a, _s: (),
-        pass_b=lambda _a, _s, _f: (),
-    )
+    # The CLI has no reviewer to run either pass, so no real pass runs and the verdict is UNJUDGED, never SHIP.
+    result = run_proof(args.artifact, args.spec, drafting_rationale="", pass_a=None, pass_b=None)
     payload = {"status": result.status, "passes": result.passes, "findings": []}
     if args.json:
         sys.stdout.write(json.dumps(payload, sort_keys=True))
         sys.stdout.write("\n")
     else:
         print(f"proof: {result.status}")
-    return EXIT_SUCCESS
+        if result.status == "UNJUDGED":
+            print("  no review pass ran (none is wired to this command); nothing was judged")
+    return EXIT_SUCCESS if result.status == "SHIP" else EXIT_VALIDATION_FAILURE
 
 
 def _cmd_execute_openai(args: argparse.Namespace) -> int:
@@ -761,7 +758,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_proof = subparsers.add_parser(
         "proof",
-        help="Experimental: two-pass expand/contract audit. Offline default ships with empty passes.",
+        help="Experimental: two-pass expand/contract audit. No review pass is wired here, so it reports UNJUDGED.",
     )
     p_proof.add_argument("--artifact", required=True, help="Artifact text to audit.")
     p_proof.add_argument("--spec", required=True, help="Spec text the artifact must satisfy.")

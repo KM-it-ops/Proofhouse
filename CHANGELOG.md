@@ -24,6 +24,7 @@ The spine slice: prompts and skills go from objective to export through the same
 
 ### Changed
 
+- **(breaking)** `proofhouse proof` no longer reports `SHIP` when no review pass ran. With no pass wired to the command it reports `UNJUDGED` with `passes: 0` and exits 3. The real-pass rules are unchanged.
 - Skill file names that are not portable to every OS (Windows reserved names such as `CON` or `nul.txt`, a trailing dot or space, characters Windows forbids) are refused on every OS (`PHC-SKILL-0009`), in skill versions and in `install-skill` input.
 - README, docs and CI use `proofhouse`; CI runs `proofhouse demo` from the built wheel outside the checkout.
 
