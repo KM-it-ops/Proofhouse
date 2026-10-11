@@ -808,6 +808,11 @@ def get_part(part_id: str) -> Any:
     return part
 
 
+def parts_for_kind(kind: str) -> tuple[str, ...]:
+    """Ids of visible parts that take ``kind`` as input, in table order."""
+    return tuple(part_id for part_id in part_ids() if kind in get_part(part_id).describe().kinds_in)
+
+
 def list_parts() -> tuple[Any, ...]:
     """Every visible part, in table order, each loaded and validated."""
     ids = [e.part_id for e in _TABLE]

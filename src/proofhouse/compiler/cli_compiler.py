@@ -485,6 +485,44 @@ COMPILER_COMMANDS = frozenset({
 }) | LOCAL_COMMANDS | frozenset(LEGACY_FORMS)
 
 
+def _overseer(argv_list: list[str]) -> int:
+    """``proofhouse "<objective>" [--case DIR] [--model NAME] [--json]``.
+
+    Stdout is the route decision, exactly as ``route`` prints it; what the
+    overseer then did (a case opened, or a "no part yet" demand record) is one
+    line on stderr.
+    """
+    from ..optimize.case import CaseError
+    from .orchestration.overseer import DEFAULT_MODEL, oversee
+
+    parser = argparse.ArgumentParser(prog='proofhouse "<objective>"', add_help=False)
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--case", default=None)
+    parser.add_argument("--model", default=DEFAULT_MODEL)
+    try:
+        args = parser.parse_args(argv_list[1:])
+    except SystemExit:
+        return EXIT_USAGE_ERROR
+    try:
+        result = oversee(argv_list[0], case_dir=Path(args.case) if args.case else None, model=args.model)
+    except CaseError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE_ERROR
+    code = _emit_route_decision(result.decision, as_json=args.json)
+    if result.case_dir is not None:
+        print(
+            f"overseer: opened a {result.decision.artifact_class} case at {result.case_dir.resolve()}; "
+            "continue it with proofhouse case ...",
+            file=sys.stderr,
+        )
+    elif result.demand_record is not None:
+        print(
+            f"overseer: no part yet for {result.decision.artifact_class}; recorded in {result.demand_record}",
+            file=sys.stderr,
+        )
+    return code
+
+
 def _emit_route_decision(decision: object, *, as_json: bool) -> int:
     payload = decision.to_dict()  # type: ignore[attr-defined]
     if as_json:
@@ -865,10 +903,7 @@ def main(argv: list[str] | None = None) -> int:
         and argv_list[0] not in COMPILER_COMMANDS
         and " " in argv_list[0]
     ):
-        from .orchestration.overseer import dispatch
-
-        as_json = "--json" in argv_list
-        return _emit_route_decision(dispatch(argv_list[0]), as_json=as_json)
+        return _overseer(argv_list)
 
     pointer = legacy_form_pointer(argv_list)
     if pointer is not None:

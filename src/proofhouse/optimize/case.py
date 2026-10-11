@@ -362,8 +362,12 @@ def new_case(
     preset_key: str,
     loop: bool,
     kind: str | None = None,
+    route: dict | None = None,
 ) -> dict:
-    """Create the case directory with ``case.json``, the clarify packet and an empty ``answers.json``."""
+    """Create the case directory with ``case.json``, the clarify packet and an empty ``answers.json``.
+
+    ``route`` is the overseer's route decision (class, rationale, forced) when it opened the case.
+    """
     from .kinds import PROMPT_TEXT, get_kind
 
     kind = get_kind(PROMPT_TEXT if kind is None else kind).id
@@ -386,6 +390,8 @@ def new_case(
         "criteria": [],
         "pending_feedback": None,
     }
+    if route is not None:
+        data["route"] = dict(route)
     case_dir.mkdir(parents=True)
     save_case(case_dir, data)
     next_line = (

@@ -54,6 +54,8 @@ KINDS: tuple[Kind, ...] = (
     Kind(AGENT_SKILL, PAYLOAD_FILES, "skill folder with SKILL.md at its root; digest fingerprints its file manifest"),
 )
 KIND_IDS: tuple[str, ...] = tuple(kind.id for kind in KINDS)
+# Route classes that have a kind, and so a case, today; every other class has no part yet.
+ROUTE_CLASS_KINDS: dict[str, str] = {"prompt": PROMPT_TEXT, "skill": AGENT_SKILL}
 
 
 def get_kind(kind_id: object) -> Kind:
