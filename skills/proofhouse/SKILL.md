@@ -163,6 +163,8 @@ the prompt is good in general. Model profiles cite no sources yet and are labele
 `unverified`; say so when you rely on one. Public decisions are in `docs/decisions/`.
 
 Fable parked remainder is CLOSED (2026-09-20): no IR v0.2, no 008 join, no
-CERTIFIED promotion, no hosted/MissionRig product,
-no `max_cost_usd` enforcement (recorded, not enforced). Do not describe any of
-these as pending.
+CERTIFIED promotion, no hosted/MissionRig product. Do not describe any of
+these as pending. `execute-openai` refuses before sending when its worst-case
+cost estimate is over `--max-cost-usd` or the model has no price; the shipped
+price table has no entries yet, so it refuses every model. Its dollar figures
+are estimates from that table, not the provider's bill.

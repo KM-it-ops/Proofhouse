@@ -11,3 +11,4 @@ To propose a change: open an issue describing the problem and the option you pre
 | [0003](0003-imported-observations-and-repair.md) | Imported observations are bound to a candidate and are never repaired against | accepted 2026-09-21 |
 | [0004](0004-model-note-provenance.md) | Model notes carry source and evidence labels; efficiency advice never removes a required gate | accepted 2026-09-21 |
 | [0005](0005-live-requests-carry-every-mandatory-field.md) | Live requests carry every mandatory IR field or refuse before sending | accepted 2026-09-21 |
+| [0006](0006-refuse-before-sending-over-the-ceiling.md) | A live request is refused before sending when its worst-case cost is over the ceiling, or cannot be worked out | accepted 2026-10-12 |

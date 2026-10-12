@@ -11,6 +11,11 @@ name / value at invoke time, not a vault product.
 
 Continuation is evidence-only and omitted for this campaign's single-request
 live path. IR v0.1 is not extended.
+
+Nothing is sent except through the spend gate (``proofhouse.spend``): the one
+send step below is handed to ``send_within_ceiling``, which works out the worst
+case from the exact bytes and refuses, sending nothing, when that is over
+``max_cost_usd``, when the model has no price, or when no worst case can be made.
 """
 
 from __future__ import annotations
@@ -20,11 +25,12 @@ import json
 import math
 import os
 import uuid
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
+from .. import spend
 from . import api
 from .runtime_context import render_runtime_context
 
@@ -46,8 +52,6 @@ EXE_HTTP_0001 = "EXE-HTTP-0001"
 # A mandatory IR field cannot be honored by this single-request path.
 EXE_SEM_0001 = "EXE-SEM-0001"
 
-COST_CEILING_ENFORCEMENT = "declared_only_not_enforced_pre_send"
-
 _REDACTED = "[REDACTED]"
 
 
@@ -58,6 +62,8 @@ class PreparedLiveRequest:
     headers: dict[str, str]
     body: dict[str, Any]
     idempotency_key: str
+    # The exact bytes the spend gate counted; the only bytes that are sent.
+    body_bytes: bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -109,6 +115,13 @@ class ExecutionResult:
         if self.audit_event is not None:
             payload["audit_event"] = self.audit_event
         return payload
+
+
+@dataclass(frozen=True, slots=True)
+class _SendFailed:
+    """The send step raised; nothing usable came back. Normalized so no secret leaks."""
+
+    envelope: dict[str, Any]
 
 
 def _error(code: str, envelope: dict[str, Any] | None = None) -> ExecutionResult:
@@ -225,15 +238,10 @@ def _provider_body(model: str, lowered: dict[str, Any], system_text: str, max_ou
     return body
 
 
-def _admission(request: LiveOpenAIRequest) -> dict[str, Any]:
-    """What was checked before send, and what was only declared."""
+def _admission(request: LiveOpenAIRequest, admission: spend.Admission) -> dict[str, Any]:
+    """What the spend gate decided before sending, and how the output-token ceiling was applied."""
     return {
-        "cost_ceiling": {
-            "declared_usd": request.max_cost_usd,
-            "enforcement": COST_CEILING_ENFORCEMENT,
-            "pricing_source": None,
-            "input_token_estimate": None,
-        },
+        "cost_ceiling": {"declared_usd": request.max_cost_usd, **admission.to_dict()},
         "output_token_ceiling": {
             "value": request.max_output_tokens,
             "enforcement": "sent_as_max_completion_tokens",
@@ -248,7 +256,7 @@ def _httpx_send(prepared: PreparedLiveRequest) -> LiveTransportResponse:
     except ImportError:
         raise ModuleNotFoundError("httpx") from None
     with httpx.Client(timeout=30.0) as client:
-        response = client.post(prepared.url, headers=prepared.headers, json=prepared.body)
+        response = client.post(prepared.url, headers=prepared.headers, content=prepared.body_bytes)
         try:
             payload = response.json()
         except ValueError:
@@ -354,7 +362,7 @@ def execute_openai(
             )
         )
 
-    prepared = PreparedLiveRequest(
+    unsent = PreparedLiveRequest(
         url=target_url,
         method="POST",
         headers={
@@ -364,30 +372,48 @@ def execute_openai(
         },
         body=_provider_body(model, lowered, runtime.system_text, int(request.max_output_tokens or 0)),
         idempotency_key=idempotency_key,
+        body_bytes=b"",
     )
 
-    if request.transport is None:
+    def _dispatch(body_bytes: bytes) -> Any:
+        # The only send step. It runs only when the spend gate calls it, with the bytes the gate counted.
+        prepared = replace(unsent, body_bytes=body_bytes)
+        if request.transport is None:
+            try:
+                return _httpx_send(prepared)
+            except ModuleNotFoundError:
+                return _SendFailed({"missing_optional_dependency": "httpx"})
+            except Exception as exc:  # noqa: BLE001 -- live boundary must not leak secrets
+                return _SendFailed({"transport_error": type(exc).__name__, "single_request": True})
         try:
-            response = _httpx_send(prepared)
-        except ModuleNotFoundError:
-            return finish(_error(EXE_DEP_0001, {"missing_optional_dependency": "httpx"}))
-        except Exception as exc:  # noqa: BLE001 -- live boundary must not leak secrets
-            return finish(
-                _error(
-                    EXE_DEP_0001,
-                    {"transport_error": type(exc).__name__, "single_request": True},
-                )
-            )
-    else:
-        try:
-            response = request.transport.send(prepared)
+            return request.transport.send(prepared)
         except Exception as exc:  # noqa: BLE001 -- injected transports get the same normalized boundary
-            return finish(
-                _error(
-                    EXE_DEP_0001,
-                    {"transport_error": type(exc).__name__, "single_request": True},
-                )
+            return _SendFailed({"transport_error": type(exc).__name__, "single_request": True})
+
+    gated = spend.send_within_ceiling(
+        unsent.body,
+        provider="openai",
+        model=model,
+        max_output_tokens=request.max_output_tokens,
+        ceiling_usd=request.max_cost_usd,
+        send=_dispatch,
+    )
+    if gated.admission.decision != "admitted":
+        return finish(
+            _error(
+                str(gated.admission.code),
+                {
+                    "single_request": True,
+                    "q1_unpicked": False,
+                    "q1_model": Q1_MODEL_ID,
+                    "model": model,
+                    "admission": _admission(request, gated.admission),
+                },
             )
+        )
+    response = gated.response
+    if isinstance(response, _SendFailed):
+        return finish(_error(EXE_DEP_0001, response.envelope))
 
     status_code = getattr(response, "status_code", None)
     payload = getattr(response, "payload", None)
@@ -415,11 +441,17 @@ def execute_openai(
         "ir_sha256": compile_env.data.get("ir_sha256"),
         "compile_artifact_sha256": artifact.get("sha256"),
         "runtime_context": runtime.evidence(),
-        "admission": _admission(request),
+        "admission": _admission(request, gated.admission),
     }
+    cost, cost_warning = spend.cost_after(gated, payload)
+    envelope["cost"] = cost
+    if cost_warning is not None:
+        envelope["cost_warning"] = cost_warning
     ok = isinstance(status_code, int) and 200 <= status_code < 300
     result_status = "success" if ok else "error"
     diagnostics = () if ok else (EXE_HTTP_0001,)
+    if cost_warning is not None:
+        diagnostics = (*diagnostics, "PHC-COST-0004")  # the money is spent; the output is still returned
     audit = {
         "event": "live_openai_execute",
         "opt_in": True,

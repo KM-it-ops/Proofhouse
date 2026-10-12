@@ -16,6 +16,9 @@ from proofhouse.compiler.execution import EXE_COMPILE_0001, EXE_HTTP_0001, LiveO
 
 from .fixtures.ir_fixtures import ir_with_openai_structured_output, minimal_valid_ir
 
+# The spend gate refuses a model with no price; these tests exercise what happens after it admits.
+pytestmark = pytest.mark.usefixtures("priced")
+
 SECRET = "sk-test-secret-do-not-leak-MISSION032"
 CALLER_MODEL = "caller-supplied-unratified-model"
 

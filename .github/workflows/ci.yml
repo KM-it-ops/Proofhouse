@@ -117,6 +117,10 @@ jobs:
         run: |
           /tmp/pr-wheel/bin/proofhouse doctor --json
           /tmp/pr-wheel/bin/proofhouse-compiler doctor --json
+      - name: Price table ships in the wheel and loads
+        run: |
+          cd /tmp
+          /tmp/pr-wheel/bin/python -c "from proofhouse import spend; print(spend.load_price_table().version)"
 
       - name: Installed consumer smoke
         run: |
