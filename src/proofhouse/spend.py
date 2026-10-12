@@ -18,6 +18,11 @@ case can be made (fail closed). Parts never make this decision.
   the request bytes, works out the worst case from them, and calls ``send``
   with exactly those bytes only when the worst case is at or under the ceiling.
   A refusal carries a ``PHC-COST-*`` code and a one-line message, and sends nothing.
+- **After a call**: token counts the provider reports are measured; the dollar
+  figure worked out from them at table prices is estimated, never measured (the
+  table can be stale, and Proofhouse never sees the bill). A figure nobody knows
+  is ``unknown``, never ``0``. Reported tokens above the gate's bound are
+  reported (``PHC-COST-0004``), never hidden.
 """
 
 from __future__ import annotations
@@ -348,3 +353,58 @@ def send_within_ceiling(
     started = time.perf_counter_ns()
     response = send(sent)
     return Gated(Admission(decision="admitted", **facts), response, entry, time.perf_counter_ns() - started)
+
+
+UNKNOWN = "unknown"
+COST_FIELDS = ("tokens_in", "tokens_out", "usd", "wall_seconds", "compute_seconds")
+_NANOSECONDS_PER_SECOND = Decimal(1_000_000_000)
+
+
+def _reported(usage: object, key: str) -> int | str:
+    value = usage.get(key) if isinstance(usage, dict) else None
+    return value if type(value) is int and value >= 0 else UNKNOWN
+
+
+def cost_after(gated: Gated, payload: object) -> tuple[dict[str, Any], str | None]:
+    """What a sent call cost, and a one-line ``PHC-COST-0004`` warning when the gate's bound did not hold.
+
+    ``basis`` is one label per figure: provider-reported tokens and the local
+    wall clock are ``measured``; ``usd`` is ``estimated``; anything else is ``unknown``.
+    """
+    usage = payload.get("usage") if isinstance(payload, dict) else None
+    tokens_in = _reported(usage, "prompt_tokens")
+    tokens_out = _reported(usage, "completion_tokens")
+    usd: str = UNKNOWN
+    if gated.entry is not None and isinstance(tokens_in, int) and isinstance(tokens_out, int):
+        try:
+            usd = _usd_text(worst_case_usd(gated.entry, tokens_in, tokens_out))
+        except SpendRefused:
+            usd = UNKNOWN
+    wall: str = UNKNOWN
+    if gated.wall_nanoseconds is not None:
+        wall = _usd_text(Decimal(gated.wall_nanoseconds) / _NANOSECONDS_PER_SECOND)
+    figures: dict[str, Any] = {
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+        "usd": usd,
+        "wall_seconds": wall,
+        "compute_seconds": UNKNOWN,
+    }
+    labels = {"tokens_in": "measured", "tokens_out": "measured", "usd": "estimated", "wall_seconds": "measured"}
+    basis = {field: UNKNOWN if figures[field] == UNKNOWN else labels.get(field, UNKNOWN) for field in COST_FIELDS}
+    cost = {**figures, "basis": basis, "price_table_version": "" if usd == UNKNOWN else str(gated.admission.price_table_version)}
+
+    admission = gated.admission
+    model = (admission.price or {}).get("model", "")
+    warning = None
+    for kind, used, bound in (
+        ("input", tokens_in, admission.input_tokens_bound),
+        ("output", tokens_out, admission.output_tokens_bound),
+    ):
+        if isinstance(used, int) and isinstance(bound, int) and used > bound:
+            warning = (
+                f"PHC-COST-0004: {model!r} used {used} {kind} tokens, over the bound of {bound}; "
+                "the price check did not hold for this call"
+            )
+            break
+    return cost, warning
