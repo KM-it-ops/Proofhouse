@@ -279,7 +279,7 @@ Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human
 
 ## Install and verify
 
-One Python package, version 0.6.0, ships one command, `proofhouse`. Every interface reaches the same command tree (`proofhouse-compiler` still works as an alias and prints a one-line notice on stderr; `proofhouse optimize` likewise forwards to `proofhouse case`):
+One Python package, version 0.7.0, ships one command, `proofhouse`. Every interface reaches the same command tree (`proofhouse-compiler` still works as an alias and prints a one-line notice on stderr; `proofhouse optimize` likewise forwards to `proofhouse case`):
 
 | Command group | What it is | Commands |
 |---|---|---|
