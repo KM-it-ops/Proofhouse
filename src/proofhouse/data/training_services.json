@@ -1,0 +1,55 @@
+{
+  "schema": "proofhouse.training-services/v1",
+  "note": "Training services as data. Add any other in PROOFHOUSE_HOME/training_services.json. Prices are never shipped: declare yours with `proofhouse train price`.",
+  "services": [
+    {
+      "id": "openai",
+      "name": "OpenAI fine-tuning",
+      "base_url": "https://api.openai.com",
+      "key_env": "OPENAI_API_KEY",
+      "auth": "bearer",
+      "provider": "openai",
+      "upload": {"path": "/v1/files", "fields": {"purpose": "fine-tune"}, "file_field": "file", "id": "id"},
+      "create": {
+        "path": "/v1/fine_tuning/jobs",
+        "body": {
+          "model": "{model}",
+          "training_file": "{file_id}",
+          "validation_file": "{valid_file_id}",
+          "suffix": "{suffix}",
+          "method": {"type": "supervised", "supervised": {"hyperparameters": {"n_epochs": "{epochs}"}}}
+        },
+        "id": "id"
+      },
+      "status": {"path": "/v1/fine_tuning/jobs/{job_id}", "field": "status", "done": ["succeeded"], "failed": ["failed", "cancelled"], "model": "fine_tuned_model"}
+    },
+    {
+      "id": "together",
+      "name": "Together AI fine-tuning (LoRA)",
+      "base_url": "https://api.together.xyz",
+      "key_env": "TOGETHER_API_KEY",
+      "auth": "bearer",
+      "provider": "together",
+      "upload": {"path": "/v1/files/upload", "fields": {"purpose": "fine-tune", "file_name": "{file_name}"}, "file_field": "file", "id": "id"},
+      "create": {
+        "path": "/v1/fine-tunes",
+        "body": {
+          "model": "{model}",
+          "training_file": "{file_id}",
+          "validation_file": "{valid_file_id}",
+          "suffix": "{suffix}",
+          "n_epochs": "{epochs}",
+          "lora": true
+        },
+        "id": "id"
+      },
+      "status": {"path": "/v1/fine-tunes/{job_id}", "field": "status", "done": ["completed"], "failed": ["error", "failed", "cancelled"], "model": "output_name"}
+    },
+    {
+      "id": "mlx-lm",
+      "name": "LoRA on this Mac with MLX",
+      "command": ["mlx_lm.lora", "--model", "{model}", "--train", "--data", "{data_dir}", "--iters", "{iters}", "--adapter-path", "{out}"],
+      "use_hint": "mlx_lm.server --model {model} --adapter-path {out} --port 8080  then  proofhouse providers add my-mlx --base-url http://localhost:8080/v1"
+    }
+  ]
+}

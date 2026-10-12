@@ -260,7 +260,8 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make.add_argument("request", help="What you want made, in your own words.")
     p_make.add_argument("--provider", required=True, help="Provider id (see `proofhouse providers list`).")
     p_make.add_argument("--model", required=True, help="Model id as the provider names it.")
-    p_make.add_argument("--kind", default="prompt", choices=(*make.KINDS, "video", "launch"), help="What to make (default prompt).")
+    p_make.add_argument("--kind", default="prompt",
+                        help=f"What to make: {', '.join((*make.KINDS, 'video', 'launch'))}, or a kind an add-on adds (default prompt).")
     p_make.add_argument("--parts", default=None,
                         help=f"For --kind launch: which parts to make, comma separated, from {','.join(launch.PART_KINDS)} "
                              "(default: the planner picks).")

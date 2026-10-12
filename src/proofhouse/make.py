@@ -185,8 +185,13 @@ def make(
     max_output_tokens: int = 2048,
     transport: live.Transport | None = None,
 ) -> MakeResult:
-    if kind not in KINDS:
-        raise MakeError(f"kind must be one of {', '.join(KINDS)}")
+    from . import addons
+
+    extra = {} if kind in KINDS else addons.make_kinds()
+    if kind not in KINDS and kind not in extra:
+        raise MakeError(f"kind must be one of {', '.join([*KINDS, *addons.make_kinds()])}")
+    writer = _WRITE[kind] if kind in _WRITE else extra[kind]["write"]
+    label = _SUBJECT.get(kind) or str(extra.get(kind, {}).get("subject") or kind.upper())
     if not request.strip():
         raise MakeError("say what you want made")
     if type(rounds) is not int or not 1 <= rounds <= 20:
@@ -225,7 +230,7 @@ def make(
 
     current: str | None = None
     try:
-        current = _strip_fences(call("write", _WRITE[kind], request) or "")
+        current = _strip_fences(call("write", writer, request) or "")
         if kind == "prompt" and test_input is None:
             test_input = _strip_fences(call("test input", _TEST_INPUT.format(prompt=current)) or "")
         for version in range(1, rounds + 1):
@@ -238,7 +243,7 @@ def make(
             elif kind == "site":
                 output, subject = _try_site(current, folder / f"v{version}")
             else:
-                subject = f"{_SUBJECT[kind]}:\n{current}"
+                subject = f"{label}:\n{current}"
             score, missing, fix = _judgement(call("judge", _JUDGE.format(request=request, subject=subject)))
             result.rounds.append(Round(version, current, output, score, missing, fix))
             if kind != "site":
@@ -265,7 +270,7 @@ def make(
             if source.is_dir():
                 shutil.copytree(source, folder / "site")
         else:
-            _deliver(folder, kind, best.text)
+            _deliver(folder, "copy" if kind in extra else kind, best.text)
     result.spent_usd = budget.spent
     _write_record(folder, request, profile.id, model, max_cost_usd, result)
     return result
