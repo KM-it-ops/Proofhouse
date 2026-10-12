@@ -58,12 +58,14 @@ def test_probe_invalid_frontmatter_force_install_preserves_previous(existing: Pa
 def test_extraction_failure_preserves_previous(existing: Path, tmp_path: Path, monkeypatch) -> None:
     before = _snapshot(existing)
     bundle = _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD, "proofhouse/a.txt": "a"})
+    real_open = Path.open
 
-    def explode(self, *args, **kwargs):
-        raise OSError("simulated interruption during extraction")
+    def explode(self, mode="r", *args, **kwargs):  # the staged copy is written from the checked bytes, file by file
+        if mode == "xb":
+            raise OSError("simulated interruption while writing the staged copy")
+        return real_open(self, mode, *args, **kwargs)
 
-    monkeypatch.setattr(zipfile.ZipFile, "extractall", explode)
-    monkeypatch.setattr(zipfile.ZipFile, "extract", explode)
+    monkeypatch.setattr(Path, "open", explode)
     with pytest.raises(InstallSkillError):
         install(existing, bundle, force=True)
     _assert_unchanged(existing, before)
@@ -205,7 +207,8 @@ def test_successful_force_install_over_a_read_only_skill_leaves_no_second_copy(e
 def test_force_install_over_a_junction_is_refused_and_touches_nothing(tmp_path: Path, monkeypatch) -> None:
     """A skill installed as a junction to the user's checkout: neither the link nor the checkout is touched.
 
-    Until 0.4.2 ``--force`` replaced the link after backing up the checkout by following it.
+    Until 0.4.2 ``--force`` replaced the link after backing up the checkout by following it,
+    so uninstall could only put back a stale copy, never the link.
     """
     import _winapi
 
@@ -232,3 +235,63 @@ def test_an_undeletable_set_aside_copy_is_reported_not_ignored(existing: Path, t
     result = install(existing, bundle, force=True)
     assert result.leftover is not None and result.leftover.parent == existing
     assert (result.leftover / "custom.txt").exists()
+
+
+@pytest.mark.skipif(__import__("sys").platform != "win32", reason="directory junctions are Windows-only")
+@pytest.mark.parametrize("target", ["outside", "own folder"])
+def test_forced_uninstall_over_a_skill_folder_holding_a_junction_is_refused_and_copies_nothing(
+    tmp_path: Path, monkeypatch, target: str
+) -> None:
+    """A junction inside an installed skill (``node_modules`` to the home folder, or back at the skill itself).
+
+    The forced uninstall's safety copy would follow it: the home folder copied into ``PROOFHOUSE_HOME``,
+    or a loop copied until the OS errors.
+    """
+    import _winapi
+
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    outside = tmp_path / "user-home"
+    (outside / ".ssh").mkdir(parents=True)
+    (outside / ".ssh" / "id_test").write_text("not a real key", encoding="utf-8")
+    dest = tmp_path / "skills"
+    install(dest, _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD}))
+    junction = dest / "proofhouse" / "node_modules"
+    _winapi.CreateJunction(str(outside if target == "outside" else dest / "proofhouse"), str(junction))
+    home_before = install_skill.folder_state_digest(tmp_path / "home")
+    with pytest.raises(InstallSkillError, match="link or junction") as info:
+        install_skill.uninstall("proofhouse", dest, force=True)
+    assert info.value.exit_code == 2
+    _no_leftovers(dest)
+    assert install_skill._is_link(junction)
+    assert (dest / "proofhouse" / "SKILL.md").read_text(encoding="utf-8") == GOOD_MD
+    assert (outside / ".ssh" / "id_test").read_text(encoding="utf-8") == "not a real key"
+    assert install_skill.folder_state_digest(tmp_path / "home") == home_before  # nothing copied out of the junction
+
+
+@pytest.mark.skipif(__import__("sys").platform != "win32", reason="directory junctions are Windows-only")
+def test_forced_install_refuses_a_junction_planted_while_it_installs(tmp_path: Path, monkeypatch) -> None:
+    """The link check is made again right before the backup copy, on what is there at that moment."""
+    import _winapi
+
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    checkout = tmp_path / "checkout"
+    checkout.mkdir()
+    (checkout / "secret.txt").write_text("mine", encoding="utf-8")
+    dest = tmp_path / "skills"
+    (dest / "proofhouse").mkdir(parents=True)
+    (dest / "proofhouse" / "SKILL.md").write_text("---\nname: proofhouse\n---\nold\n", encoding="utf-8")
+    real = install_skill._stage
+
+    def stage_then_junction(*args, **kwargs):
+        real(*args, **kwargs)
+        _winapi.CreateJunction(str(checkout), str(dest / "proofhouse" / "linked"))
+
+    monkeypatch.setattr(install_skill, "_stage", stage_then_junction)
+    with pytest.raises(InstallSkillError, match="link or junction") as info:
+        install(dest, _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD}), force=True)
+    assert info.value.exit_code == 2
+    _no_leftovers(dest)
+    assert install_skill._is_link(dest / "proofhouse" / "linked")
+    assert (checkout / "secret.txt").read_text(encoding="utf-8") == "mine"
+    assert not list((tmp_path / "home").rglob("secret.txt"))
+    assert not list((tmp_path / "home" / install_skill.INSTALLS_DIR).glob("*.json"))

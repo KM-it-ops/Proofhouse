@@ -1,13 +1,17 @@
-"""Compiler Core v0.1 CLI: compile, validate, inspect, adapters, doctor,
+"""The one ``proofhouse`` command tree: compile, validate, inspect, adapters, doctor,
 evaluate-product, closed-loop-bridged-008, hosted-compile/view/export/delete,
-missionrig-generate, workspace-consume, execute-openai.
+missionrig-generate, workspace-consume, execute-openai, route/assay/proof, plus
+``case`` (and its ``optimize`` alias), ``models``, ``install-skill``,
+``uninstall-skill``, ``demo`` (``optimize.cli``) and ``eval``, ``scan``,
+``parts`` (``proofhouse.cli``, whose ``main`` both console scripts call).
 
 The CLI owns argument parsing, file/stdin/stdout handling, envelope
 serialization, and exit-code mapping only. All parsing, normalization,
 validation, compilation, capability resolution, and environment checks
 live in `api.py`; this module never duplicates that logic
-(Compiler Invariant #13). Legacy PromptOps commands (`report`, `loadouts`,
-`compile-loadout`, `generate`) are untouched and live in `cli.py`.
+(Compiler Invariant #13). The legacy harness commands (`report`, `loadouts`,
+`compile-loadout`, `generate`, `validate --dataset`) live under `eval`; their
+old top-level forms fail with a one-line pointer.
 `execute-openai` is fail-closed opt-in live execution, not closed-loop.
 """
 from __future__ import annotations
@@ -19,6 +23,7 @@ import sys
 from dataclasses import asdict
 from pathlib import Path
 
+from ..cli import LEGACY_FORMS, add_harness_commands, legacy_form_pointer
 from ..optimize.cli import add_local_commands, LOCAL_COMMANDS
 from . import api, paths
 from .contracts import CONTRACT_VERSION, CompileOptions, Diagnostic, ResultEnvelope
@@ -474,7 +479,48 @@ COMPILER_COMMANDS = frozenset({
     "hosted-delete",
     "missionrig-generate",
     "workspace-consume",
-}) | LOCAL_COMMANDS
+    "eval",
+    "scan",
+    "parts",
+}) | LOCAL_COMMANDS | frozenset(LEGACY_FORMS)
+
+
+def _overseer(argv_list: list[str]) -> int:
+    """``proofhouse "<objective>" [--case DIR] [--model NAME] [--json]``.
+
+    Stdout is the route decision, exactly as ``route`` prints it; what the
+    overseer then did (a case opened, or a "no part yet" demand record) is one
+    line on stderr.
+    """
+    from ..optimize.case import CaseError
+    from .orchestration.overseer import DEFAULT_MODEL, oversee
+
+    parser = argparse.ArgumentParser(prog='proofhouse "<objective>"', add_help=False)
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--case", default=None)
+    parser.add_argument("--model", default=DEFAULT_MODEL)
+    try:
+        args = parser.parse_args(argv_list[1:])
+    except SystemExit:
+        return EXIT_USAGE_ERROR
+    try:
+        result = oversee(argv_list[0], case_dir=Path(args.case) if args.case else None, model=args.model)
+    except CaseError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE_ERROR
+    code = _emit_route_decision(result.decision, as_json=args.json)
+    if result.case_dir is not None:
+        print(
+            f"overseer: opened a {result.decision.artifact_class} case at {result.case_dir.resolve()}; "
+            "continue it with proofhouse case ...",
+            file=sys.stderr,
+        )
+    elif result.demand_record is not None:
+        print(
+            f"overseer: no part yet for {result.decision.artifact_class}; recorded in {result.demand_record}",
+            file=sys.stderr,
+        )
+    return code
 
 
 def _emit_route_decision(decision: object, *, as_json: bool) -> int:
@@ -520,20 +566,17 @@ def _cmd_assay(args: argparse.Namespace) -> int:
 def _cmd_proof(args: argparse.Namespace) -> int:
     from .orchestration.proof import run_proof
 
-    result = run_proof(
-        args.artifact,
-        args.spec,
-        drafting_rationale="",
-        pass_a=lambda _a, _s: (),
-        pass_b=lambda _a, _s, _f: (),
-    )
+    # The CLI has no reviewer to run either pass, so no real pass runs and the verdict is UNJUDGED, never SHIP.
+    result = run_proof(args.artifact, args.spec, drafting_rationale="", pass_a=None, pass_b=None)
     payload = {"status": result.status, "passes": result.passes, "findings": []}
     if args.json:
         sys.stdout.write(json.dumps(payload, sort_keys=True))
         sys.stdout.write("\n")
     else:
         print(f"proof: {result.status}")
-    return EXIT_SUCCESS
+        if result.status == "UNJUDGED":
+            print("  no review pass ran (none is wired to this command); nothing was judged")
+    return EXIT_SUCCESS if result.status == "SHIP" else EXIT_VALIDATION_FAILURE
 
 
 def _cmd_execute_openai(args: argparse.Namespace) -> int:
@@ -715,7 +758,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     p_proof = subparsers.add_parser(
         "proof",
-        help="Experimental: two-pass expand/contract audit. Offline default ships with empty passes.",
+        help="Experimental: two-pass expand/contract audit. No review pass is wired here, so it reports UNJUDGED.",
     )
     p_proof.add_argument("--artifact", required=True, help="Artifact text to audit.")
     p_proof.add_argument("--spec", required=True, help="Spec text the artifact must satisfy.")
@@ -768,6 +811,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_exec.set_defaults(func=_cmd_execute_openai)
 
     add_local_commands(subparsers)
+    add_harness_commands(subparsers)
 
     if os.environ.get("PROOFHOUSE_EXPERIMENTAL") == "1":
         p_hc = subparsers.add_parser(
@@ -856,17 +900,22 @@ def main(argv: list[str] | None = None) -> int:
         and argv_list[0] not in COMPILER_COMMANDS
         and " " in argv_list[0]
     ):
-        from .orchestration.overseer import dispatch
+        return _overseer(argv_list)
 
-        as_json = "--json" in argv_list
-        return _emit_route_decision(dispatch(argv_list[0]), as_json=as_json)
+    pointer = legacy_form_pointer(argv_list)
+    if pointer is not None:
+        print(pointer, file=sys.stderr)
+        return EXIT_USAGE_ERROR
 
     parser = build_parser()
     try:
-        args = parser.parse_args(argv)
+        args = parser.parse_args(argv_list)
     except SystemExit as exc:
         # argparse calls sys.exit(2) on usage errors; normalize to our usage exit code.
         return exc.code if isinstance(exc.code, int) else EXIT_USAGE_ERROR
+    notice = getattr(args, "deprecation_notice", None)
+    if notice:
+        print(notice, file=sys.stderr)
 
     try:
         return args.func(args)

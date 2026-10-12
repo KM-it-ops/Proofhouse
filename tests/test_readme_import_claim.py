@@ -31,7 +31,7 @@ def test_import_refuses_altered_bundle_as_readme_claims(tmp_path: Path, monkeypa
     with zipfile.ZipFile(bundle, "w") as z:
         for name, blob in data.items():
             z.writestr(name, blob)
-    code = cli_compiler.main(["optimize", "import", "--bundle", str(bundle), "--case", str(tmp_path / "imported")])
+    code = cli_compiler.main(["case", "import", "--bundle", str(bundle), "--case", str(tmp_path / "imported")])
     capsys.readouterr()
     readme = (REPO / "README.md").read_text(encoding="utf-8")
     if code == 0:

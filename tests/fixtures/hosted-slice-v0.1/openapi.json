@@ -1084,12 +1084,14 @@
   "x-cli-commands": [
     "adapters",
     "assay",
+    "case",
     "closed-loop",
     "closed-loop-bridged-008",
     "compile",
     "compile-requirements",
     "demo",
     "doctor",
+    "eval",
     "evaluate-product",
     "execute-openai",
     "hosted-compile",
@@ -1101,8 +1103,11 @@
     "missionrig-generate",
     "models",
     "optimize",
+    "parts",
     "proof",
     "route",
+    "scan",
+    "uninstall-skill",
     "validate",
     "workspace-consume"
   ],
@@ -1127,10 +1132,15 @@
     "workspace-consume"
   ],
   "x-local-only": [
+    "case",
     "demo",
+    "eval",
     "install-skill",
     "models",
-    "optimize"
+    "optimize",
+    "parts",
+    "scan",
+    "uninstall-skill"
   ],
   "x-opt-in-live": [
     "execute-openai"

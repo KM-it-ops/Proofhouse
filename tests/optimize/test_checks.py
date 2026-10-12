@@ -40,7 +40,7 @@ def _json(out: str) -> dict:
 def _case(tmp_path: Path, capsys, name: str = "case") -> Path:
     case_dir = tmp_path / name
     code, _, err = _run(
-        ["optimize", "new", "--case", str(case_dir), "--objective", OBJECTIVE, "--model", "Sonnet 5"], capsys
+        ["case", "new", "--case", str(case_dir), "--objective", OBJECTIVE, "--model", "Sonnet 5"], capsys
     )
     assert code == 0 and err == ""
     return case_dir
@@ -49,12 +49,12 @@ def _case(tmp_path: Path, capsys, name: str = "case") -> Path:
 def _record(case_dir: Path, tmp_path: Path, name: str, prompt: str, capsys) -> None:
     prompt_file = tmp_path / name
     prompt_file.write_text(prompt, encoding="utf-8")
-    code, _, err = _run(["optimize", "record", "--case", str(case_dir), "--prompt-file", str(prompt_file)], capsys)
+    code, _, err = _run(["case", "record", "--case", str(case_dir), "--prompt-file", str(prompt_file)], capsys)
     assert code == 0 and err == ""
 
 
 def _add(case_dir: Path, capsys, *flags: str) -> tuple[int, str, str]:
-    return _run(["optimize", "criteria", "add", "--case", str(case_dir), *flags], capsys)
+    return _run(["case", "criteria", "add", "--case", str(case_dir), *flags], capsys)
 
 
 def _case_json(case_dir: Path) -> dict:
@@ -111,7 +111,7 @@ def test_criteria_add_and_list_persist_in_case_json(tmp_path: Path, capsys) -> N
     assert criteria[1] == {"id": "C2", "kind": "max_words", "value": "200", "note": "brief for the SOC"}
     assert criteria[3] == {"id": "TONE", "kind": "regex", "value": "^Summarise", "note": ""}
 
-    code, out, err = _run(["optimize", "criteria", "list", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "criteria", "list", "--case", str(case_dir)], capsys)
     assert code == 0 and err == ""
     assert out.splitlines() == [
         "criteria: 5",
@@ -121,13 +121,13 @@ def test_criteria_add_and_list_persist_in_case_json(tmp_path: Path, capsys) -> N
         "  TONE  regex            ^Summarise",
         "  C4  must_not_contain leaderboard",
     ]
-    code, out, err = _run(["optimize", "criteria", "list", "--case", str(case_dir), "--json"], capsys)
+    code, out, err = _run(["case", "criteria", "list", "--case", str(case_dir), "--json"], capsys)
     assert code == 0
     payload = _json(out)
     assert payload["command"] == "optimize criteria list"
     assert payload["data"]["criteria"] == criteria
 
-    code, out, err = _run(["optimize", "status", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "status", "--case", str(case_dir)], capsys)
     assert code == 0 and out.splitlines()[-1] == "  criteria: 5"
 
 
@@ -158,12 +158,12 @@ def test_manual_is_unjudged_until_verdict(tmp_path: Path, capsys) -> None:
     assert _add(case_dir, capsys, "--must-contain", "SOC")[0] == 0
     assert _add(case_dir, capsys, "--manual", "Reads naturally to an analyst")[0] == 0
 
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir)], capsys)
     assert code == 3 and err == ""
     assert out.splitlines() == [f"check: {case_dir.resolve()}", "  v1: FAIL  C1=PASS C2=UNJUDGED"]
 
     code, out, err = _run(
-        ["optimize", "verdict", "--case", str(case_dir), "--revision", "1", "--criterion", "C2",
+        ["case", "verdict", "--case", str(case_dir), "--revision", "1", "--criterion", "C2",
          "--result", "pass", "--note", "read by the on-call lead"],
         capsys,
     )
@@ -177,12 +177,12 @@ def test_manual_is_unjudged_until_verdict(tmp_path: Path, capsys) -> None:
     assert entry["note"] == "read by the on-call lead"
     assert "recorded_at" in entry
 
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir)], capsys)
     assert code == 0 and err == ""
     assert out.splitlines() == [f"check: {case_dir.resolve()}", "  v1: PASS  C1=PASS C2=PASS"]
 
     code, out, err = _run(
-        ["optimize", "verdict", "--case", str(case_dir), "--revision", "1", "--criterion", "C2", "--result", "fail", "--json"],
+        ["case", "verdict", "--case", str(case_dir), "--revision", "1", "--criterion", "C2", "--result", "fail", "--json"],
         capsys,
     )
     assert code == 0
@@ -191,7 +191,7 @@ def test_manual_is_unjudged_until_verdict(tmp_path: Path, capsys) -> None:
     assert payload["data"]["verdict"]["result"] == "fail"
     verdicts = json.loads((case_dir / "checks" / "verdicts.json").read_text(encoding="utf-8"))
     assert len(verdicts["verdicts"]) == 1  # same (revision, criterion) overwrites
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir)], capsys)
     assert code == 3
     assert out.splitlines()[1] == "  v1: FAIL  C1=PASS C2=FAIL"
 
@@ -201,7 +201,7 @@ def test_verdict_usage_errors(tmp_path: Path, capsys) -> None:
     _record(case_dir, tmp_path, "p1.txt", PROMPT_SHORT, capsys)
     assert _add(case_dir, capsys, "--must-contain", "SOC")[0] == 0
     assert _add(case_dir, capsys, "--manual", "Reads naturally")[0] == 0
-    base = ["optimize", "verdict", "--case", str(case_dir)]
+    base = ["case", "verdict", "--case", str(case_dir)]
 
     code, out, err = _run([*base, "--revision", "1", "--criterion", "C1", "--result", "pass"], capsys)
     assert code == 2 and out == ""
@@ -222,7 +222,7 @@ def test_check_all_prints_both_revisions_and_exit_reflects_both(tmp_path: Path, 
     assert _add(case_dir, capsys, "--must-contain", "SOC")[0] == 0
     assert _add(case_dir, capsys, "--max-words", "200")[0] == 0
 
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir), "--all"], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir), "--all"], capsys)
     assert code == 3 and err == ""
     assert out.splitlines() == [
         f"check: {case_dir.resolve()}",
@@ -233,16 +233,16 @@ def test_check_all_prints_both_revisions_and_exit_reflects_both(tmp_path: Path, 
     assert (case_dir / "checks" / "v2.json").is_file()
 
     # Default is the latest revision only.
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir)], capsys)
     assert code == 0 and err == ""
     assert out.splitlines() == [f"check: {case_dir.resolve()}", "  v2: PASS  C1=PASS C2=PASS"]
 
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir), "--revision", "1"], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir), "--revision", "1"], capsys)
     assert code == 3
     assert out.splitlines() == [f"check: {case_dir.resolve()}", "  v1: FAIL  C1=FAIL C2=FAIL"]
 
     _record(case_dir, tmp_path, "p3.txt", PROMPT_SHORT + " Cite the CVE id.", capsys)
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir), "--all", "--json"], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir), "--all", "--json"], capsys)
     assert code == 3
     payload = _json(out)
     assert payload["command"] == "optimize check"
@@ -259,7 +259,7 @@ def test_check_exit_3_on_any_fail_0_when_all_pass(tmp_path: Path, capsys) -> Non
     assert _add(case_dir, capsys, "--max-words", "200")[0] == 0
     assert _add(case_dir, capsys, "--regex", r"severity\.$")[0] == 0
     assert _add(case_dir, capsys, "--must-not-contain", "company")[0] == 0
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir), "--json"], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir), "--json"], capsys)
     assert code == 0 and err == ""
     payload = _json(out)
     assert payload["status"] == "success"
@@ -267,7 +267,7 @@ def test_check_exit_3_on_any_fail_0_when_all_pass(tmp_path: Path, capsys) -> Non
     assert [r["result"] for r in payload["data"]["revisions"][0]["results"]] == ["PASS"] * 4
 
     assert _add(case_dir, capsys, "--must-contain", "CVE")[0] == 0
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir)], capsys)
     assert code == 3 and err == ""
     assert out.splitlines()[1] == "  v1: FAIL  C1=PASS C2=PASS C3=PASS C4=PASS C5=FAIL"
 
@@ -277,7 +277,7 @@ def test_check_writes_checks_v1_json_with_overall(tmp_path: Path, capsys) -> Non
     _record(case_dir, tmp_path, "p1.txt", PROMPT_SHORT, capsys)
     assert _add(case_dir, capsys, "--must-contain", "SOC")[0] == 0
     assert _add(case_dir, capsys, "--max-words", "5")[0] == 0
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir)], capsys)
     assert code == 3
     path = case_dir / "checks" / "v1.json"
     text = path.read_text(encoding="utf-8")
@@ -302,39 +302,39 @@ def test_check_writes_checks_v1_json_with_overall(tmp_path: Path, capsys) -> Non
 
 def test_check_usage_errors(tmp_path: Path, capsys) -> None:
     case_dir = _case(tmp_path, capsys)
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir)], capsys)
     assert code == 2 and out == ""
     assert err == "error: no criteria declared; run criteria add first\n"
     assert _add(case_dir, capsys, "--must-contain", "SOC")[0] == 0
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir)], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir)], capsys)
     assert code == 2 and out == ""
     assert err == "error: no revisions recorded; run record first\n"
     _record(case_dir, tmp_path, "p1.txt", PROMPT_SHORT, capsys)
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir), "--revision", "7"], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir), "--revision", "7"], capsys)
     assert code == 2 and out == ""
     assert err == "error: revision v7 does not exist (latest is v1)\n"
-    code, out, err = _run(["optimize", "check", "--case", str(case_dir), "--revision", "1", "--all"], capsys)
+    code, out, err = _run(["case", "check", "--case", str(case_dir), "--revision", "1", "--all"], capsys)
     assert code == 2 and out == ""
     assert not (case_dir / "checks").exists()
 
 
 def test_help_is_ascii_and_never_says_score(tmp_path: Path, capsys) -> None:
     for argv in (
-        ["optimize", "--help"],
-        ["optimize", "criteria", "--help"],
-        ["optimize", "criteria", "add", "--help"],
-        ["optimize", "criteria", "list", "--help"],
-        ["optimize", "verdict", "--help"],
-        ["optimize", "check", "--help"],
+        ["case", "--help"],
+        ["case", "criteria", "--help"],
+        ["case", "criteria", "add", "--help"],
+        ["case", "criteria", "list", "--help"],
+        ["case", "verdict", "--help"],
+        ["case", "check", "--help"],
     ):
         code, out, err = _run(argv, capsys)
         assert code == 0, argv
         (out + err).encode("ascii")
         assert not SCORE_WORD.search(out + err), argv
-    code, out, err = _run(["optimize", "--help"], capsys)
+    code, out, err = _run(["case", "--help"], capsys)
     for name in ("criteria", "verdict", "check"):
         assert name in out
-    code, out, err = _run(["optimize", "criteria"], capsys)
+    code, out, err = _run(["case", "criteria"], capsys)
     assert code == 2
     for path in Path(checks.__file__).parent.glob("*.py"):
         assert not SCORE_WORD.search(path.read_text(encoding="utf-8")), path

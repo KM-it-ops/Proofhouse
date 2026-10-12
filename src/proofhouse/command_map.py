@@ -1,0 +1,79 @@
+"""Every command path of the one ``proofhouse`` tree, mapped to the spine or to a registered part.
+
+The architecture test (``tests/test_t040_06_front_door.py``) fails the build
+when a command exists that is not listed here, when an entry names a part the
+registry does not hold, or when an entry has no one-line reason. Adding a
+command therefore needs a deliberate edit here (MISSION-040 SPEC §2.1).
+
+``SPINE`` entries are the spine's own commands, including utility, legacy
+(``eval ...``) and quarantined commands, each with its reason. ``PART``
+entries name the part id the command drives.
+"""
+
+from __future__ import annotations
+
+SPINE = "spine"
+PART = "part"
+
+_CASE = {
+    "new": "opens a case for one artifact kind (--kind prompt or skill)",
+    "compile": "renders the compile packet from the clarify answers",
+    "record": "records a version the host's model wrote (prompt text or a skill folder)",
+    "revise": "renders the self-heal packet for the next version",
+    "status": "reads the case: stage, versions, criteria, runs",
+    "criteria add": "declares a criterion the case pass rule judges",
+    "criteria list": "lists the declared criteria",
+    "verdict": "records a human judgement bound to a version digest",
+    "check": "runs the checker parts on a version and writes their results into the case",
+    "constraints add": "adds an accepted constraint to the ledger",
+    "constraints list": "lists the constraint ledger",
+    "constraints propose": "proposes a change to an accepted constraint",
+    "constraints accept": "accepts a proposed constraint change",
+    "constraints reject": "rejects a proposed constraint change",
+    "constraints link": "links a constraint to the criterion that evidences it",
+    "output add": "records a run: an output produced elsewhere from a version",
+    "output list": "lists recorded runs with part and cost",
+    "compare": "compares two versions on the same criteria",
+    "report": "writes the evidence report for a version",
+    "export": "writes the case as a zip with a digest manifest",
+    "import": "re-verifies a bundle against its manifest and opens it as a case",
+}
+
+COMMAND_MAP: dict[str, tuple[str, str, str]] = {
+    # path: (SPINE or PART, part id or "", one-line reason)
+    **{f"case {sub}": (SPINE, "", reason) for sub, reason in _CASE.items()},
+    **{f"optimize {sub}": (SPINE, "", f"deprecated alias of 'case {sub}' for 0.5") for sub in _CASE},
+    "install-skill": (PART, "install-skill", "the host writer part: installs a skill into a host's skills folder"),
+    "uninstall-skill": (PART, "install-skill", "the host writer part: removes what it installed and restores the prior one"),
+    "parts": (SPINE, "", "utility: lists the part registry"),
+    "adapters": (SPINE, "", "utility: alias of parts limited to request builders, with its 0.4.1 output"),
+    "models list": (SPINE, "", "utility: model-notes registry"),
+    "models show": (SPINE, "", "utility: model-notes registry"),
+    "models remember": (SPINE, "", "utility: stores the user's own model notes"),
+    "models forget": (SPINE, "", "utility: removes cached model notes"),
+    "demo": (SPINE, "", "utility: the packaged reference workflow"),
+    "scan": (SPINE, "", "utility: read-only project scan for the skill's questions"),
+    "doctor": (SPINE, "", "utility: environment and contract check"),
+    "validate": (SPINE, "", "compiler: IR validation"),
+    "inspect": (SPINE, "", "compiler: IR inspection"),
+    "compile": (SPINE, "", "compiler: lowers IR through a request builder part"),
+    "closed-loop": (SPINE, "", "compiler: offline structural loop with the fake request builder"),
+    "compile-requirements": (SPINE, "", "compiler: requirements-contract evaluation (experimental)"),
+    "closed-loop-bridged-008": (SPINE, "", "compiler: bridged requirements loop (experimental)"),
+    "evaluate-product": (SPINE, "", "compiler: imported observations against a rubric (experimental)"),
+    "execute-openai": (SPINE, "", "opt-in live send; not registered as a part in this slice (live runners are out of scope)"),
+    "route": (SPINE, "", "overseer station: classifies an objective (experimental)"),
+    "assay": (SPINE, "", "overseer station: claim ledger (experimental)"),
+    "proof": (SPINE, "", "overseer station: two-pass audit (experimental)"),
+    "eval validate": (SPINE, "", "legacy eval harness: dataset validation"),
+    "eval report": (SPINE, "", "legacy eval harness: report skeleton"),
+    "eval loadouts": (SPINE, "", "legacy eval harness: loadout list"),
+    "eval compile-loadout": (SPINE, "", "legacy eval harness: loadout compile"),
+    "eval generate": (SPINE, "", "legacy eval harness: prompt templates"),
+    "hosted-compile": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
+    "hosted-view": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
+    "hosted-export": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
+    "hosted-delete": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
+    "missionrig-generate": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
+    "workspace-consume": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
+}

@@ -1,0 +1,15 @@
+{
+  "schema": "proofhouse.optimize.verdicts/v0",
+  "verdicts": [
+    {
+      "checks_version": "proofhouse.optimize.checks/v1",
+      "criterion": "C5",
+      "criterion_sha256": "2ba49b9813330670a8066db322352da2732a516f82d44f132699cb6cd605cceb",
+      "note": "clear",
+      "recorded_at": "2026-10-11T15:14:00+00:00",
+      "result": "pass",
+      "revision": 2,
+      "revision_sha256": "e597b8502fa3e72dd8ffadcc4adf38aeb4179e2b404fabd65a4a7d170493e55c"
+    }
+  ]
+}

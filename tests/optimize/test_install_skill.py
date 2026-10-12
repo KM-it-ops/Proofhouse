@@ -169,6 +169,7 @@ def test_force_refuses_a_skill_folder_that_is_or_holds_a_link_and_copies_nothing
         os.rename(skill_dir, tmp_path / "moved")
         linked = _link_folder(skill_dir, outside)
     before = _files(dest)
+    home_before = _files(tmp_path / "home")  # the first install's record
 
     code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
     assert code == 2 and out == ""
@@ -177,7 +178,7 @@ def test_force_refuses_a_skill_folder_that_is_or_holds_a_link_and_copies_nothing
     assert _files(dest) == before
     assert sorted(p.name for p in dest.iterdir()) == ["proofhouse"]
     assert _files(outside) == {"secret.txt": b"secret", "deep/x.txt": b"x"}
-    assert _files(tmp_path / "home") == {}  # nothing copied out through the link
+    assert _files(tmp_path / "home") == home_before  # nothing copied out through the link
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs privileges on Windows")
@@ -198,13 +199,14 @@ def test_force_refuses_and_removes_a_backup_that_picked_up_a_link_during_the_cop
             os.symlink(outside, skill_dir / "linked", target_is_directory=True)
         return real_copytree(src, dst, *args, **kwargs)
 
+    home_before = _files(tmp_path / "home")  # the first install's record
     monkeypatch.setattr(shutil, "copytree", link_then_copy)
     code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
     assert code == 2 and out == ""
     assert f"{skill_dir / 'linked'} is a link or junction" in err and "nothing was changed" in err
     assert (skill_dir / "SKILL.md").read_bytes() == sentinel
     assert sorted(p.name for p in dest.iterdir()) == ["proofhouse"]
-    assert _files(tmp_path / "home") == {}
+    assert _files(tmp_path / "home") == home_before
     assert _backup_stamps(tmp_path / "home") == []
 
 
@@ -262,6 +264,7 @@ def test_a_backup_copy_that_cannot_be_checked_is_removed(tmp_path: Path, monkeyp
     assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
     before = _files(dest)
     home = (tmp_path / "home").resolve()
+    home_before = _files(home)  # the first install's record
     real_first_link = install_skill._first_link
 
     def unreadable_backup(root: Path) -> Path | None:
@@ -275,7 +278,7 @@ def test_a_backup_copy_that_cannot_be_checked_is_removed(tmp_path: Path, monkeyp
     assert "cannot back up" in err and "the existing installation was not changed" in err
     assert "a copy is left" not in err
     assert _files(dest) == before
-    assert _files(home) == {}
+    assert _files(home) == home_before
     assert _backup_stamps(home) == []
 
 
@@ -287,6 +290,7 @@ def test_force_on_a_skill_folder_with_an_unreadable_subfolder_is_refused_before_
     dest = tmp_path / "skills"
     assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
     skill_dir = (dest / "proofhouse").resolve()
+    home_before = _files(tmp_path / "home")  # the first install's record
     locked = skill_dir / "locked"
     locked.mkdir()
     locked.chmod(0)  # a link inside could not be seen
@@ -296,7 +300,7 @@ def test_force_on_a_skill_folder_with_an_unreadable_subfolder_is_refused_before_
         locked.chmod(0o755)
     assert code == 7 and out == ""
     assert f"cannot read {skill_dir}" in err and "the existing installation was not changed" in err
-    assert _files(tmp_path / "home") == {}
+    assert _files(tmp_path / "home") == home_before
 
 
 def test_force_on_a_skill_folder_that_cannot_be_read_is_an_environment_failure(
@@ -305,6 +309,7 @@ def test_force_on_a_skill_folder_that_cannot_be_read_is_an_environment_failure(
     dest = tmp_path / "skills"
     assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
     before = _files(dest)
+    home_before = _files(tmp_path / "home")  # the first install's record
 
     def unreadable(root: Path) -> None:
         raise PermissionError(13, "Access is denied", str(root))
@@ -314,7 +319,7 @@ def test_force_on_a_skill_folder_that_cannot_be_read_is_an_environment_failure(
     assert code == 7 and out == ""
     assert "cannot read" in err and "the existing installation was not changed" in err
     assert _files(dest) == before
-    assert _files(tmp_path / "home") == {}
+    assert _files(tmp_path / "home") == home_before
 
 
 def test_bundle_with_wrong_name_fails_verification_exit_7_and_is_removed(tmp_path: Path, capsys) -> None:

@@ -43,28 +43,35 @@ jobs:
       - name: Run tests
         run: python -m pytest
 
-      - name: Validate datasets (legacy PromptOps CLI)
+      - name: Validate datasets (eval harness)
         run: |
-          python -m proofhouse.cli validate --dataset evals/datasets/prompt_audit_cases.jsonl
-          python -m proofhouse.cli validate --dataset evals/datasets/meta_prompting_cases.jsonl
-          python -m proofhouse.cli validate --dataset evals/datasets/agentic_mode_cases.jsonl
-          python -m proofhouse.cli validate --dataset evals/datasets/adversarial_cases.jsonl
+          proofhouse eval validate --dataset evals/datasets/prompt_audit_cases.jsonl
+          proofhouse eval validate --dataset evals/datasets/meta_prompting_cases.jsonl
+          proofhouse eval validate --dataset evals/datasets/agentic_mode_cases.jsonl
+          proofhouse eval validate --dataset evals/datasets/adversarial_cases.jsonl
 
-      - name: Compiler Core smoke test -- installed script
+      - name: Front door smoke test -- installed script
         run: |
-          proofhouse-compiler doctor --json
-          proofhouse-compiler adapters --json
+          proofhouse doctor --json
+          proofhouse adapters --json
+          proofhouse parts --json
 
-      - name: Compiler Core smoke test -- python -m invocation
+      - name: Front door smoke test -- python -m invocation
         run: |
-          python -m proofhouse.compiler.cli_compiler doctor --json
+          python -m proofhouse.cli doctor --json
           python -m proofhouse.compiler.cli_compiler adapters --json
 
-      - name: Compiler --help smoke
+      - name: Deprecated proofhouse-compiler alias still works
+        run: |
+          proofhouse-compiler doctor --json
+
+      - name: --help smoke
         env:
           PYTHONUTF8: "1"
           PYTHONIOENCODING: utf-8
-        run: proofhouse-compiler --help
+        run: |
+          proofhouse --help
+          proofhouse-compiler --help
 
   typescript-drift:
     runs-on: ubuntu-latest
@@ -108,6 +115,7 @@ jobs:
 
       - name: Doctor on installed wheel
         run: |
+          /tmp/pr-wheel/bin/proofhouse doctor --json
           /tmp/pr-wheel/bin/proofhouse-compiler doctor --json
 
       - name: Installed consumer smoke
@@ -118,7 +126,7 @@ jobs:
         env:
           PROOFHOUSE_HOME: /tmp/pr-wheel-home
         run: |
-          /tmp/pr-wheel/bin/python scripts/reference_workflow.py --cli /tmp/pr-wheel/bin/proofhouse-compiler --quiet
+          /tmp/pr-wheel/bin/python scripts/reference_workflow.py --cli /tmp/pr-wheel/bin/proofhouse --quiet
 
       - name: Demo command on the installed wheel, outside the checkout
         env:
@@ -126,7 +134,7 @@ jobs:
           PYTHONUTF8: "1"
         run: |
           cd /tmp
-          /tmp/pr-wheel/bin/proofhouse-compiler demo --quiet
+          /tmp/pr-wheel/bin/proofhouse demo --quiet
 
       - name: Generated model surfaces and skill bundle are in sync
         run: |

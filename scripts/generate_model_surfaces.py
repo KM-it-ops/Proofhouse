@@ -46,7 +46,7 @@ SKILL_BEGIN, SKILL_END = "<!-- model-list:begin -->", "<!-- model-list:end -->"
 
 README_OTHER_ROW = (
     "| **Other** | Skill and artifact: the host agent or the artifact web-researches the model "
-    "and caches the paragraph. CLI (`proofhouse-compiler`): offline; `models remember` stores "
+    "and caches the paragraph. CLI (`proofhouse`): offline; `models remember` stores "
     "your own notes, otherwise the generic profile is used and labeled `fallback`. |"
 )
 README_FULL_PROFILES = (
@@ -236,7 +236,7 @@ def render_readme(current: str, registry: Registry) -> str:
     rows.append(
         f"Profiles last reviewed {_max_verified_at(registry)}; a profile older than "
         f"{registry.stale_after_days} days is flagged stale. {_evidence_sentence(registry)} "
-        "They are prompting guidance, not vendor specifications. `proofhouse-compiler models list` "
+        "They are prompting guidance, not vendor specifications. `proofhouse models list` "
         "shows per-model ids, aliases, and dates."
     )
     rows.append("")

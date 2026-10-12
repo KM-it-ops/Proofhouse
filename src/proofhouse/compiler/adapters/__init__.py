@@ -1,49 +1,36 @@
-"""Adapter registry.
+"""Adapter lookup: a thin wrapper over the part registry (``proofhouse.parts``).
 
-v0.1 registers the deterministic fake adapter, the OpenAI adapter (second
-conformance target, MISSION-003), the Anthropic adapter (third conformance
-target, MISSION-004) and, as of MISSION-005, the Gemini adapter (fourth and
-final conformance target per OAR-001-02's ratified order). All four adapter
-ids are now registered; no live-provider id remains reserved-but-unimplemented.
+The four request builders (fake, openai, anthropic, gemini) are registered
+there as ``request_builder`` parts; each wraps its adapter class unchanged, so
+``get_adapter`` returns the same object, with the same lowering and the same
+bytes, as before the registry existed. Only request builders are adapters: a
+registered part with any other role is an unknown adapter id here.
 """
 from __future__ import annotations
 
+from ...parts import ROLE_REQUEST_BUILDER, get_part, part_ids
 from ..diagnostics import DiagnosticFactory
-from .anthropic import ADAPTER_ID as ANTHROPIC_ADAPTER_ID
-from .anthropic import AnthropicAdapter
 from .base import Adapter, AdapterNotFoundError
-from .fake import ADAPTER_ID as FAKE_ADAPTER_ID
-from .fake import FakeAdapter
-from .gemini import ADAPTER_ID as GEMINI_ADAPTER_ID
-from .gemini import GeminiAdapter
-from .openai import ADAPTER_ID as OPENAI_ADAPTER_ID
-from .openai import OpenAIAdapter
 
 RESERVED_LIVE_ADAPTER_IDS = frozenset()
-KNOWN_ADAPTER_IDS = frozenset({FAKE_ADAPTER_ID, OPENAI_ADAPTER_ID, ANTHROPIC_ADAPTER_ID, GEMINI_ADAPTER_ID})
+KNOWN_ADAPTER_IDS = frozenset(part_ids(ROLE_REQUEST_BUILDER))
 
 
 def list_registered_adapter_ids() -> tuple[str, ...]:
-    """Adapters actually implemented in v0.1 (fake, openai, anthropic, gemini)."""
-    return (FAKE_ADAPTER_ID, OPENAI_ADAPTER_ID, ANTHROPIC_ADAPTER_ID, GEMINI_ADAPTER_ID)
+    """Adapters actually implemented in v0.1 (fake, openai, anthropic, gemini), in registry order."""
+    return part_ids(ROLE_REQUEST_BUILDER)
 
 
 def get_adapter(adapter_id: str, diagnostics: DiagnosticFactory, source_document: str = "<input>") -> Adapter:
-    if adapter_id == FAKE_ADAPTER_ID:
-        return FakeAdapter(diagnostics, source_document)
-    if adapter_id == OPENAI_ADAPTER_ID:
-        return OpenAIAdapter(diagnostics, source_document)
-    if adapter_id == ANTHROPIC_ADAPTER_ID:
-        return AnthropicAdapter(diagnostics, source_document)
-    if adapter_id == GEMINI_ADAPTER_ID:
-        return GeminiAdapter(diagnostics, source_document)
     if adapter_id in RESERVED_LIVE_ADAPTER_IDS:
         raise AdapterNotFoundError(
             f"adapter {adapter_id!r} is a reserved live-provider id not implemented in "
             f"Compiler Core v0.1 (out of scope: live execution); it is never silently "
             f"substituted with another adapter"
         )
-    raise AdapterNotFoundError(f"unknown adapter id {adapter_id!r}")
+    if adapter_id not in part_ids(ROLE_REQUEST_BUILDER):
+        raise AdapterNotFoundError(f"unknown adapter id {adapter_id!r}")
+    return get_part(adapter_id).bind(diagnostics, source_document)
 
 
 __all__ = [
