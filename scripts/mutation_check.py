@@ -19,7 +19,7 @@ MUTATIONS = [
      "merged[(case.case_id, criterion_id)] = value", 'merged[f"{case.case_id}:{criterion_id}"] = value',
      ["tests/compiler/test_t03_eval_integrity.py"]),
     ("revision digest comparison bypassed", "src/proofhouse/optimize/case.py",
-     "if actual != revision.sha256:", "if False:",
+     "    if actual != digest:\n", "    if False:\n",
      ["tests/optimize/test_t04_revision_integrity.py"]),
     ("verdict digest binding bypassed", "src/proofhouse/optimize/checks.py",
      "            return (item[\"result\"], False) if bound else (None, True)",
@@ -41,7 +41,10 @@ MUTATIONS = [
      "    if runtime.unsupported:\n", "    if False:\n",
      ["tests/compiler/test_t02_runtime_semantics.py"]),
     ("install verifies after swap (old behavior)", "src/proofhouse/optimize/install_skill.py",
-     "                verify_skill_md(staged / SKILL_FILE)\n", "                pass\n",
+     # the bundle's SKILL.md is checked when read and again once staged; either alone stops an invalid install
+     ("            name = check_frontmatter(_skill_md_text(by_path), expected=top)\n",
+      "        verify_skill_md(staged / SKILL_FILE, skill.name)\n"),
+     ("            name = top\n", "        pass\n"),
      ["tests/optimize/test_t06_install_transaction.py"]),
     ("notes file labeled researched again", "src/proofhouse/optimize/case.py",
      "        source=SOURCE_USER_SUPPLIED,\n", '        source="researched",\n',
@@ -63,10 +66,14 @@ for name, path, old, new, tests in MUTATIONS:
     target = Path(path)
     original = target.read_bytes()
     text = original.decode("utf-8")
-    if text.count(old) != 1:
-        results.append((name, "MUTATION NOT APPLIED (pattern count %d)" % text.count(old)))
+    pairs = list(zip(old, new)) if isinstance(old, tuple) else [(old, new)]
+    counts = [text.count(before) for before, _ in pairs]
+    if counts != [1] * len(pairs):
+        results.append((name, "MUTATION NOT APPLIED (pattern count %s)" % ", ".join(map(str, counts))))
         continue
-    target.write_bytes(text.replace(old, new).encode("utf-8"))
+    for before, after in pairs:
+        text = text.replace(before, after)
+    target.write_bytes(text.encode("utf-8"))
     try:
         run = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-x", *tests],
                              capture_output=True, text=True, check=False)
