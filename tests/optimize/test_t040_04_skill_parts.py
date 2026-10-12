@@ -980,3 +980,226 @@ def test_skill_case_report_names_what_the_skill_checker_did_not_measure(skill_ca
     part_lines = [line for line in lines if f"`{parts.SKILL_CHECKER_ID}`" in line]
     assert len(part_lines) == 1 and "Overall" not in part_lines[0]
     assert all(item in part_lines[0] for item in parts.SKILL_CHECKER_NOT_MEASURED)
+
+
+# --- installer re-check of 550a367 -------------------------------------------------------------
+
+THEIRS = {"SKILL.md": b"---\nname: demo-skill\ndescription: theirs\n---\n"}
+
+
+def backups(tmp_path: Path) -> list[Path]:
+    root = tmp_path / "ph" / install_skill.BACKUP_DIR
+    return sorted(root.rglob("*")) if root.exists() else []
+
+
+def records(tmp_path: Path) -> list[Path]:
+    root = tmp_path / "ph" / install_skill.INSTALLS_DIR
+    return sorted(root.glob("*.json")) if root.exists() else []
+
+
+@pytest.mark.parametrize("target", ["outside", "own folder"])
+def test_forced_uninstall_refuses_a_skill_folder_holding_a_link_and_copies_nothing(
+    tmp_path: Path, host: Path, target: str
+) -> None:
+    install(host, skill_folder(tmp_path / "src"))
+    outside = skill_folder(tmp_path / "outside", {"secret.txt": b"secret", "deep/x.txt": b"x"})
+    link_folder(host / "demo-skill" / "node_modules", outside if target == "outside" else host / "demo-skill")
+    record = install_skill._record_path((host / "demo-skill").resolve(), None)
+    recorded = record.read_text(encoding="utf-8")
+    host_before, home_before = state(host), state(tmp_path / "ph")
+    with pytest.raises(InstallSkillError, match="link or junction") as info:
+        uninstall("demo-skill", host, force=True)
+    assert info.value.exit_code == 2
+    assert state(host) == host_before
+    assert state(tmp_path / "ph") == home_before  # nothing copied out of the link; nothing new at all
+    assert record.read_text(encoding="utf-8") == recorded
+    assert snapshot(outside) == {"secret.txt": b"secret", "deep/x.txt": b"x"}
+
+
+@pytest.mark.parametrize(
+    ("plant_after", "force"), [("_stage", False), ("_write_record", False), ("_write_record", True)]
+)
+def test_install_refuses_a_skill_folder_that_appears_while_it_installs(
+    tmp_path: Path, host: Path, monkeypatch, plant_after: str, force: bool
+) -> None:
+    real = getattr(install_skill, plant_after)
+
+    def then_plant(*args, **kwargs):
+        result = real(*args, **kwargs)
+        if not (host / "demo-skill").exists():
+            skill_folder(host / "demo-skill", THEIRS)
+        return result
+
+    monkeypatch.setattr(install_skill, plant_after, then_plant)
+    with pytest.raises(InstallSkillError, match="appeared") as info:
+        install(host, skill_folder(tmp_path / "src"), force=force)
+    assert info.value.exit_code == 2
+    assert snapshot(host / "demo-skill") == THEIRS
+    assert sorted(p.name for p in host.iterdir()) == ["demo-skill"]
+    assert backups(tmp_path) == []
+    assert records(tmp_path) == []
+
+
+@pytest.mark.parametrize("where", ["inside", "itself"])
+def test_forced_install_refuses_a_link_that_appears_while_it_installs(
+    tmp_path: Path, host: Path, monkeypatch, where: str
+) -> None:
+    skill_folder(host / "demo-skill", THEIRS)
+    outside = skill_folder(tmp_path / "outside", {"secret.txt": b"secret"})
+    real = install_skill._stage
+
+    def stage_then_link(*args, **kwargs):
+        real(*args, **kwargs)
+        if where == "inside":
+            link_folder(host / "demo-skill" / "linked", outside)
+        else:
+            os.rename(host / "demo-skill", tmp_path / "moved")
+            link_folder(host / "demo-skill", outside)
+
+    monkeypatch.setattr(install_skill, "_stage", stage_then_link)
+    with pytest.raises(InstallSkillError, match="link or junction") as info:
+        install(host, skill_folder(tmp_path / "src"), force=True)
+    assert info.value.exit_code == 2
+    linked = host / "demo-skill" / "linked" if where == "inside" else host / "demo-skill"
+    assert install_skill._is_link(linked)
+    assert sorted(p.name for p in host.iterdir()) == ["demo-skill"]
+    assert snapshot(outside) == {"secret.txt": b"secret"}
+    assert backups(tmp_path) == []
+    assert records(tmp_path) == []
+
+
+@links_supported
+def test_forced_install_refuses_a_backup_that_holds_a_link(tmp_path: Path, host: Path, monkeypatch) -> None:
+    skill_folder(host / "demo-skill", THEIRS)
+    outside = skill_folder(tmp_path / "outside", {"secret.txt": b"secret"})
+    real_copytree = shutil.copytree
+
+    def link_then_copy(src, dst, *args, **kwargs):
+        if Path(src).name == "demo-skill" and not os.path.lexists(Path(src) / "linked"):
+            os.symlink(outside, Path(src) / "linked", target_is_directory=True)  # copied as a link, not followed
+        return real_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copytree", link_then_copy)
+    with pytest.raises(InstallSkillError, match="link or junction") as info:
+        install(host, skill_folder(tmp_path / "src"), force=True)
+    assert info.value.exit_code == 2
+    assert (host / "demo-skill" / "SKILL.md").read_bytes() == THEIRS["SKILL.md"]
+    assert sorted(p.name for p in host.iterdir()) == ["demo-skill"]
+    assert backups(tmp_path) == []
+    assert records(tmp_path) == []
+
+
+def test_a_backup_that_fails_midway_leaves_nothing_under_proofhouse_home(tmp_path: Path, host: Path, monkeypatch) -> None:
+    skill_folder(host / "demo-skill", {**THEIRS, "big/a.txt": b"a"})
+    before = snapshot(host)
+    real_copytree = shutil.copytree
+
+    def copy_then_fail(src, dst, *args, **kwargs):
+        real_copytree(src, dst, *args, **kwargs)
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(shutil, "copytree", copy_then_fail)
+    with pytest.raises(InstallSkillError, match="cannot back up") as info:
+        install(host, skill_folder(tmp_path / "src"), force=True)
+    assert info.value.exit_code == 7
+    assert snapshot(host) == before
+    assert backups(tmp_path) == []
+    assert records(tmp_path) == []
+
+
+@pytest.mark.parametrize("failure", ["copy fails", "copy differs"])
+def test_a_backup_that_cannot_be_removed_is_named_in_the_error(
+    tmp_path: Path, host: Path, monkeypatch, failure: str
+) -> None:
+    skill_folder(host / "demo-skill", THEIRS)
+    real_copytree = shutil.copytree
+
+    def copy_then(src, dst, *args, **kwargs):
+        real_copytree(src, dst, *args, **kwargs)
+        if failure == "copy fails":
+            raise OSError(28, "No space left on device")
+        (Path(dst) / "late.txt").write_text("written while the backup was taken", encoding="utf-8")
+
+    monkeypatch.setattr(shutil, "copytree", copy_then)
+    monkeypatch.setattr(install_skill, "_discard", lambda path: False)
+    with pytest.raises(InstallSkillError) as info:
+        install(host, skill_folder(tmp_path / "src"), force=True)
+    left = sorted((tmp_path / "ph" / install_skill.BACKUP_DIR).glob("*/demo-skill"))
+    assert len(left) == 1
+    assert f"left at {left[0]}" in str(info.value)
+
+
+def test_a_forced_uninstall_whose_safety_copy_fails_leaves_nothing_under_proofhouse_home(
+    tmp_path: Path, host: Path, monkeypatch
+) -> None:
+    install(host, skill_folder(tmp_path / "src"))
+    (host / "demo-skill" / "notes" / "edited.txt").write_text("my edit", encoding="utf-8")
+    record = install_skill._record_path((host / "demo-skill").resolve(), None)
+    recorded = record.read_text(encoding="utf-8")
+    before = snapshot(host)
+    real_copytree = shutil.copytree
+
+    def copy_then_fail(src, dst, *args, **kwargs):
+        real_copytree(src, dst, *args, **kwargs)
+        raise OSError(28, "No space left on device")
+
+    monkeypatch.setattr(shutil, "copytree", copy_then_fail)
+    with pytest.raises(InstallSkillError, match="nothing was removed") as info:
+        uninstall("demo-skill", host, force=True)
+    assert info.value.exit_code == 7
+    assert snapshot(host) == before
+    assert record.read_text(encoding="utf-8") == recorded
+    uninstalled = tmp_path / "ph" / install_skill.UNINSTALLED_DIR
+    assert not uninstalled.exists() or list(uninstalled.rglob("*")) == []
+
+
+@pytest.mark.parametrize("action", ["install", "uninstall"])
+def test_a_rollback_that_cannot_put_the_record_back_says_so(
+    tmp_path: Path, host: Path, monkeypatch, action: str
+) -> None:
+    if action == "install":
+        skill_folder(host / "demo-skill", THEIRS)
+    else:
+        install(host, skill_folder(tmp_path / "src"))
+    record = install_skill._record_path((host / "demo-skill").resolve(), None)
+    before = snapshot(host)
+
+    def locked(src: Path, dst: Path) -> None:
+        if record.is_file():
+            record.unlink()
+        record.mkdir(parents=True, exist_ok=True)  # the record path can no longer be written or removed
+        raise PermissionError("simulated lock")
+
+    monkeypatch.setattr(install_skill, "_move", locked)
+    with pytest.raises(InstallSkillError, match="record not restored") as info:
+        if action == "install":
+            install(host, skill_folder(tmp_path / "src"), force=True)
+        else:
+            uninstall("demo-skill", host)
+    assert info.value.exit_code == 7
+    assert str(record) in str(info.value)
+    assert snapshot(host) == before
+
+
+@links_supported
+def test_forced_uninstall_refuses_a_safety_copy_that_differs_from_the_folder(tmp_path: Path, host: Path, monkeypatch) -> None:
+    install(host, skill_folder(tmp_path / "src"))
+    (host / "demo-skill" / "notes" / "edited.txt").write_text("my edit", encoding="utf-8")
+    outside = skill_folder(tmp_path / "outside", {"secret.txt": b"secret"})
+    record = install_skill._record_path((host / "demo-skill").resolve(), None)
+    recorded = record.read_text(encoding="utf-8")
+    real_copytree = shutil.copytree
+
+    def link_then_copy(src, dst, *args, **kwargs):
+        if Path(src).name == "demo-skill" and not os.path.lexists(Path(src) / "linked"):
+            os.symlink(outside, Path(src) / "linked", target_is_directory=True)  # after the link check
+        return real_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copytree", link_then_copy)
+    with pytest.raises(InstallSkillError, match="changed while it was being backed up; nothing was removed") as info:
+        uninstall("demo-skill", host, force=True)
+    assert info.value.exit_code == 7
+    assert (host / "demo-skill" / "notes" / "edited.txt").read_text(encoding="utf-8") == "my edit"
+    assert record.read_text(encoding="utf-8") == recorded
+    uninstalled = tmp_path / "ph" / install_skill.UNINSTALLED_DIR
+    assert not uninstalled.exists() or list(uninstalled.rglob("*")) == []

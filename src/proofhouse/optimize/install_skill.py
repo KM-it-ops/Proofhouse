@@ -29,7 +29,8 @@ Every install is recorded under ``PROOFHOUSE_HOME`` (the installed file
 manifest and the backup it displaced), so ``uninstall`` can prove what this
 writer wrote. Uninstall removes only ``<skills folder>/<name>``, refuses when
 the folder no longer matches the record unless forced (and then backs it up
-first), removes a link rather than what it points at, and restores the backup
+first, verifying the copy, and refuses a folder holding a link, which that copy
+would follow), removes a link rather than what it points at, and restores the backup
 the undone install displaced, only if it still holds exactly what was
 displaced. No network.
 """
@@ -423,7 +424,8 @@ def _write_record(skill_dir: Path, home: Path | None, name: str, history: list[d
     os.replace(tmp, path)
 
 
-def _restore_record(skill_dir: Path, home: Path | None, text: str | None) -> None:
+def _restore_record(skill_dir: Path, home: Path | None, text: str | None) -> bool:
+    """Put the record back as it was before a change that failed; ``False`` if that could not be done."""
     path = _record_path(skill_dir, home)
     try:
         if text is None:
@@ -431,7 +433,19 @@ def _restore_record(skill_dir: Path, home: Path | None, text: str | None) -> Non
         else:
             path.write_text(text, encoding="utf-8")
     except OSError:
-        pass
+        return False
+    return True
+
+
+def _rolled_back(exc: BaseException, skill_dir: Path, home: Path | None, text: str | None) -> BaseException:
+    """``exc`` after the record is put back; if it cannot be, the message says so and names the record."""
+    if _restore_record(skill_dir, home, text) or not isinstance(exc, InstallSkillError):
+        return exc
+    return InstallSkillError(
+        f"{exc}; record not restored: the install record {_record_path(skill_dir, home)} no longer matches "
+        f"{skill_dir}",
+        exc.exit_code,
+    )
 
 
 def installed_digest(skill_dir: Path) -> str | None:
@@ -481,6 +495,34 @@ def _first_link(root: Path) -> Path | None:
     return None
 
 
+def _link_in(folder: Path, unchanged: str) -> Path | None:
+    """``_first_link(folder)``; a folder that cannot be read is an environment failure."""
+    try:
+        return _first_link(folder)
+    except OSError as exc:
+        raise InstallSkillError(f"cannot read {folder}: {exc}; {unchanged}", EXIT_ENVIRONMENT_FAILURE) from exc
+
+
+def _link_refused(link: Path, note: str = "") -> InstallSkillError:
+    return InstallSkillError(
+        f"{link} is a link or junction; install-skill --force will not replace a skill folder that is or "
+        "holds a link, because it cannot back it up and restore it exactly. Remove or replace the link "
+        f"yourself, then install again; nothing was changed{note}.",
+        EXIT_USAGE_ERROR,
+    )
+
+
+def _drop_copy(copy: Path) -> str:
+    """Remove a copy that failed or does not match, and its stamp folder; a note naming anything left."""
+    if os.path.lexists(copy) and not _discard(copy):
+        return f"; a copy is left at {copy}"
+    try:
+        os.rmdir(copy.parent)
+    except OSError:
+        pass
+    return ""
+
+
 # --- install ---------------------------------------------------------------------------------
 
 
@@ -504,17 +546,9 @@ def install(
     if os.path.lexists(skill_dir) and not force:
         raise InstallSkillError(f"{skill_dir} already exists; re-run with --force to replace it", EXIT_USAGE_ERROR)
     if os.path.lexists(skill_dir):
-        try:
-            link = _first_link(skill_dir)
-        except OSError as exc:
-            raise InstallSkillError(f"cannot read {skill_dir}: {exc}; nothing was changed", EXIT_ENVIRONMENT_FAILURE) from exc
+        link = _link_in(skill_dir, "nothing was changed")
         if link is not None:
-            raise InstallSkillError(
-                f"{link} is a link or junction; install-skill --force will not replace a skill folder that is or "
-                "holds a link, because it cannot back it up and restore it exactly. Remove or replace the link "
-                "yourself, then install again; nothing was changed.",
-                EXIT_USAGE_ERROR,
-            )
+            raise _link_refused(link)
     history, record_text = _read_record(skill_dir, home)
     try:
         dest_dir.mkdir(parents=True, exist_ok=True)
@@ -525,6 +559,8 @@ def install(
         staged = staging_root / skill.name
         _stage(skill, staged, skill_dir)
         existing = os.path.lexists(skill_dir)
+        if existing and not force:
+            raise _appeared(skill_dir)
         backup = _backup_path(skill.name, home) if existing else None
         try:
             backup_digest = folder_state_digest(skill_dir) if existing else None
@@ -550,9 +586,11 @@ def install(
             ) from exc
         try:
             backup, leftover = _swap_in(staged, skill_dir, backup, backup_digest)
-        except BaseException:
-            _restore_record(skill_dir, home, record_text)
-            raise
+        except BaseException as exc:
+            failure = _rolled_back(exc, skill_dir, home, record_text)
+            if failure is exc:
+                raise
+            raise failure from exc
     finally:
         shutil.rmtree(staging_root, ignore_errors=True)
     return InstallResult(
@@ -591,13 +629,24 @@ def _stage(skill: SkillSource, staged: Path, skill_dir: Path) -> None:
         raise _failed(f"the staged copy does not read back as the source's files; nothing was installed at {skill_dir}")
 
 
+def _appeared(skill_dir: Path) -> InstallSkillError:
+    return InstallSkillError(
+        f"{skill_dir} appeared while the skill was being installed; nothing was installed. "
+        "Re-run with --force to replace it",
+        EXIT_USAGE_ERROR,
+    )
+
+
 def _swap_in(
     staged: Path, skill_dir: Path, backup: Path | None, expected: str | None = None
 ) -> tuple[Path | None, Path | None]:
     """Replace ``skill_dir`` with ``staged``; the live skill only ever moves by atomic rename.
 
+    0. Decide on what is there now: refuse a folder the install did not see (``backup`` is
+       ``None``, so its record names no backup) and a folder that is or holds a link.
     1. Copy the live skill to a backup under ``PROOFHOUSE_HOME`` (nothing live is touched),
-       never following a link; refused unless the copy's ``folder_state_digest`` is ``expected``.
+       never following a link; refused if the copy holds a link or its ``folder_state_digest``
+       is not ``expected``, and the copy is removed again.
     2. Rename the live skill aside, within the same directory.
     3. Rename the staged skill into place; if that fails, rename the old one back.
     4. Remove the set-aside copy; returns ``(backup, leftover)``, leftover set if that failed.
@@ -609,24 +658,27 @@ def _swap_in(
             raise InstallSkillError(f"cannot place the new skill at {skill_dir}: {exc}", EXIT_ENVIRONMENT_FAILURE) from exc
         return None, None
     if backup is None:
-        backup = _backup_path(skill_dir.name)
+        raise _appeared(skill_dir)
+    link = _link_in(skill_dir, "the existing installation was not changed")
+    if link is not None:
+        raise _link_refused(link)
     try:
         backup.parent.mkdir(parents=True, exist_ok=True)
         shutil.copytree(skill_dir, backup, symlinks=True)
         copied = folder_state_digest(backup)
+        copied_link = _first_link(backup)
     except OSError as exc:
         raise InstallSkillError(
-            f"cannot back up {skill_dir} to {backup}: {exc}; the existing installation was not changed",
+            f"cannot back up {skill_dir} to {backup}: {exc}; the existing installation was not changed"
+            f"{_drop_copy(backup)}",
             EXIT_ENVIRONMENT_FAILURE,
         ) from exc
+    if copied_link is not None:  # a link that appeared during the copy; uninstall could never restore it
+        raise _link_refused(skill_dir / copied_link.relative_to(backup), _drop_copy(backup))
     if expected is not None and copied != expected:
-        shutil.rmtree(backup, ignore_errors=True)
-        try:
-            os.rmdir(backup.parent)
-        except OSError:
-            pass
         raise InstallSkillError(
-            f"{skill_dir} changed while it was being backed up; the existing installation was not changed",
+            f"{skill_dir} changed while it was being backed up; the existing installation was not changed"
+            f"{_drop_copy(backup)}",
             EXIT_ENVIRONMENT_FAILURE,
         )
     aside =skill_dir.with_name(f".{skill_dir.name}-replaced-{backup.parent.name}")
@@ -748,14 +800,39 @@ def uninstall(
 
     safety = None
     if not matched:
+        # A link inside the folder would be followed by the safety copy (a junction always is), so refuse it,
+        # as install-skill --force does, and verify the copy against the folder it was taken from.
+        expected = None
+        if not _is_link(skill_dir):
+            link = _link_in(skill_dir, "nothing was removed")
+            if link is not None:
+                raise InstallSkillError(
+                    f"{link} is a link or junction; uninstall-skill --force will not remove a skill folder that "
+                    "holds a link, because its safety copy would follow the link. Remove or replace the link "
+                    "yourself, then uninstall again; nothing was removed.",
+                    EXIT_USAGE_ERROR,
+                )
+            try:
+                expected = folder_state_digest(skill_dir)
+            except OSError as exc:
+                raise InstallSkillError(
+                    f"cannot read {skill_dir}: {exc}; nothing was removed", EXIT_ENVIRONMENT_FAILURE
+                ) from exc
         safety = _home(home) / UNINSTALLED_DIR / _stamp() / name
         try:
             safety.parent.mkdir(parents=True, exist_ok=True)
             _copy_out(skill_dir, safety)
+            copied = None if expected is None else folder_state_digest(safety)
         except OSError as exc:
             raise InstallSkillError(
-                f"cannot back up {skill_dir} to {safety}: {exc}; nothing was removed", EXIT_ENVIRONMENT_FAILURE
+                f"cannot back up {skill_dir} to {safety}: {exc}; nothing was removed{_drop_copy(safety)}",
+                EXIT_ENVIRONMENT_FAILURE,
             ) from exc
+        if copied != expected:
+            raise InstallSkillError(
+                f"{skill_dir} changed while it was being backed up; nothing was removed{_drop_copy(safety)}",
+                EXIT_ENVIRONMENT_FAILURE,
+            )
 
     restore_staged = None
     if backup is not None:
@@ -792,9 +869,11 @@ def uninstall(
         ) from exc
     try:
         aside = _remove_and_restore(skill_dir, restore_staged, backup)
-    except BaseException:
-        _restore_record(skill_dir, home, record_text)
-        raise
+    except BaseException as exc:
+        failure = _rolled_back(exc, skill_dir, home, record_text)
+        if failure is exc:
+            raise
+        raise failure from exc
     return UninstallResult(
         dest=skill_dir,
         name=name,
