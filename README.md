@@ -137,6 +137,15 @@ proofhouse make "a skill that reviews pull requests for security issues" --kind 
 
 `make` writes version 1 with your model and tries it (a prompt runs on a test input, yours or one it writes). A judge model scores it against what you asked for, and `make` revises until the score reaches `--target` (default 9), the rounds run out (`--rounds`, default 3), or the next call would cross your spending limit, which covers the whole command. Every version, test output, score and cost is kept in one folder. The best version is `final.md`, or for a skill an installable folder (`proofhouse install-skill --bundle <folder>`). The judge is a model, so its score is advice, not proof.
 
+### Make a website
+
+```bash
+proofhouse make "a landing page for my bakery, with menu and opening hours" --kind site \
+  --provider anthropic --model <model> --max-cost-usd 2.00
+```
+
+The model writes the whole site (HTML, CSS, JavaScript, as many pages as it needs). Proofhouse writes it to disk and checks it the way a visitor would: every page has a title, a language and a phone viewport, every image has alt text, and every link and file inside the site exists. With Chrome or Chromium on your machine (or `PROOFHOUSE_BROWSER` pointing at one), the home page is opened headless, screenshots are taken at desktop and phone width, and JavaScript errors are reported. The judge scores the pages and those results, and `make` revises until it is good enough or the limit is reached. The best version is in `site/`; open `site/index.html`.
+
 ### Images, video, voice and music
 
 ```bash
