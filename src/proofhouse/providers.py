@@ -133,11 +133,11 @@ def load_user() -> dict[str, Any]:
     try:
         data = _read(user_path())
     except FileNotFoundError:
-        return {"schema": PROVIDERS_SCHEMA, "providers": [], "prices": []}
-    for key in ("providers", "prices"):
+        return {"schema": PROVIDERS_SCHEMA, "providers": [], "prices": [], "media_prices": []}
+    for key in ("providers", "prices", "media_prices"):
         if not isinstance(data.setdefault(key, []), list):
             raise ProviderError(f"{user_path()}: {key} must be a list")
-    unknown = set(data) - {"schema", "providers", "prices", "note"}
+    unknown = set(data) - {"schema", "providers", "prices", "media_prices", "note"}
     if unknown:
         raise ProviderError(f"{user_path()}: unknown keys {', '.join(sorted(unknown))}")
     return data

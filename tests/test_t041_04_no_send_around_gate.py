@@ -31,7 +31,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "proofhouse"
 EXECUTION = SRC / "compiler" / "execution.py"
 # Every module that can send, with its raw sender. Each hands its one send step (``_dispatch``) to the gate.
-SENDERS = {"compiler/execution.py": "_httpx_send", "live.py": "_httpx_post"}
+SENDERS = {"compiler/execution.py": "_httpx_send", "live.py": "_httpx_post", "media.py": "_httpx_post"}
+# Plain reads (job status, finished files) that send no body and cost nothing; they may never post.
+READERS = {"media.py": "_httpx_get"}
 
 NETWORK = {
     "httpx", "requests", "urllib3", "aiohttp", "websockets", "socket", "ssl", "asyncio",
@@ -44,7 +46,9 @@ PROCESS_OR_FOREIGN = {"subprocess", "multiprocessing", "ctypes", "os.system"}
 ALLOWED = {
     ("compiler/execution.py", "httpx"),  # execute-openai; sends only through the spend gate
     ("live.py", "httpx"),  # any provider, any model; sends only through the spend gate
+    ("media.py", "httpx"),  # any media service; the one paid request goes only through the spend gate
     ("optimize/reference_workflow.py", "subprocess"),  # runs the proofhouse CLI itself, offline
+    ("studio.py", "subprocess"),  # runs ffmpeg and ffprobe on local files; no network
     ("optimize/cli.py", "ctypes"),  # console handling on Windows
     ("parts.py", "import_module"),  # loads registered parts by the module names in its own table
 }
@@ -125,8 +129,12 @@ def test_b_every_send_sits_in_the_one_step_and_that_step_goes_only_to_the_gate(m
     for call in sends:
         assert scope[call][-1:] == ("_dispatch",), f"{callee(call)} at line {call.lineno} is outside the send step"
     wire = [c for c in calls if callee(c).startswith("httpx.") or callee(c).endswith((".post", ".request", ".stream"))]
+    reader = READERS.get(module)
     for call in wire:
-        assert scope[call][-1:] == (raw,), f"{callee(call)} at line {call.lineno} is outside {raw}"
+        where = scope[call][-1:]
+        assert where == (raw,) or (reader is not None and where == (reader,) and not callee(call).endswith((".post", ".request", ".stream"))), (
+            f"{callee(call)} at line {call.lineno} is outside {raw}"
+        )
 
     loads = {
         name: [n for n in ast.walk(tree) if isinstance(n, ast.Name) and n.id == name and isinstance(n.ctx, ast.Load)]
@@ -134,7 +142,7 @@ def test_b_every_send_sits_in_the_one_step_and_that_step_goes_only_to_the_gate(m
     }
     assert len(loads[raw]) == 1 and scope[loads[raw][0]][-1:] == ("_dispatch",)
     (dispatch,) = loads["_dispatch"]  # referenced exactly once ...
-    (gate,) = [c for c in calls if callee(c) == "spend.send_within_ceiling"]
+    (gate,) = [c for c in calls if callee(c) in {"spend.send_within_ceiling", "spend.send_media_within_ceiling"}]
     assert [k.value for k in gate.keywords if k.arg == "send"] == [dispatch]  # ... as the gate's send=
 
 

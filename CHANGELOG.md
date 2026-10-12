@@ -6,6 +6,18 @@ Any provider, any model.
 
 ### Added
 
+- **Media engine.** `proofhouse generate image|video|speech|music --provider S --model M --prompt ...` uses any image, video, speech or music service.
+  - Services are request templates (data): OpenAI images and speech, ElevenLabs, Replicate and fal.ai ship. Any other service, including a local GPU server, is one template (`proofhouse media add --from file.json`).
+  - Slow jobs are waited for, and finished files are downloaded with plain reads.
+  - Every paid request goes through the spend gate. The gate builds the request from the template itself and prices it per image, per second, per 1,000 characters or per request, from your declared price (`proofhouse media price`). A service on this machine costs nothing.
+- **Video production.** `proofhouse make "brief" --kind video --visual-provider ... --voice-provider ... --music-provider ...`:
+  - script and shot list from any text model;
+  - shots from any image or video service;
+  - voice-over, and a music bed (generated or your own);
+  - FFmpeg edit, mix and burned-in captions;
+  - 16:9, 9:16 and 1:1 renders, each checked for length, frame size and sound, with captions checked against the script.
+
+  One spending limit covers the whole video; everything is kept in one folder.
 - `proofhouse install agent|rule|mcp ... --into claude|cursor|codex` and `proofhouse uninstall ... --from ...`. Proofhouse writes a marked block into shared files (`CLAUDE.md`, `AGENTS.md`, Codex `config.toml`), an entry into `mcp.json` (Cursor, or a project's `.mcp.json` for Claude Code), or a file of its own (a Claude Code subagent, a Cursor `.mdc` rule). It keeps a record and a copy of every changed file under `PROOFHOUSE_HOME`. Installing twice changes nothing; an uninstall removes only what it wrote, and refuses if you edited it since unless `--force`. `proofhouse hosts list` shows the tools; any other tool is one entry in `PROOFHOUSE_HOME/hosts.json`.
 - `proofhouse make "what you want" --provider P --model M` makes a prompt, an agent skill (`--kind skill`) or a Claude Code subagent (`--kind agent`). It writes version 1, tries it, has a judge model score it against your request, and revises until `--target`, `--rounds`, or the spending limit (`--max-cost-usd`, one limit for the whole command) stops it. Everything is kept in one folder (`record.json`, every version, `final.md`); a made skill comes out as a folder `install-skill --bundle` accepts. Judge scores are advice from a model, not proof.
 - `proofhouse run --provider P --model M --prompt "..."` runs a prompt on any provider that speaks the OpenAI chat format. With `--input`, the prompt becomes the system message. It prints the output, and on stderr the tokens and the estimated cost. `--json` prints the full result (output, admission, cost). One request per call, never retried.
