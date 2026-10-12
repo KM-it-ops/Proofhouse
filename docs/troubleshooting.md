@@ -24,5 +24,6 @@
 | `install-skill --force` or `uninstall-skill --force` error mentioning `changed while it was being backed up` | Something wrote to the skill folder while Proofhouse copied it | Nothing was changed. Close whatever is writing to it, then run the command again. |
 | `install-skill` or `uninstall-skill` error mentioning `a copy is left at` | A backup that failed or did not match could not be removed | The skill folder is as the rest of the message says. Delete the named copy once you no longer need it. |
 | `install-skill` or `uninstall-skill` error mentioning `record not restored` | The command failed and could not put its install record under `PROOFHOUSE_HOME/skill-installs/` back | The skill folder is as the rest of the message says, but the named record no longer describes it. Move that record file aside before running `install-skill` or `uninstall-skill` on that folder again. |
+| `PHC-SKILL-0003` `was replaced while it was being read` | A file or folder in the skill was swapped while Proofhouse read it | Nothing was recorded or installed. Make sure nothing else is changing the folder, then run the command again. |
 | import: `sha256 does not match the manifest` | The bundle was altered after export | Get a fresh export; nothing was written. |
 | Garbled output on Windows consoles | Legacy code page | Set `PYTHONUTF8=1`. |

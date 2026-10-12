@@ -196,21 +196,27 @@ def folder_files(root: Path) -> list[tuple[str, bytes]]:
     try:
         if is_link(root):
             raise CodedCaseError("PHC-SKILL-0003", f"the skill folder is a link: {root}")
-        if not stat.S_ISDIR(os.lstat(root).st_mode):
+        root_info = os.lstat(root)
+        if not stat.S_ISDIR(root_info.st_mode):
             raise CodedCaseError("PHC-SKILL-0007", f"not a folder: {root}")
     except OSError as exc:
         raise CodedCaseError("PHC-SKILL-0007", f"cannot read {root}: {exc.strerror}") from None
     files: list[tuple[str, bytes]] = []
-    pending: list[tuple[Path, str]] = [(root, "")]
+    pending: list[tuple[Path, str, os.stat_result]] = [(root, "", root_info)]
     entries = 0
     total = 0
     while pending:
-        folder, prefix = pending.pop()
+        folder, prefix, seen = pending.pop()
         try:
             with os.scandir(folder) as scan:
                 children = sorted(scan, key=lambda child: child.name)
+            # Reopened by path: a folder swapped for a link was listed through it, and stat follows it too.
+            opened = os.stat(folder)
         except OSError as exc:
             raise CodedCaseError("PHC-SKILL-0007", f"cannot read {prefix or '.'}: {exc.strerror}") from None
+        if not os.path.samestat(opened, seen):
+            label = prefix[:-1] or "the skill folder"
+            raise CodedCaseError("PHC-SKILL-0003", f"{label} was replaced while it was being read")
         for child in children:
             entries += 1
             if entries > MAX_ENTRIES:
@@ -227,7 +233,7 @@ def folder_files(root: Path) -> list[tuple[str, bytes]]:
             if linked:
                 raise CodedCaseError("PHC-SKILL-0003", f"link or junction: {rel}")
             if stat.S_ISDIR(mode):
-                pending.append((path, rel + "/"))
+                pending.append((path, rel + "/", info))
                 continue
             if not stat.S_ISREG(mode):
                 raise CodedCaseError("PHC-SKILL-0003", f"not a regular file: {rel}")

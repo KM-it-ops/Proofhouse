@@ -1089,6 +1089,31 @@ def test_forced_install_refuses_a_backup_that_holds_a_link(tmp_path: Path, host:
     assert records(tmp_path) == []
 
 
+@pytest.mark.parametrize("which", ["root", "subfolder"])
+def test_folder_files_refuses_a_folder_swapped_for_a_link_before_it_is_listed(
+    tmp_path: Path, monkeypatch, which: str
+) -> None:
+    from proofhouse.optimize import kinds
+
+    root = skill_folder(tmp_path / "skill")
+    outside = skill_folder(tmp_path / "outside", {**THEIRS, "secret.txt": b"secret"})
+    target = root if which == "root" else root / "notes"
+    real_scandir = os.scandir
+    swapped: list[Path] = []
+
+    def swap_then_scan(path, *args, **kwargs):
+        if Path(path) == target and not swapped:
+            os.rename(target, tmp_path / "moved")
+            link_folder(target, outside)
+            swapped.append(target)
+        return real_scandir(path, *args, **kwargs)
+
+    monkeypatch.setattr(kinds.os, "scandir", swap_then_scan)
+    with pytest.raises(CodedCaseError, match="replaced while it was being read"):
+        kinds.folder_files(root)
+    assert swapped == [target]
+
+
 def test_a_backup_that_fails_midway_leaves_nothing_under_proofhouse_home(tmp_path: Path, host: Path, monkeypatch) -> None:
     skill_folder(host / "demo-skill", {**THEIRS, "big/a.txt": b"a"})
     before = snapshot(host)
