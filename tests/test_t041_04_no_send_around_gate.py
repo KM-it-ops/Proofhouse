@@ -31,9 +31,11 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "proofhouse"
 EXECUTION = SRC / "compiler" / "execution.py"
 # Every module that can send, with its raw sender. Each hands its one send step (``_dispatch``) to the gate.
-SENDERS = {"compiler/execution.py": "_httpx_send", "live.py": "_httpx_post", "media.py": "_httpx_post"}
+SENDERS = {"compiler/execution.py": "_httpx_send", "live.py": "_httpx_post", "media.py": "_httpx_post", "train.py": "_httpx_post"}
 # Plain reads (job status, finished files) that send no body and cost nothing; they may never post.
-READERS = {"media.py": "_httpx_get"}
+READERS = {"media.py": "_httpx_get", "train.py": "_httpx_get"}
+# A data-file upload: a multipart post of a file (files=, never a JSON or raw body) that starts nothing and is not billed.
+UPLOADERS = {"train.py": "_httpx_upload"}
 
 NETWORK = {
     "httpx", "requests", "urllib3", "aiohttp", "websockets", "socket", "ssl", "asyncio",
@@ -46,13 +48,16 @@ PROCESS_OR_FOREIGN = {"subprocess", "multiprocessing", "ctypes", "os.system"}
 ALLOWED = {
     ("compiler/execution.py", "httpx"),  # execute-openai; sends only through the spend gate
     ("live.py", "httpx"),  # any provider, any model; sends only through the spend gate
-    ("media.py", "httpx"),  # any media service; the one paid request goes only through the spend gate
+    ("media.py", "httpx"),
+    ("train.py", "httpx"),  # training jobs; the one paid request goes only through the spend gate
+    ("train.py", "subprocess"),  # trains on this machine with your own command (for example MLX LoRA)  # any media service; the one paid request goes only through the spend gate
     ("optimize/reference_workflow.py", "subprocess"),  # runs the proofhouse CLI itself, offline
     ("studio.py", "subprocess"),  # runs ffmpeg and ffprobe on local files; no network
     ("sitecheck.py", "subprocess"),
     ("loop.py", "subprocess"),  # runs your check and watch commands, and the agent's only with --allow-commands  # opens a generated site from disk in a local headless browser
     ("optimize/cli.py", "ctypes"),  # console handling on Windows
-    ("parts.py", "import_module"),  # loads registered parts by the module names in its own table
+    ("parts.py", "import_module"),
+    ("addons.py", "entry_points"),  # loads add-on packages you installed (group proofhouse.addons); their code runs as you  # loads registered parts by the module names in its own table
 }
 
 
@@ -78,6 +83,8 @@ def _found() -> set[tuple[str, str]]:
             elif isinstance(node, ast.Call):
                 func = node.func
                 callee = func.id if isinstance(func, ast.Name) else func.attr if isinstance(func, ast.Attribute) else ""
+                if callee == "entry_points":
+                    found.add((where, "entry_points"))
                 if callee in {"import_module", "__import__"}:
                     literal = node.args[0] if node.args and isinstance(node.args[0], ast.Constant) else None
                     hit = _risky(literal.value) if literal is not None and isinstance(literal.value, str) else None
@@ -132,9 +139,15 @@ def test_b_every_send_sits_in_the_one_step_and_that_step_goes_only_to_the_gate(m
         assert scope[call][-1:] == ("_dispatch",), f"{callee(call)} at line {call.lineno} is outside the send step"
     wire = [c for c in calls if callee(c).startswith("httpx.") or callee(c).endswith((".post", ".request", ".stream"))]
     reader = READERS.get(module)
+    uploader = UPLOADERS.get(module)
     for call in wire:
         where = scope[call][-1:]
-        assert where == (raw,) or (reader is not None and where == (reader,) and not callee(call).endswith((".post", ".request", ".stream"))), (
+        words = {k.arg for k in call.keywords}
+        posts = callee(call).endswith((".post", ".request", ".stream"))
+        is_upload = uploader is not None and where == (uploader,) and (
+            not posts or (callee(call).endswith(".post") and "files" in words and not words & {"json", "content"})
+        )
+        assert where == (raw,) or is_upload or (reader is not None and where == (reader,) and not posts), (
             f"{callee(call)} at line {call.lineno} is outside {raw}"
         )
 
@@ -144,7 +157,8 @@ def test_b_every_send_sits_in_the_one_step_and_that_step_goes_only_to_the_gate(m
     }
     assert len(loads[raw]) == 1 and scope[loads[raw][0]][-1:] == ("_dispatch",)
     (dispatch,) = loads["_dispatch"]  # referenced exactly once ...
-    (gate,) = [c for c in calls if callee(c) in {"spend.send_within_ceiling", "spend.send_media_within_ceiling"}]
+    (gate,) = [c for c in calls if callee(c) in {"spend.send_within_ceiling", "spend.send_media_within_ceiling",
+                                                 "spend.send_training_within_ceiling"}]
     assert [k.value for k in gate.keywords if k.arg == "send"] == [dispatch]  # ... as the gate's send=
 
 

@@ -62,19 +62,30 @@ def _read_hosts(path: Path) -> list[dict[str, Any]]:
         raise HostError(f"{path} is unreadable: {type(exc).__name__}") from None
     if not isinstance(data, dict) or data.get("schema") != HOSTS_SCHEMA or not isinstance(data.get("hosts"), list):
         raise HostError(f"{path} must be a {HOSTS_SCHEMA} file with a hosts list")
-    for host in data["hosts"]:
+    return _check_hosts(data["hosts"], str(path))
+
+
+def _check_hosts(found: list[Any], where: str) -> list[dict[str, Any]]:
+    for host in found:
         if not isinstance(host, dict) or not isinstance(host.get("id"), str) or not _NAME.fullmatch(host["id"]):
-            raise HostError(f"{path}: every host needs an id of lowercase words joined by hyphens")
+            raise HostError(f"{where}: every host needs an id of lowercase words joined by hyphens")
         for kind in KINDS:
             spec = host.get(kind)
             if spec is not None and (not isinstance(spec, dict) or spec.get("format") not in FORMATS):
-                raise HostError(f"{path}: host {host['id']} {kind} needs a format, one of {', '.join(FORMATS)}")
-    return data["hosts"]
+                raise HostError(f"{where}: host {host['id']} {kind} needs a format, one of {', '.join(FORMATS)}")
+    return found
 
 
 def all_hosts() -> dict[str, dict[str, Any]]:
-    """Shipped hosts, then yours (``PROOFHOUSE_HOME/hosts.json``); one of yours with a shipped id replaces it."""
+    """Shipped hosts, then add-ons, then yours (``PROOFHOUSE_HOME/hosts.json``); a later one with the same id replaces it."""
+    from . import addons
+
     found = {host["id"]: host for host in _read_hosts(SHIPPED_PATH)}
+    for name, host in addons.contributions("hosts"):
+        try:
+            found.update({h["id"]: h for h in _check_hosts([host], f"add-on {name}")})
+        except HostError:
+            continue  # checked when the pack was installed; a package add-on's bad entry is skipped
     found.update({host["id"]: host for host in _read_hosts(proofhouse_home() / "hosts.json")})
     return found
 

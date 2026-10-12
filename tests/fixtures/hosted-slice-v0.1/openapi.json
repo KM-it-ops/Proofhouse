@@ -1104,16 +1104,7 @@
                     "type": "boolean"
                   },
                   "kind": {
-                    "description": "What to make (default prompt).",
-                    "enum": [
-                      "prompt",
-                      "skill",
-                      "agent",
-                      "site",
-                      "copy",
-                      "video",
-                      "launch"
-                    ],
+                    "description": "What to make: prompt, skill, agent, site, copy, video, launch, or a kind an add-on adds (default prompt).",
                     "type": "string"
                   },
                   "max-cost-usd": {
@@ -1461,6 +1452,56 @@
         "x-default-hosted-slice": false
       }
     },
+    "/v0/compiler/train": {
+      "post": {
+        "operationId": "train",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "train-command": {
+                    "enum": [
+                      "data",
+                      "services",
+                      "price",
+                      "add",
+                      "start",
+                      "status"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "train-command"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "train",
+        "tags": [
+          "opt-in-live"
+        ],
+        "x-cli-command": "train",
+        "x-default-hosted-slice": false
+      }
+    },
     "/v0/compiler/validate": {
       "post": {
         "operationId": "validate",
@@ -1562,6 +1603,7 @@
   },
   "x-cli-commands": [
     "adapters",
+    "addons",
     "assay",
     "case",
     "closed-loop",
@@ -1595,6 +1637,7 @@
     "route",
     "run",
     "scan",
+    "train",
     "uninstall",
     "uninstall-skill",
     "validate",
@@ -1621,6 +1664,7 @@
     "workspace-consume"
   ],
   "x-local-only": [
+    "addons",
     "case",
     "demo",
     "eval",
@@ -1642,7 +1686,8 @@
     "generate",
     "loop",
     "make",
-    "run"
+    "run",
+    "train"
   ],
   "x-q2-ratified": false
 }

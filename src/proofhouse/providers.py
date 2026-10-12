@@ -133,11 +133,11 @@ def load_user() -> dict[str, Any]:
     try:
         data = _read(user_path())
     except FileNotFoundError:
-        return {"schema": PROVIDERS_SCHEMA, "providers": [], "prices": [], "media_prices": []}
-    for key in ("providers", "prices", "media_prices"):
+        return {"schema": PROVIDERS_SCHEMA, "providers": [], "prices": [], "media_prices": [], "training_prices": []}
+    for key in ("providers", "prices", "media_prices", "training_prices"):
         if not isinstance(data.setdefault(key, []), list):
             raise ProviderError(f"{user_path()}: {key} must be a list")
-    unknown = set(data) - {"schema", "providers", "prices", "media_prices", "note"}
+    unknown = set(data) - {"schema", "providers", "prices", "media_prices", "training_prices", "note"}
     if unknown:
         raise ProviderError(f"{user_path()}: unknown keys {', '.join(sorted(unknown))}")
     return data
@@ -154,11 +154,19 @@ def save_user(data: dict[str, Any]) -> Path:
 
 
 def all_providers() -> dict[str, Provider]:
-    """Shipped providers, then yours; one of yours with a shipped id replaces it."""
+    """Shipped providers, then add-ons, then yours; a later one with the same id replaces an earlier one."""
+    from . import addons
+
     shipped = _read(SHIPPED_PATH)
     found: dict[str, Provider] = {}
     for raw in shipped["providers"]:
         provider = parse_provider(raw, "shipped")
+        found[provider.id] = provider
+    for name, raw in addons.contributions("providers"):
+        try:
+            provider = parse_provider(raw, f"add-on {name}")
+        except ProviderError:
+            continue  # checked when the pack was installed; a package add-on's bad entry is skipped
         found[provider.id] = provider
     seen: set[str] = set()
     for raw in load_user()["providers"]:
