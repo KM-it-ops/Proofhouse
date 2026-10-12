@@ -21,6 +21,8 @@ CODES: dict[str, str] = {
     "PHC-SKILL-0008": "malformed skill file manifest",
     "PHC-SKILL-0009": "path in skill files not portable to every OS (reserved name, trailing dot or space, forbidden character)",
     "PHC-COST-0003": "no worst-case cost could be made; nothing was sent",
+    "PHC-COST-0001": "worst-case cost is over the ceiling; nothing was sent",
+    "PHC-COST-0002": "no price for this model; nothing was sent",
 }
 RETIRED_CODES: tuple[str, ...] = ()
 

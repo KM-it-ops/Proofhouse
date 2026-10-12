@@ -1,9 +1,9 @@
-"""T08 (review F09): live admission rejects invalid ceilings and states what is not enforced.
+"""T08 (review F09): live admission rejects invalid ceilings and states how the ceiling is enforced.
 
 On 78e512c ``Infinity`` was accepted as a cost ceiling and ``NaN`` raised
-``decimal.InvalidOperation`` out of ``execute_openai``. The ceiling itself is
-a declared budget that is recorded, not enforced pre-send; that disclosure is
-preserved and made explicit in the envelope.
+``decimal.InvalidOperation`` out of ``execute_openai``. Since MISSION-041 the
+ceiling is enforced before sending by the spend gate; the envelope states the
+gate's decision and the worst case it was based on.
 """
 from __future__ import annotations
 
@@ -16,6 +16,9 @@ from proofhouse.compiler.cli_compiler import main as compiler_main
 from proofhouse.compiler.execution import EXE_CEIL_0001, LiveOpenAIRequest, execute_openai
 
 from .fixtures.ir_fixtures import minimal_valid_ir
+
+# The spend gate refuses a model with no price; these tests exercise what happens after it admits.
+pytestmark = pytest.mark.usefixtures("priced")
 
 
 class RecordingTransport:
@@ -60,16 +63,19 @@ def test_invalid_output_token_ceilings_fail_closed(tokens) -> None:
     assert transport.calls == []
 
 
-def test_success_envelope_discloses_declared_only_budget() -> None:
+def test_success_envelope_discloses_the_gate_decision(priced) -> None:
     result, transport = _run()
     assert result.status == "success"
     admission = result.envelope["admission"]
-    assert admission["cost_ceiling"] == {
-        "declared_usd": "1",
-        "enforcement": "declared_only_not_enforced_pre_send",
-        "pricing_source": None,
-        "input_token_estimate": None,
-    }
+    gate = admission["cost_ceiling"]
+    assert gate["declared_usd"] == "1"
+    assert gate["enforcement"] == "refused_pre_send_when_worst_case_over_ceiling"
+    assert gate["decision"] == "admitted"
+    assert gate["ceiling_usd"] == "1"
+    assert gate["price"]["source_url"] == "https://example.com/test-prices"
+    assert gate["price_table_version"] == priced.version
+    assert gate["input_tokens_bound"] > 0 and gate["output_tokens_bound"] == 16
+    assert "pricing_source" not in gate and "input_token_estimate" not in gate
     assert admission["output_token_ceiling"]["enforcement"] == "sent_as_max_completion_tokens"
     assert len(transport.calls) == 1
 
