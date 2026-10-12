@@ -262,3 +262,95 @@ def test_export_import_keeps_part_and_cost(prompt_case: Path, tmp_path: Path) ->
     assert stored["part"] is None and stored["cost"] == UNKNOWN_COST
     report = checks.evaluate_revision(target, [], 1, checks.load_verdicts(target))
     assert report["revision"] == 1
+
+
+def _reforge(bundle: Path, out: Path, edit) -> Path:
+    """Re-zip a bundle after ``edit(case_data)``, recomputing the manifest digests as anyone can."""
+    import zipfile
+
+    with zipfile.ZipFile(bundle) as archive:
+        manifest = json.loads(archive.read("manifest.json"))
+        blobs = {name: archive.read(name) for name in archive.namelist() if name != "manifest.json"}
+    data = json.loads(blobs["case.json"])
+    edit(data)
+    blobs["case.json"] = json.dumps(data, indent=2).encode("utf-8")
+    manifest["files"] = [
+        {"path": name, "bytes": len(blob), "sha256": hashlib.sha256(blob).hexdigest()} for name, blob in blobs.items()
+    ]
+    with zipfile.ZipFile(out, "w") as archive:
+        archive.writestr("manifest.json", json.dumps(manifest))
+        for name, blob in blobs.items():
+            archive.writestr(name, blob)
+    return out
+
+
+def test_review_f1_import_refuses_a_case_json_run_cost_its_run_file_does_not_hold(prompt_case: Path, tmp_path: Path) -> None:
+    add(prompt_case)
+    workflow.export_case(prompt_case, tmp_path / "honest.zip")
+
+    def forge(data: dict) -> None:
+        data["runs"][0]["part"] = "openai"
+        data["runs"][0]["cost"] = {
+            "tokens_in": 0, "tokens_out": 0, "usd": 0.42, "wall_seconds": 0, "compute_seconds": 0,
+            "basis": "measured", "price_table_version": "2026-10",
+        }
+
+    bundle = _reforge(tmp_path / "honest.zip", tmp_path / "forged.zip", forge)
+    with pytest.raises(CaseError):
+        workflow.import_case(bundle, tmp_path / "imported")
+    assert not (tmp_path / "imported").exists()
+
+
+def test_review_f1_import_refuses_a_case_json_run_cost_with_a_missing_field(prompt_case: Path, tmp_path: Path) -> None:
+    add(prompt_case)
+    workflow.export_case(prompt_case, tmp_path / "honest.zip")
+
+    def forge(data: dict) -> None:
+        data["runs"][0]["cost"] = {"usd": "unknown"}
+
+    bundle = _reforge(tmp_path / "honest.zip", tmp_path / "forged.zip", forge)
+    with pytest.raises(CaseError):
+        workflow.import_case(bundle, tmp_path / "imported")
+    assert not (tmp_path / "imported").exists()
+
+
+@pytest.mark.parametrize("token", ["NaN", "Infinity", "1e999"])
+def test_review_f2_load_run_refuses_a_cost_figure_that_is_not_a_finite_number(prompt_case: Path, token: str) -> None:
+    add(prompt_case)
+    path = prompt_case / "runs" / "R1.json"
+    text = path.read_text(encoding="utf-8")
+    assert '"tokens_in": "unknown"' in text
+    path.write_text(text.replace('"tokens_in": "unknown"', f'"tokens_in": {token}', 1), encoding="utf-8")
+    with pytest.raises(CaseError):
+        workflow.load_run(prompt_case, "R1")
+
+
+@pytest.mark.parametrize(
+    "edit",
+    [{"part": "openai"}, {"cost": {**UNKNOWN_COST, "tokens_in": 5}}],
+    ids=["part", "cost"],
+)
+def test_import_refuses_a_well_formed_case_json_run_summary_its_run_file_does_not_hold(
+    prompt_case: Path, tmp_path: Path, edit: dict
+) -> None:
+    add(prompt_case)
+    workflow.export_case(prompt_case, tmp_path / "honest.zip")
+    bundle = _reforge(tmp_path / "honest.zip", tmp_path / "forged.zip", lambda data: data["runs"][0].update(edit))
+    with pytest.raises(CaseError, match="differs from its run file"):
+        workflow.import_case(bundle, tmp_path / "imported")
+    assert not (tmp_path / "imported").exists()
+
+
+@pytest.mark.parametrize("command", [["output", "list"], ["report", "--revision", "1"]], ids=["output-list", "report"])
+def test_a_malformed_case_json_run_cost_is_refused_not_a_crash(prompt_case: Path, capsys, command: list[str]) -> None:
+    add(prompt_case)
+    code, out = run(["case", "criteria", "add", "--case", str(prompt_case), "--must-contain", "UNKNOWN"], capsys)
+    assert code == 0, out
+    path = prompt_case / "case.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["runs"][0]["cost"] = {"usd": "unknown"}
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    code, out = run(["case", command[0], *command[1:], "--case", str(prompt_case)], capsys)
+    assert code == 2, out
+    assert "cost must have exactly" in out
+    assert "internal error" not in out

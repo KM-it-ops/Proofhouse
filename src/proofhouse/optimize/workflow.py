@@ -24,6 +24,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import math
 import re
 import shutil
 import uuid
@@ -228,7 +229,10 @@ def run_part(run: dict) -> str | None:
 def run_cost(run: dict) -> dict:
     """The run's cost; a record written before ``cost`` existed reads as unknown, never as zero."""
     cost = run.get("cost")
-    return unknown_cost() if cost is None else dict(cost)
+    if cost is None:
+        return unknown_cost()
+    _check_cost(str(run.get("run_id")), cost)
+    return dict(cost)
 
 
 def _check_cost(run_id: str, cost: object) -> None:
@@ -236,7 +240,12 @@ def _check_cost(run_id: str, cost: object) -> None:
         raise CaseError(f"run {run_id} cost must have exactly {', '.join(sorted(_COST_KEYS))}")
     for field in COST_FIELDS:
         value = cost[field]
-        if value != UNKNOWN and (isinstance(value, bool) or not isinstance(value, (int, float)) or value < 0):
+        if value != UNKNOWN and (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or (isinstance(value, float) and not math.isfinite(value))  # NaN, Infinity, 1e999
+            or value < 0
+        ):
             raise CaseError(f"run {run_id} cost {field} must be a non-negative number or {UNKNOWN!r}")
     if cost["usd"] != UNKNOWN or cost["price_table_version"] != "":
         raise CaseError(f"run {run_id} cost has a usd figure; this version has no price table, so usd is always unknown")
@@ -331,6 +340,9 @@ def load_run(case_dir: Path, run_id: str) -> dict:
     summary = next((item for item in load_case(case_dir).get("runs", []) if item["run_id"] == run_id), None)
     if summary is not None and summary["output_sha256"] != record["output_sha256"]:
         raise CaseError(f"run {run_id} sha256 differs from the digest recorded in case.json")
+    # Listings and the cost table read case.json; the run file is the record, so the two must agree.
+    if summary is not None and (run_part(summary) != run_part(record) or run_cost(summary) != run_cost(record)):
+        raise CaseError(f"run {run_id} part or cost in case.json differs from its run file")
     return record
 
 

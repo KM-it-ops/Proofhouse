@@ -36,7 +36,7 @@ advisory-case/
 
 `run_id`, `revision`, `revision_sha256`, `input_id`, `input_sha256` (if an input file was given), `output_text`, `output_sha256`, `model`, `settings`, `method` (`imported`), `evidence_class` (`imported_output`), `source`, `part`, `cost`, `recorded_at`.
 
-`proofhouse.optimize.run/v2` adds `part` and `cost`. `part` is the part that ran it; an imported run names none (`null`). `cost` is `{tokens_in, tokens_out, usd, wall_seconds, compute_seconds, basis, price_table_version}`; a figure nobody measured is the string `unknown`, never `0`. `usd` is always `unknown` and `price_table_version` is empty: there is no price table yet. A `run/v1` file (0.4.1) is never rewritten and reads as part none, cost unknown. The report sums cost per version; a sum that includes an unknown is unknown.
+`proofhouse.optimize.run/v2` adds `part` and `cost`. `part` is the part that ran it; an imported run names none (`null`). `cost` is `{tokens_in, tokens_out, usd, wall_seconds, compute_seconds, basis, price_table_version}`; a figure nobody measured is the string `unknown`, never `0`. `usd` is always `unknown` and `price_table_version` is empty: there is no price table yet. A `run/v1` file (0.4.1) is never rewritten and reads as part none, cost unknown. The report sums cost per version; a sum that includes an unknown is unknown. A figure must be a finite non-negative number or `unknown` (`NaN` and `Infinity` are refused), and the `part` and `cost` that `case.json` lists for a run must match its run file; a run where they differ is refused wherever it is loaded, import included.
 
 ### Verdict (`checks/verdicts.json`)
 

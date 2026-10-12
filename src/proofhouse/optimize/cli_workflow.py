@@ -152,10 +152,10 @@ def _cmd_output_list(args: argparse.Namespace) -> int:
     case_dir = Path(args.case)
     try:
         data = case_mod.load_case(case_dir)
+        # A run recorded before part and cost existed reads as part none, cost unknown.
+        runs = [{**run, "part": workflow.run_part(run), "cost": workflow.run_cost(run)} for run in data.get("runs", [])]
     except CaseError as exc:
         return _usage_error(str(exc))
-    # A run recorded before part and cost existed reads as part none, cost unknown.
-    runs = [{**run, "part": workflow.run_part(run), "cost": workflow.run_cost(run)} for run in data.get("runs", [])]
     if args.json:
         _emit_json("optimize output list", "success", {"case_dir": str(case_dir.resolve()), "runs": runs})
         return EXIT_SUCCESS
