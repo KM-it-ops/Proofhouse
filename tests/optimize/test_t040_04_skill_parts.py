@@ -654,6 +654,12 @@ def test_uninstall_that_cannot_update_its_record_removes_nothing(tmp_path: Path,
 
 
 def test_uninstall_whose_restore_fails_keeps_its_record(tmp_path: Path, host: Path, monkeypatch) -> None:
+    """Order of operations only: a restore that fails after the record was updated puts the record back.
+
+    This is not the proof that a failed record update removes nothing (security review item #9); it
+    also passes on code that updates the record after the swap. That proof is
+    ``test_uninstall_that_cannot_update_its_record_removes_nothing``.
+    """
     skill_folder(host / "demo-skill", {"SKILL.md": b"---\nname: demo-skill\ndescription: p\n---\n"})
     install(host, skill_folder(tmp_path / "src"), force=True)
     record = install_skill._record_path((host / "demo-skill").resolve(), None)
