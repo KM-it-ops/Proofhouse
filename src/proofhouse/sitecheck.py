@@ -18,7 +18,6 @@ import os
 import re
 import shutil
 import subprocess
-import tempfile
 from html.parser import HTMLParser
 from pathlib import Path, PurePosixPath
 from typing import Any
@@ -105,7 +104,19 @@ def find_browser() -> str | None:
     return next((found for name in _BROWSERS if (found := shutil.which(name))), None)
 
 
-def check_site(folder: Path, shots: Path | None = None, timeout: int = 60) -> list[dict[str, Any]]:
+def _open(command: list[str], timeout: int) -> subprocess.CompletedProcess[str] | str:
+    """Run the headless browser; a launch that hangs is tried once more, then reported (never raised)."""
+    for _ in range(2):
+        try:
+            return subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+        except subprocess.TimeoutExpired:
+            continue
+        except OSError as exc:
+            return f"the browser could not start ({type(exc).__name__})"
+    return f"the browser did not finish in {timeout} s, twice"
+
+
+def check_site(folder: Path, shots: Path | None = None, timeout: int = 30) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     pages = sorted(folder.rglob("*.html"))
     broken: list[str] = []
@@ -142,23 +153,14 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 60) -> li
     if shots is not None:
         shots.mkdir(parents=True, exist_ok=True)
     for label, size in (("desktop", "1440,900"), ("phone", "390,844")):
-        with tempfile.TemporaryDirectory(prefix="proofhouse-browser-", ignore_cleanup_errors=True) as profile:
-            # The launch recipe Puppeteer uses: a fresh profile, no keyring (a new profile otherwise waits on the system
-            # keyring over D-Bus, which a server or CI machine does not have), no background work, no small /dev/shm.
-            command = [browser, "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--no-first-run",
-                       "--no-default-browser-check", "--disable-extensions", "--disable-background-networking", "--disable-sync",
-                       "--disable-default-apps", "--password-store=basic", "--use-mock-keychain", f"--user-data-dir={profile}",
-                       "--hide-scrollbars", f"--window-size={size}", "--enable-logging=stderr", "--v=0"]
-            if shots is not None:
-                command.append(f"--screenshot={shots / f'{label}.png'}")
-            try:
-                run = subprocess.run([*command, url], capture_output=True, text=True, timeout=timeout, check=False)
-            except subprocess.TimeoutExpired:
-                stuck.append(f"{label}: the browser did not finish in {timeout} s")
-                continue
-            except OSError as exc:
-                stuck.append(f"{label}: the browser could not start ({type(exc).__name__})")
-                continue
+        command = [browser, "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", f"--window-size={size}",
+                   "--enable-logging=stderr", "--v=0"]
+        if shots is not None:
+            command.append(f"--screenshot={shots / f'{label}.png'}")
+        run = _open(command + [url], timeout)
+        if isinstance(run, str):
+            stuck.append(f"{label}: {run}")
+            continue
         errors += [line for line in run.stderr.splitlines() if "Uncaught" in line or "SyntaxError" in line]
     if len(stuck) == 2:
         checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: " + "; ".join(stuck)})
