@@ -7,8 +7,8 @@ Two ways in:
   The entry point is a function that returns the same contents as ``addon.json``. It is code you
   chose to install, and it runs with your permissions when Proofhouse reads its add-ons.
 
-Contents: ``providers``, ``media_providers``, ``training_services``, ``hosts`` (each entry in the same
-shape as the matching file in ``PROOFHOUSE_HOME``) and ``make_kinds`` (a new ``make --kind``: a writer
+Contents: ``providers``, ``media_providers``, ``training_services``, ``hosts``, ``deploy_targets`` (each
+entry in the same shape as the matching file in ``PROOFHOUSE_HOME``) and ``make_kinds`` (a new ``make --kind``: a writer
 prompt and a label for the judge). Order: shipped, then add-ons, then yours. Every request an add-on
 adds still goes through the spend gate. A broken add-on is skipped and reported, never fatal.
 """
@@ -27,7 +27,7 @@ from . import providers
 
 ADDON_SCHEMA = "proofhouse.addon/v1"
 ENTRY_POINT_GROUP = "proofhouse.addons"
-SECTIONS = ("providers", "media_providers", "training_services", "hosts", "make_kinds")
+SECTIONS = ("providers", "media_providers", "training_services", "hosts", "deploy_targets", "make_kinds")
 _KIND = re.compile(r"[a-z][a-z0-9-]{1,39}")
 _RESERVED_KINDS = {"prompt", "skill", "agent", "site", "copy", "video", "launch"}
 
@@ -139,7 +139,7 @@ def install(source: Path) -> Addon:
 
 def _check_entries(addon: Addon) -> None:
     """Parse every entry with the parser its section uses, so a bad pack is refused before it is installed."""
-    from . import hosts, media, train
+    from . import deploy, hosts, media, train
 
     try:
         for entry in addon.contents["providers"]:
@@ -150,7 +150,9 @@ def _check_entries(addon: Addon) -> None:
             train._parse(entry, f"add-on {addon.name}")
         if addon.contents["hosts"]:
             hosts._check_hosts(addon.contents["hosts"], f"add-on {addon.name}")
-    except (providers.ProviderError, media.MediaError, train.TrainError, hosts.HostError) as exc:
+        for entry in addon.contents["deploy_targets"]:
+            deploy._check(entry, f"add-on {addon.name}")
+    except (providers.ProviderError, media.MediaError, train.TrainError, hosts.HostError, deploy.DeployError) as exc:
         raise AddonError(f"{addon.name}: {exc}") from None
 
 

@@ -147,6 +147,13 @@ proofhouse make "a skill that reviews pull requests for security issues" --kind 
 
 `make` writes version 1 with your model and tries it (a prompt runs on a test input, yours or one it writes). A judge model scores it against what you asked for, and `make` revises until the score reaches `--target` (default 9), the rounds run out (`--rounds`, default 3), or the next call would cross your spending limit, which covers the whole command. Every version, test output, score and cost is kept in one folder. The best version is `final.md`, or for a skill an installable folder (`proofhouse install-skill --bundle <folder>`). The judge is a model, so its score is advice, not proof.
 
+Put it online when you say so, with the hosting service's own tool (signed in your usual way):
+
+```bash
+proofhouse deploy make-landing-page-* --to netlify --dry-run    # shows the exact command first
+proofhouse deploy make-landing-page-* --to netlify               # or vercel, cloudflare, surge, or any target you add
+```
+
 ### Launch something: every part from one goal
 
 ```bash
