@@ -22,7 +22,7 @@ DEFAULT_SLICE_COMMANDS = frozenset(
         "closed-loop-bridged-008",
     }
 )
-OPT_IN_LIVE_COMMANDS = frozenset({"execute-openai", "run", "make", "generate", "loop"})
+OPT_IN_LIVE_COMMANDS = frozenset({"execute-openai", "run", "make", "generate", "loop", "compare"})
 
 
 def _cli_command_names() -> set[str]:

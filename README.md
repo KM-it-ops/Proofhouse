@@ -127,6 +127,16 @@ proofhouse run --provider mistral --model mistral-large --prompt "Say hi" --max-
 proofhouse providers add myhost --base-url https://api.myhost.ai/v1 --key-env MYHOST_KEY   # any other provider
 ```
 
+### Same job, many models
+
+```bash
+proofhouse compare "Summarise this contract in five bullet points." --input-file contract.txt \
+  --on anthropic:<model> --on openai:<model> --on groq:<model> --on ollama:llama3 \
+  --judge anthropic:<model> --max-cost-usd 1.00
+```
+
+Every model runs the same job at the same time. You get a table (score, cost, time, why) and a side-by-side page, `side-by-side.html`, with every output in full. With `--judge`, one more model scores the outputs without seeing which model wrote which, and the best is named; that score is advice, not proof. One spending limit covers every call, the judge's included. Each call gets an equal share of it, so the total never passes it.
+
 ### Make it
 
 ```bash

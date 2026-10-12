@@ -58,6 +58,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "media list": (SPINE, "", "media engine: every media service, shipped and yours"),
     "media price": (SPINE, "", "media engine: declares a price per unit"),
     "media add": (SPINE, "", "media engine: adds a media service from a template, no code change"),
+    "compare": (SPINE, "", "compare engine: the same job on many models at once, side by side with cost, time and a judge's scores"),
     "loop": (SPINE, "", "loop engine: an agent acts, checks and repeats on its own, or watches and acts, within one spending limit"),
     "make": (SPINE, "", "make engine: writes, tries, judges and improves a prompt or skill within one spending limit"),
     "adapters": (SPINE, "", "utility: alias of parts limited to request builders, with its 0.4.1 output"),
