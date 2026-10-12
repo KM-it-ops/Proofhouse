@@ -190,6 +190,17 @@ def _read_regular(path: Path, rel: str, seen: os.stat_result) -> bytes:
         return handle.read(MAX_UNCOMPRESSED_BYTES + 1)
 
 
+def _still_the_folder(folder: Path, seen: os.stat_result, prefix: str) -> None:
+    """Refuse ``folder`` unless it is the folder ``seen`` (its ``lstat``); ``stat`` follows a link put in its place."""
+    try:
+        opened = os.stat(folder)
+    except OSError as exc:
+        raise CodedCaseError("PHC-SKILL-0007", f"cannot read {prefix or '.'}: {exc.strerror}") from None
+    if not os.path.samestat(opened, seen):
+        label = prefix[:-1] or "the skill folder"
+        raise CodedCaseError("PHC-SKILL-0003", f"{label} was replaced while it was being read")
+
+
 def folder_files(root: Path) -> list[tuple[str, bytes]]:
     """Every file under ``root`` as ``(relative path, bytes)``; refuses links, special files and over-limit folders."""
     root = Path(root)
@@ -210,13 +221,10 @@ def folder_files(root: Path) -> list[tuple[str, bytes]]:
         try:
             with os.scandir(folder) as scan:
                 children = sorted(scan, key=lambda child: child.name)
-            # Reopened by path: a folder swapped for a link was listed through it, and stat follows it too.
-            opened = os.stat(folder)
         except OSError as exc:
             raise CodedCaseError("PHC-SKILL-0007", f"cannot read {prefix or '.'}: {exc.strerror}") from None
-        if not os.path.samestat(opened, seen):
-            label = prefix[:-1] or "the skill folder"
-            raise CodedCaseError("PHC-SKILL-0003", f"{label} was replaced while it was being read")
+        # Folders are reopened by path: checked once listed, and again once their files are read.
+        _still_the_folder(folder, seen, prefix)
         for child in children:
             entries += 1
             if entries > MAX_ENTRIES:
@@ -242,6 +250,7 @@ def folder_files(root: Path) -> list[tuple[str, bytes]]:
             if total > MAX_UNCOMPRESSED_BYTES:
                 raise CodedCaseError("PHC-SKILL-0004", f"more than {MAX_UNCOMPRESSED_BYTES} bytes")
             files.append((rel, blob))
+        _still_the_folder(folder, seen, prefix)
     return files
 
 
