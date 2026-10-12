@@ -194,7 +194,7 @@ def install(
         files = validate_entries(archive.namelist(), bundle_path)
         if sum(info.file_size for info in archive.infolist()) > MAX_UNCOMPRESSED_BYTES:
             raise _unreadable(bundle_path, f"bundle too large (over {MAX_UNCOMPRESSED_BYTES} bytes uncompressed)")
-        if skill_dir.exists() and not force:
+        if os.path.lexists(skill_dir) and not force:
             raise InstallSkillError(f"{skill_dir} already exists; re-run with --force to replace it", EXIT_USAGE_ERROR)
         try:
             dest_dir.mkdir(parents=True, exist_ok=True)
@@ -231,7 +231,7 @@ def _swap_in(staged: Path, skill_dir: Path) -> tuple[Path | None, Path | None]:
     3. Rename the staged skill into place; if that fails, rename the old one back.
     4. Remove the set-aside copy; returns ``(backup, leftover)``, leftover set if that failed.
     """
-    if not skill_dir.exists():
+    if not os.path.lexists(skill_dir):
         try:
             _move(staged, skill_dir)
         except OSError as exc:
@@ -252,11 +252,12 @@ def _swap_in(staged: Path, skill_dir: Path) -> tuple[Path | None, Path | None]:
         copied_link = _first_link(backup)
     except OSError as exc:
         raise InstallSkillError(
-            f"cannot back up {skill_dir} to {backup}: {exc}; the existing installation was not changed",
+            f"cannot back up {skill_dir} to {backup}: {exc}; the existing installation was not changed"
+            f"{_drop_copy(backup, exc)}",
             EXIT_ENVIRONMENT_FAILURE,
         ) from exc
     if copied_link is not None:  # a link that appeared during the copy
-        raise _link_refused(skill_dir / copied_link.relative_to(backup), _drop_backup(backup))
+        raise _link_refused(skill_dir / copied_link.relative_to(backup), _drop_copy(backup))
     aside = skill_dir.with_name(f".{SKILL_NAME}-replaced-{backup.parent.name}")
     try:
         _move(skill_dir, aside)
@@ -319,12 +320,18 @@ def _link_refused(link: Path, note: str = "") -> InstallSkillError:
     )
 
 
-def _drop_backup(backup: Path) -> str:
-    """Remove a backup copy that holds a link, and its empty stamp folder; a note naming anything left."""
-    if not _discard(backup):
-        return f" (a partial copy is left at {backup}; delete it)"
+def _drop_copy(copy: Path, exc: OSError | None = None) -> str:
+    """Remove a copy that failed or holds a link, and its stamp folder; a note naming anything left.
+
+    A copy that failed because ``copy`` already existed is not this run's (another run took the same
+    stamp), so it is left alone.
+    """
+    if isinstance(exc, FileExistsError) and exc.filename is not None and Path(exc.filename) == copy:
+        return ""
+    if os.path.lexists(copy) and not _discard(copy):
+        return f"; a copy is left at {copy}"
     try:
-        backup.parent.rmdir()
+        os.rmdir(copy.parent)
     except OSError:
         pass
     return ""
@@ -340,7 +347,8 @@ def _discard(path: Path) -> bool:
                 os.rmdir(path)  # a junction on Windows
         else:
             def make_writable_and_retry(func, target, *_):
-                os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
+                if not _is_link(Path(target)):  # chmod follows a link; never change what it points at
+                    os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
                 func(target)
 
             if sys.version_info >= (3, 12):
