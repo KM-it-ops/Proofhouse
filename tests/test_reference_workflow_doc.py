@@ -43,8 +43,8 @@ def _commands() -> list[tuple[list[str], int]]:
 
 def test_doc_has_the_whole_journey() -> None:
     names = [" ".join(argv[:2]) for argv, _ in _commands()]
-    for step in ("optimize new", "optimize compile", "optimize record", "optimize output", "optimize check",
-                 "optimize revise", "optimize compare", "optimize report", "optimize export", "optimize import"):
+    for step in ("case new", "case compile", "case record", "case output", "case check",
+                 "case revise", "case compare", "case report", "case export", "case import"):
         assert step in names, step
 
 
@@ -57,7 +57,7 @@ def test_every_documented_command_runs_as_documented(tmp_path: Path, monkeypatch
         code = cli_compiler.main(argv)
         captured = capsys.readouterr()
         assert code == expected, (argv, captured.out, captured.err)
-        if argv[:2] == ["optimize", "new"]:
+        if argv[:2] == ["case", "new"]:
             # "Put the answers in advisory-case/answers.json (the example has them)".
             shutil.copy(tmp_path / "answers.json", tmp_path / "advisory-case" / "answers.json")
     assert (tmp_path / "report.md").is_file()

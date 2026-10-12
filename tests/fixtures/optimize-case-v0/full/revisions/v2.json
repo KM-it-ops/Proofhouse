@@ -1,0 +1,11 @@
+{
+  "created_at": "2026-10-11T15:14:00+00:00",
+  "efficiency": "",
+  "feedback_on_previous": "Mark unknowns and cite sections",
+  "n": 2,
+  "prompt": "Summarise the advisory for SOC analysts. Lead with severity, then affected versions and mitigations. If the advisory does not state something, write UNKNOWN. Cite the advisory section for each claim.",
+  "rationale": "",
+  "settings": "",
+  "sha256": "e597b8502fa3e72dd8ffadcc4adf38aeb4179e2b404fabd65a4a7d170493e55c",
+  "token_estimate": 50
+}

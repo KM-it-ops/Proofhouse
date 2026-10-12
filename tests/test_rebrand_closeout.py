@@ -56,5 +56,5 @@ def test_only_proofhouse_console_scripts_are_published() -> None:
     assert metadata["project"]["version"] == "0.4.2"
     assert metadata["project"]["scripts"] == {
         "proofhouse": "proofhouse.cli:main",
-        "proofhouse-compiler": "proofhouse.compiler.cli_compiler:main",
+        "proofhouse-compiler": "proofhouse.cli:main",  # MISSION-040: one main; the old name is an alias
     }

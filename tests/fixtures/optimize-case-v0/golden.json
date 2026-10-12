@@ -1,0 +1,313 @@
+{
+  "compare": {
+    "criteria": [
+      {
+        "change": "newly_passing",
+        "from": "FAIL",
+        "id": "C1",
+        "kind": "must_contain",
+        "target": "prompt",
+        "to": "PASS"
+      },
+      {
+        "change": "still_passing",
+        "from": "PASS",
+        "id": "C2",
+        "kind": "max_words",
+        "target": "prompt",
+        "to": "PASS"
+      },
+      {
+        "change": "still_passing",
+        "from": "PASS",
+        "id": "C3",
+        "kind": "must_not_contain",
+        "target": "prompt",
+        "to": "PASS"
+      },
+      {
+        "change": "still_passing",
+        "from": "PASS",
+        "id": "C4",
+        "kind": "regex",
+        "target": "prompt",
+        "to": "PASS"
+      },
+      {
+        "change": "not_evaluated",
+        "from": "UNJUDGED",
+        "id": "C5",
+        "kind": "manual",
+        "target": "prompt",
+        "to": "PASS"
+      },
+      {
+        "change": "newly_passing",
+        "from": "FAIL",
+        "id": "C6",
+        "inputs": [
+          {
+            "change": "newly_passing",
+            "from": "FAIL",
+            "input_id": "advisory-1",
+            "to": "PASS"
+          }
+        ],
+        "kind": "must_contain",
+        "target": "output",
+        "to": "PASS"
+      },
+      {
+        "change": "newly_passing",
+        "from": "FAIL",
+        "id": "C7",
+        "kind": "must_contain",
+        "target": "prompt",
+        "to": "PASS"
+      }
+    ],
+    "criteria_sha256": {
+      "C1": "c885634dd2bb896336b8e44940879003c342818d311c9735fd52293428b26e2f",
+      "C2": "058409f5c0ba6ec157b5640e8559a474c95d5fb4284cfcedccd659d573cbb7cc",
+      "C3": "e872cb00eb98f501a53553c4d8778d11e99248a60f762987f01620f227fd8a40",
+      "C4": "4e67ae746f69507ddaaa6dcfe11d704774eb0f0f08bea40b92582e3c0380669f",
+      "C5": "2ba49b9813330670a8066db322352da2732a516f82d44f132699cb6cd605cceb",
+      "C6": "0e7b9ff91e25e2713a286d5ecd4e7893d3d72afbb1b2cf472f97d81d9adbce6b",
+      "C7": "cc8b8b3533189103b7f13168c9cff53cc9fbb06456923ea3f59735378d899711"
+    },
+    "from": 1,
+    "from_revision_sha256": "c14b1ad3e4f41e19f350e0f2f28bcbcd823f0635e99e013abb43f15e95ec7e73",
+    "regressions": [],
+    "to": 2,
+    "to_revision_sha256": "e597b8502fa3e72dd8ffadcc4adf38aeb4179e2b404fabd65a4a7d170493e55c"
+  },
+  "generated_with": "proofhouse 0.4.1 at 0c63d33",
+  "lineage": [
+    {
+      "created_at": "2026-10-11T15:13:59+00:00",
+      "feedback_on_previous": null,
+      "n": 1,
+      "parent": null,
+      "sha256": "c14b1ad3e4f41e19f350e0f2f28bcbcd823f0635e99e013abb43f15e95ec7e73"
+    },
+    {
+      "created_at": "2026-10-11T15:14:00+00:00",
+      "feedback_on_previous": "Mark unknowns and cite sections",
+      "n": 2,
+      "parent": 1,
+      "sha256": "e597b8502fa3e72dd8ffadcc4adf38aeb4179e2b404fabd65a4a7d170493e55c"
+    }
+  ],
+  "model_line": "Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 evidence=unverified",
+  "report_markdown_v2": "# Proofhouse evidence report: revision v2\n\nObjective:\n\n> Summarise a vendor security advisory for SOC analysts: severity first, affected versions, and what to do. Label anything the advisory does not state as UNKNOWN.\n\n- Target model notes: Claude Sonnet 5 (claude-sonnet-5) source=builtin verified_at=2026-09-03 evidence=unverified\n- Revision sha256: `e597b8502fa3e72dd8ffadcc4adf38aeb4179e2b404fabd65a4a7d170493e55c`\n- Check run: `RUN` (proofhouse.optimize.checks/v1) at AT\n- Overall: **FAIL**\n\n## Lineage\n\n- v1 `c14b1ad3e4f4` feedback on previous: -\n- v2 `e597b8502fa3` feedback on previous: Mark unknowns and cite sections\n\n## Constraints\n\n| Id | Origin | State | Linked checks | Status | Text |\n|---|---|---|---|---|---|\n| K1 | clarification | accepted | - | no_evidence | Audience?: Tier-1 SOC analysts |\n| K2 | clarification | accepted | - | no_evidence | Missing facts?: Write UNKNOWN; never guess exploitation status |\n| K3 | clarification | accepted | - | no_evidence | Format?: Plain text, under 120 words |\n| K4 | user | accepted | C7 | satisfied | Cite the advisory section for each claim |\n\n## Checks\n\n| Id | Evidence | Kind | Value | Result |\n|---|---|---|---|---|\n| C1 | prompt-text check | must_contain | UNKNOWN | PASS |\n| C2 | prompt-text check | max_words | 40 | PASS |\n| C3 | prompt-text check | must_not_contain | guess | PASS |\n| C4 | prompt-text check | regex | (?i)^summarise | PASS |\n| C5 | human judgement | manual | Reads well for a tier-1 analyst | PASS |\n| C6 | recorded-output check | must_contain | UNKNOWN | PASS |\n| C7 | prompt-text check | must_contain | section | PASS |\n\n## Outputs tested\n\n| Check | Run | Input | Output sha256 | Result |\n|---|---|---|---|---|\n| C6 | R2 | advisory-1 | `0e5c039a8286` | PASS |\n\n## What this report does not show\n\n- Prompt-target checks inspect the prompt text only, not what a model does with it.\n- Output-target checks inspect only the recorded outputs listed above. They were imported from\n  wherever they were produced; Proofhouse did not call a model to create them.\n- Manual results are human judgements recorded with `optimize verdict`, bound to the exact\n  revision/output digest and criterion definition they judged.\n- Nothing here measures general quality beyond the declared checks, and model notes labeled\n  `unverified` have no cited sources.\n",
+  "reports": {
+    "1": {
+      "checked_at": "AT",
+      "checks_version": "proofhouse.optimize.checks/v1",
+      "constraints": [
+        {
+          "criteria": [],
+          "id": "K1",
+          "origin": "clarification",
+          "status": "no_evidence",
+          "text": "Audience?: Tier-1 SOC analysts"
+        },
+        {
+          "criteria": [],
+          "id": "K2",
+          "origin": "clarification",
+          "status": "no_evidence",
+          "text": "Missing facts?: Write UNKNOWN; never guess exploitation status"
+        },
+        {
+          "criteria": [],
+          "id": "K3",
+          "origin": "clarification",
+          "status": "no_evidence",
+          "text": "Format?: Plain text, under 120 words"
+        },
+        {
+          "criteria": [
+            "C7"
+          ],
+          "id": "K4",
+          "origin": "user",
+          "status": "failed",
+          "text": "Cite the advisory section for each claim"
+        }
+      ],
+      "criteria_sha256": {
+        "C1": "c885634dd2bb896336b8e44940879003c342818d311c9735fd52293428b26e2f",
+        "C2": "058409f5c0ba6ec157b5640e8559a474c95d5fb4284cfcedccd659d573cbb7cc",
+        "C3": "e872cb00eb98f501a53553c4d8778d11e99248a60f762987f01620f227fd8a40",
+        "C4": "4e67ae746f69507ddaaa6dcfe11d704774eb0f0f08bea40b92582e3c0380669f",
+        "C5": "2ba49b9813330670a8066db322352da2732a516f82d44f132699cb6cd605cceb",
+        "C6": "0e7b9ff91e25e2713a286d5ecd4e7893d3d72afbb1b2cf472f97d81d9adbce6b",
+        "C7": "cc8b8b3533189103b7f13168c9cff53cc9fbb06456923ea3f59735378d899711"
+      },
+      "overall": "FAIL",
+      "results": [
+        {
+          "id": "C1",
+          "kind": "must_contain",
+          "result": "FAIL",
+          "value": "UNKNOWN"
+        },
+        {
+          "id": "C2",
+          "kind": "max_words",
+          "result": "PASS",
+          "value": "40"
+        },
+        {
+          "id": "C3",
+          "kind": "must_not_contain",
+          "result": "PASS",
+          "value": "guess"
+        },
+        {
+          "id": "C4",
+          "kind": "regex",
+          "result": "PASS",
+          "value": "(?i)^summarise"
+        },
+        {
+          "id": "C5",
+          "kind": "manual",
+          "result": "UNJUDGED",
+          "stale_verdict": false,
+          "value": "Reads well for a tier-1 analyst"
+        },
+        {
+          "id": "C6",
+          "kind": "must_contain",
+          "result": "FAIL",
+          "runs": [
+            {
+              "input_id": "advisory-1",
+              "output_sha256": "00abf399d0fa81cdce39522a0f8e77766e5c19072fef017e494e08b2ad333fdb",
+              "result": "FAIL",
+              "run_id": "R1"
+            }
+          ],
+          "target": "output",
+          "value": "UNKNOWN"
+        },
+        {
+          "id": "C7",
+          "kind": "must_contain",
+          "result": "FAIL",
+          "value": "section"
+        }
+      ],
+      "revision": 1,
+      "revision_sha256": "c14b1ad3e4f41e19f350e0f2f28bcbcd823f0635e99e013abb43f15e95ec7e73",
+      "run_id": "RUN",
+      "target": "prompt_text"
+    },
+    "2": {
+      "checked_at": "AT",
+      "checks_version": "proofhouse.optimize.checks/v1",
+      "constraints": [
+        {
+          "criteria": [],
+          "id": "K1",
+          "origin": "clarification",
+          "status": "no_evidence",
+          "text": "Audience?: Tier-1 SOC analysts"
+        },
+        {
+          "criteria": [],
+          "id": "K2",
+          "origin": "clarification",
+          "status": "no_evidence",
+          "text": "Missing facts?: Write UNKNOWN; never guess exploitation status"
+        },
+        {
+          "criteria": [],
+          "id": "K3",
+          "origin": "clarification",
+          "status": "no_evidence",
+          "text": "Format?: Plain text, under 120 words"
+        },
+        {
+          "criteria": [
+            "C7"
+          ],
+          "id": "K4",
+          "origin": "user",
+          "status": "satisfied",
+          "text": "Cite the advisory section for each claim"
+        }
+      ],
+      "criteria_sha256": {
+        "C1": "c885634dd2bb896336b8e44940879003c342818d311c9735fd52293428b26e2f",
+        "C2": "058409f5c0ba6ec157b5640e8559a474c95d5fb4284cfcedccd659d573cbb7cc",
+        "C3": "e872cb00eb98f501a53553c4d8778d11e99248a60f762987f01620f227fd8a40",
+        "C4": "4e67ae746f69507ddaaa6dcfe11d704774eb0f0f08bea40b92582e3c0380669f",
+        "C5": "2ba49b9813330670a8066db322352da2732a516f82d44f132699cb6cd605cceb",
+        "C6": "0e7b9ff91e25e2713a286d5ecd4e7893d3d72afbb1b2cf472f97d81d9adbce6b",
+        "C7": "cc8b8b3533189103b7f13168c9cff53cc9fbb06456923ea3f59735378d899711"
+      },
+      "overall": "FAIL",
+      "results": [
+        {
+          "id": "C1",
+          "kind": "must_contain",
+          "result": "PASS",
+          "value": "UNKNOWN"
+        },
+        {
+          "id": "C2",
+          "kind": "max_words",
+          "result": "PASS",
+          "value": "40"
+        },
+        {
+          "id": "C3",
+          "kind": "must_not_contain",
+          "result": "PASS",
+          "value": "guess"
+        },
+        {
+          "id": "C4",
+          "kind": "regex",
+          "result": "PASS",
+          "value": "(?i)^summarise"
+        },
+        {
+          "id": "C5",
+          "kind": "manual",
+          "result": "PASS",
+          "stale_verdict": false,
+          "value": "Reads well for a tier-1 analyst"
+        },
+        {
+          "id": "C6",
+          "kind": "must_contain",
+          "result": "PASS",
+          "runs": [
+            {
+              "input_id": "advisory-1",
+              "output_sha256": "0e5c039a82860f05247efcff20c701adb76b8bfa71d8ce17dc13945068208287",
+              "result": "PASS",
+              "run_id": "R2"
+            }
+          ],
+          "target": "output",
+          "value": "UNKNOWN"
+        },
+        {
+          "id": "C7",
+          "kind": "must_contain",
+          "result": "PASS",
+          "value": "section"
+        }
+      ],
+      "revision": 2,
+      "revision_sha256": "e597b8502fa3e72dd8ffadcc4adf38aeb4179e2b404fabd65a4a7d170493e55c",
+      "run_id": "RUN",
+      "target": "prompt_text"
+    }
+  }
+}

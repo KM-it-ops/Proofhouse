@@ -32,7 +32,7 @@ MANUAL = {"id": "C1", "kind": "manual", "value": "Reviewed original", "note": ""
 def _tamper_prompt(case_dir: Path, n: int, text: str) -> None:
     path = case_dir / "revisions" / f"v{n}.json"
     data = json.loads(path.read_text(encoding="utf-8"))
-    data["prompt"] = text
+    data["artifact"]["payload"] = text
     path.write_text(json.dumps(data), encoding="utf-8")
 
 
@@ -51,14 +51,14 @@ def test_probe_tampered_revision_cannot_produce_pass(case_dir: Path) -> None:
 
 
 def test_revision_whose_file_and_case_summary_disagree_is_rejected(case_dir: Path) -> None:
-    """Rewriting both prompt and sha256 in the file still disagrees with case.json."""
+    """Rewriting both payload and digest in the file still disagrees with case.json."""
     record_revision(case_dir, "original content")
     path = case_dir / "revisions" / "v1.json"
     data = json.loads(path.read_text(encoding="utf-8"))
     import hashlib
 
-    data["prompt"] = "changed"
-    data["sha256"] = hashlib.sha256(b"changed").hexdigest()
+    data["artifact"]["payload"] = "changed"
+    data["artifact"]["digest"] = hashlib.sha256(b"changed").hexdigest()
     path.write_text(json.dumps(data), encoding="utf-8")
     with pytest.raises(CaseError, match="case.json"):
         load_revision(case_dir, 1)

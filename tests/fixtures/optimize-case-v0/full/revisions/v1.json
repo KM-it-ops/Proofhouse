@@ -1,0 +1,11 @@
+{
+  "created_at": "2026-10-11T15:13:59+00:00",
+  "efficiency": "",
+  "feedback_on_previous": null,
+  "n": 1,
+  "prompt": "Summarise the advisory for SOC analysts. Lead with severity, then affected versions and mitigations.",
+  "rationale": "",
+  "settings": "",
+  "sha256": "c14b1ad3e4f41e19f350e0f2f28bcbcd823f0635e99e013abb43f15e95ec7e73",
+  "token_estimate": 25
+}

@@ -1,7 +1,7 @@
 # Architecture
 
 ```text
-Cursor skill / proofhouse-compiler CLI / (future) interface
+Cursor skill / proofhouse CLI / (future) interface
                      |
           Python library services (src/proofhouse)
                      |

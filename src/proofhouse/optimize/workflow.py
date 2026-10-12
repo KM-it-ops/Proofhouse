@@ -10,7 +10,8 @@ Everything is a file in the case directory; nothing calls a model or the network
   supersedes the old entry instead of silently overwriting it.
 - **Runs** (``runs/<run_id>.json``, T10): one recorded model output tied to a
   revision digest, input id/digest, model, settings, method (``imported``)
-  and source. Output digests are verified on load.
+  and source, plus the part that ran it and its cost (an unmeasured figure
+  is ``unknown``, never zero). Output digests are verified on load.
 - **Compare** (T11): the same criteria evaluated on two revisions, per input.
 - **Report**: a Markdown evidence summary that says what it does not show.
 - **Export / import** (T12): a zip with a manifest of sha256 digests;
@@ -23,6 +24,8 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import math
+import re
 import shutil
 import uuid
 import zipfile
@@ -30,6 +33,7 @@ from pathlib import Path, PurePosixPath
 
 from .case import (
     CASE_FILE,
+    REVISIONS_DIR,
     CaseError,
     _json_text,
     _write_new_text,
@@ -37,18 +41,27 @@ from .case import (
     load_revision,
     now_iso,
     save_case,
+    skill_files_relpath,
+    upgrade_case,
 )
+from .kinds import AGENT_SKILL, folder_files
 
 CONSTRAINT_STATES = ("accepted", "proposed", "rejected", "superseded")
 ORIGINS = ("clarification", "user")
 RUNS_DIR = "runs"
-RUN_SCHEMA = "proofhouse.optimize.run/v1"
+# v2 adds ``part`` and ``cost``. A v1 run file (0.4.1) is never rewritten; it reads as part none, cost unknown.
+RUN_SCHEMA = "proofhouse.optimize.run/v2"
+RUN_SCHEMA_V1 = "proofhouse.optimize.run/v1"
+UNKNOWN = "unknown"
+COST_FIELDS = ("tokens_in", "tokens_out", "usd", "wall_seconds", "compute_seconds")
+_COST_KEYS = frozenset(COST_FIELDS) | {"basis", "price_table_version"}
 EXPORT_SCHEMA = "proofhouse.optimize.export/v1"
 MANIFEST = "manifest.json"
 EVIDENCE_IMPORTED_OUTPUT = "imported_output"
 METHOD_IMPORTED = "imported"
 MAX_IMPORT_BYTES = 64 * 1024 * 1024
-_EXPORT_DIRS = ("revisions", RUNS_DIR, "checks")
+_EXPORT_DIRS = (REVISIONS_DIR, RUNS_DIR, "checks")
+_SKILL_FILES_ENTRY = re.compile(r"^revisions/v[0-9]+-files/")
 
 
 def sha256_text(text: str) -> str:
@@ -203,6 +216,60 @@ def _runs(data: dict) -> list[dict]:
     return data.setdefault("runs", [])
 
 
+def unknown_cost() -> dict:
+    """Cost nobody measured. ``usd`` is never filled here: there is no price table (OAR-034 step 2)."""
+    return {**{field: UNKNOWN for field in COST_FIELDS}, "basis": UNKNOWN, "price_table_version": ""}
+
+
+def run_part(run: dict) -> str | None:
+    """The part that ran it; ``None`` for an imported run or a v1 run file."""
+    return run.get("part")
+
+
+def run_cost(run: dict) -> dict:
+    """The run's cost; a record written before ``cost`` existed reads as unknown, never as zero."""
+    cost = run.get("cost")
+    if cost is None:
+        return unknown_cost()
+    _check_cost(str(run.get("run_id")), cost)
+    return dict(cost)
+
+
+def _check_cost(run_id: str, cost: object) -> None:
+    if not isinstance(cost, dict) or set(cost) != _COST_KEYS:
+        raise CaseError(f"run {run_id} cost must have exactly {', '.join(sorted(_COST_KEYS))}")
+    for field in COST_FIELDS:
+        value = cost[field]
+        if value != UNKNOWN and (
+            isinstance(value, bool)
+            or not isinstance(value, (int, float))
+            or (isinstance(value, float) and not math.isfinite(value))  # NaN, Infinity, 1e999
+            or value < 0
+        ):
+            raise CaseError(f"run {run_id} cost {field} must be a non-negative number or {UNKNOWN!r}")
+    if cost["usd"] != UNKNOWN or cost["price_table_version"] != "":
+        raise CaseError(f"run {run_id} cost has a usd figure; this version has no price table, so usd is always unknown")
+
+
+def sum_costs(costs: list[dict]) -> dict:
+    """Per-field sum. A sum that includes an unknown is unknown; no runs at all is unknown too, not zero."""
+    total: dict = {}
+    for field in COST_FIELDS:
+        values = [cost[field] for cost in costs]
+        total[field] = UNKNOWN if not values or UNKNOWN in values else sum(values)
+    return total
+
+
+def cost_by_revision(data: dict) -> list[dict]:
+    """One row per version: how many runs were recorded and their summed cost."""
+    rows = []
+    for item in sorted(data.get("revisions", []), key=lambda row: int(row["n"])):
+        n = int(item["n"])
+        mine = [run for run in data.get("runs", []) if int(run["revision"]) == n]
+        rows.append({"revision": n, "runs": len(mine), "cost": sum_costs([run_cost(run) for run in mine])})
+    return rows
+
+
 def add_output(
     case_dir: Path,
     *,
@@ -221,6 +288,7 @@ def add_output(
     if not input_id.strip():
         raise CaseError("--input-id must not be empty")
     rev = load_revision(case_dir, revision)
+    upgrade_case(case_dir, data)  # a v2 run file is a v1-case record: back up and upgrade a v0 case.json first
     run_id = f"R{len(_runs(data)) + 1}"
     record = {
         "schema": RUN_SCHEMA,
@@ -236,11 +304,14 @@ def add_output(
         "method": METHOD_IMPORTED,
         "evidence_class": EVIDENCE_IMPORTED_OUTPUT,
         "source": source,
+        # Imported: produced elsewhere, so no runner part made it and nothing measured its cost.
+        "part": None,
+        "cost": unknown_cost(),
         "recorded_at": now_iso(),
     }
     (case_dir / RUNS_DIR).mkdir(exist_ok=True)
     _write_new_text(case_dir / RUNS_DIR / f"{run_id}.json", _json_text(record))
-    summary = {k: record[k] for k in ("run_id", "revision", "revision_sha256", "input_id", "output_sha256", "model", "method", "evidence_class", "recorded_at")}
+    summary = {k: record[k] for k in ("run_id", "revision", "revision_sha256", "input_id", "output_sha256", "model", "method", "evidence_class", "part", "cost", "recorded_at")}
     _runs(data).append(summary)
     save_case(case_dir, data)
     return summary
@@ -253,14 +324,42 @@ def load_run(case_dir: Path, run_id: str) -> dict:
     try:
         record = json.loads(path.read_text(encoding="utf-8"))
         text = record["output_text"]
-    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+        schema = record.get("schema")
+    except (json.JSONDecodeError, KeyError, TypeError, AttributeError) as exc:
         raise CaseError(f"run {run_id} is unreadable: {exc}") from None
+    if schema == RUN_SCHEMA:
+        if "part" not in record or "cost" not in record:
+            raise CaseError(f"run {run_id} is a {RUN_SCHEMA} record without part and cost")
+        if record["part"] is not None and not isinstance(record["part"], str):
+            raise CaseError(f"run {run_id} part must be a part id or null")
+        _check_cost(run_id, record["cost"])
+    elif schema != RUN_SCHEMA_V1:
+        raise CaseError(f"run {run_id} has an unknown schema {schema!r}")
     if sha256_text(text) != record.get("output_sha256"):
         raise CaseError(f"run {run_id} output does not match its recorded sha256; it was edited after recording")
     summary = next((item for item in load_case(case_dir).get("runs", []) if item["run_id"] == run_id), None)
-    if summary is not None and summary["output_sha256"] != record["output_sha256"]:
+    if summary is not None and summary.get("output_sha256") != record["output_sha256"]:
         raise CaseError(f"run {run_id} sha256 differs from the digest recorded in case.json")
+    # Listings and the cost table read case.json; the run file is the record, so every field case.json
+    # lists for the run (and always its revision, part and cost) must be what the run file holds.
+    if summary is not None:
+        listed = {**summary, "part": run_part(summary), "cost": run_cost(summary)}
+        held = {**record, "part": run_part(record), "cost": run_cost(record)}
+        differ = sorted(field for field in {*summary, "revision", "part", "cost"} if listed.get(field) != held.get(field))
+        if differ:
+            raise CaseError(f"run {run_id} in case.json differs from its run file ({', '.join(differ)})")
     return record
+
+
+def verify_runs(case_dir: Path, data: dict) -> None:
+    """Every run ``case.json`` lists, listed once and as its run file holds it; readers of the listing call this."""
+    seen: set[object] = set()
+    for item in data.get("runs", []):
+        run_id = item.get("run_id") if isinstance(item, dict) else None
+        if run_id in seen:
+            raise CaseError(f"case.json lists run {run_id} twice")
+        seen.add(run_id)
+        load_run(case_dir, run_id)
 
 
 def runs_for_revision(case_dir: Path, data: dict, revision: int, revision_sha256: str) -> list[dict]:
@@ -339,9 +438,53 @@ def _cell(value: object) -> str:
 
 
 def _evidence_class(row: dict) -> str:
+    if row["kind"] == "skill_check":
+        return "skill check (temporary host folder)"
     if row["kind"] == "manual":
         return "human judgement"
     return "recorded-output check" if row.get("target") == "output" else "prompt-text check"
+
+
+def cost_text(cost: dict) -> str:
+    """Short form for listings: ``unknown`` when nothing is known, never ``0``."""
+    if all(cost[field] == UNKNOWN for field in COST_FIELDS):
+        return UNKNOWN
+    return " ".join(f"{field}={cost[field]}" for field in COST_FIELDS)
+
+
+def render_cost_section(data: dict) -> list[str]:
+    lines = [
+        "",
+        "## Cost",
+        "",
+        "Summed per version over its recorded runs. A sum that includes an unknown is unknown, and a version",
+        "with no runs is unknown; nothing here is a zero standing in for a figure nobody measured. USD is",
+        "always unknown in this version: there is no price table.",
+        "",
+        "| Version | Runs | Tokens in | Tokens out | USD | Wall seconds | Compute seconds |",
+        "|---|---|---|---|---|---|---|",
+    ]
+    for row in cost_by_revision(data):
+        values = " | ".join(str(row["cost"][field]) for field in COST_FIELDS)
+        lines.append(f"| v{row['revision']} | {row['runs']} | {values} |")
+    return lines
+
+
+def _part_lines(report: dict) -> list[str]:
+    """Each skill check's evidence part, with the part's own status, kept apart from the case result."""
+    from .. import parts
+
+    lines = []
+    for row in report["results"]:
+        if row["kind"] != "skill_check":
+            continue
+        status = parts.get_part(row["part"]).describe().status
+        not_measured = "; ".join(row.get("not_measured", [])) or "-"
+        lines.append(
+            f"- Check {row['id']} evidence: part `{row['part']}`, part status {status} (the part's own status, "
+            f"not this case's result). Not measured: {_cell(not_measured)}"
+        )
+    return lines
 
 
 def render_report(data: dict, report: dict, model_line: str) -> str:
@@ -357,6 +500,7 @@ def render_report(data: dict, report: dict, model_line: str) -> str:
         f"- Revision sha256: `{report['revision_sha256']}`",
         f"- Check run: `{report['run_id']}` ({report['checks_version']}) at {report['checked_at']}",
         f"- Overall: **{report['overall']}**",
+        *_part_lines(report),
         "",
         "## Lineage",
         "",
@@ -381,6 +525,7 @@ def render_report(data: dict, report: dict, model_line: str) -> str:
         lines += ["", "## Outputs tested", "", "| Check | Run | Input | Output sha256 | Result |", "|---|---|---|---|---|"]
         for cid, r in run_rows:
             lines.append(f"| {cid} | {r['run_id']} | {r['input_id']} | `{r['output_sha256'][:12]}` | {r['result']} |")
+    lines += render_cost_section(data)
     lines += [
         "",
         "## What this report does not show",
@@ -392,8 +537,14 @@ def render_report(data: dict, report: dict, model_line: str) -> str:
         "  revision/output digest and criterion definition they judged.",
         "- Nothing here measures general quality beyond the declared checks, and model notes labeled",
         "  `unverified` have no cited sources.",
-        "",
     ]
+    if any(row["kind"] == "skill_check" for row in report["results"]):
+        lines += [
+            "- Skill checks install the skill only into a temporary skills folder. Behaviour in hosts was not",
+            "  tested: whether Cursor, Claude Code or another host loads, triggers or follows the skill.",
+            "- No independent pass ran on this skill. A PASS here is the skill checker's structural evidence only.",
+        ]
+    lines.append("")
     return "\n".join(lines)
 
 
@@ -408,8 +559,16 @@ def _export_files(case_dir: Path) -> list[tuple[str, bytes]]:
     for sub in _EXPORT_DIRS:
         root = case_dir / sub
         if root.is_dir():
-            for path in sorted(root.rglob("*.json")):
+            # Revision records sit at the top of revisions/; a skill's own files are added below.
+            found = root.glob("*.json") if sub == REVISIONS_DIR else root.rglob("*.json")
+            for path in sorted(found):
                 files.append((path.relative_to(case_dir).as_posix(), path.read_bytes()))
+    for item in sorted(load_case(case_dir)["revisions"], key=lambda row: int(row["n"])):
+        if item.get("kind") == AGENT_SKILL:
+            n = int(item["n"])
+            load_revision(case_dir, n)  # a bundle never carries skill files that drifted from their manifest
+            folder = skill_files_relpath(n)
+            files.extend((f"{folder}/{rel}", blob) for rel, blob in folder_files(case_dir / folder))
     return files
 
 
@@ -493,13 +652,29 @@ def import_case(bundle: Path, case_dir: Path) -> dict:
         staging.mkdir()
         for name, blob in blobs.items():
             target = staging / PurePosixPath(name)
-            target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_bytes(blob)
+            try:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                # Exclusive create: two entries that name one file on this disk are refused, not merged.
+                with target.open("xb") as handle:
+                    handle.write(blob)
+            except FileExistsError:
+                raise CaseError(f"bundle entry {name} names a file another entry already wrote on this disk") from None
+            except OSError as exc:
+                raise CaseError(f"cannot write bundle entry {name}: {exc}") from None
         data = load_case(staging)
+        skill_folders = tuple(
+            skill_files_relpath(int(item["n"])) + "/" for item in data["revisions"] if item.get("kind") == AGENT_SKILL
+        )
+        stray = sorted(
+            name for name in blobs
+            if _SKILL_FILES_ENTRY.match(name) and not name.startswith(skill_folders)
+        )
+        if stray:
+            raise CaseError(f"bundle has skill files for no recorded skill version: {', '.join(stray)}")
         for item in data["revisions"]:
+            # A skill version's files are re-verified here, one by one, against its manifest.
             load_revision(staging, int(item["n"]))
-        for item in data.get("runs", []):
-            load_run(staging, item["run_id"])
+        verify_runs(staging, data)
         staging.rename(case_dir)
     finally:
         if staging.exists():

@@ -44,5 +44,5 @@ def test_readme_how_it_works_runs_as_written(tmp_path: Path, monkeypatch, capsys
         code = cli_compiler.main(argv)
         captured = capsys.readouterr()
         assert code == expected, (argv, captured.out, captured.err)
-        if argv[:2] == ["optimize", "new"]:
+        if argv[:2] == ["case", "new"]:
             shutil.copy(tmp_path / "answers.json", tmp_path / "advisory-case" / "answers.json")

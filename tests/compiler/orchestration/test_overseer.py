@@ -31,9 +31,10 @@ def test_overseer_cli_matches_route_cli(capsys) -> None:
         assert overseer_payload == route_payload
 
 
-def test_proofhouse_entry_point_stays_eval_harness() -> None:
+def test_both_console_scripts_reach_the_one_front_door() -> None:
+    # MISSION-040 (OAR-033 option B): proofhouse is the front door; proofhouse-compiler is an alias of it.
     from pathlib import Path
 
     text = Path(__file__).resolve().parents[3].joinpath("pyproject.toml").read_text(encoding="utf-8")
     assert 'proofhouse = "proofhouse.cli:main"' in text
-    assert 'proofhouse-compiler = "proofhouse.compiler.cli_compiler:main"' in text
+    assert 'proofhouse-compiler = "proofhouse.cli:main"' in text

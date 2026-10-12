@@ -5,6 +5,14 @@ and an empty ``answers.json``; ``compile`` writes ``02-compile.md`` from your
 answers; ``record`` stores a revision under ``revisions/v{N}.json``; ``revise``
 writes ``03-revise-v{N}.md`` whose input is revision N, so you can resume from
 any earlier revision. Nothing here calls a model.
+
+Case schema v1 (MISSION-040 SPEC §2.2): a case holds one artifact kind, and
+each revision file holds an artifact reference (kind, payload, digest, and
+provenance next to the digest). A skill revision's files sit in
+``revisions/v{N}-files/``. A v0 case (0.4.1) is read as it is; the first
+command that writes its ``case.json`` copies it to ``case.v0-backup.json``
+(exclusive create, never overwritten) and upgrades it. v0 revision and run
+files are never rewritten. The upgrade is one-way: 0.4.1 refuses a v1 case.
 """
 
 from __future__ import annotations
@@ -29,7 +37,12 @@ from .model_notes import (
 from .packets import clarify_packet, compile_packet, packet_markdown, revise_packet, token_estimate
 from .registry import find_model, load_registry
 
-CASE_SCHEMA = "proofhouse.optimize.case/v0"
+CASE_SCHEMA_V0 = "proofhouse.optimize.case/v0"
+CASE_SCHEMA = "proofhouse.optimize.case/v1"
+REVISION_SCHEMA = "proofhouse.optimize.revision/v1"
+CASE_BACKUP_FILE = "case.v0-backup.json"
+# Provenance of a version the host's model wrote and the user recorded: no part made it.
+MADE_BY_RECORDED = "recorded"
 CASE_FILE = "case.json"
 CLARIFY_FILE = "01-clarify.md"
 ANSWERS_FILE = "answers.json"
@@ -46,26 +59,54 @@ class CaseError(ValueError):
     """A usage-level problem with a case directory or its inputs (CLI exit 2)."""
 
 
+_V0_REVISION_FIELDS = (
+    "n", "prompt", "rationale", "settings", "efficiency", "sha256", "token_estimate", "created_at",
+    "feedback_on_previous",
+)
+
+
+def recorded_provenance() -> dict:
+    """Who made a recorded version: the host's model, not a registered part (SPEC §2.2)."""
+    return {"made_by": MADE_BY_RECORDED, "part": None, "part_version": None, "part_manifest_digest": None}
+
+
 @dataclass(frozen=True)
 class Revision:
+    """One recorded version. ``sha256`` is the artifact digest that verdicts and runs bind to."""
+
     n: int
-    prompt: str
+    kind: str
+    # The text of a ``prompt.text@1`` version; ``None`` for a skill.
+    prompt: str | None
+    # The file manifest of an ``agent.skill@1`` version; ``None`` for prompt text.
+    files: tuple[dict, ...] | None
+    sha256: str
+    provenance: dict
     rationale: str
     settings: str
     efficiency: str
-    sha256: str
-    token_estimate: int
+    token_estimate: int | None
     created_at: str
     feedback_on_previous: str | None
 
+    @property
+    def payload(self) -> str | list[dict]:
+        return self.prompt if self.files is None else [dict(entry) for entry in self.files]
+
     def to_dict(self) -> dict:
+        """The v1 revision file: provenance sits next to the digest, outside the digested payload."""
         return {
+            "schema": REVISION_SCHEMA,
             "n": self.n,
-            "prompt": self.prompt,
+            "artifact": {
+                "kind": self.kind,
+                "payload": self.payload,
+                "digest": self.sha256,
+                "provenance": dict(self.provenance),
+            },
             "rationale": self.rationale,
             "settings": self.settings,
             "efficiency": self.efficiency,
-            "sha256": self.sha256,
             "token_estimate": self.token_estimate,
             "created_at": self.created_at,
             "feedback_on_previous": self.feedback_on_previous,
@@ -74,6 +115,7 @@ class Revision:
     def summary(self) -> dict:
         return {
             "n": self.n,
+            "kind": self.kind,
             "path": revision_relpath(self.n),
             "sha256": self.sha256,
             "token_estimate": self.token_estimate,
@@ -88,6 +130,11 @@ def now_iso() -> str:
 
 def revision_relpath(n: int) -> str:
     return f"{REVISIONS_DIR}/v{n}.json"
+
+
+def skill_files_relpath(n: int) -> str:
+    """Folder holding the files of skill revision N."""
+    return f"{REVISIONS_DIR}/v{n}-files"
 
 
 def revise_packet_name(n: int) -> str:
@@ -116,6 +163,18 @@ def _write_new_text(path: Path, text: str) -> None:
     try:
         with path.open("x", encoding="utf-8", newline="\n") as handle:
             handle.write(text)
+    except FileExistsError:
+        raise CaseError(
+            f"{path.name} already exists; another writer may have recorded it. "
+            "Inspect it before recording again."
+        ) from None
+
+
+def _write_new_bytes(path: Path, blob: bytes) -> None:
+    """Exclusive create for a file's exact bytes."""
+    try:
+        with path.open("xb") as handle:
+            handle.write(blob)
     except FileExistsError:
         raise CaseError(
             f"{path.name} already exists; another writer may have recorded it. "
@@ -204,25 +263,95 @@ def model_from_case(data: dict) -> ResolvedNotes:
 
 
 def load_case(case_dir: Path) -> dict:
+    """Read ``case.json`` as it is; reading never upgrades a v0 case."""
+    from .kinds import get_kind
+
     path = case_dir / CASE_FILE
     if not path.is_file():
         raise CaseError(f"case not found: {case_dir}")
     data = _read_json(path)
-    if data.get("schema") != CASE_SCHEMA:
+    schema = data.get("schema") if isinstance(data, dict) else None
+    if schema not in (CASE_SCHEMA, CASE_SCHEMA_V0):
         raise CaseError(f"unrecognised case schema in {path}")
+    if schema == CASE_SCHEMA:
+        get_kind(data.get("kind"))
     return data
 
 
+def case_kind(data: dict) -> str:
+    """The artifact kind a case holds; a v0 case holds prompt text."""
+    from .kinds import PROMPT_TEXT
+
+    return data.get("kind", PROMPT_TEXT) if data.get("schema") == CASE_SCHEMA else PROMPT_TEXT
+
+
 def save_case(case_dir: Path, data: dict) -> None:
+    """Atomic replace of ``case.json``; a v0 case is backed up and upgraded to v1 first."""
+    if data.get("schema") == CASE_SCHEMA_V0:
+        _upgrade_in_memory(case_dir, data)
     _write_json(case_dir / CASE_FILE, data)
 
 
+def upgrade_case(case_dir: Path, data: dict) -> None:
+    """Upgrade a v0 case on disk now, before a v1-only record is written into it; no-op for v1."""
+    if data.get("schema") == CASE_SCHEMA_V0:
+        save_case(case_dir, data)
+
+
+def _upgrade_in_memory(case_dir: Path, data: dict) -> None:
+    """Back up the v0 ``case.json`` on disk, then turn ``data`` into v1. One-way."""
+    from .kinds import PROMPT_TEXT
+
+    _backup_v0(case_dir)
+    data["schema"] = CASE_SCHEMA
+    data["kind"] = PROMPT_TEXT
+    for item in data.get("revisions", []):
+        item.setdefault("kind", PROMPT_TEXT)
+    data["migrated_from"] = {"schema": CASE_SCHEMA_V0, "backup": CASE_BACKUP_FILE, "at": now_iso()}
+
+
+def _backup_v0(case_dir: Path) -> None:
+    """Copy the v0 ``case.json`` bytes to ``case.v0-backup.json`` with exclusive create.
+
+    The backup is never overwritten. If it already holds these exact bytes, an
+    earlier upgrade stopped after the backup and it is reused; any other content
+    is refused and ``case.json`` is left as it is.
+    """
+    path = case_dir / CASE_FILE
+    original = path.read_bytes()
+    try:
+        on_disk = json.loads(original)
+    except json.JSONDecodeError:
+        on_disk = None
+    if not isinstance(on_disk, dict) or on_disk.get("schema") != CASE_SCHEMA_V0:
+        raise CaseError(f"{CASE_FILE} changed while this command ran; nothing was written. Run the command again.")
+    backup = case_dir / CASE_BACKUP_FILE
+    try:
+        handle = backup.open("xb")
+    except FileExistsError:
+        if backup.read_bytes() != original:
+            raise CaseError(
+                f"{CASE_BACKUP_FILE} already exists and differs from the v0 {CASE_FILE}; it is never overwritten. "
+                f"Move it out of the case folder, then run the command again. {CASE_FILE} was not changed."
+            ) from None
+        return
+    try:
+        with handle:
+            handle.write(original)
+            handle.flush()
+            os.fsync(handle.fileno())
+    except BaseException:
+        # Only a backup this call created and could not finish is removed.
+        backup.unlink(missing_ok=True)
+        raise
+
+
 def compile_command(case_dir: Path) -> str:
-    return f"proofhouse-compiler optimize compile --case {case_dir}"
+    return f"proofhouse case compile --case {case_dir}"
 
 
 def record_command(case_dir: Path) -> str:
-    return f"proofhouse-compiler optimize record --case {case_dir} --prompt-file <file>"
+    return f"proofhouse case record --case {case_dir} --prompt-file <file>"
 
 
 def new_case(
@@ -232,8 +361,16 @@ def new_case(
     resolved: ResolvedNotes,
     preset_key: str,
     loop: bool,
+    kind: str | None = None,
+    route: dict | None = None,
 ) -> dict:
-    """Create the case directory with ``case.json``, the clarify packet and an empty ``answers.json``."""
+    """Create the case directory with ``case.json``, the clarify packet and an empty ``answers.json``.
+
+    ``route`` is the overseer's route decision (class, rationale, forced) when it opened the case.
+    """
+    from .kinds import PROMPT_TEXT, get_kind
+
+    kind = get_kind(PROMPT_TEXT if kind is None else kind).id
     if case_dir.exists():
         raise CaseError(f"case directory already exists: {case_dir}")
     objective = objective.strip()
@@ -242,6 +379,7 @@ def new_case(
     packet = clarify_packet(objective, resolved, preset_key, loop)
     data = {
         "schema": CASE_SCHEMA,
+        "kind": kind,
         "created_at": now_iso(),
         "objective": objective,
         "model": resolved.to_dict(),
@@ -252,6 +390,8 @@ def new_case(
         "criteria": [],
         "pending_feedback": None,
     }
+    if route is not None:
+        data["route"] = dict(route)
     case_dir.mkdir(parents=True)
     save_case(case_dir, data)
     next_line = (
@@ -350,32 +490,121 @@ def latest_revision_number(data: dict) -> int:
 def load_revision(case_dir: Path, n: int) -> Revision:
     """Load revision N and prove it is the content that was recorded.
 
-    The prompt must hash to the file's ``sha256`` and that digest must equal
-    the one ``case.json`` recorded for vN. Either mismatch is a usage error:
-    an edited revision is never evaluated as if it were the original. This
-    detects drift and accidental edits; it is not tamper-proofing against
-    someone who controls the whole directory.
+    The payload must hash to the file's digest and that digest must equal the
+    one ``case.json`` recorded for vN; a skill revision's files must also match
+    its manifest exactly. Any mismatch is a usage error: an edited revision is
+    never evaluated as if it were the original. This detects drift and
+    accidental edits; it is not tamper-proofing against someone who controls
+    the whole directory. A v0 revision file reads as ``prompt.text@1`` with
+    recorded provenance.
     """
     path = case_dir / revision_relpath(n)
     if not path.is_file():
         raise CaseError(f"revision file missing: {revision_relpath(n)}")
     try:
         raw = _read_json(path)
-        revision = Revision(**{key: raw[key] for key in Revision.__dataclass_fields__})
-    except (json.JSONDecodeError, KeyError, TypeError) as exc:
+    except json.JSONDecodeError as exc:
+        raise CaseError(f"revision file {revision_relpath(n)} is unreadable: {exc}") from None
+    if not isinstance(raw, dict):
+        raise CaseError(f"revision file {revision_relpath(n)} is unreadable: not a JSON object")
+    if "schema" not in raw:
+        revision = _v0_revision(raw, n)
+    elif raw["schema"] == REVISION_SCHEMA:
+        revision = _v1_revision(case_dir, raw, n)
+    else:
+        raise CaseError(f"revision file {revision_relpath(n)} has an unrecognised schema: {raw['schema']!r}")
+    summary = next((item for item in load_case(case_dir)["revisions"] if int(item["n"]) == n), None)
+    if summary is not None and summary.get("sha256") != revision.sha256:
+        raise CaseError(f"revision v{n} sha256 differs from the digest recorded in case.json")
+    if summary is not None and summary.get("kind", revision.kind) != revision.kind:
+        raise CaseError(f"revision v{n} kind differs from the kind recorded in case.json")
+    return revision
+
+
+def _edited(n: int, recorded: str, actual: str) -> CaseError:
+    return CaseError(
+        f"revision v{n} content does not match its recorded sha256 "
+        f"(recorded {recorded[:12]}, actual {actual[:12]}); it was edited after recording"
+    )
+
+
+def _v0_revision(raw: dict, n: int) -> Revision:
+    from .kinds import PROMPT_TEXT
+
+    try:
+        fields = {key: raw[key] for key in _V0_REVISION_FIELDS}
+        revision = Revision(kind=PROMPT_TEXT, files=None, provenance=recorded_provenance(), **fields)
+    except (KeyError, TypeError) as exc:
         raise CaseError(f"revision file {revision_relpath(n)} is unreadable: {exc}") from None
     if not isinstance(revision.prompt, str) or revision.n != n:
         raise CaseError(f"revision file {revision_relpath(n)} does not describe v{n}")
     actual = prompt_sha256(revision.prompt)
     if actual != revision.sha256:
-        raise CaseError(
-            f"revision v{n} content does not match its recorded sha256 "
-            f"(recorded {revision.sha256[:12]}, actual {actual[:12]}); it was edited after recording"
-        )
-    summary = next((item for item in load_case(case_dir)["revisions"] if int(item["n"]) == n), None)
-    if summary is not None and summary.get("sha256") != revision.sha256:
-        raise CaseError(f"revision v{n} sha256 differs from the digest recorded in case.json")
+        raise _edited(n, revision.sha256, actual)
     return revision
+
+
+def _v1_revision(case_dir: Path, raw: dict, n: int) -> Revision:
+    from .case_codes import CodedCaseError
+    from .kinds import PAYLOAD_TEXT, artifact_digest, folder_manifest, get_kind
+
+    try:
+        artifact = raw["artifact"]
+        kind = get_kind(artifact["kind"])
+        payload, digest, provenance = artifact["payload"], artifact["digest"], artifact["provenance"]
+        fields = {key: raw[key] for key in _V0_REVISION_FIELDS if key not in ("prompt", "sha256")}
+    except (KeyError, TypeError) as exc:
+        raise CaseError(f"revision file {revision_relpath(n)} is unreadable: missing {exc}") from None
+    if fields["n"] != n or not isinstance(digest, str) or not isinstance(provenance, dict):
+        raise CaseError(f"revision file {revision_relpath(n)} does not describe v{n}")
+    if kind.payload == PAYLOAD_TEXT and not isinstance(payload, str):
+        raise CaseError(f"revision file {revision_relpath(n)} does not describe v{n}")
+    actual = artifact_digest(kind.id, payload)
+    if actual != digest:
+        raise _edited(n, digest, actual)
+    files = None
+    if kind.payload != PAYLOAD_TEXT:
+        try:
+            on_disk = folder_manifest(case_dir / skill_files_relpath(n))
+        except CodedCaseError as exc:
+            raise CodedCaseError(exc.code, f"revision v{n} files ({skill_files_relpath(n)}): {exc.detail}") from None
+        if on_disk != payload:
+            raise CaseError(
+                f"revision v{n} files no longer match what was recorded ({_drift(payload, on_disk)}); "
+                "they were edited after recording"
+            )
+        files = tuple(dict(entry) for entry in payload)
+    try:
+        return Revision(
+            kind=kind.id,
+            prompt=payload if files is None else None,
+            files=files,
+            sha256=digest,
+            provenance=dict(provenance),
+            **fields,
+        )
+    except TypeError as exc:
+        raise CaseError(f"revision file {revision_relpath(n)} is unreadable: {exc}") from None
+
+
+def _drift(recorded: list[dict], actual: list[dict]) -> str:
+    before = {entry["path"]: entry["sha256"] for entry in recorded}
+    after = {entry["path"]: entry["sha256"] for entry in actual}
+    parts = []
+    for label, paths in (
+        ("changed", sorted(path for path in before.keys() & after.keys() if before[path] != after[path])),
+        ("missing", sorted(before.keys() - after.keys())),
+        ("extra", sorted(after.keys() - before.keys())),
+    ):
+        if paths:
+            parts.append(f"{label}: {', '.join(paths)}")
+    return "; ".join(parts)
+
+
+def _require_kind(data: dict, kind: str) -> None:
+    held = case_kind(data)
+    if held != kind:
+        raise CaseError(f"this case holds {held} versions; it cannot record a {kind} version")
 
 
 def record_revision(
@@ -387,23 +616,85 @@ def record_revision(
     efficiency: str = "",
 ) -> Revision:
     """Store the prompt as revision N+1; consumes any pending revise feedback."""
+    from .kinds import PROMPT_TEXT
+
     data = load_case(case_dir)
+    _require_kind(data, PROMPT_TEXT)
     if not prompt.strip():
         raise CaseError("prompt file is empty")
+    return _record(
+        case_dir, data, PROMPT_TEXT, prompt, None,
+        estimate=token_estimate(prompt), rationale=rationale, settings=settings, efficiency=efficiency,
+    )
+
+
+def record_skill_revision(
+    case_dir: Path,
+    skill_dir: Path,
+    *,
+    rationale: str = "",
+    settings: str = "",
+    efficiency: str = "",
+) -> Revision:
+    """Store a copy of a skill folder as revision N+1 under ``revisions/v{N+1}-files/``."""
+    from .kinds import AGENT_SKILL, files_manifest, folder_files
+
+    data = load_case(case_dir)
+    _require_kind(data, AGENT_SKILL)
+    files = folder_files(Path(skill_dir))
+    return _record(
+        case_dir, data, AGENT_SKILL, files_manifest(files), files,
+        estimate=None, rationale=rationale, settings=settings, efficiency=efficiency,
+    )
+
+
+def _record(
+    case_dir: Path,
+    data: dict,
+    kind: str,
+    payload: str | list[dict],
+    files: list[tuple[str, bytes]] | None,
+    *,
+    estimate: int | None,
+    rationale: str,
+    settings: str,
+    efficiency: str,
+) -> Revision:
+    from .kinds import artifact_digest
+
     n = latest_revision_number(data) + 1
     pending = data.get("pending_feedback")
     revision = Revision(
         n=n,
-        prompt=prompt,
+        kind=kind,
+        prompt=payload if files is None else None,
+        files=None if files is None else tuple(payload),
+        sha256=artifact_digest(kind, payload),
+        provenance=recorded_provenance(),
         rationale=rationale,
         settings=settings,
         efficiency=efficiency,
-        sha256=prompt_sha256(prompt),
-        token_estimate=token_estimate(prompt),
+        token_estimate=estimate,
         created_at=now_iso(),
         feedback_on_previous=pending["feedback"] if pending else None,
     )
+    # A v1 revision file never sits in a case that still says v0.
+    upgrade_case(case_dir, data)
     (case_dir / REVISIONS_DIR).mkdir(exist_ok=True)
+    if files is not None:
+        folder = case_dir / skill_files_relpath(n)
+        try:
+            folder.mkdir()
+        except FileExistsError:
+            raise CaseError(
+                f"{skill_files_relpath(n)} already exists; another writer may have recorded v{n}, or an earlier "
+                "record stopped part way. Inspect it before recording again."
+            ) from None
+        for rel, blob in files:
+            target = folder / rel
+            target.parent.mkdir(parents=True, exist_ok=True)
+            _write_new_bytes(target, blob)
+    # The revision file is the commit point: written last, with exclusive create.
     _write_new_text(case_dir / revision_relpath(n), _json_text(revision.to_dict()))
     summary = revision.summary()
     summary["parent"] = pending["revision"] if pending else None
@@ -428,6 +719,8 @@ def revise_case(case_dir: Path, feedback: str, revision_n: int | None = None) ->
     from .workflow import accepted_constraints
 
     previous = load_revision(case_dir, n)
+    if previous.prompt is None:
+        raise CaseError(f"revise packets are written for prompt text; v{n} is a {previous.kind} version")
     resolved = model_from_case(data)
     answers = [(label, answer) for label, answer in (data.get("clarification") or {}).get("answers", [])]
     ledger = [(item["id"], item["text"]) for item in accepted_constraints(data)]
