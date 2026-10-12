@@ -21,7 +21,7 @@ class ScriptedModel:
     def __call__(self, request: live.Request) -> live.Response:
         body = json.loads(request.body_bytes)
         text = " ".join(m["content"] for m in body["messages"])
-        if text.startswith("You write excellent prompts") or text.startswith("You write agent skills"):
+        if text.startswith(("You write excellent prompts", "You write agent skills", "You write subagents")):
             role, content = "write", self._artifact(1)
         elif text.startswith("Write one realistic input"):
             role, content = "test input", "A customer asks for a refund on order 42."
@@ -35,6 +35,8 @@ class ScriptedModel:
         return live.Response(200, {"choices": [{"message": {"content": content}}], "usage": {"prompt_tokens": 100, "completion_tokens": 50}})
 
     def _artifact(self, n: int) -> str:
+        if self.skill == "agent":
+            return f"---\nname: refund-agent\ndescription: Handles refunds (v{n}).\n---\nDo refunds well v{n}."
         if self.skill:
             return f"```markdown\n---\nname: refund-helper\ndescription: Use when a customer asks for a refund (v{n}).\n---\nSteps for v{n}.\n```"
         return f"You are a support agent. Version {n}."
@@ -116,3 +118,15 @@ def test_cli_make_prints_where_everything_is(tmp_path: Path, capsys, monkeypatch
     code = cli.main(["make", "a refund prompt", "--provider", "ollama", "--model", "m", "--out", str(tmp_path / "o")])
     out = capsys.readouterr().out
     assert code == 0 and "made: version 1 (judge score 9/10)" in out and str(tmp_path / "o") in out
+
+
+def test_a_made_subagent_installs_into_claude_code(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+    made = make.make("an agent that handles refunds", provider_id="ollama", model="m", kind="agent",
+                     out_dir=tmp_path / "a", transport=ScriptedModel([9], skill="agent"))
+    agent = tmp_path / "a" / "refund-agent.md"
+    assert made.best_version == 1 and agent.is_file()
+    assert cli.main(["install", "agent", str(agent), "--into", "claude"]) == 0
+    assert (home / ".claude" / "agents" / "refund-agent.md").is_file()

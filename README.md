@@ -137,6 +137,19 @@ proofhouse make "a skill that reviews pull requests for security issues" --kind 
 
 `make` writes version 1 with your model and tries it (a prompt runs on a test input, yours or one it writes). A judge model scores it against what you asked for, and `make` revises until the score reaches `--target` (default 9), the rounds run out (`--rounds`, default 3), or the next call would cross your spending limit, which covers the whole command. Every version, test output, score and cost is kept in one folder. The best version is `final.md`, or for a skill an installable folder (`proofhouse install-skill --bundle <folder>`). The judge is a model, so its score is advice, not proof.
 
+### Put it where you work
+
+```bash
+proofhouse make "an agent that reviews pull requests for security issues" --kind agent --provider ollama --model llama3
+proofhouse install agent make-*/review-bot.md --into claude                     # ~/.claude/agents/
+proofhouse install rule house-style.md --into cursor --project .               # .cursor/rules/house-style.mdc
+proofhouse install mcp files --into cursor --command npx --arg=-y --arg server-files   # ~/.cursor/mcp.json
+proofhouse uninstall mcp files --from cursor                                     # removes only what Proofhouse wrote
+proofhouse hosts list                                                            # Claude Code, Cursor, Codex, and any tool you add
+```
+
+Agents, rules and MCP servers go into Claude Code, Cursor and Codex. Any other tool is one entry in `PROOFHOUSE_HOME/hosts.json`. Proofhouse writes marked blocks into shared files (`CLAUDE.md`, `AGENTS.md`, `config.toml`) and single entries into `mcp.json`, and keeps a record and a copy of every file it changes. Installing twice changes nothing; uninstalling removes only what it wrote, and refuses if you edited it since unless you pass `--force`.
+
 Every provider that speaks the OpenAI chat format works, known or not, cloud or local. Each run goes through the spending limit: it is refused before sending if its worst-case estimate is over `--max-cost-usd`, or if the model has no price (shipped, or declared by you). A model on your own machine costs nothing. Dollar figures are estimates, not your bill. See [docs/providers.md](docs/providers.md).
 
 ---

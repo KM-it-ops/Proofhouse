@@ -31,7 +31,7 @@ from typing import Any
 
 from . import live, providers
 
-KINDS = ("prompt", "skill")
+KINDS = ("prompt", "skill", "agent")
 DEFAULT_ROUNDS = 3
 DEFAULT_TARGET = 9
 
@@ -46,6 +46,11 @@ _WRITE = {
         "that best achieves the request below. It must start with YAML frontmatter between '---' lines holding exactly "
         "'name: <lowercase-hyphenated-name>' and 'description: <one line saying when to use it>', then clear instructions. "
         "Output only the file content."
+    ),
+    "agent": (
+        "You write subagents for Claude Code (a Markdown file). Write the complete file that best achieves the request "
+        "below. It must start with YAML frontmatter between '---' lines holding 'name: <lowercase-hyphenated-name>' and "
+        "'description: <one line saying when to use it>', then the agent's instructions. Output only the file content."
     ),
 }
 _TEST_INPUT = (
@@ -217,7 +222,7 @@ def make(
                 output = call("try", current, test_input or "")
                 subject = f"PROMPT:\n{current}\n\nTEST INPUT:\n{test_input}\n\nOUTPUT IT PRODUCED:\n{output}"
             else:
-                subject = f"SKILL.md:\n{current}"
+                subject = f"{'SKILL.md' if kind == 'skill' else 'SUBAGENT FILE'}:\n{current}"
             score, missing, fix = _judgement(call("judge", _JUDGE.format(request=request, subject=subject)))
             result.rounds.append(Round(version, current, output, score, missing, fix))
             (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
@@ -250,6 +255,20 @@ class _Stop(Exception):
 def _deliver(folder: Path, kind: str, text: str) -> None:
     if kind == "prompt":
         (folder / "final.md").write_text(text + "\n", encoding="utf-8")
+        return
+    if kind == "agent":
+        from .hosts import HostError, check_name
+        from .hosts_cli import _frontmatter_value
+
+        try:
+            name = check_name(_frontmatter_value(text + "\n", "name") or "")
+            if not _frontmatter_value(text + "\n", "description"):
+                raise HostError("no description")
+        except HostError as exc:
+            (folder / "final-agent.md").write_text(text + "\n", encoding="utf-8")
+            (folder / "AGENT-NOT-INSTALLABLE.txt").write_text(f"{exc}\n", encoding="utf-8")
+            return
+        (folder / f"{name}.md").write_text(text + "\n", encoding="utf-8")
         return
     from .optimize.install_skill import check_frontmatter
 
