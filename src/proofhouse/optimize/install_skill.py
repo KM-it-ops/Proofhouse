@@ -552,7 +552,7 @@ def install(
     if os.path.lexists(skill_dir) and not force:
         raise InstallSkillError(f"{skill_dir} already exists; re-run with --force to replace it", EXIT_USAGE_ERROR)
     if os.path.lexists(skill_dir):
-        link = _link_in(skill_dir, "nothing was changed")
+        link = _link_in(skill_dir, "the existing installation was not changed")
         if link is not None:
             raise _link_refused(link)
     history, record_text = _read_record(skill_dir, home)
@@ -739,7 +739,8 @@ def _discard(path: Path) -> bool:
                 os.rmdir(path)  # a junction on Windows
         else:
             def make_writable_and_retry(func, target, *_):
-                os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
+                if not _is_link(Path(target)):  # chmod follows a link; never change what it points at
+                    os.chmod(target, stat.S_IWRITE | stat.S_IREAD)
                 func(target)
 
             if sys.version_info >= (3, 12):

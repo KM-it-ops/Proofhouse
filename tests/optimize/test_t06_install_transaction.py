@@ -207,7 +207,7 @@ def test_successful_force_install_over_a_read_only_skill_leaves_no_second_copy(e
 def test_force_install_over_a_junction_is_refused_and_touches_nothing(tmp_path: Path, monkeypatch) -> None:
     """A skill installed as a junction to the user's checkout: neither the link nor the checkout is touched.
 
-    Until MISSION-040 ``--force`` replaced the link after backing up the checkout by following it,
+    Until 0.4.2 ``--force`` replaced the link after backing up the checkout by following it,
     so uninstall could only put back a stale copy, never the link.
     """
     import _winapi

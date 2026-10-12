@@ -6,7 +6,7 @@ The spine slice: prompts and skills go from objective to export through the same
 
 ### Upgrade notes (read first)
 
-- **(breaking, one-way)** Cases move to `proofhouse.optimize.case/v1`. A 0.4.1 case still opens, reports the same results and takes new versions; its revision and run files are never rewritten. The first command that writes its `case.json` copies the old file to `case.v0-backup.json` (never overwritten) and upgrades it. **An upgraded case no longer opens in 0.4.1**, which refuses a schema it does not know. Keep the backup, or an export made with 0.4.1, if you need to go back. Read-only commands never upgrade a case. Export bundles written by 0.4.1 still import.
+- **(breaking, one-way)** Cases move to `proofhouse.optimize.case/v1`. A 0.4.x case still opens, reports the same results and takes new versions; its revision and run files are never rewritten. The first command that writes its `case.json` copies the old file to `case.v0-backup.json` (never overwritten) and upgrades it. **An upgraded case no longer opens in 0.4.x**, which refuses a schema it does not know. Keep the backup, or an export made with 0.4.x, if you need to go back. Read-only commands never upgrade a case. Export bundles written by 0.4.x still import.
 - **(breaking)** One command, `proofhouse`. Both console scripts now run the same command tree. `proofhouse-compiler` still works and prints a one-line notice on stderr (`--json` output on stdout is unchanged).
 - **(breaking)** The eval harness moved under `proofhouse eval`: `eval validate --dataset`, `eval report`, `eval loadouts`, `eval compile-loadout`, `eval generate`. The old top-level forms are not forwarded; each exits 2 with one line naming the new form. `proofhouse validate` without `--dataset` is IR validation, as `proofhouse-compiler validate` was. `scan` stays top-level.
 - `proofhouse case` carries every `optimize` subcommand with the same names and flags. `proofhouse optimize ...` still works for 0.5 and prints a notice; it will be removed after 0.5. JSON `command` values (`"optimize new"`, ...) are unchanged.
@@ -26,11 +26,25 @@ The spine slice: prompts and skills go from objective to export through the same
 ### Changed
 
 - **(breaking)** `proofhouse proof` no longer reports `SHIP` when no review pass ran. With no pass wired to the command it reports `UNJUDGED` with `passes: 0` and exits 3. The real-pass rules are unchanged.
-- **(breaking)** `install-skill --force` refuses to replace a skill folder that is, or holds, a link or junction (exit 2); it used to back up what the link pointed at and replace the link, so an uninstall could not put the link back. Remove or replace the link yourself, then install. This is checked again right before the backup copy, a backup that came out holding a link is refused, and without `--force` a skill folder that appears while `install-skill` runs is refused (exit 2).
+- **(breaking)** `install-skill --force` refuses to replace a skill folder that is, or holds, a link or junction (exit 2), as 0.4.2 already does; 0.4.1 backed up what the link pointed at and replaced the link, so an uninstall could not put the link back. Remove or replace the link yourself, then install. This is checked again right before the backup copy, a backup that came out holding a link is refused, and without `--force` a skill folder that appears while `install-skill` runs is refused (exit 2).
 - A backup that fails or does not match is removed again (never one another run left at the same path), and anything that could not be removed is named in the error. If a failed install or uninstall cannot put its install record back, the error says `record not restored` and names the record.
 - Reading a skill folder refuses one whose folder, or a folder inside it, is replaced while it is being read (`PHC-SKILL-0003`).
 - Skill file names that are not portable to every OS (Windows reserved names such as `CON`, `nul.txt` or `CONIN$`, a trailing dot or space, characters Windows forbids) are refused on every OS (`PHC-SKILL-0009`), in skill versions and in `install-skill` input.
 - README, docs and CI use `proofhouse`; CI runs `proofhouse demo` from the built wheel outside the checkout.
+
+## 0.4.2 - 2026-10-12
+
+### Fixed
+
+- `install-skill --force` refuses to replace a skill folder that is, or holds, a symbolic link or a Windows
+  directory junction. It exits 2 and changes nothing; remove or replace the link, then install again. Before
+  this fix, the backup copy under `PROOFHOUSE_HOME/skill-backups/` followed such a link and copied what it
+  pointed to. The backup copy now never follows a link.
+- A skill folder that is a link to a folder that no longer exists is refused the same way (exit 2), instead of
+  failing with "cannot place the new skill" (exit 7).
+- A backup copy that fails or is refused is removed from `PROOFHOUSE_HOME/skill-backups/`; if it cannot be
+  removed, the error names where it is.
+- Removing a copy never changes the permissions of a file that a link in it points to.
 
 ## 0.4.1 - 2026-10-08
 
