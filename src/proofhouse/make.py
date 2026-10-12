@@ -32,7 +32,7 @@ from typing import Any
 
 from . import live, providers, sitecheck
 
-KINDS = ("prompt", "skill", "agent", "site")
+KINDS = ("prompt", "skill", "agent", "site", "copy")
 DEFAULT_ROUNDS = 3
 DEFAULT_TARGET = 9
 
@@ -54,6 +54,11 @@ _WRITE = {
         'Reply with JSON only: {"files": {"index.html": "...", "styles.css": "...", "script.js": "..."}} '
         "(more pages are fine; every file the pages link to must be included)."
     ),
+    "copy": (
+        "You write launch and announcement copy that people actually read: headline, short body, a clear call to action, "
+        "and ready-to-post versions for the channels the request names (for example a post, an email, a store listing). "
+        "Write the complete copy that best achieves the request below. Plain, specific, no filler. Output only the copy."
+    ),
     "agent": (
         "You write subagents for Claude Code (a Markdown file). Write the complete file that best achieves the request "
         "below. It must start with YAML frontmatter between '---' lines holding 'name: <lowercase-hyphenated-name>' and "
@@ -72,6 +77,7 @@ _REVISE = (
     "Improve the {kind} below so it fully achieves the request. Fix this first: {fix}\n"
     "Also missing: {missing}\nOutput only the improved {kind}, nothing else.{form}\n\nREQUEST:\n{request}\n\nCURRENT {upper}:\n{current}"
 )
+_SUBJECT = {"skill": "SKILL.md", "agent": "SUBAGENT FILE", "copy": "COPY"}
 _SITE_FORM = ' Reply with the complete site again as JSON only: {"files": {"index.html": "...", ...}}.'
 
 
@@ -232,7 +238,7 @@ def make(
             elif kind == "site":
                 output, subject = _try_site(current, folder / f"v{version}")
             else:
-                subject = f"{'SKILL.md' if kind == 'skill' else 'SUBAGENT FILE'}:\n{current}"
+                subject = f"{_SUBJECT[kind]}:\n{current}"
             score, missing, fix = _judgement(call("judge", _JUDGE.format(request=request, subject=subject)))
             result.rounds.append(Round(version, current, output, score, missing, fix))
             if kind != "site":
@@ -301,7 +307,7 @@ def _try_site(text: str, version_dir: Path) -> tuple[str, str]:
 
 
 def _deliver(folder: Path, kind: str, text: str) -> None:
-    if kind == "prompt":
+    if kind in ("prompt", "copy"):
         (folder / "final.md").write_text(text + "\n", encoding="utf-8")
         return
     if kind == "agent":

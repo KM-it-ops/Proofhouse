@@ -10,7 +10,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from . import live, make, providers, spend, studio
+from . import launch, live, make, providers, spend, studio
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -161,12 +161,7 @@ def _cmd_make_video(args: argparse.Namespace) -> int:
     try:
         made = studio.produce(
             args.request, provider_id=args.provider, model=args.model,
-            visual_provider=args.visual_provider, visual_model=args.visual_model, visual_kind=args.visual_kind,
-            voice_provider=args.voice_provider, voice_model=args.voice_model, voice=args.voice,
-            music_provider=args.music_provider, music_model=args.music_model,
-            music_file=Path(args.music_file) if args.music_file else None,
-            seconds=args.seconds, formats=tuple(args.formats.split(",")), captions=not args.no_captions,
-            max_cost_usd=args.max_cost_usd, out_dir=out,
+            max_cost_usd=args.max_cost_usd, out_dir=out, **_video_options(args),
         )
     except (studio.StudioError, OSError) as exc:
         return _fail(str(exc))
@@ -185,9 +180,39 @@ def _cmd_make_video(args: argparse.Namespace) -> int:
     return EXIT_OK if made.renders and not failed else EXIT_REFUSED
 
 
+def _video_options(args: argparse.Namespace) -> dict:
+    return {"visual_provider": args.visual_provider, "visual_model": args.visual_model, "visual_kind": args.visual_kind,
+            "voice_provider": args.voice_provider, "voice_model": args.voice_model, "voice": args.voice,
+            "music_provider": args.music_provider, "music_model": args.music_model,
+            "music_file": Path(args.music_file) if args.music_file else None, "seconds": args.seconds,
+            "formats": tuple(args.formats.split(",")), "captions": not args.no_captions}
+
+
+def _cmd_make_launch(args: argparse.Namespace) -> int:
+    parts = tuple(p.strip() for p in args.parts.split(",") if p.strip()) if args.parts else None
+    try:
+        made = launch.run_launch(args.request, provider_id=args.provider, model=args.model, parts=parts,
+                                 max_cost_usd=args.max_cost_usd, rounds=args.rounds, target=args.target,
+                                 video=_video_options(args), out_dir=Path(args.out) if args.out else None)
+    except (launch.LaunchError, providers.ProviderError, OSError) as exc:
+        return _fail(str(exc))
+    if args.json:
+        print(json.dumps({"folder": str(made.folder), "name": made.name, "stopped": made.stopped,
+                          "spent_usd_estimated": format(made.spent_usd, "f"), "parts": [p.to_dict() for p in made.parts]},
+                         sort_keys=True))
+    else:
+        print(f"{made.name or 'launch'}: {made.stopped}; spent about ${format(made.spent_usd, 'f')}")
+        for part in made.parts:
+            print(f"  {part.kind:<7} {part.status:<9} {made.folder / part.folder}  {part.detail}")
+        print(f"everything is in {made.folder} (start with README.md)")
+    return EXIT_OK if made.parts and all(p.status == "made" for p in made.parts) else EXIT_REFUSED
+
+
 def _cmd_make(args: argparse.Namespace) -> int:
     if args.kind == "video":
         return _cmd_make_video(args)
+    if args.kind == "launch":
+        return _cmd_make_launch(args)
     try:
         test_input = _read_text(None, args.input_file, "input")
         made = make.make(
@@ -230,12 +255,15 @@ def _cmd_make(args: argparse.Namespace) -> int:
 
 def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make = subparsers.add_parser(
-        "make", help="Make a prompt or agent skill with any model: write, try, judge, improve, within one spending limit."
+        "make", help="Make anything with any model (prompt, skill, agent, site, copy, video, or a whole launch) within one spending limit."
     )
     p_make.add_argument("request", help="What you want made, in your own words.")
     p_make.add_argument("--provider", required=True, help="Provider id (see `proofhouse providers list`).")
     p_make.add_argument("--model", required=True, help="Model id as the provider names it.")
-    p_make.add_argument("--kind", default="prompt", choices=(*make.KINDS, "video"), help="What to make (default prompt).")
+    p_make.add_argument("--kind", default="prompt", choices=(*make.KINDS, "video", "launch"), help="What to make (default prompt).")
+    p_make.add_argument("--parts", default=None,
+                        help=f"For --kind launch: which parts to make, comma separated, from {','.join(launch.PART_KINDS)} "
+                             "(default: the planner picks).")
     video = p_make.add_argument_group("video (--kind video)")
     video.add_argument("--visual-provider", default=None, help="Media service for the shots (see `proofhouse media list`).")
     video.add_argument("--visual-model", default=None, help="Image or video model for the shots.")

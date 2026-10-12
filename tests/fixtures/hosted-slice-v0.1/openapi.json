@@ -1110,7 +1110,9 @@
                       "skill",
                       "agent",
                       "site",
-                      "video"
+                      "copy",
+                      "video",
+                      "launch"
                     ],
                     "type": "string"
                   },
@@ -1139,6 +1141,10 @@
                   },
                   "out": {
                     "description": "Folder for the results (default ./make-<words>-<time>).",
+                    "type": "string"
+                  },
+                  "parts": {
+                    "description": "For --kind launch: which parts to make, comma separated, from site,video,agent,skill,prompt,copy (default: the planner picks).",
                     "type": "string"
                   },
                   "provider": {

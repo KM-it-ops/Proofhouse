@@ -147,6 +147,18 @@ proofhouse make "a skill that reviews pull requests for security issues" --kind 
 
 `make` writes version 1 with your model and tries it (a prompt runs on a test input, yours or one it writes). A judge model scores it against what you asked for, and `make` revises until the score reaches `--target` (default 9), the rounds run out (`--rounds`, default 3), or the next call would cross your spending limit, which covers the whole command. Every version, test output, score and cost is kept in one folder. The best version is `final.md`, or for a skill an installable folder (`proofhouse install-skill --bundle <folder>`). The judge is a model, so its score is advice, not proof.
 
+### Launch something: every part from one goal
+
+```bash
+proofhouse make "launch Brew, a one-tap coffee ordering app, to busy commuters" --kind launch \
+  --provider anthropic --model <model> --max-cost-usd 15 \
+  --visual-provider fal --visual-model <image-model> --voice-provider elevenlabs --voice-model eleven_multilingual_v2 --voice <voice-id>
+```
+
+A model plans the launch: which parts it needs (site, video, support agent, skill, prompt, announcement copy) and a full brief for each, with the same names, facts and tone throughout. Then each part is made by its own engine, the same one its own command uses, and judged and improved the same way. `--parts site,copy,video` picks the parts yourself. One spending limit covers the plan and every part; a part that would not fit is skipped and says so. Each part gets its own numbered folder, and `README.md` and `launch.json` sum it all up. The video part needs the video options above and FFmpeg.
+
+`--kind copy` makes announcement copy on its own: headline, body, call to action and ready-to-post versions.
+
 ### Make a website
 
 ```bash
