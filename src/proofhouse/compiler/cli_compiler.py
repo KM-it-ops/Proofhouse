@@ -593,6 +593,9 @@ def _cmd_execute_openai(args: argparse.Namespace) -> int:
         ),
     )
     payload = result.to_dict()
+    warning = result.envelope.get("cost_warning")
+    if isinstance(warning, str):
+        print(warning, file=sys.stderr)  # the worst-case bound did not hold for this call
     if args.json:
         sys.stdout.write(json.dumps(payload, sort_keys=True))
         sys.stdout.write("\n")

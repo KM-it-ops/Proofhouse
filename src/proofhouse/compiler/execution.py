@@ -443,9 +443,15 @@ def execute_openai(
         "runtime_context": runtime.evidence(),
         "admission": _admission(request, gated.admission),
     }
+    cost, cost_warning = spend.cost_after(gated, payload)
+    envelope["cost"] = cost
+    if cost_warning is not None:
+        envelope["cost_warning"] = cost_warning
     ok = isinstance(status_code, int) and 200 <= status_code < 300
     result_status = "success" if ok else "error"
     diagnostics = () if ok else (EXE_HTTP_0001,)
+    if cost_warning is not None:
+        diagnostics = (*diagnostics, "PHC-COST-0004")  # the money is spent; the output is still returned
     audit = {
         "event": "live_openai_execute",
         "opt_in": True,
