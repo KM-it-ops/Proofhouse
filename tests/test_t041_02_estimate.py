@@ -137,5 +137,8 @@ def test_spend_holds_no_float() -> None:
         for node in ast.walk(tree)
         if (isinstance(node, ast.Constant) and type(node.value) is float)
         or (isinstance(node, ast.Name) and node.id == "float")
+        # clocks that return float (the gate times with perf_counter_ns), and the float maths module
+        or (isinstance(node, ast.Attribute) and node.attr in {"time", "perf_counter", "monotonic", "process_time"})
+        or (isinstance(node, (ast.Import, ast.ImportFrom)) and "math" in {getattr(node, "module", None), *(a.name for a in node.names)})
     ]
     assert floats == [], f"float in spend.py at lines {floats}"

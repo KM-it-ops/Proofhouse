@@ -65,9 +65,15 @@ _SERVICE_TIERS = frozenset({"default"})
 # publish that format. Chosen here, not a figure the provider gives.
 INPUT_TOKEN_MARGIN = 1024
 COUNTING_RULE = (
-    "input tokens <= UTF-8 bytes of the request body as sent + 1024; "
-    "assumes the provider's tokenizer makes at most one token per byte"
+    "input tokens <= UTF-8 bytes of the request body as sent + 1024, assuming at most one token per byte; "
+    "output tokens <= the request's output cap, assuming it caps every billed output token, reasoning included"
 )
+# The request fields the estimate covers, per provider. Any other field (more choices, another
+# processing tier, ...) could change what is billed, so a request carrying one is refused.
+_REQUEST_FIELDS = {"openai": frozenset({"model", "messages", "max_completion_tokens", "tools", "response_format"})}
+_OUTPUT_CAP_FIELD = {"openai": "max_completion_tokens"}
+# A ceiling from 0.000000000001 up to (not including) 10000000000000 dollars; anything else is refused.
+_CEILING_EXPONENTS = range(-12, 13)
 ENFORCEMENT = "refused_pre_send_when_worst_case_over_ceiling"
 _TOKENS_PER_PRICE_UNIT = Decimal(1_000_000)
 # Enough digits for any real request; anything that needs more is refused, not rounded.
@@ -255,9 +261,24 @@ def _ceiling(value: object) -> Decimal:
         amount = Decimal(value.strip()) if isinstance(value, str) else None
     except DecimalException:
         amount = None
-    if amount is None or not amount.is_finite() or amount <= 0:
-        raise SpendRefused("PHC-COST-0003", "the ceiling is not a positive decimal")
+    if amount is None or not amount.is_finite() or amount <= 0 or amount.adjusted() not in _CEILING_EXPONENTS:
+        raise SpendRefused("PHC-COST-0003", "the ceiling must be a decimal from 0.000000000001 to under 10000000000000")
     return amount
+
+
+def _check_request(body: Mapping[str, Any], *, provider: str, model: str, output_bound: int) -> None:
+    """The model and output cap are read from the bytes being counted; the caller's word is not taken."""
+    fields = _REQUEST_FIELDS.get(provider)
+    if fields is None:
+        raise SpendRefused("PHC-COST-0003", f"no request shape is known for provider {provider!r}")
+    extra = sorted(str(key) for key in body if key not in fields)
+    if extra:
+        raise SpendRefused("PHC-COST-0003", f"the request has fields the estimate does not cover: {', '.join(extra)}")
+    if body.get("model") != model:
+        raise SpendRefused("PHC-COST-0003", "the request names a different model from the one priced")
+    cap = body.get(_OUTPUT_CAP_FIELD[provider])
+    if type(cap) is not int or cap != output_bound:
+        raise SpendRefused("PHC-COST-0003", f"the request's output cap is not the output bound {output_bound}")
 
 
 @dataclass(frozen=True, slots=True)
@@ -324,6 +345,7 @@ def send_within_ceiling(
         facts["body_sha256"] = hashlib.sha256(sent).hexdigest()
         facts["input_tokens_bound"] = bound = input_tokens_bound(sent)
         facts["output_tokens_bound"] = output_bound = _count(max_output_tokens, "the output-token ceiling")
+        _check_request(body, provider=provider, model=model, output_bound=output_bound)
         try:
             table = load_price_table()
         except PriceTableError as exc:
