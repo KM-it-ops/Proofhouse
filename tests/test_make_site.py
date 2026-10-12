@@ -76,11 +76,14 @@ def test_a_browser_that_hangs_is_reported_not_measured_never_a_crash(tmp_path: P
     sitecheck.write_site(GOOD, tmp_path / "w")
     monkeypatch.setattr(sitecheck, "find_browser", lambda: "/fake/chrome")
 
+    launches: list[list[str]] = []
+
     def hangs(command, **kwargs):
-        assert any(part.startswith("--user-data-dir=") for part in command)  # a fresh profile every time
+        launches.append(command)
         raise subprocess.TimeoutExpired(command, kwargs["timeout"])
 
     monkeypatch.setattr(sitecheck.subprocess, "run", hangs)
     checks = {c["check"]: c for c in sitecheck.check_site(tmp_path / "w", tmp_path / "shots", timeout=1)}
     assert checks["opened in a browser"]["ok"] is None
-    assert "did not finish in 1 s" in checks["opened in a browser"]["detail"]
+    assert "did not finish in 1 s, twice" in checks["opened in a browser"]["detail"]
+    assert len(launches) == 4  # desktop and phone, each tried once more after hanging
