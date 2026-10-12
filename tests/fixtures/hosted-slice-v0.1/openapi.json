@@ -844,7 +844,8 @@
                     "description": "What to make (default prompt).",
                     "enum": [
                       "prompt",
-                      "skill"
+                      "skill",
+                      "agent"
                     ],
                     "type": "string"
                   },
@@ -1259,7 +1260,9 @@
     "hosted-delete",
     "hosted-export",
     "hosted-view",
+    "hosts",
     "inspect",
+    "install",
     "install-skill",
     "make",
     "missionrig-generate",
@@ -1271,6 +1274,7 @@
     "route",
     "run",
     "scan",
+    "uninstall",
     "uninstall-skill",
     "validate",
     "workspace-consume"
@@ -1299,12 +1303,15 @@
     "case",
     "demo",
     "eval",
+    "hosts",
+    "install",
     "install-skill",
     "models",
     "optimize",
     "parts",
     "providers",
     "scan",
+    "uninstall",
     "uninstall-skill"
   ],
   "x-opt-in-live": [
