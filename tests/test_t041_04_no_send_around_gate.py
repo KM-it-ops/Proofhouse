@@ -49,6 +49,7 @@ ALLOWED = {
     ("media.py", "httpx"),  # any media service; the one paid request goes only through the spend gate
     ("optimize/reference_workflow.py", "subprocess"),  # runs the proofhouse CLI itself, offline
     ("studio.py", "subprocess"),  # runs ffmpeg and ffprobe on local files; no network
+    ("sitecheck.py", "subprocess"),  # opens a generated site from disk in a local headless browser
     ("optimize/cli.py", "ctypes"),  # console handling on Windows
     ("parts.py", "import_module"),  # loads registered parts by the module names in its own table
 }
