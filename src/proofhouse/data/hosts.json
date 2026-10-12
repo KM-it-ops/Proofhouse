@@ -1,0 +1,25 @@
+{
+  "schema": "proofhouse.hosts/v1",
+  "note": "Where each tool keeps agents, rules and MCP servers. ~ is your home folder, {project} the --project folder, {name} the item's name. Add or override any tool in PROOFHOUSE_HOME/hosts.json.",
+  "hosts": [
+    {
+      "id": "claude",
+      "name": "Claude Code",
+      "agent": {"user": "~/.claude/agents/{name}.md", "project": "{project}/.claude/agents/{name}.md", "format": "file"},
+      "rule": {"user": "~/.claude/CLAUDE.md", "project": "{project}/CLAUDE.md", "format": "md-block"},
+      "mcp": {"project": "{project}/.mcp.json", "format": "json-mcp"}
+    },
+    {
+      "id": "cursor",
+      "name": "Cursor",
+      "rule": {"project": "{project}/.cursor/rules/{name}.mdc", "format": "file"},
+      "mcp": {"user": "~/.cursor/mcp.json", "project": "{project}/.cursor/mcp.json", "format": "json-mcp"}
+    },
+    {
+      "id": "codex",
+      "name": "Codex",
+      "rule": {"user": "~/.codex/AGENTS.md", "project": "{project}/AGENTS.md", "format": "md-block"},
+      "mcp": {"user": "~/.codex/config.toml", "format": "toml-block"}
+    }
+  ]
+}

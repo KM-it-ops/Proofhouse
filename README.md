@@ -109,11 +109,48 @@ Details: [docs/architecture.md](docs/architecture.md), [decision 0002](docs/deci
 | Entry | Use it when | Status | Network |
 |---|---|---|---|
 | **Command line**: `proofhouse case` | You want the evidence trail above: constraints, recorded outputs, checks, compare, report | supported | none |
+| **Any provider, any model**: `proofhouse run --provider P --model M --prompt "..."` | You want a prompt run on OpenAI, Anthropic, Google, Mistral, Groq, Together, Fireworks, OpenRouter, DeepSeek, xAI, a model on your own machine (Ollama, LM Studio, vLLM, llama.cpp), or any other provider you add with one command | new | only that call, through your spending limit |
 | **Cursor or Claude Code skill**: `proofhouse install-skill` asks which agent (Cursor, Claude Code, or another one you name with its skills folder); `--host cursor` or `--host claude` skips the question. Then say "Proofhouse" in a new chat or session | You want the same clarify → compile → self-heal loop as a conversation | supported entry point | the host agent's tools |
 
 Proofhouse is two products in one repo, at different levels of maturity. The **PromptOps skill and framework (v1.3)**, the conversational meta-optimizer with current frontier model profiles, is the most mature part of the project. The headless compiler's maturity is listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
 
-Both entries use the same framework ([`proofhouse-framework.json`](proofhouse-framework.json)) and the same model notes. The framework also covers Efficient / Balanced / Thorough token presets, loops for recurring agents (trigger, body, exit, escalation), prompt audits with missing-context labels, and agent design (permission maps, tool boundaries, stop conditions). The skill is installed to `~/.cursor/skills/proofhouse` (or `~/.claude/skills/proofhouse` with `--host claude`) and the installer checks it (the bundle ships inside the package; `tests/test_skill_bundle.py` keeps it identical to `skills/proofhouse/`); without the console script, `python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills` (or `~/.claude/skills`) does the same. The skill can research an unfamiliar model with the host agent's tools; the command line never goes online, and uses your own notes (`models remember`) or a generic profile labeled `fallback`.
+Both entries use the same framework ([`proofhouse-framework.json`](proofhouse-framework.json)) and the same model notes. The framework also covers Efficient / Balanced / Thorough token presets, loops for recurring agents (trigger, body, exit, escalation), prompt audits with missing-context labels, and agent design (permission maps, tool boundaries, stop conditions). The skill is installed to `~/.cursor/skills/proofhouse` (or `~/.claude/skills/proofhouse` with `--host claude`) and the installer checks it (the bundle ships inside the package; `tests/test_skill_bundle.py` keeps it identical to `skills/proofhouse/`); without the console script, `python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills` (or `~/.claude/skills`) does the same. The skill can research an unfamiliar model with the host agent's tools; the command line goes online only when you ask it to run a model (`proofhouse run`, `execute-openai`), and otherwise uses your own notes (`models remember`) or a generic profile labeled `fallback`.
+
+### Run on any provider
+
+```bash
+proofhouse providers list                     # shipped providers, and whether each key is set
+proofhouse run --provider ollama --model llama3 --prompt "Say hi"          # on your machine: free, no key
+export MISTRAL_API_KEY=...                                                 # your key stays in your environment
+proofhouse providers price mistral mistral-large --input 2 --output 6      # USD per million tokens, if none ships
+proofhouse run --provider mistral --model mistral-large --prompt "Say hi" --max-cost-usd 0.05
+proofhouse providers add myhost --base-url https://api.myhost.ai/v1 --key-env MYHOST_KEY   # any other provider
+```
+
+### Make it
+
+```bash
+proofhouse make "a prompt that answers refund emails warmly" --provider ollama --model llama3
+proofhouse make "a skill that reviews pull requests for security issues" --kind skill \
+  --provider anthropic --model <model> --max-cost-usd 1.00
+```
+
+`make` writes version 1 with your model and tries it (a prompt runs on a test input, yours or one it writes). A judge model scores it against what you asked for, and `make` revises until the score reaches `--target` (default 9), the rounds run out (`--rounds`, default 3), or the next call would cross your spending limit, which covers the whole command. Every version, test output, score and cost is kept in one folder. The best version is `final.md`, or for a skill an installable folder (`proofhouse install-skill --bundle <folder>`). The judge is a model, so its score is advice, not proof.
+
+### Put it where you work
+
+```bash
+proofhouse make "an agent that reviews pull requests for security issues" --kind agent --provider ollama --model llama3
+proofhouse install agent make-*/review-bot.md --into claude                     # ~/.claude/agents/
+proofhouse install rule house-style.md --into cursor --project .               # .cursor/rules/house-style.mdc
+proofhouse install mcp files --into cursor --command npx --arg=-y --arg server-files   # ~/.cursor/mcp.json
+proofhouse uninstall mcp files --from cursor                                     # removes only what Proofhouse wrote
+proofhouse hosts list                                                            # Claude Code, Cursor, Codex, and any tool you add
+```
+
+Agents, rules and MCP servers go into Claude Code, Cursor and Codex. Any other tool is one entry in `PROOFHOUSE_HOME/hosts.json`. Proofhouse writes marked blocks into shared files (`CLAUDE.md`, `AGENTS.md`, `config.toml`) and single entries into `mcp.json`, and keeps a record and a copy of every file it changes. Installing twice changes nothing; uninstalling removes only what it wrote, and refuses if you edited it since unless you pass `--force`.
+
+Every provider that speaks the OpenAI chat format works, known or not, cloud or local. Each run goes through the spending limit: it is refused before sending if its worst-case estimate is over `--max-cost-usd`, or if the model has no price (shipped, or declared by you). A model on your own machine costs nothing. Dollar figures are estimates, not your bill. See [docs/providers.md](docs/providers.md).
 
 ---
 
