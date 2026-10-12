@@ -537,7 +537,8 @@ class SkillCheckerPart:
                 row(step, PASS, f"name {skill.name}; description present; {len(skill.files)} files")
 
                 # Prior state: an unrelated skill and an older copy of this one.
-                for name, text in (("other-skill", "an unrelated skill"), (skill.name, "an older copy of this skill")):
+                other = "other-skill" if skill.name != "other-skill" else "another-skill"
+                for name, text in ((other, "an unrelated skill"), (skill.name, "an older copy of this skill")):
                     (host / name).mkdir(parents=True)
                     (host / name / "SKILL.md").write_text(
                         f"---\nname: {name}\ndescription: {text}, placed by the skill checker\n---\n", encoding="utf-8"
