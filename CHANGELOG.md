@@ -6,6 +6,7 @@ Any provider, any model.
 
 ### Added
 
+- `proofhouse make "what you want" --provider P --model M` makes a prompt or an agent skill (`--kind skill`). It writes version 1, tries it, has a judge model score it against your request, and revises until `--target`, `--rounds`, or the spending limit (`--max-cost-usd`, one limit for the whole command) stops it. Everything is kept in one folder (`record.json`, every version, `final.md`); a made skill comes out as a folder `install-skill --bundle` accepts. Judge scores are advice from a model, not proof.
 - `proofhouse run --provider P --model M --prompt "..."` runs a prompt on any provider that speaks the OpenAI chat format. With `--input`, the prompt becomes the system message. It prints the output, and on stderr the tokens and the estimated cost. `--json` prints the full result (output, admission, cost). One request per call, never retried.
 - `proofhouse providers list|add|remove|price`. Shipped providers:
   - cloud: OpenAI, Anthropic and Google (their OpenAI-compatible endpoints), Mistral, Groq, Together, Fireworks, OpenRouter, DeepSeek, xAI;

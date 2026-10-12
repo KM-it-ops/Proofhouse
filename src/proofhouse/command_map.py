@@ -51,6 +51,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "providers remove": (SPINE, "", "model layer: removes a provider you added"),
     "providers price": (SPINE, "", "model layer: declares a model's price when none is shipped"),
     "run": (SPINE, "", "model layer: runs a prompt on any provider and model through the spend gate"),
+    "make": (SPINE, "", "make engine: writes, tries, judges and improves a prompt or skill within one spending limit"),
     "adapters": (SPINE, "", "utility: alias of parts limited to request builders, with its 0.4.1 output"),
     "models list": (SPINE, "", "utility: model-notes registry"),
     "models show": (SPINE, "", "utility: model-notes registry"),
