@@ -50,5 +50,6 @@ addopts = "-m \"not live\""
 where = ["src"]
 
 [tool.setuptools.package-data]
+"proofhouse" = ["data/*.json"]
 "proofhouse.compiler" = ["schemas/*.json"]
 "proofhouse.optimize" = ["data/*", "data/reference-advisory/*"]
