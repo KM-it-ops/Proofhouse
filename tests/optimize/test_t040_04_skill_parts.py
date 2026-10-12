@@ -937,6 +937,21 @@ def test_sha_helper_matches_hashlib() -> None:  # keeps the helpers above honest
     assert hashlib.sha256(SKILL["SKILL.md"]).hexdigest() == hashlib.sha256(io.BytesIO(SKILL["SKILL.md"]).read()).hexdigest()
 
 
+def test_review_f3_skill_case_report_prints_the_part_and_its_status_apart_from_the_case_result(
+    skill_case: Path, tmp_path: Path, capsys
+) -> None:
+    code, _out, err = run(["case", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip"], capsys)
+    assert code == 0, err
+    report_path = tmp_path / "report.md"
+    code, _out, err = run(["case", "report", "--case", str(skill_case), "--revision", "1", "--out", str(report_path)], capsys)
+    assert code == 0, err
+    text = report_path.read_text(encoding="utf-8")
+    assert "Overall: **PASS**" in text  # the case result
+    status = parts.get_part(parts.SKILL_CHECKER_ID).describe().status
+    assert parts.SKILL_CHECKER_ID in text  # the part that produced the evidence
+    assert status in text  # and its own status, printed apart from the case PASS
+
+
 def test_review_g2_skill_check_criterion_fails_when_any_step_fails(skill_case: Path, monkeypatch, capsys) -> None:
     real = install_skill.uninstall
 
@@ -953,3 +968,15 @@ def test_review_g2_skill_check_criterion_fails_when_any_step_fails(skill_case: P
     steps = {item["check"]: item["result"] for item in row["evidence"]}
     assert steps["uninstall_restores"] == "FAIL" and "PASS" in steps.values()  # some steps pass, one fails
     assert row["result"] == "FAIL"
+
+
+def test_skill_case_report_names_what_the_skill_checker_did_not_measure(skill_case: Path, tmp_path: Path, capsys) -> None:
+    code, _out, err = run(["case", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip"], capsys)
+    assert code == 0, err
+    report_path = tmp_path / "report.md"
+    code, _out, err = run(["case", "report", "--case", str(skill_case), "--revision", "1", "--out", str(report_path)], capsys)
+    assert code == 0, err
+    lines = report_path.read_text(encoding="utf-8").splitlines()
+    part_lines = [line for line in lines if f"`{parts.SKILL_CHECKER_ID}`" in line]
+    assert len(part_lines) == 1 and "Overall" not in part_lines[0]
+    assert all(item in part_lines[0] for item in parts.SKILL_CHECKER_NOT_MEASURED)
