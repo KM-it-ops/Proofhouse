@@ -254,6 +254,81 @@
         "x-default-hosted-slice": true
       }
     },
+    "/v0/compiler/compare": {
+      "post": {
+        "operationId": "compare",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "description": "Input text; the job then becomes the system message.",
+                    "type": "string"
+                  },
+                  "input-file": {
+                    "description": "Read the input from a file.",
+                    "type": "string"
+                  },
+                  "job": {
+                    "description": "The prompt to run on every model.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "",
+                    "type": "boolean"
+                  },
+                  "judge": {
+                    "description": "A model that scores every output against the job.",
+                    "type": "string"
+                  },
+                  "max-cost-usd": {
+                    "description": "One spending limit for every call, judge included; required if any is paid.",
+                    "type": "string"
+                  },
+                  "max-output-tokens": {
+                    "type": "integer"
+                  },
+                  "on": {
+                    "description": "A model to run it on; repeat for each, for example --on groq:llama-3.3-70b-versatile --on ollama:llama3.",
+                    "type": "string"
+                  },
+                  "out": {
+                    "description": "Folder for the results (default: compare-<job>-<time> here).",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "job",
+                  "on"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "compare",
+        "tags": [
+          "opt-in-live"
+        ],
+        "x-cli-command": "compare",
+        "x-default-hosted-slice": false
+      }
+    },
     "/v0/compiler/compile": {
       "post": {
         "operationId": "compile",
@@ -910,6 +985,103 @@
         "x-default-hosted-slice": true
       }
     },
+    "/v0/compiler/loop": {
+      "post": {
+        "operationId": "loop",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "allow-commands": {
+                    "description": "Let the agent run shell commands in the folder. Without it, it can only read and write files.",
+                    "type": "boolean"
+                  },
+                  "check": {
+                    "description": "Command that exits 0 when the goal is met, for example \"pytest -q\".",
+                    "type": "string"
+                  },
+                  "command-timeout": {
+                    "description": "Seconds before a command is stopped (default 300).",
+                    "type": "integer"
+                  },
+                  "every": {
+                    "description": "Time between rounds, for example 30s, 5m or 1h (needed with --watch).",
+                    "type": "string"
+                  },
+                  "for": {
+                    "description": "Stop after this long, for example 2h.",
+                    "type": "string"
+                  },
+                  "goal": {
+                    "description": "What the agent should get done, in your own words.",
+                    "type": "string"
+                  },
+                  "in": {
+                    "description": "The folder the agent works in (default: here).",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "",
+                    "type": "boolean"
+                  },
+                  "max-cost-usd": {
+                    "description": "One spending limit for the whole loop; required for a paid model.",
+                    "type": "string"
+                  },
+                  "model": {
+                    "description": "Model id as the provider names it.",
+                    "type": "string"
+                  },
+                  "out": {
+                    "description": "Folder for the record (default: loop-<goal>-<time> here).",
+                    "type": "string"
+                  },
+                  "provider": {
+                    "description": "Provider id (see `proofhouse providers list`).",
+                    "type": "string"
+                  },
+                  "rounds": {
+                    "description": "Most model rounds (default 20).",
+                    "type": "integer"
+                  },
+                  "watch": {
+                    "description": "Command whose output is watched; the agent acts when it changes.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "goal",
+                  "provider",
+                  "model"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "loop",
+        "tags": [
+          "opt-in-live"
+        ],
+        "x-cli-command": "loop",
+        "x-default-hosted-slice": false
+      }
+    },
     "/v0/compiler/make": {
       "post": {
         "operationId": "make",
@@ -938,7 +1110,9 @@
                       "skill",
                       "agent",
                       "site",
-                      "video"
+                      "copy",
+                      "video",
+                      "launch"
                     ],
                     "type": "string"
                   },
@@ -967,6 +1141,10 @@
                   },
                   "out": {
                     "description": "Folder for the results (default ./make-<words>-<time>).",
+                    "type": "string"
+                  },
+                  "parts": {
+                    "description": "For --kind launch: which parts to make, comma separated, from site,video,agent,skill,prompt,copy (default: the planner picks).",
                     "type": "string"
                   },
                   "provider": {
@@ -1388,6 +1566,7 @@
     "case",
     "closed-loop",
     "closed-loop-bridged-008",
+    "compare",
     "compile",
     "compile-requirements",
     "demo",
@@ -1404,6 +1583,7 @@
     "inspect",
     "install",
     "install-skill",
+    "loop",
     "make",
     "media",
     "missionrig-generate",
@@ -1457,8 +1637,10 @@
     "uninstall-skill"
   ],
   "x-opt-in-live": [
+    "compare",
     "execute-openai",
     "generate",
+    "loop",
     "make",
     "run"
   ],

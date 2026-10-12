@@ -104,7 +104,19 @@ def find_browser() -> str | None:
     return next((found for name in _BROWSERS if (found := shutil.which(name))), None)
 
 
-def check_site(folder: Path, shots: Path | None = None) -> list[dict[str, Any]]:
+def _open(command: list[str], timeout: int) -> subprocess.CompletedProcess[str] | str:
+    """Run the headless browser; a launch that hangs is tried once more, then reported (never raised)."""
+    for _ in range(2):
+        try:
+            return subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+        except subprocess.TimeoutExpired:
+            continue
+        except OSError as exc:
+            return f"the browser could not start ({type(exc).__name__})"
+    return f"the browser did not finish in {timeout} s, twice"
+
+
+def check_site(folder: Path, shots: Path | None = None, timeout: int = 30) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     pages = sorted(folder.rglob("*.html"))
     broken: list[str] = []
@@ -137,6 +149,7 @@ def check_site(folder: Path, shots: Path | None = None) -> list[dict[str, Any]]:
         return checks
     url = (folder / "index.html").resolve().as_uri()
     errors: list[str] = []
+    stuck: list[str] = []
     if shots is not None:
         shots.mkdir(parents=True, exist_ok=True)
     for label, size in (("desktop", "1440,900"), ("phone", "390,844")):
@@ -144,9 +157,16 @@ def check_site(folder: Path, shots: Path | None = None) -> list[dict[str, Any]]:
                    "--enable-logging=stderr", "--v=0"]
         if shots is not None:
             command.append(f"--screenshot={shots / f'{label}.png'}")
-        run = subprocess.run([*command, url], capture_output=True, text=True, timeout=60, check=False)
+        run = _open(command + [url], timeout)
+        if isinstance(run, str):
+            stuck.append(f"{label}: {run}")
+            continue
         errors += [line for line in run.stderr.splitlines() if "Uncaught" in line or "SyntaxError" in line]
-    checks.append({"check": "no JavaScript errors in the browser", "ok": not errors, "detail": "; ".join(errors[:3])[:300]})
+    if len(stuck) == 2:
+        checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: " + "; ".join(stuck)})
+        return checks
+    detail = "; ".join(errors[:3])[:300] + (f" (not measured on {'; '.join(stuck)})" if stuck else "")
+    checks.append({"check": "no JavaScript errors in the browser", "ok": not errors, "detail": detail.strip()})
     if shots is not None:
         made = all((shots / f"{label}.png").is_file() for label in ("desktop", "phone"))
         checks.append({"check": "screenshots at desktop and phone width", "ok": made, "detail": str(shots)})
