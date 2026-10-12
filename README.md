@@ -176,7 +176,7 @@ These ship in the repository but are not the supported path. Treat them as previ
 
 | Part | Status | Network |
 |---|---|---|
-| `proofhouse execute-openai`: a fail-closed live OpenAI call that refuses to send unless every mandatory requirement is in the request; its cost ceiling is recorded, not enforced | experimental, opt-in | yes, only when opted in |
+| `proofhouse execute-openai`: a fail-closed live OpenAI call that refuses to send unless every mandatory requirement is in the request, and refuses before sending when the worst-case estimate of its cost is over your ceiling or the model has no price. The shipped price table has no entries yet, so today it refuses every model. Its dollar figures are estimates from that table, not your bill | experimental, opt-in | yes, only when opted in |
 | `evaluate-product`, the requirements-contract commands, `route` / `assay` / `proof` | experimental | none |
 | [`apps/proofhouse.jsx`](apps/proofhouse.jsx): a Claude artifact with a model picker, efficiency modes and a live compile loop; for an unknown model it web-researches, caches the result in artifact storage and labels it `researched` / `cached` / `fallback` | experimental | calls `api.anthropic.com` |
 | The `hosted-*` and `missionrig-*` modules: experimental library slices, not a hosted service (their tenant label is not isolation) | experimental | none |

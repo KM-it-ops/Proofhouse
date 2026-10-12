@@ -16,7 +16,7 @@ Accepted 2026-09-21.
 
 Security and privacy policy blocks are free text the compiler cannot enforce; compilation already fails closed on them (`PRG-SAFETY-0001`), so nothing is sent. A new IR field without a disposition fails the test suite.
 
-The cost ceiling must be a positive finite decimal and is recorded as `declared_only_not_enforced_pre_send`; no pricing data ships, so no pre-send cost admission is claimed. The output-token ceiling is sent as `max_completion_tokens`.
+The cost ceiling must be a positive finite decimal; since [decision 0006](0006-refuse-before-sending-over-the-ceiling.md) it is enforced before sending. The output-token ceiling is sent as `max_completion_tokens`.
 
 ## Why
 
@@ -24,4 +24,4 @@ The review sent sentinel text in a requirement, the uncertainty policy and the e
 
 ## Consequences
 
-Tests assert on the final prepared request, not on intermediate artifacts. Real budget admission would need versioned pricing, input estimates, output/reasoning charges, refusal when pricing is unknown, and usage reconciliation; until then the budget stays a declaration and is labeled as one.
+Tests assert on the final prepared request, not on intermediate artifacts. Real budget admission needed versioned pricing, input estimates, output/reasoning charges, refusal when pricing is unknown, and usage reconciliation; [decision 0006](0006-refuse-before-sending-over-the-ceiling.md) adds them.
