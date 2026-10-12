@@ -1398,4 +1398,20 @@ def test_a_forced_uninstall_of_a_link_never_removes_a_safety_copy_another_run_ma
     uninstall("demo-skill", host, force=True)
     assert not os.path.lexists(host / "demo-skill")  # this run removed its link
     assert [exc.exit_code for exc in other_run] == [7]  # the other run took the stamp second and refused
+    assert "Run uninstall-skill --force again" in str(other_run[0])
     assert snapshot(other_host) == other_before  # so it removed nothing
+
+
+def test_a_forced_uninstall_whose_safety_area_is_a_file_says_it_cannot_back_up(tmp_path: Path, host: Path) -> None:
+    """A file where the safety folders go is not a stamp another run took, so running again cannot help."""
+    install(host, skill_folder(tmp_path / "src"))
+    (host / "demo-skill" / "notes" / "edited.txt").write_text("my edit", encoding="utf-8")
+    before = snapshot(host)
+    area = tmp_path / "ph" / install_skill.UNINSTALLED_DIR
+    area.parent.mkdir(parents=True, exist_ok=True)
+    area.write_text("not a folder", encoding="utf-8")
+    with pytest.raises(InstallSkillError, match="cannot back up") as info:
+        uninstall("demo-skill", host, force=True)
+    assert info.value.exit_code == 7
+    assert "again" not in str(info.value)
+    assert snapshot(host) == before
