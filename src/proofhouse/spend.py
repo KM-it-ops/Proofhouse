@@ -10,14 +10,20 @@ case can be made (fail closed). Parts never make this decision.
   was read from, and the date it was read. A model with no entry has no price,
   and a request to it is refused. Nothing outside the package can replace the
   table, and no setting or environment variable switches the check off.
+- **Estimate**: input tokens are bounded by the UTF-8 bytes of the request body
+  exactly as sent, plus a fixed margin (``COUNTING_RULE``); output tokens by the
+  output-token ceiling the call already requires. Money is exact ``Decimal``:
+  an amount that would need rounding is refused, never rounded.
 """
 
 from __future__ import annotations
 
+import json
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import date
-from decimal import Decimal
+from decimal import Decimal, DecimalException, Inexact, InvalidOperation, Overflow, Rounded, localcontext
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -43,6 +49,30 @@ _PRICE = re.compile(r"[0-9]+(\.[0-9]+)?")
 _VERSION = re.compile(r"([0-9]{4}-[0-9]{2}-[0-9]{2})\.([1-9][0-9]*)")
 # Prices hold for the provider's standard processing; other tiers are priced differently.
 _SERVICE_TIERS = frozenset({"default"})
+
+# A margin for the markers and rewritten tool text the provider adds around a request; it does not
+# publish that format. Chosen here, not a figure the provider gives.
+INPUT_TOKEN_MARGIN = 1024
+COUNTING_RULE = (
+    "input tokens <= UTF-8 bytes of the request body as sent + 1024; "
+    "assumes the provider's tokenizer makes at most one token per byte"
+)
+_TOKENS_PER_PRICE_UNIT = Decimal(1_000_000)
+# Enough digits for any real request; anything that needs more is refused, not rounded.
+_MONEY_PRECISION = 60
+
+
+class SpendRefused(Exception):
+    """Nothing was sent. Carries a registered ``PHC-COST-*`` code and a one-line reason."""
+
+    def __init__(self, code: str, detail: str) -> None:
+        from .optimize.case_codes import CODES
+
+        if code not in CODES:
+            raise ValueError(f"unregistered diagnostic code: {code}")
+        self.code = code
+        self.detail = detail
+        super().__init__(f"{code}: {detail}")
 
 
 class PriceTableError(ValueError):
@@ -166,3 +196,39 @@ def load_price_table() -> PriceTable:
     except OSError as exc:
         raise PriceTableError(f"price table cannot be read: {type(exc).__name__}") from None
     return parse_price_table(raw)
+
+
+def request_body_bytes(body: Mapping[str, Any]) -> bytes:
+    """The exact bytes that will be sent. The estimate counts these, and only these are sent."""
+    try:
+        return json.dumps(body, ensure_ascii=False, separators=(",", ":"), allow_nan=False).encode("utf-8")
+    except (TypeError, ValueError) as exc:  # UnicodeEncodeError is a ValueError
+        raise SpendRefused("PHC-COST-0003", f"the request body cannot be sent as exact bytes ({type(exc).__name__})") from None
+
+
+def input_tokens_bound(body: bytes) -> int:
+    """Worst-case input tokens for these bytes (``COUNTING_RULE``)."""
+    return len(body) + INPUT_TOKEN_MARGIN
+
+
+def _count(value: object, what: str) -> int:
+    if type(value) is not int or value < 0:
+        raise SpendRefused("PHC-COST-0003", f"{what} must be a non-negative whole number")
+    return value
+
+
+def worst_case_usd(entry: PriceEntry, input_tokens: int, output_tokens: int) -> Decimal:
+    """Input bound x input price + output bound x output price, per million tokens, exactly."""
+    tokens_in = _count(input_tokens, "input tokens")
+    tokens_out = _count(output_tokens, "output tokens")
+    with localcontext() as ctx:
+        ctx.prec = _MONEY_PRECISION
+        for signal in (Inexact, Rounded, Overflow, InvalidOperation):
+            ctx.traps[signal] = True
+        try:
+            return (
+                Decimal(tokens_in) * entry.input_usd_per_million_tokens
+                + Decimal(tokens_out) * entry.output_usd_per_million_tokens
+            ) / _TOKENS_PER_PRICE_UNIT
+        except DecimalException:
+            raise SpendRefused("PHC-COST-0003", "the worst-case amount cannot be worked out exactly") from None
