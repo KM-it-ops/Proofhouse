@@ -824,15 +824,24 @@ def uninstall(
                 raise InstallSkillError(
                     f"cannot read {skill_dir}: {exc}; nothing was removed", EXIT_ENVIRONMENT_FAILURE
                 ) from exc
-        safety = _home(home) / UNINSTALLED_DIR / _stamp() / name
-        note = safety.parent / f"{name}.link.txt"  # what _copy_out writes for a link
-        if os.path.lexists(safety) or os.path.lexists(note):  # another run took the same stamp; never touch it
-            raise InstallSkillError(
-                f"{safety} already exists; nothing was removed. Run uninstall-skill --force again",
-                EXIT_ENVIRONMENT_FAILURE,
-            )
+        stamp_dir = _home(home) / UNINSTALLED_DIR / _stamp()
+        safety = stamp_dir / name
+        note = stamp_dir / f"{name}.link.txt"  # what _copy_out writes for a link
         try:
-            safety.parent.mkdir(parents=True, exist_ok=True)
+            stamp_dir.parent.mkdir(parents=True, exist_ok=True)
+            # This run's own folder, made only if it does not exist: a run that took the same stamp stops here,
+            # so nothing in it is another run's to digest or remove.
+            stamp_dir.mkdir()
+        except FileExistsError:
+            raise InstallSkillError(
+                f"{stamp_dir} already exists; nothing was removed. Run uninstall-skill --force again",
+                EXIT_ENVIRONMENT_FAILURE,
+            ) from None
+        except OSError as exc:
+            raise InstallSkillError(
+                f"cannot back up {skill_dir} to {safety}: {exc}; nothing was removed", EXIT_ENVIRONMENT_FAILURE
+            ) from exc
+        try:
             _copy_out(skill_dir, safety)
             # A link is kept as a note (``None``); a folder copied where a link was seen is a change too.
             copied = folder_state_digest(safety) if os.path.lexists(safety) else None
