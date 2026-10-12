@@ -1349,3 +1349,21 @@ def test_forced_install_refuses_a_backup_holding_a_link_its_digest_also_saw(
     assert install_skill._is_link(linked)
     assert backups(tmp_path) == []
     assert records(tmp_path) == []
+
+
+def test_a_forced_uninstall_of_a_link_never_removes_a_safety_copy_another_run_made(
+    tmp_path: Path, host: Path, monkeypatch
+) -> None:
+    install(host, skill_folder(tmp_path / "src"))
+    shutil.rmtree(host / "demo-skill")
+    link_folder(host / "demo-skill", skill_folder(tmp_path / "elsewhere"))  # a link is kept as a note, not copied
+    stamp = "20990101T000000000000Z"
+    monkeypatch.setattr(install_skill, "_stamp", lambda: stamp)
+    other = skill_folder(
+        tmp_path / "ph" / install_skill.UNINSTALLED_DIR / stamp / "demo-skill", {"SKILL.md": b"another run's only copy"}
+    )
+    with pytest.raises(InstallSkillError, match="already exists") as info:
+        uninstall("demo-skill", host, force=True)
+    assert info.value.exit_code == 7
+    assert snapshot(other) == {"SKILL.md": b"another run's only copy"}
+    assert install_skill._is_link(host / "demo-skill")
