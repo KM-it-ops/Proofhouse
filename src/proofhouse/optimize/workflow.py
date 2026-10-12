@@ -454,6 +454,23 @@ def render_cost_section(data: dict) -> list[str]:
     return lines
 
 
+def _part_lines(report: dict) -> list[str]:
+    """Each skill check's evidence part, with the part's own status, kept apart from the case result."""
+    from .. import parts
+
+    lines = []
+    for row in report["results"]:
+        if row["kind"] != "skill_check":
+            continue
+        status = parts.get_part(row["part"]).describe().status
+        not_measured = "; ".join(row.get("not_measured", [])) or "-"
+        lines.append(
+            f"- Check {row['id']} evidence: part `{row['part']}`, part status {status} (the part's own status, "
+            f"not this case's result). Not measured: {_cell(not_measured)}"
+        )
+    return lines
+
+
 def render_report(data: dict, report: dict, model_line: str) -> str:
     objective = "\n".join(f"> {line}" if line else ">" for line in data["objective"].splitlines())
     lines = [
@@ -467,6 +484,7 @@ def render_report(data: dict, report: dict, model_line: str) -> str:
         f"- Revision sha256: `{report['revision_sha256']}`",
         f"- Check run: `{report['run_id']}` ({report['checks_version']}) at {report['checked_at']}",
         f"- Overall: **{report['overall']}**",
+        *_part_lines(report),
         "",
         "## Lineage",
         "",
