@@ -15,6 +15,7 @@ Which promises belong to which surface. "Supported" means covered by the default
 | Check semantics | `proofhouse.optimize.checks/v1` | `optimize/checks.py` |
 | Run record / export | `proofhouse.optimize.run/v2` (adds `part` and `cost`; `run/v1` still reads), `proofhouse.optimize.export/v1` | `optimize/workflow.py` |
 | Part contract | `proofhouse.part/v1`, descriptor v1 (no `cost_model`) | `parts.py` |
+| Price table | `proofhouse.price_table/v1`, `price_table_version` `YYYY-MM-DD.N` pinned to its content | `data/price_table.json`, `spend.py` |
 | Install record | `proofhouse.skill-install/v1` under `PROOFHOUSE_HOME/skill-installs/` | `optimize/install_skill.py` |
 
 A package release can change any of these; the changelog says which.
@@ -36,7 +37,7 @@ A package release can change any of these; the changelog says which.
 | `proofhouse compile-requirements`, `closed-loop-bridged-008` | experimental | none | Requirements-contract evaluation (maturity `PARTIAL`). |
 | `proofhouse "<objective>"` (overseer) | experimental | none | Prints the `route` decision. A routed prompt or skill opens a case (as `case new` would) that records the route; any other class opens nothing and is appended as "no part yet" to `PROOFHOUSE_HOME/demand/no-part-yet.jsonl`; `nothing_new` / `one_prompt` do neither. |
 | `proofhouse route / assay / proof` | experimental, not gated | none | Orchestration-layer prototypes; registered without `PROOFHOUSE_EXPERIMENTAL`. No review pass is wired to `proof`, so it reports `UNJUDGED` (exit 3), never `SHIP`. |
-| `proofhouse execute-openai` | experimental, opt-in | **yes**, only with `--opt-in` and a credential | Every mandatory IR field is rendered into the request or execution refuses (`EXE-SEM-0001`). The cost ceiling is recorded, not enforced before sending. |
+| `proofhouse execute-openai` | experimental, opt-in | **yes**, only with `--opt-in` and a credential | Every mandatory IR field is rendered into the request or execution refuses (`EXE-SEM-0001`). Before sending, the worst-case cost is worked out from the exact request bytes and the shipped price table; the call is refused (`PHC-COST-0001` to `0003`, exit 7) when that is over `--max-cost-usd`, when the model has no price, or when no worst case can be made. The table ships with no entries, so every model is refused until a cited price is added ([decision 0006](decisions/0006-refuse-before-sending-over-the-ceiling.md)). |
 | `hosted-*`, `missionrig-generate`, `workspace-consume` | experimental, hidden unless `PROOFHOUSE_EXPERIMENTAL=1` | none | Library slices only. The tenant label is not isolation. Do not expose over HTTP. |
 | `proofhouse eval ...` (validate --dataset, report, loadouts, compile-loadout, generate) | supported (legacy) | none | Dataset validation and report skeletons. The old top-level forms (`proofhouse validate --dataset`, `proofhouse report`, ...) fail with a one-line pointer to the new form. |
 | `proofhouse scan` | supported | none | Read-only scan of a project folder. |

@@ -593,13 +593,20 @@ def _cmd_execute_openai(args: argparse.Namespace) -> int:
         ),
     )
     payload = result.to_dict()
+    warning = result.envelope.get("cost_warning")
+    if isinstance(warning, str):
+        print(warning, file=sys.stderr)  # the worst-case bound did not hold for this call
     if args.json:
         sys.stdout.write(json.dumps(payload, sort_keys=True))
         sys.stdout.write("\n")
     else:
-        print(f"execute-openai: {result.status}", file=sys.stdout)
-        for code in result.diagnostics:
-            print(f"  [{code}]", file=sys.stdout)
+        gate = result.envelope.get("admission", {}).get("cost_ceiling", {})
+        if gate.get("decision") == "refused" and isinstance(gate.get("message"), str):
+            print(gate["message"], file=sys.stdout)  # the spend gate's one-line refusal; nothing was sent
+        else:
+            print(f"execute-openai: {result.status}", file=sys.stdout)
+            for code in result.diagnostics:
+                print(f"  [{code}]", file=sys.stdout)
     if result.status == "success":
         return EXIT_SUCCESS
     return EXIT_ENVIRONMENT_FAILURE
@@ -770,7 +777,8 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Fail-closed opt-in single-request live OpenAI execution. "
             "Not closed-loop. Model, ceilings, and credential env name are "
-            "required at call time; --model has no default. Budget is recorded, not enforced pre-send."
+            "required at call time; --model has no default. Refused before sending when the worst-case "
+            "cost estimate is over --max-cost-usd or the model has no price."
         ),
     )
     p_exec.add_argument("input", help="Path to an IR JSON file, or '-' for stdin.")
@@ -800,7 +808,7 @@ def build_parser() -> argparse.ArgumentParser:
     p_exec.add_argument(
         "--max-cost-usd",
         default=None,
-        help="Declared cost ceiling recorded in evidence; not enforced pre-send.",
+        help="Cost ceiling in USD (required). Refused before sending when the worst-case estimate is over it.",
     )
     p_exec.add_argument(
         "--target-url",

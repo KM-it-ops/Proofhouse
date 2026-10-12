@@ -60,5 +60,5 @@ def test_max_cost_usd_help_says_not_enforced(capsys) -> None:
     exit_code = cli_compiler.main(["execute-openai", "--help"])
     help_text = " ".join("".join(capsys.readouterr()).split())
     assert exit_code == 0
-    assert "Declared cost ceiling recorded in evidence; not enforced pre-send." in help_text
+    assert "Refused before sending when the worst-case estimate is over it." in help_text
     assert "Q1 unpicked" not in help_text

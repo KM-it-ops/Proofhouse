@@ -19,6 +19,9 @@ from proofhouse.compiler.runtime_context import RUNTIME_FIELD_MAP, render_runtim
 
 from .fixtures.ir_fixtures import ir_with_openai_structured_output, minimal_valid_ir
 
+# The spend gate refuses a model with no price; these tests exercise what happens after it admits.
+pytestmark = pytest.mark.usefixtures("priced")
+
 SCHEMA = Path(__file__).resolve().parents[2] / "src" / "proofhouse" / "compiler" / "schemas" / "proofhouse_ir_v0_1.schema.json"
 
 
