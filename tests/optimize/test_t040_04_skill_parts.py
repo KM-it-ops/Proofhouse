@@ -935,3 +935,21 @@ def test_a_checked_skill_case_still_exports_and_imports(skill_case: Path, tmp_pa
 
 def test_sha_helper_matches_hashlib() -> None:  # keeps the helpers above honest about bytes
     assert hashlib.sha256(SKILL["SKILL.md"]).hexdigest() == hashlib.sha256(io.BytesIO(SKILL["SKILL.md"]).read()).hexdigest()
+
+
+def test_review_g2_skill_check_criterion_fails_when_any_step_fails(skill_case: Path, monkeypatch, capsys) -> None:
+    real = install_skill.uninstall
+
+    def sloppy(name, dest=None, **kwargs):
+        result = real(name, dest, **kwargs)
+        (Path(dest) / "stray.txt").write_text("left behind", encoding="utf-8")
+        return result
+
+    monkeypatch.setattr(install_skill, "uninstall", sloppy)
+    code, _out, err = run(["case", "criteria", "add", "--case", str(skill_case), "--skill-check", "install-roundtrip"], capsys)
+    assert code == 0, err
+    _code, out, err = run(["case", "check", "--case", str(skill_case), "--json"], capsys)
+    row = json.loads(out)["data"]["revisions"][0]["results"][0]
+    steps = {item["check"]: item["result"] for item in row["evidence"]}
+    assert steps["uninstall_restores"] == "FAIL" and "PASS" in steps.values()  # some steps pass, one fails
+    assert row["result"] == "FAIL"
