@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0 - unreleased
+## 0.5.0 - 2026-10-12
 
 The spine slice: prompts and skills go from objective to export through the same commands, the same case, the same pass rule and the same part contract.
 
