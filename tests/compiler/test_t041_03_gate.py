@@ -157,6 +157,7 @@ def test_the_bytes_sent_are_the_bytes_counted(prices) -> None:
 
 def test_httpx_posts_the_counted_bytes_not_its_own_serialisation(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: dict[str, Any] = {}
+    posts: list[int] = []
 
     class Client:
         def __init__(self, **_: Any) -> None: ...
@@ -164,6 +165,7 @@ def test_httpx_posts_the_counted_bytes_not_its_own_serialisation(monkeypatch: py
         def __exit__(self, *_: Any) -> None: ...
 
         def post(self, url: str, **kwargs: Any):
+            posts.append(1)
             seen.update(kwargs, url=url)
             return type("R", (), {"status_code": 200, "json": lambda self: {}, "text": ""})()
 
@@ -176,6 +178,7 @@ def test_httpx_posts_the_counted_bytes_not_its_own_serialisation(monkeypatch: py
     execution._httpx_send(prepared)
     assert seen["content"] == prepared.body_bytes
     assert "json" not in seen
+    assert posts == [1]  # exactly one request: no retry may spend past the admitted worst case
 
 
 EARLIER = [
@@ -246,3 +249,49 @@ def test_cli_refusal_is_one_line_and_exits_7(tmp_path: Path, capsys, monkeypatch
     payload = json.loads(out)
     assert payload["diagnostics"] == ["PHC-COST-0002"]
     assert payload["envelope"]["admission"]["cost_ceiling"]["decision"] == "refused"
+
+
+# --- review round 1: the gate reads the model and output cap from the bytes it counts -------------
+
+def _gate_on(body: dict, *, model: str = "model-a", max_output_tokens: int = 8, provider: str = "openai"):
+    sent: list[bytes] = []
+    gated = spend.send_within_ceiling(
+        body, provider=provider, model=model, max_output_tokens=max_output_tokens, ceiling_usd="1000", send=sent.append
+    )
+    return gated, sent
+
+
+GOOD_BODY = {"model": "model-a", "messages": [{"role": "system", "content": "hi"}], "max_completion_tokens": 8}
+
+MISMATCHED = [
+    ("other model in the body", {**GOOD_BODY, "model": "expensive"}, {}),
+    ("no output cap in the body", {k: v for k, v in GOOD_BODY.items() if k != "max_completion_tokens"}, {}),
+    ("bigger output cap in the body", {**GOOD_BODY, "max_completion_tokens": 128}, {}),
+    ("bool output cap in the body", {**GOOD_BODY, "max_completion_tokens": True}, {"max_output_tokens": 1}),
+    ("more choices than one", {**GOOD_BODY, "n": 128}, {}),
+    ("a processing tier the table does not price", {**GOOD_BODY, "service_tier": "priority"}, {}),
+    ("an unknown provider", GOOD_BODY, {"provider": "elsewhere"}),
+]
+
+
+@pytest.mark.parametrize("label,body,kwargs", MISMATCHED, ids=[label for label, _, _ in MISMATCHED])
+def test_the_gate_refuses_a_body_it_cannot_bound(prices, label: str, body: dict, kwargs: dict) -> None:
+    prices(_price("model-a", "1", "1"), _price("expensive", "1", "1"))
+    gated, sent = _gate_on(body, **kwargs)
+    assert gated.admission.code == "PHC-COST-0003", label
+    assert sent == []
+
+
+def test_the_gate_admits_a_body_that_matches(prices) -> None:
+    prices(_price("model-a", "1", "1"))
+    gated, sent = _gate_on(GOOD_BODY)
+    assert gated.admission.decision == "admitted" and len(sent) == 1
+
+
+@pytest.mark.parametrize("ceiling", ["1e-999999", "1e-13", "1e13", "1e999999"])
+def test_a_ceiling_outside_the_supported_range_is_refused_with_a_short_line(prices, ceiling: str) -> None:
+    prices(_price("model-a", "1", "1"))
+    result, transport = _run(max_cost_usd=ceiling)
+    assert transport.calls == []
+    assert result.diagnostics[0] in {"PHC-COST-0003", "EXE-CEIL-0001"}
+    assert len(json.dumps(result.to_dict())) < 20_000

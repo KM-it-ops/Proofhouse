@@ -66,3 +66,21 @@ def test_the_public_decision_states_the_rule_its_assumption_and_its_limits() -> 
                    "at most one token per byte", "It is not your bill", "ships with no entries"):
         assert phrase in record, phrase
     assert "OAR-" not in record and "MISSION-" not in record  # internal ids are not published here
+
+
+def test_no_text_claims_more_than_the_architecture_test_checks() -> None:
+    # The test checks the Python package's imports and how its one send step is used, not "any path" anywhere.
+    hits = [
+        (name, m.group(0))
+        for name, text in _current_texts().items()
+        for m in re.finditer(r"any (?:code )?path (?:can )?send", text)
+    ]
+    assert hits == []
+
+
+def test_the_output_cap_assumption_is_stated_not_asserted() -> None:
+    record = (ROOT / "docs" / "decisions" / "0006-refuse-before-sending-over-the-ceiling.md").read_text(encoding="utf-8")
+    assert "reasoning" in record and "not been confirmed" in record
+    from proofhouse import spend
+
+    assert "reasoning" in spend.COUNTING_RULE

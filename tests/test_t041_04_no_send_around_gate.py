@@ -5,6 +5,9 @@
 (b) In the one module that can send, every call that can send sits inside the
     one send step, and that step is referenced exactly once: handed to
     ``spend.send_within_ceiling``.
+(b2) Anywhere in the package, the raw sender (``_httpx_send``) is referenced
+    only inside that file, and a ``send`` attribute is touched (called, stored
+    or looked up with ``getattr``) only inside the one send step.
 (c) No part has the runner role. Registering the first runner must change this
     test, which shows up in review.
 (d) Behaviour: with the shipped price table, nothing is sent, whatever the
@@ -45,6 +48,8 @@ ALLOWED = {
 
 
 def _risky(name: str) -> str | None:
+    if name == "urllib":  # a bare ``import urllib`` reaches ``urllib.request``
+        return "urllib.request"
     for candidate in sorted(NETWORK | PROCESS_OR_FOREIGN, key=len, reverse=True):
         if name == candidate or name.startswith(candidate + "."):
             return candidate
@@ -128,6 +133,57 @@ def test_b_every_send_sits_in_the_one_step_and_that_step_goes_only_to_the_gate()
     assert [k.value for k in gate.keywords if k.arg == "send"] == [dispatch]  # ... as the gate's send=
 
 
+SEND_NAMES = {"send", "_httpx_send"}
+
+
+def _send_references(path: Path, where: str) -> list[str]:
+    """Every reference to the raw sender or to a ``send`` attribute outside the one send step."""
+    tree = ast.parse(path.read_text(encoding="utf-8"))
+    scope = _enclosing_functions(tree)
+    in_live_path = where == "compiler/execution.py"
+    found: list[str] = []
+    for node in ast.walk(tree):
+        inside_step = in_live_path and scope.get(node, ())[-1:] == ("_dispatch",)
+        # ``.send`` and ``_httpx_send`` in any form; a plain local name ``send`` (the gate's own parameter) is fine.
+        name = node.attr if isinstance(node, ast.Attribute) else node.id if isinstance(node, ast.Name) and node.id == "_httpx_send" else None
+        if name in SEND_NAMES and not inside_step:
+            found.append(f"{where}:{node.lineno} {name}")
+        if isinstance(node, ast.ImportFrom) and any(alias.name == "_httpx_send" for alias in node.names):
+            found.append(f"{where}:{node.lineno} import _httpx_send")
+        if (
+            isinstance(node, ast.Call)
+            and isinstance(node.func, ast.Name)
+            and node.func.id in {"getattr", "setattr"}
+            and len(node.args) >= 2
+            and isinstance(node.args[1], ast.Constant)
+            and node.args[1].value in SEND_NAMES
+        ):
+            found.append(f"{where}:{node.lineno} getattr {node.args[1].value!r}")
+    return found
+
+
+def test_b2_nothing_else_in_the_package_reaches_the_sender() -> None:
+    found = [ref for path in sorted(SRC.rglob("*.py")) for ref in _send_references(path, path.relative_to(SRC).as_posix())]
+    assert found == []
+
+
+SNEAKY = {
+    "other module imports the sender": ("sneaky.py", "from .compiler.execution import _httpx_send\ndef resend(p):\n    return _httpx_send(p)\n"),
+    "other module reaches it by attribute": ("sneaky.py", "from .compiler import execution\ndef resend(p):\n    return execution._httpx_send(p)\n"),
+    "other module calls a transport": ("sneaky.py", "def resend(request, p):\n    return request.transport.send(p)\n"),
+    "send stored then called": ("compiler/execution.py", "def execute_openai(request, p):\n    s = request.transport.send\n    return s(p)\n"),
+    "send looked up by name": ("compiler/execution.py", "def execute_openai(t, p):\n    return getattr(t, 'send')(p)\n"),
+}
+
+
+@pytest.mark.parametrize("label", sorted(SNEAKY))
+def test_b2_catches_the_ways_round_it(tmp_path: Path, label: str) -> None:
+    where, source = SNEAKY[label]
+    path = tmp_path / "module.py"
+    path.write_text(source, encoding="utf-8")
+    assert _send_references(path, where), label
+
+
 def test_c_no_part_has_the_runner_role(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROOFHOUSE_EXPERIMENTAL", "1")
     assert parts.part_ids(parts.ROLE_RUNNER) == ()
@@ -180,9 +236,9 @@ def test_d_a_surprise_inside_the_gate_sends_nothing(monkeypatch: pytest.MonkeyPa
 def test_d_the_gate_calls_send_once_only_after_admitting_with_the_counted_bytes(monkeypatch: pytest.MonkeyPatch) -> None:
     entry = spend.PriceEntry("openai", "model-a", Decimal("1"), Decimal("1"), None, "default", "https://example.com/p", "2026-10-12")
     monkeypatch.setattr(spend, "load_price_table", lambda: spend.PriceTable("2026-10-12.9", (entry,)))
-    body = {"model": "model-a", "messages": [{"role": "system", "content": "hello"}]}
+    body = {"model": "model-a", "messages": [{"role": "system", "content": "hello"}], "max_completion_tokens": 8}
     seen: list[bytes] = []
-    refused = spend.send_within_ceiling(body, provider="openai", model="model-a", max_output_tokens=10**6, ceiling_usd="0.000001", send=seen.append)
+    refused = spend.send_within_ceiling(body, provider="openai", model="model-a", max_output_tokens=8, ceiling_usd="0.000001", send=seen.append)
     assert refused.admission.decision == "refused" and seen == [] and refused.response is None
     admitted = spend.send_within_ceiling(body, provider="openai", model="model-a", max_output_tokens=8, ceiling_usd="1", send=seen.append)
     assert admitted.admission.decision == "admitted"
