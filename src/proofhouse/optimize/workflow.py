@@ -217,7 +217,7 @@ def _runs(data: dict) -> list[dict]:
 
 
 def unknown_cost() -> dict:
-    """Cost nobody measured. ``usd`` is never filled here: there is no price table (OAR-034 step 2)."""
+    """Cost nobody measured. ``usd`` is never filled here: a run is imported, so no price applies to it."""
     return {**{field: UNKNOWN for field in COST_FIELDS}, "basis": UNKNOWN, "price_table_version": ""}
 
 
@@ -248,7 +248,7 @@ def _check_cost(run_id: str, cost: object) -> None:
         ):
             raise CaseError(f"run {run_id} cost {field} must be a non-negative number or {UNKNOWN!r}")
     if cost["usd"] != UNKNOWN or cost["price_table_version"] != "":
-        raise CaseError(f"run {run_id} cost has a usd figure; this version has no price table, so usd is always unknown")
+        raise CaseError(f"run {run_id} cost has a usd figure; usd is always unknown in a run record (runs are imported)")
 
 
 def sum_costs(costs: list[dict]) -> dict:
@@ -459,7 +459,7 @@ def render_cost_section(data: dict) -> list[str]:
         "",
         "Summed per version over its recorded runs. A sum that includes an unknown is unknown, and a version",
         "with no runs is unknown; nothing here is a zero standing in for a figure nobody measured. USD is",
-        "always unknown in this version: there is no price table.",
+        "always unknown here: runs are imported, so nothing was spent through Proofhouse and no price applies.",
         "",
         "| Version | Runs | Tokens in | Tokens out | USD | Wall seconds | Compute seconds |",
         "|---|---|---|---|---|---|---|",

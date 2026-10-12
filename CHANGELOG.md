@@ -1,5 +1,27 @@
 # Changelog
 
+## Unreleased
+
+`execute-openai` now refuses before sending when the worst-case cost is over your ceiling.
+
+### Upgrade notes (read first)
+
+- **(breaking)** `execute-openai` refuses before sending when the worst-case estimate of its cost is over `--max-cost-usd` (`PHC-COST-0001`), **and refuses every model that has no entry in the shipped price table** (`PHC-COST-0002`). The price table ships with no entries: no price has been read from a provider's official page and cited yet. **Until a price entry exists for the model you pass, `execute-openai` refuses to send.** Both refusals exit 7, like every other `execute-openai` refusal, and send nothing.
+- `--json` output of `execute-openai`: `admission.cost_ceiling` now states the gate's decision (`enforcement: refused_pre_send_when_worst_case_over_ceiling`, `decision`, `worst_case_usd`, bounds, the price entry used); `pricing_source` and `input_token_estimate` are gone. A sent call adds `cost`.
+- Case, run and export files are unchanged. A case touched by this version still opens in 0.5.0.
+
+### Added
+
+- The spend gate (`spend.send_within_ceiling`): the only way the live path sends. It works out the worst case from the exact request bytes: input tokens at most the UTF-8 bytes of the body as sent plus 1024 (on the stated assumption of at most one token per byte), output tokens at most `--max-output-tokens`, at table prices, in exact decimals. An amount that would need rounding, an unreadable table, or a request above the size its price applies to is refused (`PHC-COST-0003`). The bytes counted are the bytes sent. No flag, setting or environment variable skips it. See [decision 0006](docs/decisions/0006-refuse-before-sending-over-the-ceiling.md).
+- A versioned price table shipped in the package (`proofhouse.price_table/v1`, `data/price_table.json`), pinned by a test to its content. Each entry cites the provider's official pricing page and the date it was read. A model matches only by its exact id.
+- `execute-openai` results carry `cost`: the token counts the provider reports and the wall time are measured; `usd` is estimated from those tokens at table prices, never measured, and is not your bill. A figure nobody knows is `unknown`, never `0`. When the provider reports more tokens than the gate's bound, the result adds `PHC-COST-0004` and one line on stderr; the output is still returned.
+- A test that fails the build if any code path can send around the gate, and two new mutations in `scripts/mutation_check.py`.
+
+### Changed
+
+- `execute-openai` posts the exact bytes the gate counted, instead of letting the HTTP client serialise the body again. The JSON content is the same.
+- CI checks that the price table ships in the wheel and loads.
+
 ## 0.5.0 - 2026-10-12
 
 The spine slice: prompts and skills go from objective to export through the same commands, the same case, the same pass rule and the same part contract.

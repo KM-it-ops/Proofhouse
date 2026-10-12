@@ -11,7 +11,8 @@ REQUIRED = [
     "not a hosted service",
     "not isolation",
     "PARTIAL",
-    "recorded, not enforced",
+    "worst-case estimate",        # the cost gate refuses on an estimate ...
+    "not your bill",              # ... and its dollar figures are not the provider's bill
     "unverified",
     "Nothing here is a benchmark",
 ]
