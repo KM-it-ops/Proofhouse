@@ -202,8 +202,11 @@ def test_successful_force_install_over_a_read_only_skill_leaves_no_second_copy(e
 
 
 @pytest.mark.skipif(__import__("sys").platform != "win32", reason="directory junctions are Windows-only")
-def test_successful_force_install_over_a_junction_removes_only_the_link(tmp_path: Path, monkeypatch) -> None:
-    """A skill installed as a junction to the user's checkout: the link goes, the checkout stays."""
+def test_force_install_over_a_junction_is_refused_and_touches_nothing(tmp_path: Path, monkeypatch) -> None:
+    """A skill installed as a junction to the user's checkout: neither the link nor the checkout is touched.
+
+    Until 0.4.2 ``--force`` replaced the link after backing up the checkout by following it.
+    """
     import _winapi
 
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
@@ -214,11 +217,13 @@ def test_successful_force_install_over_a_junction_removes_only_the_link(tmp_path
     dest.mkdir()
     _winapi.CreateJunction(str(checkout), str(dest / "proofhouse"))
     bundle = _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD})
-    result = install(dest, bundle, force=True)
+    with pytest.raises(InstallSkillError, match="link or junction") as info:
+        install(dest, bundle, force=True)
+    assert info.value.exit_code == 2
     _no_leftovers(dest)
-    assert result.leftover is None
+    assert install_skill._is_link(dest / "proofhouse")
     assert (checkout / "SKILL.md").read_text(encoding="utf-8").endswith("mine\n")  # the user's checkout is untouched
-    assert (dest / "proofhouse" / "SKILL.md").read_text(encoding="utf-8") == GOOD_MD
+    assert not (tmp_path / "home").exists()
 
 
 def test_an_undeletable_set_aside_copy_is_reported_not_ignored(existing: Path, tmp_path: Path, monkeypatch) -> None:

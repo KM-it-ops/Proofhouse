@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.4.2 - 2026-10-12
+
+### Fixed
+
+- `install-skill --force` refuses to replace a skill folder that is, or holds, a symbolic link or a Windows
+  directory junction. It exits 2 and changes nothing; remove or replace the link, then install again. Before
+  this fix, the backup copy under `PROOFHOUSE_HOME/skill-backups/` followed such a link and copied what it
+  pointed to. The backup copy now never follows a link.
+- A skill folder that is a link to a folder that no longer exists is refused the same way (exit 2), instead of
+  failing with "cannot place the new skill" (exit 7).
+- A backup copy that fails or is refused is removed from `PROOFHOUSE_HOME/skill-backups/`; if it cannot be
+  removed, the error names where it is.
+- Removing a copy never changes the permissions of a file that a link in it points to.
+
 ## 0.4.1 - 2026-10-08
 
 ### Added

@@ -4,6 +4,11 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import shutil
+import stat
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -127,6 +132,189 @@ def test_force_replaces_existing_install(tmp_path: Path, capsys) -> None:
     assert out.splitlines()[0] == f"install-skill: installed 6 files -> {skill_dir.resolve()}"
     assert (skill_dir / "SKILL.md").read_text(encoding="utf-8").splitlines()[1] == "name: proofhouse"
     assert not (skill_dir / "stray.txt").exists()
+
+
+def _link_folder(link: Path, target: Path) -> Path:
+    """A folder link any user can make: a directory junction on Windows, a symlink elsewhere."""
+    if sys.platform == "win32":
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+    else:
+        os.symlink(target, link, target_is_directory=True)
+    return link
+
+
+def _files(root: Path) -> dict[str, bytes]:
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()} if root.exists() else {}
+
+
+def _backup_stamps(home: Path) -> list[str]:
+    backups = home / install_skill.BACKUP_DIR
+    return sorted(p.name for p in backups.iterdir()) if backups.exists() else []
+
+
+@pytest.mark.parametrize("where", ["inside", "itself"])
+def test_force_refuses_a_skill_folder_that_is_or_holds_a_link_and_copies_nothing(
+    tmp_path: Path, capsys, where: str
+) -> None:
+    dest = tmp_path / "skills"
+    assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
+    skill_dir = dest / "proofhouse"
+    outside = tmp_path / "outside"
+    (outside / "deep").mkdir(parents=True)
+    (outside / "secret.txt").write_text("secret", encoding="utf-8")
+    (outside / "deep" / "x.txt").write_text("x", encoding="utf-8")
+    if where == "inside":
+        linked = _link_folder(skill_dir / "linked", outside)
+    else:
+        os.rename(skill_dir, tmp_path / "moved")
+        linked = _link_folder(skill_dir, outside)
+    before = _files(dest)
+
+    code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    assert code == 2 and out == ""
+    assert "is a link or junction" in err and "nothing was changed" in err
+    assert install_skill._is_link(linked)
+    assert _files(dest) == before
+    assert sorted(p.name for p in dest.iterdir()) == ["proofhouse"]
+    assert _files(outside) == {"secret.txt": b"secret", "deep/x.txt": b"x"}
+    assert _files(tmp_path / "home") == {}  # nothing copied out through the link
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs privileges on Windows")
+def test_force_refuses_and_removes_a_backup_that_picked_up_a_link_during_the_copy(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    dest = tmp_path / "skills"
+    assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
+    skill_dir = (dest / "proofhouse").resolve()
+    sentinel = (skill_dir / "SKILL.md").read_bytes()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("secret", encoding="utf-8")
+    real_copytree = shutil.copytree
+
+    def link_then_copy(src, dst, *args, **kwargs):
+        if Path(src).resolve() == skill_dir and not os.path.lexists(skill_dir / "linked"):
+            os.symlink(outside, skill_dir / "linked", target_is_directory=True)
+        return real_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copytree", link_then_copy)
+    code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    assert code == 2 and out == ""
+    assert f"{skill_dir / 'linked'} is a link or junction" in err and "nothing was changed" in err
+    assert (skill_dir / "SKILL.md").read_bytes() == sentinel
+    assert sorted(p.name for p in dest.iterdir()) == ["proofhouse"]
+    assert _files(tmp_path / "home") == {}
+    assert _backup_stamps(tmp_path / "home") == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs privileges on Windows")
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root ignores folder permissions")
+def test_removing_a_backup_that_holds_a_link_never_changes_what_the_link_points_at(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    dest = tmp_path / "skills"
+    assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
+    skill_dir = (dest / "proofhouse").resolve()
+    outside = tmp_path / "outside.txt"
+    outside.write_text("secret", encoding="utf-8")
+    outside.chmod(0o644)
+    locked = skill_dir / "locked"
+    real_copytree = shutil.copytree
+
+    def link_lock_then_copy(src, dst, *args, **kwargs):
+        if Path(src).resolve() == skill_dir and not locked.exists():
+            locked.mkdir()
+            os.symlink(outside, locked / "linked")
+            locked.chmod(0o555)  # its copy is read-only too, so the link in it cannot be removed
+        return real_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copytree", link_lock_then_copy)
+    try:
+        code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    finally:
+        for folder in [locked, *(tmp_path / "home").rglob("locked")]:
+            folder.chmod(0o755)
+    assert stat.S_IMODE(outside.stat().st_mode) == 0o644
+    assert outside.read_text(encoding="utf-8") == "secret"
+    assert code == 2 and out == ""
+    assert f"{locked / 'linked'} is a link or junction" in err and "a copy is left at" in err
+
+
+def test_force_refuses_a_link_whose_target_is_gone(tmp_path: Path, capsys) -> None:
+    dest = tmp_path / "skills"
+    dest.mkdir()
+    gone = tmp_path / "gone"
+    gone.mkdir()
+    linked = _link_folder(dest / "proofhouse", gone)
+    gone.rmdir()
+
+    code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    assert code == 2 and out == ""
+    assert "is a link or junction" in err and "nothing was changed" in err
+    assert install_skill._is_link(linked)
+    assert sorted(p.name for p in dest.iterdir()) == ["proofhouse"]
+    assert not (tmp_path / "home").exists()
+
+
+def test_a_backup_copy_that_cannot_be_checked_is_removed(tmp_path: Path, monkeypatch, capsys) -> None:
+    dest = tmp_path / "skills"
+    assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
+    before = _files(dest)
+    home = (tmp_path / "home").resolve()
+    real_first_link = install_skill._first_link
+
+    def unreadable_backup(root: Path) -> Path | None:
+        if Path(root).resolve().is_relative_to(home):
+            raise PermissionError(13, "Access is denied", str(root))
+        return real_first_link(root)
+
+    monkeypatch.setattr(install_skill, "_first_link", unreadable_backup)
+    code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    assert code == 7 and out == ""
+    assert "cannot back up" in err and "the existing installation was not changed" in err
+    assert "a copy is left" not in err
+    assert _files(dest) == before
+    assert _files(home) == {}
+    assert _backup_stamps(home) == []
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="POSIX folder permissions")
+@pytest.mark.skipif(hasattr(os, "geteuid") and os.geteuid() == 0, reason="root ignores folder permissions")
+def test_force_on_a_skill_folder_with_an_unreadable_subfolder_is_refused_before_any_copy(
+    tmp_path: Path, capsys
+) -> None:
+    dest = tmp_path / "skills"
+    assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
+    skill_dir = (dest / "proofhouse").resolve()
+    locked = skill_dir / "locked"
+    locked.mkdir()
+    locked.chmod(0)  # a link inside could not be seen
+    try:
+        code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    finally:
+        locked.chmod(0o755)
+    assert code == 7 and out == ""
+    assert f"cannot read {skill_dir}" in err and "the existing installation was not changed" in err
+    assert _files(tmp_path / "home") == {}
+
+
+def test_force_on_a_skill_folder_that_cannot_be_read_is_an_environment_failure(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    dest = tmp_path / "skills"
+    assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
+    before = _files(dest)
+
+    def unreadable(root: Path) -> None:
+        raise PermissionError(13, "Access is denied", str(root))
+
+    monkeypatch.setattr(install_skill, "_first_link", unreadable)
+    code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    assert code == 7 and out == ""
+    assert "cannot read" in err and "the existing installation was not changed" in err
+    assert _files(dest) == before
+    assert _files(tmp_path / "home") == {}
 
 
 def test_bundle_with_wrong_name_fails_verification_exit_7_and_is_removed(tmp_path: Path, capsys) -> None:
