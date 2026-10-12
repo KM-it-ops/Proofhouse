@@ -482,3 +482,17 @@ def test_skill_case_refuses_prompt_text_versions_and_revise_packets(skill_case: 
     with pytest.raises(CaseError, match="revise packets are written for prompt text"):
         case_mod.revise_case(skill_case, "make it better")
     assert [item["n"] for item in case_mod.load_case(skill_case)["revisions"]] == [1]
+
+
+def test_review_g1_load_revision_refuses_a_case_json_kind_its_revision_file_does_not_hold(tmp_path: Path) -> None:
+    case = tmp_path / "case"
+    case_mod.new_case(case, objective="x", resolved=resolve_model_notes("Zeta 9"), preset_key="balanced", loop=False)
+    case_mod.record_revision(case, "a prompt")
+    case_mod.load_revision(case, 1)  # the honest case loads
+    path = case / "case.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["revisions"][0]["kind"] == PROMPT_TEXT
+    data["revisions"][0]["kind"] = AGENT_SKILL  # same digest, different kind
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    with pytest.raises(CaseError, match="kind differs"):
+        case_mod.load_revision(case, 1)
