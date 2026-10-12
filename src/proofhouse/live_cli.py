@@ -10,7 +10,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from . import live, providers, spend
+from . import live, make, providers, spend
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -154,7 +154,59 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return EXIT_OK if result.status == "success" else EXIT_REFUSED
 
 
+def _cmd_make(args: argparse.Namespace) -> int:
+    try:
+        test_input = _read_text(None, args.input_file, "input")
+        made = make.make(
+            args.request,
+            provider_id=args.provider,
+            model=args.model,
+            kind=args.kind,
+            max_cost_usd=args.max_cost_usd,
+            rounds=args.rounds,
+            target=args.target,
+            test_input=test_input,
+            out_dir=Path(args.out) if args.out else None,
+        )
+    except (make.MakeError, providers.ProviderError, OSError) as exc:
+        return _fail(str(exc))
+    summary = {
+        "folder": str(made.folder),
+        "kind": made.kind,
+        "stopped": made.stopped,
+        "best_version": made.best_version,
+        "best_score": made.best_score,
+        "rounds": len(made.rounds),
+        "calls": len(made.calls),
+        "spent_usd_estimated": format(made.spent_usd, "f"),
+    }
+    if args.json:
+        print(json.dumps(summary, sort_keys=True))
+    else:
+        best = f"version {made.best_version} (judge score {made.best_score}/10)" if made.best_version else "nothing usable"
+        print(f"made: {best}; stopped: {made.stopped}")
+        print(f"spent about ${summary['spent_usd_estimated']} over {len(made.calls)} calls; everything is in {made.folder}")
+        if made.kind == "skill" and made.best_version:
+            print(f"install it: proofhouse install-skill --bundle {made.folder}/<skill-name>")
+    return EXIT_OK if made.best_version else EXIT_REFUSED
+
+
 def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
+    p_make = subparsers.add_parser(
+        "make", help="Make a prompt or agent skill with any model: write, try, judge, improve, within one spending limit."
+    )
+    p_make.add_argument("request", help="What you want made, in your own words.")
+    p_make.add_argument("--provider", required=True, help="Provider id (see `proofhouse providers list`).")
+    p_make.add_argument("--model", required=True, help="Model id as the provider names it.")
+    p_make.add_argument("--kind", default="prompt", choices=make.KINDS, help="What to make (default prompt).")
+    p_make.add_argument("--max-cost-usd", default=None, help="Spending limit for the whole make; required for a paid provider.")
+    p_make.add_argument("--rounds", type=int, default=make.DEFAULT_ROUNDS, help="Most improvement rounds (default 3).")
+    p_make.add_argument("--target", type=int, default=make.DEFAULT_TARGET, help="Stop when the judge scores this (0-10, default 9).")
+    p_make.add_argument("--input-file", default=None, help="A real input to test a prompt on (otherwise the model writes one).")
+    p_make.add_argument("--out", default=None, help="Folder for the results (default ./make-<words>-<time>).")
+    p_make.add_argument("--json", action="store_true", help="Emit a JSON summary.")
+    p_make.set_defaults(func=_cmd_make)
+
     p_prov = subparsers.add_parser("providers", help="Every model provider Proofhouse can use; add any other with one line.")
     prov = p_prov.add_subparsers(dest="providers_command", required=True)
 

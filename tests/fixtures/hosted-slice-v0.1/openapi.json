@@ -823,6 +823,91 @@
         "x-default-hosted-slice": true
       }
     },
+    "/v0/compiler/make": {
+      "post": {
+        "operationId": "make",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input-file": {
+                    "description": "A real input to test a prompt on (otherwise the model writes one).",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit a JSON summary.",
+                    "type": "boolean"
+                  },
+                  "kind": {
+                    "description": "What to make (default prompt).",
+                    "enum": [
+                      "prompt",
+                      "skill"
+                    ],
+                    "type": "string"
+                  },
+                  "max-cost-usd": {
+                    "description": "Spending limit for the whole make; required for a paid provider.",
+                    "type": "string"
+                  },
+                  "model": {
+                    "description": "Model id as the provider names it.",
+                    "type": "string"
+                  },
+                  "out": {
+                    "description": "Folder for the results (default ./make-<words>-<time>).",
+                    "type": "string"
+                  },
+                  "provider": {
+                    "description": "Provider id (see `proofhouse providers list`).",
+                    "type": "string"
+                  },
+                  "request": {
+                    "description": "What you want made, in your own words.",
+                    "type": "string"
+                  },
+                  "rounds": {
+                    "description": "Most improvement rounds (default 3).",
+                    "type": "integer"
+                  },
+                  "target": {
+                    "description": "Stop when the judge scores this (0-10, default 9).",
+                    "type": "integer"
+                  }
+                },
+                "required": [
+                  "request",
+                  "provider",
+                  "model"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "make",
+        "tags": [
+          "opt-in-live"
+        ],
+        "x-cli-command": "make",
+        "x-default-hosted-slice": false
+      }
+    },
     "/v0/compiler/missionrig-generate": {
       "post": {
         "operationId": "missionrig_generate",
@@ -1176,6 +1261,7 @@
     "hosted-view",
     "inspect",
     "install-skill",
+    "make",
     "missionrig-generate",
     "models",
     "optimize",
@@ -1223,6 +1309,7 @@
   ],
   "x-opt-in-live": [
     "execute-openai",
+    "make",
     "run"
   ],
   "x-q2-ratified": false
