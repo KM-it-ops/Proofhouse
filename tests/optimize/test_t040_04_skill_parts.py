@@ -43,8 +43,10 @@ SKILL = {
     "scripts/run.py": b"print('hi')\r\n",
     "notes/a b.txt": b"\x00\xffnot text\n",
 }
-RESERVED = ["con", "prn", "aux", "nul", "com1", "com9", "lpt1", "lpt9", "CON", "Nul", "com0", "lpt0"]
-NOT_PORTABLE = [*RESERVED, *(f"{name}.txt" for name in RESERVED[:4]), "a.", "b ", "c. ", "d .", "q?", "s*", "l<", "p|"]
+RESERVED = ["con", "prn", "aux", "nul", "com1", "com9", "lpt1", "lpt9", "CON", "Nul", "com0", "lpt0", "CONIN$", "clock$"]
+NOT_PORTABLE = [
+    *RESERVED, *(f"{name}.txt" for name in RESERVED[:4]), "conout$.txt", "a.", "b ", "c. ", "d .", "q?", "s*", "l<", "p|",
+]
 BAD_NAMES = [
     "Demo", "demo_skill", "demo.skill", "demo skill", "-demo", "", "a" * 65, "c:", "../demo", "demo/x", "demo\\x",
     "con", "nul", "aux", "prn", "com1", "lpt9", "demo.",
@@ -93,6 +95,17 @@ def skill_zip(path: Path, top: str = "demo-skill", extra: dict[str, bytes] | Non
     entries = {f"{top}/{rel}": blob for rel, blob in SKILL.items()}
     entries.update(extra or {})
     return zip_bundle(path, entries)
+
+
+def link_folder(link: Path, target: Path) -> Path:
+    """A folder link any user can make: a directory junction on Windows, a symlink elsewhere."""
+    if sys.platform == "win32":
+        import subprocess
+
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+    else:
+        os.symlink(target, link, target_is_directory=True)
+    return link
 
 
 def snapshot(root: Path) -> dict[str, bytes]:
@@ -219,7 +232,7 @@ def test_check_path_accepts_names_that_only_resemble_reserved_ones(ok: str) -> N
 
 
 @posix_only
-@pytest.mark.parametrize("segment", ["CON", "aux.txt", "nul", "com1", "a.", "b ", "q?", "back\\slash", "co:lon"])
+@pytest.mark.parametrize("segment", ["CON", "aux.txt", "nul", "com1", "CONIN$", "a.", "b ", "q?", "back\\slash", "co:lon"])
 def test_folder_entries_not_portable_are_refused(tmp_path: Path, host: Path, segment: str) -> None:
     src = skill_folder(tmp_path / "src", {**SKILL, f"notes/{segment}": b"x"})
     with pytest.raises(InstallSkillError, match="skill folder refused") as info:
@@ -262,13 +275,29 @@ def test_folder_with_a_folder_link_is_refused(tmp_path: Path, host: Path) -> Non
     assert not host.exists()
 
 
-@links_supported
 def test_skill_folder_that_is_itself_a_link_is_refused(tmp_path: Path, host: Path) -> None:
     real = skill_folder(tmp_path / "real")
-    link = tmp_path / "link"
-    os.symlink(real, link, target_is_directory=True)
+    link = link_folder(tmp_path / "link", real)
     with pytest.raises(InstallSkillError, match="PHC-SKILL-0003"):
         install(host, link)
+    assert not host.exists()
+
+
+def test_a_file_replaced_while_the_folder_is_read_is_refused(tmp_path: Path, host: Path, monkeypatch) -> None:
+    src = skill_folder(tmp_path / "src")
+    victim = src / "scripts" / "run.py"
+    real_open = os.open
+
+    def replace_then_open(path, flags, *args, **kwargs):
+        if Path(path) == victim:  # checked by lstat already; now something else takes its place
+            spare = victim.with_name("spare.tmp")
+            spare.write_bytes(b"swapped in after the check\n")
+            os.replace(spare, victim)
+        return real_open(path, flags, *args, **kwargs)
+
+    monkeypatch.setattr(os, "open", replace_then_open)
+    with pytest.raises(InstallSkillError, match="PHC-SKILL-0003"):
+        install(host, src)
     assert not host.exists()
 
 
@@ -367,6 +396,66 @@ def test_rollback_after_a_failed_swap_restores_the_previous_install(tmp_path: Pa
         uninstall("demo-skill", host)
 
 
+def test_forced_install_refuses_a_skill_folder_holding_a_link(tmp_path: Path, host: Path) -> None:
+    outside = skill_folder(tmp_path / "outside", {"secret.txt": b"secret", "deep/x.txt": b"x"})
+    skill_folder(host / "demo-skill", {"SKILL.md": b"---\nname: demo-skill\ndescription: mine\n---\n"})
+    link_folder(host / "demo-skill" / "linked", outside)
+    before = state(host)
+    with pytest.raises(InstallSkillError, match="link") as info:
+        install(host, skill_folder(tmp_path / "src"), force=True)
+    assert info.value.exit_code == 2
+    assert state(host) == before
+    assert snapshot(outside) == {"secret.txt": b"secret", "deep/x.txt": b"x"}
+    assert not (tmp_path / "ph" / install_skill.BACKUP_DIR).exists()  # nothing was copied out of the link
+    assert not (tmp_path / "ph" / install_skill.INSTALLS_DIR).exists()
+
+
+def test_forced_install_refuses_a_skill_folder_that_is_a_link(tmp_path: Path, host: Path) -> None:
+    target = skill_folder(tmp_path / "elsewhere")
+    host.mkdir(parents=True)
+    link_folder(host / "demo-skill", target)
+    with pytest.raises(InstallSkillError, match="link") as info:
+        install(host, skill_folder(tmp_path / "src", {**SKILL, "v2.txt": b"v2"}), force=True)
+    assert info.value.exit_code == 2
+    assert install_skill._is_link(host / "demo-skill")  # still the link, not a copy of its target
+    assert snapshot(target) == SKILL
+    assert not (tmp_path / "ph" / install_skill.BACKUP_DIR).exists()
+
+
+def test_zip_install_writes_the_bytes_it_checked_even_if_the_zip_changes(tmp_path: Path, host: Path, monkeypatch) -> None:
+    bundle = skill_zip(tmp_path / "b.zip")
+    real_read = install_skill.read_skill
+
+    def read_then_swap(source, dest_dir=None):
+        skill = real_read(source, dest_dir)
+        bundle.unlink()  # after the check, the zip on disk becomes something else
+        skill_zip(bundle, extra={"demo-skill/unchecked.txt": b"never validated"})
+        return skill
+
+    monkeypatch.setattr(install_skill, "read_skill", read_then_swap)
+    result = install(host, bundle)
+    assert snapshot(result.dest) == SKILL
+
+
+def test_forced_install_refuses_a_backup_that_does_not_match_the_folder(tmp_path: Path, host: Path, monkeypatch) -> None:
+    skill_folder(host / "demo-skill", {"SKILL.md": b"---\nname: demo-skill\ndescription: mine\n---\n"})
+    before = snapshot(host)
+    real_copytree = shutil.copytree
+
+    def copy_then_change(src, dst, *args, **kwargs):
+        real_copytree(src, dst, *args, **kwargs)
+        (Path(dst) / "late.txt").write_text("written while the backup was taken", encoding="utf-8")
+
+    monkeypatch.setattr(shutil, "copytree", copy_then_change)
+    with pytest.raises(InstallSkillError, match="changed while it was being backed up") as info:
+        install(host, skill_folder(tmp_path / "src"), force=True)
+    assert info.value.exit_code == 7
+    assert snapshot(host) == before
+    assert sorted(p.name for p in host.iterdir()) == ["demo-skill"]
+    with pytest.raises(InstallSkillError, match="no record"):
+        uninstall("demo-skill", host)
+
+
 def test_install_never_writes_outside_the_skill_folder_and_home(tmp_path: Path, host: Path) -> None:
     install(host, skill_folder(tmp_path / "src"))
     assert sorted(p.name for p in host.iterdir()) == ["demo-skill"]
@@ -455,12 +544,11 @@ def test_uninstall_refuses_a_changed_folder_unless_forced_then_backs_it_up(tmp_p
     assert not (host / "demo-skill").exists()
 
 
-@links_supported
 def test_uninstall_removes_a_link_never_what_it_points_at(tmp_path: Path, host: Path) -> None:
     install(host, skill_folder(tmp_path / "src"))
     target = skill_folder(tmp_path / "elsewhere")
     shutil.rmtree(host / "demo-skill")
-    os.symlink(target, host / "demo-skill", target_is_directory=True)
+    link_folder(host / "demo-skill", target)
     with pytest.raises(InstallSkillError, match="no longer matches"):
         uninstall("demo-skill", host)
     result = uninstall("demo-skill", host, force=True)
@@ -494,6 +582,98 @@ def test_uninstall_refuses_a_record_whose_backup_points_outside_the_backup_area(
     with pytest.raises(InstallSkillError, match="outside"):
         uninstall("demo-skill", host)
     assert snapshot(host) == before
+
+
+def test_uninstall_refuses_a_record_whose_backup_is_reached_through_a_link(tmp_path: Path, host: Path) -> None:
+    skill_folder(host / "demo-skill", {"SKILL.md": b"---\nname: demo-skill\ndescription: p\n---\n"})
+    install(host, skill_folder(tmp_path / "src"), force=True)
+    record = install_skill._record_path((host / "demo-skill").resolve(), None)
+    data = json.loads(record.read_text(encoding="utf-8"))
+    evil = skill_folder(tmp_path / "evil" / "demo-skill", {"SKILL.md": b"evil"})
+    stamp = link_folder(tmp_path / "ph" / install_skill.BACKUP_DIR / "20990101T000000000000Z", evil.parent)
+    data["history"][-1]["backup"] = str(stamp / "demo-skill")
+    record.write_text(json.dumps(data), encoding="utf-8")
+    before = snapshot(host)
+    with pytest.raises(InstallSkillError, match="outside"):
+        uninstall("demo-skill", host)
+    assert snapshot(host) == before
+
+
+def test_uninstall_refuses_a_backup_that_changed_since_the_install(tmp_path: Path, host: Path) -> None:
+    skill_folder(host / "demo-skill", {"SKILL.md": b"---\nname: demo-skill\ndescription: p\n---\n"})
+    result = install(host, skill_folder(tmp_path / "src"), force=True)
+    (result.backup / "SKILL.md").write_bytes(b"---\nname: demo-skill\ndescription: edited later\n---\n")
+    record = install_skill._record_path(result.dest, None)
+    recorded = record.read_text(encoding="utf-8")
+    before = snapshot(host)
+    with pytest.raises(InstallSkillError, match="no longer matches what the install replaced") as info:
+        uninstall("demo-skill", host)
+    assert info.value.exit_code == 7
+    assert snapshot(host) == before
+    assert sorted(p.name for p in host.iterdir()) == ["demo-skill"]  # no half-made restore left beside it
+    assert record.read_text(encoding="utf-8") == recorded
+
+
+def test_uninstall_refuses_a_backup_holding_a_link_without_copying_it(tmp_path: Path, host: Path, monkeypatch) -> None:
+    skill_folder(host / "demo-skill", {"SKILL.md": b"---\nname: demo-skill\ndescription: p\n---\n"})
+    result = install(host, skill_folder(tmp_path / "src"), force=True)
+    outside = skill_folder(tmp_path / "outside", {"secret.txt": b"secret"})
+    link_folder(result.backup / "linked", outside)
+    before = snapshot(host)
+    copied: list[Path] = []
+    real_copytree = shutil.copytree
+
+    def watch(src, dst, *args, **kwargs):
+        copied.append(Path(src))
+        return real_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copytree", watch)
+    with pytest.raises(InstallSkillError, match="no longer matches what the install replaced"):
+        uninstall("demo-skill", host)
+    assert copied == []
+    assert snapshot(host) == before
+    assert snapshot(outside) == {"secret.txt": b"secret"}
+
+
+def test_uninstall_that_cannot_update_its_record_removes_nothing(tmp_path: Path, host: Path, monkeypatch) -> None:
+    install(host, skill_folder(tmp_path / "src"))
+    record = install_skill._record_path((host / "demo-skill").resolve(), None)
+    recorded = record.read_text(encoding="utf-8")
+    before = snapshot(host)
+
+    def read_only(*_args, **_kwargs):
+        raise PermissionError("simulated read-only PROOFHOUSE_HOME")
+
+    monkeypatch.setattr(install_skill, "_write_record", read_only)
+    with pytest.raises(InstallSkillError, match="nothing was removed") as info:
+        uninstall("demo-skill", host)
+    assert info.value.exit_code == 7
+    assert snapshot(host) == before
+    assert sorted(p.name for p in host.iterdir()) == ["demo-skill"]
+    assert record.read_text(encoding="utf-8") == recorded
+
+
+def test_uninstall_whose_restore_fails_keeps_its_record(tmp_path: Path, host: Path, monkeypatch) -> None:
+    skill_folder(host / "demo-skill", {"SKILL.md": b"---\nname: demo-skill\ndescription: p\n---\n"})
+    install(host, skill_folder(tmp_path / "src"), force=True)
+    record = install_skill._record_path((host / "demo-skill").resolve(), None)
+    recorded = record.read_text(encoding="utf-8")
+    before = snapshot(host)
+    real = install_skill._move
+    calls = {"n": 0}
+
+    def flaky(src: Path, dst: Path) -> None:
+        calls["n"] += 1
+        if calls["n"] == 2:  # installed -> aside works; backup -> live fails
+            raise PermissionError("simulated lock")
+        real(src, dst)
+
+    monkeypatch.setattr(install_skill, "_move", flaky)
+    with pytest.raises(InstallSkillError, match="nothing was removed"):
+        uninstall("demo-skill", host)
+    assert snapshot(host) == before
+    assert sorted(p.name for p in host.iterdir()) == ["demo-skill"]
+    assert record.read_text(encoding="utf-8") == recorded
 
 
 def test_uninstall_of_a_missing_folder_is_refused(tmp_path: Path, host: Path) -> None:
@@ -570,6 +750,13 @@ def test_skill_checker_round_trip_passes_on_a_good_skill(tmp_path: Path) -> None
     assert "behaviour in hosts not tested" in result.not_measured
     assert all(row["evidence_class"] == "structural_check" for row in result.evidence)
     assert snapshot(src) == SKILL  # the checked folder is read, never written
+
+
+def test_skill_checker_passes_a_skill_named_like_its_placeholder(tmp_path: Path) -> None:
+    md = b"---\nname: other-skill\ndescription: Shares a name with the checker's unrelated skill.\n---\n"
+    src = skill_folder(tmp_path / "src", {**SKILL, "SKILL.md": md})
+    result = parts.perform(parts.get_part(parts.SKILL_CHECKER_ID), {"kind": AGENT_SKILL, "folder": src})
+    assert evidence(result) == dict.fromkeys(parts.SKILL_CHECK_STEPS, "PASS")
 
 
 def test_skill_checker_passes_a_skill_near_the_entry_limit(tmp_path: Path) -> None:

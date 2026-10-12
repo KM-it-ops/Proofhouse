@@ -13,6 +13,8 @@ to every OS (Windows reserved device names, a trailing dot or space, characters
 Windows forbids; ``PHC-SKILL-0009``) on every OS, paths that would collide on
 a case-insensitive disk, and anything over the installer's size and entry
 limits, so the same bytes give the same digest on every operating system.
+The digest covers paths and bytes only: empty folders and permissions (such as
+the execute bit) are not part of it, and the installer does not copy them.
 Adding a kind later is a new row here plus its digest rule.
 """
 
@@ -92,7 +94,7 @@ def is_link(path: Path) -> bool:
 
 # Device names Windows reserves in any folder, with or without an extension (``CON``, ``nul.txt``).
 WINDOWS_RESERVED_NAMES = frozenset(
-    {"con", "prn", "aux", "nul"}
+    {"con", "prn", "aux", "nul", "conin$", "conout$", "clock$"}
     | {f"{device}{n}" for device in ("com", "lpt") for n in (*"0123456789", "¹", "²", "³")}
 )
 _NOT_PORTABLE_CHARS = frozenset('<>"|?*')
@@ -172,15 +174,19 @@ def files_manifest(files: Iterable[tuple[str, bytes]]) -> list[dict[str, str]]:
     return entries
 
 
-def _read_regular(path: Path, rel: str) -> bytes:
+def _read_regular(path: Path, rel: str, seen: os.stat_result) -> bytes:
+    """Read the file ``seen`` (its ``lstat``); refused if something else is there by the time it is opened."""
     flags = os.O_RDONLY | getattr(os, "O_BINARY", 0) | getattr(os, "O_NOFOLLOW", 0)
     try:
         fd = os.open(path, flags)
     except OSError as exc:
         raise CodedCaseError("PHC-SKILL-0007", f"cannot read {rel}: {exc.strerror}") from None
     with os.fdopen(fd, "rb") as handle:
-        if not stat.S_ISREG(os.fstat(handle.fileno()).st_mode):
+        opened = os.fstat(handle.fileno())
+        if not stat.S_ISREG(opened.st_mode):
             raise CodedCaseError("PHC-SKILL-0003", f"not a regular file: {rel}")
+        if not os.path.samestat(opened, seen):  # Windows has no O_NOFOLLOW; a swapped-in link opens its target
+            raise CodedCaseError("PHC-SKILL-0003", f"{rel} was replaced while it was being read")
         return handle.read(MAX_UNCOMPRESSED_BYTES + 1)
 
 
@@ -213,7 +219,8 @@ def folder_files(root: Path) -> list[tuple[str, bytes]]:
             check_path(rel)
             path = Path(child.path)
             try:
-                mode = os.lstat(path).st_mode
+                info = os.lstat(path)
+                mode = info.st_mode
                 linked = is_link(path)
             except OSError as exc:
                 raise CodedCaseError("PHC-SKILL-0007", f"cannot read {rel}: {exc.strerror}") from None
@@ -224,7 +231,7 @@ def folder_files(root: Path) -> list[tuple[str, bytes]]:
                 continue
             if not stat.S_ISREG(mode):
                 raise CodedCaseError("PHC-SKILL-0003", f"not a regular file: {rel}")
-            blob = _read_regular(path, rel)
+            blob = _read_regular(path, rel, info)
             total += len(blob)
             if total > MAX_UNCOMPRESSED_BYTES:
                 raise CodedCaseError("PHC-SKILL-0004", f"more than {MAX_UNCOMPRESSED_BYTES} bytes")

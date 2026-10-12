@@ -58,12 +58,14 @@ def test_probe_invalid_frontmatter_force_install_preserves_previous(existing: Pa
 def test_extraction_failure_preserves_previous(existing: Path, tmp_path: Path, monkeypatch) -> None:
     before = _snapshot(existing)
     bundle = _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD, "proofhouse/a.txt": "a"})
+    real_open = Path.open
 
-    def explode(self, *args, **kwargs):
-        raise OSError("simulated interruption during extraction")
+    def explode(self, mode="r", *args, **kwargs):  # the staged copy is written from the checked bytes, file by file
+        if mode == "xb":
+            raise OSError("simulated interruption while writing the staged copy")
+        return real_open(self, mode, *args, **kwargs)
 
-    monkeypatch.setattr(zipfile.ZipFile, "extractall", explode)
-    monkeypatch.setattr(zipfile.ZipFile, "extract", explode)
+    monkeypatch.setattr(Path, "open", explode)
     with pytest.raises(InstallSkillError):
         install(existing, bundle, force=True)
     _assert_unchanged(existing, before)
@@ -202,8 +204,12 @@ def test_successful_force_install_over_a_read_only_skill_leaves_no_second_copy(e
 
 
 @pytest.mark.skipif(__import__("sys").platform != "win32", reason="directory junctions are Windows-only")
-def test_successful_force_install_over_a_junction_removes_only_the_link(tmp_path: Path, monkeypatch) -> None:
-    """A skill installed as a junction to the user's checkout: the link goes, the checkout stays."""
+def test_force_install_over_a_junction_is_refused_and_touches_nothing(tmp_path: Path, monkeypatch) -> None:
+    """A skill installed as a junction to the user's checkout: neither the link nor the checkout is touched.
+
+    Until MISSION-040 ``--force`` replaced the link after backing up the checkout by following it,
+    so uninstall could only put back a stale copy, never the link.
+    """
     import _winapi
 
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
@@ -214,11 +220,13 @@ def test_successful_force_install_over_a_junction_removes_only_the_link(tmp_path
     dest.mkdir()
     _winapi.CreateJunction(str(checkout), str(dest / "proofhouse"))
     bundle = _bundle(tmp_path / "ok.skill", {"proofhouse/SKILL.md": GOOD_MD})
-    result = install(dest, bundle, force=True)
+    with pytest.raises(InstallSkillError, match="link or junction") as info:
+        install(dest, bundle, force=True)
+    assert info.value.exit_code == 2
     _no_leftovers(dest)
-    assert result.leftover is None
+    assert install_skill._is_link(dest / "proofhouse")
     assert (checkout / "SKILL.md").read_text(encoding="utf-8").endswith("mine\n")  # the user's checkout is untouched
-    assert (dest / "proofhouse" / "SKILL.md").read_text(encoding="utf-8") == GOOD_MD
+    assert not (tmp_path / "home").exists()
 
 
 def test_an_undeletable_set_aside_copy_is_reported_not_ignored(existing: Path, tmp_path: Path, monkeypatch) -> None:

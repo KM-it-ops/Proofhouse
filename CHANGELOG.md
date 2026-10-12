@@ -14,18 +14,19 @@ The spine slice: prompts and skills go from objective to export through the same
 
 ### Added
 
-- `proofhouse case new --kind skill` opens a skill case; `case record --skill-folder DIR` records a skill folder (`SKILL.md` at its root) as a version. Kinds are `prompt.text@1` (digest = the old `prompt_sha256`) and `agent.skill@1` (digest = RFC 8785 + SHA-256 over a sorted per-file manifest); any other kind is refused (`PHC-KIND-0001`).
+- `proofhouse case new --kind skill` opens a skill case; `case record --skill-folder DIR` records a skill folder (`SKILL.md` at its root) as a version. Kinds are `prompt.text@1` (digest = the old `prompt_sha256`) and `agent.skill@1` (digest = RFC 8785 + SHA-256 over a sorted per-file manifest of paths and bytes; empty folders and permissions such as the execute bit are not part of it, and `install-skill` does not copy them); any other kind is refused (`PHC-KIND-0001`).
 - `proofhouse parts` lists every registered part with role, kinds, status and conformance suite version (`--json` for full descriptors). `adapters` keeps its output (request builders only).
 - Skill checker part and `case criteria add --skill-check install-roundtrip`: frontmatter, then an install round trip into a temporary skills folder (write, read back, reinstall changes nothing, uninstall restores the prior folder exactly). It does not test behaviour in real hosts, and the report says no independent pass ran.
 - `install-skill --bundle` takes any skill, as a zip (`<name>/...`) or a folder. The name comes from validated `SKILL.md` frontmatter. With no bundle it installs Proofhouse's own skill exactly as before.
-- `proofhouse uninstall-skill NAME` removes only a skill `install-skill` recorded installing and restores what that install replaced; it refuses a folder that changed since install unless `--force` (then backs it up first), and removes a link, never what it points at.
+- `proofhouse uninstall-skill NAME` removes only a skill `install-skill` recorded installing and restores what that install replaced, only if its backup still holds exactly that; it refuses a folder that changed since install unless `--force` (then backs it up first), and removes a link, never what it points at.
 - `proofhouse "<objective>"` (the overseer) now acts on its route decision: a routed `prompt` or `skill` opens a case through the same function as `case new` (in `./case-<words>`, or `--case DIR`; `--model NAME`), and the case records the class, rationale and whether it was forced. Every other class opens nothing and is appended as "no part yet" to `PROOFHOUSE_HOME/demand/no-part-yet.jsonl`. `nothing_new` and `one_prompt` are unchanged. Stdout is still the route decision; what the overseer did is one line on stderr. `route()` itself is unchanged.
 - Run records carry `part` and `cost`. Nothing measures cost yet, so every figure is `unknown`, never `0`; `usd` is never filled. The report sums cost per version, and a sum that includes an unknown is unknown.
 
 ### Changed
 
 - **(breaking)** `proofhouse proof` no longer reports `SHIP` when no review pass ran. With no pass wired to the command it reports `UNJUDGED` with `passes: 0` and exits 3. The real-pass rules are unchanged.
-- Skill file names that are not portable to every OS (Windows reserved names such as `CON` or `nul.txt`, a trailing dot or space, characters Windows forbids) are refused on every OS (`PHC-SKILL-0009`), in skill versions and in `install-skill` input.
+- **(breaking)** `install-skill --force` refuses to replace a skill folder that is, or holds, a link or junction (exit 2); it used to back up what the link pointed at and replace the link, so an uninstall could not put the link back. Remove or replace the link yourself, then install.
+- Skill file names that are not portable to every OS (Windows reserved names such as `CON`, `nul.txt` or `CONIN$`, a trailing dot or space, characters Windows forbids) are refused on every OS (`PHC-SKILL-0009`), in skill versions and in `install-skill` input.
 - README, docs and CI use `proofhouse`; CI runs `proofhouse demo` from the built wheel outside the checkout.
 
 ## 0.4.1 - 2026-10-08
