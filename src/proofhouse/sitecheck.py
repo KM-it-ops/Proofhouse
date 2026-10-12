@@ -143,10 +143,12 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 60) -> li
         shots.mkdir(parents=True, exist_ok=True)
     for label, size in (("desktop", "1440,900"), ("phone", "390,844")):
         with tempfile.TemporaryDirectory(prefix="proofhouse-browser-", ignore_cleanup_errors=True) as profile:
-            # A fresh profile and no shared-memory use: headless Chrome can hang on a locked profile or a small /dev/shm.
+            # The launch recipe Puppeteer uses: a fresh profile, no keyring (a new profile otherwise waits on the system
+            # keyring over D-Bus, which a server or CI machine does not have), no background work, no small /dev/shm.
             command = [browser, "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--no-first-run",
-                       "--no-default-browser-check", "--disable-extensions", f"--user-data-dir={profile}",
-                       "--virtual-time-budget=5000", "--hide-scrollbars", f"--window-size={size}", "--enable-logging=stderr", "--v=0"]
+                       "--no-default-browser-check", "--disable-extensions", "--disable-background-networking", "--disable-sync",
+                       "--disable-default-apps", "--password-store=basic", "--use-mock-keychain", f"--user-data-dir={profile}",
+                       "--hide-scrollbars", f"--window-size={size}", "--enable-logging=stderr", "--v=0"]
             if shots is not None:
                 command.append(f"--screenshot={shots / f'{label}.png'}")
             try:
