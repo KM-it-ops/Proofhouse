@@ -30,6 +30,8 @@ from proofhouse.compiler.execution import LiveOpenAIRequest, execute_openai
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src" / "proofhouse"
 EXECUTION = SRC / "compiler" / "execution.py"
+# Every module that can send, with its raw sender. Each hands its one send step (``_dispatch``) to the gate.
+SENDERS = {"compiler/execution.py": "_httpx_send", "live.py": "_httpx_post"}
 
 NETWORK = {
     "httpx", "requests", "urllib3", "aiohttp", "websockets", "socket", "ssl", "asyncio",
@@ -40,7 +42,8 @@ PROCESS_OR_FOREIGN = {"subprocess", "multiprocessing", "ctypes", "os.system"}
 
 # The whole list. Adding a module here is a deliberate change that shows up in review.
 ALLOWED = {
-    ("compiler/execution.py", "httpx"),  # the one live path; sends only through the spend gate
+    ("compiler/execution.py", "httpx"),  # execute-openai; sends only through the spend gate
+    ("live.py", "httpx"),  # any provider, any model; sends only through the spend gate
     ("optimize/reference_workflow.py", "subprocess"),  # runs the proofhouse CLI itself, offline
     ("optimize/cli.py", "ctypes"),  # console handling on Windows
     ("parts.py", "import_module"),  # loads registered parts by the module names in its own table
@@ -101,8 +104,10 @@ def _enclosing_functions(tree: ast.AST) -> dict[ast.AST, tuple[str, ...]]:
     return scope
 
 
-def test_b_every_send_sits_in_the_one_step_and_that_step_goes_only_to_the_gate() -> None:
-    tree = ast.parse(EXECUTION.read_text(encoding="utf-8"))
+@pytest.mark.parametrize("module", sorted(SENDERS))
+def test_b_every_send_sits_in_the_one_step_and_that_step_goes_only_to_the_gate(module: str) -> None:
+    raw = SENDERS[module]
+    tree = ast.parse((SRC / module).read_text(encoding="utf-8"))
     scope = _enclosing_functions(tree)
     calls = [node for node in ast.walk(tree) if isinstance(node, ast.Call)]
 
@@ -115,41 +120,44 @@ def test_b_every_send_sits_in_the_one_step_and_that_step_goes_only_to_the_gate()
             return f"{owner}.{func.attr}"
         return "?"
 
-    sends = [c for c in calls if callee(c) == "_httpx_send" or callee(c).endswith(".send")]
+    sends = [c for c in calls if callee(c) in {raw, "transport"} or callee(c).endswith(".send")]
     assert sends, "the send step has no send in it"
     for call in sends:
         assert scope[call][-1:] == ("_dispatch",), f"{callee(call)} at line {call.lineno} is outside the send step"
     wire = [c for c in calls if callee(c).startswith("httpx.") or callee(c).endswith((".post", ".request", ".stream"))]
     for call in wire:
-        assert scope[call][-1:] == ("_httpx_send",), f"{callee(call)} at line {call.lineno} is outside _httpx_send"
+        assert scope[call][-1:] == (raw,), f"{callee(call)} at line {call.lineno} is outside {raw}"
 
     loads = {
         name: [n for n in ast.walk(tree) if isinstance(n, ast.Name) and n.id == name and isinstance(n.ctx, ast.Load)]
-        for name in ("_dispatch", "_httpx_send")
+        for name in ("_dispatch", raw)
     }
-    assert len(loads["_httpx_send"]) == 1 and scope[loads["_httpx_send"][0]][-1:] == ("_dispatch",)
+    assert len(loads[raw]) == 1 and scope[loads[raw][0]][-1:] == ("_dispatch",)
     (dispatch,) = loads["_dispatch"]  # referenced exactly once ...
     (gate,) = [c for c in calls if callee(c) == "spend.send_within_ceiling"]
     assert [k.value for k in gate.keywords if k.arg == "send"] == [dispatch]  # ... as the gate's send=
 
 
-SEND_NAMES = {"send", "_httpx_send"}
+SEND_NAMES = {"send", *SENDERS.values()}
 
 
 def _send_references(path: Path, where: str) -> list[str]:
     """Every reference to the raw sender or to a ``send`` attribute outside the one send step."""
     tree = ast.parse(path.read_text(encoding="utf-8"))
     scope = _enclosing_functions(tree)
-    in_live_path = where == "compiler/execution.py"
+    in_live_path = where in SENDERS
     found: list[str] = []
     for node in ast.walk(tree):
         inside_step = in_live_path and scope.get(node, ())[-1:] == ("_dispatch",)
         # ``.send`` and ``_httpx_send`` in any form; a plain local name ``send`` (the gate's own parameter) is fine.
-        name = node.attr if isinstance(node, ast.Attribute) else node.id if isinstance(node, ast.Name) and node.id == "_httpx_send" else None
+        raw_names = set(SENDERS.values())
+        name = node.attr if isinstance(node, ast.Attribute) else node.id if isinstance(node, ast.Name) and node.id in raw_names else None
         if name in SEND_NAMES and not inside_step:
             found.append(f"{where}:{node.lineno} {name}")
-        if isinstance(node, ast.ImportFrom) and any(alias.name == "_httpx_send" for alias in node.names):
-            found.append(f"{where}:{node.lineno} import _httpx_send")
+        if isinstance(node, ast.ImportFrom) and any(alias.name in raw_names for alias in node.names):
+            found.append(f"{where}:{node.lineno} import of a raw sender")
+        if in_live_path and isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "transport" and not inside_step:
+            found.append(f"{where}:{node.lineno} transport called outside the send step")
         if (
             isinstance(node, ast.Call)
             and isinstance(node.func, ast.Name)
@@ -173,6 +181,8 @@ SNEAKY = {
     "other module calls a transport": ("sneaky.py", "def resend(request, p):\n    return request.transport.send(p)\n"),
     "send stored then called": ("compiler/execution.py", "def execute_openai(request, p):\n    s = request.transport.send\n    return s(p)\n"),
     "send looked up by name": ("compiler/execution.py", "def execute_openai(t, p):\n    return getattr(t, 'send')(p)\n"),
+    "any-provider sender imported": ("sneaky.py", "from .live import _httpx_post\ndef resend(r):\n    return _httpx_post(r)\n"),
+    "transport called outside the step": ("live.py", "def run_prompt(transport, r):\n    return transport(r)\n"),
 }
 
 
@@ -184,12 +194,14 @@ def test_b2_catches_the_ways_round_it(tmp_path: Path, label: str) -> None:
     assert _send_references(path, where), label
 
 
-def test_b3_the_send_step_and_the_sender_cannot_repeat_a_send() -> None:
+@pytest.mark.parametrize("module", sorted(SENDERS))
+def test_b3_the_send_step_and_the_sender_cannot_repeat_a_send(module: str) -> None:
     # One admitted worst case pays for one request: no loop, comprehension or recursion around a send.
-    tree = ast.parse(EXECUTION.read_text(encoding="utf-8"))
+    raw = SENDERS[module]
+    tree = ast.parse((SRC / module).read_text(encoding="utf-8"))
     loops = (ast.For, ast.AsyncFor, ast.While, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
-    steps = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name in {"_dispatch", "_httpx_send"}]
-    assert sorted(n.name for n in steps) == ["_dispatch", "_httpx_send"]
+    steps = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name in {"_dispatch", raw}]
+    assert sorted(n.name for n in steps) == sorted(["_dispatch", raw])
     for step in steps:
         found = [type(n).__name__ for n in ast.walk(step) if isinstance(n, loops)]
         assert found == [], f"{step.name} has {found}"

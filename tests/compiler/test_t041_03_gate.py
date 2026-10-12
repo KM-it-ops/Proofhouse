@@ -107,7 +107,8 @@ def test_a_model_with_no_price_is_refused_with_the_shipped_table() -> None:
         assert transport.calls == []
         assert result.diagnostics == ("PHC-COST-0002",)
         assert _gate(result)["message"] == (
-            f"PHC-COST-0002: no price for {model!r} in price table {spend.load_price_table().version}; nothing was sent"
+            f"PHC-COST-0002: no price for {model!r} from openai in price table {spend.load_price_table().version} "
+            "or your declared prices; nothing was sent"
         )
 
 
@@ -242,7 +243,10 @@ def test_cli_refusal_is_one_line_and_exits_7(tmp_path: Path, capsys, monkeypatch
     code, out, err = _cli(tmp_path, capsys)
     assert code == 7
     version = spend.load_price_table().version
-    assert out == f"PHC-COST-0002: no price for 'gpt-5.6-luna' in price table {version}; nothing was sent\n"
+    assert out == (
+        f"PHC-COST-0002: no price for 'gpt-5.6-luna' from openai in price table {version} "
+        "or your declared prices; nothing was sent\n"
+    )
     assert "internal error" not in err
     code, out, _ = _cli(tmp_path, capsys, "--json")
     assert code == 7

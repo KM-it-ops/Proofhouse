@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+Any provider, any model.
+
+### Added
+
+- `proofhouse install agent|rule|mcp ... --into claude|cursor|codex` and `proofhouse uninstall ... --from ...`. Proofhouse writes a marked block into shared files (`CLAUDE.md`, `AGENTS.md`, Codex `config.toml`), an entry into `mcp.json` (Cursor, or a project's `.mcp.json` for Claude Code), or a file of its own (a Claude Code subagent, a Cursor `.mdc` rule). It keeps a record and a copy of every changed file under `PROOFHOUSE_HOME`. Installing twice changes nothing; an uninstall removes only what it wrote, and refuses if you edited it since unless `--force`. `proofhouse hosts list` shows the tools; any other tool is one entry in `PROOFHOUSE_HOME/hosts.json`.
+- `proofhouse make "what you want" --provider P --model M` makes a prompt, an agent skill (`--kind skill`) or a Claude Code subagent (`--kind agent`). It writes version 1, tries it, has a judge model score it against your request, and revises until `--target`, `--rounds`, or the spending limit (`--max-cost-usd`, one limit for the whole command) stops it. Everything is kept in one folder (`record.json`, every version, `final.md`); a made skill comes out as a folder `install-skill --bundle` accepts. Judge scores are advice from a model, not proof.
+- `proofhouse run --provider P --model M --prompt "..."` runs a prompt on any provider that speaks the OpenAI chat format. With `--input`, the prompt becomes the system message. It prints the output, and on stderr the tokens and the estimated cost. `--json` prints the full result (output, admission, cost). One request per call, never retried.
+- `proofhouse providers list|add|remove|price`. Shipped providers:
+  - cloud: OpenAI, Anthropic and Google (their OpenAI-compatible endpoints), Mistral, Groq, Together, Fireworks, OpenRouter, DeepSeek, xAI;
+  - on your machine: Ollama, LM Studio, vLLM, llama.cpp.
+
+  Any other provider is one `providers add` line, saved in `PROOFHOUSE_HOME/providers.json`, with no code change. Keys are read from the provider's environment variable at call time and never appear in any output.
+- Every run goes through the spend gate. A price comes from the shipped table, then from a price you declare (`providers price`, labelled "declared by you"). A provider on this machine costs nothing unless you declare a price. A paid model with no price is refused (`PHC-COST-0002`), and a paid run needs `--max-cost-usd`. New refusal codes `PHC-RUN-0001` to `0006`.
+
 ## 0.6.0 - 2026-10-12
 
 `execute-openai` now refuses before sending when the worst-case cost is over your ceiling.

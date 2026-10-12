@@ -24,6 +24,12 @@ CODES: dict[str, str] = {
     "PHC-COST-0001": "worst-case cost is over the ceiling; nothing was sent",
     "PHC-COST-0002": "no price for this model; nothing was sent",
     "PHC-COST-0004": "the call used more tokens than its worst-case bound",
+    "PHC-RUN-0001": "no such provider, or the providers file is broken; nothing was sent",
+    "PHC-RUN-0002": "the run is missing its model, prompt or spending limit; nothing was sent",
+    "PHC-RUN-0003": "the provider's key is not set; nothing was sent",
+    "PHC-RUN-0004": "the request address does not match the provider; nothing was sent",
+    "PHC-RUN-0005": "the request could not be sent; nothing more was tried",
+    "PHC-RUN-0006": "the provider answered with an error",
 }
 RETIRED_CODES: tuple[str, ...] = ()
 
