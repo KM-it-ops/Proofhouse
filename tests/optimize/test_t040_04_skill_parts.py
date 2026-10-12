@@ -1114,10 +1114,19 @@ def test_folder_files_refuses_a_folder_swapped_for_a_link_before_it_is_listed(
             swapped.append(target)
         return real_scandir(path, *args, **kwargs)
 
+    read: list[bytes] = []
+    real_read = kinds._read_regular
+
+    def watch_read(*args, **kwargs) -> bytes:
+        read.append(real_read(*args, **kwargs))
+        return read[-1]
+
     monkeypatch.setattr(kinds.os, "scandir", swap_then_scan)
+    monkeypatch.setattr(kinds, "_read_regular", watch_read)
     with pytest.raises(CodedCaseError, match="replaced while it was being read"):
         kinds.folder_files(root)
     assert swapped == [target]
+    assert not set(read) & {b"secret", THEIRS["SKILL.md"]}  # refused before anything behind the link was read
 
 
 def test_a_backup_that_fails_midway_leaves_nothing_under_proofhouse_home(tmp_path: Path, host: Path, monkeypatch) -> None:
@@ -1234,3 +1243,109 @@ def test_forced_uninstall_refuses_a_safety_copy_that_differs_from_the_folder(tmp
     assert record.read_text(encoding="utf-8") == recorded
     uninstalled = tmp_path / "ph" / install_skill.UNINSTALLED_DIR
     assert not uninstalled.exists() or list(uninstalled.rglob("*")) == []
+
+
+@pytest.mark.parametrize("action", ["install", "uninstall"])
+def test_a_backup_folder_that_already_exists_is_never_removed(
+    tmp_path: Path, host: Path, monkeypatch, action: str
+) -> None:
+    """Two runs in one clock tick pick the same stamp; the failed one must not delete the other's copy."""
+    if action == "install":
+        skill_folder(host / "demo-skill", THEIRS)
+        area = install_skill.BACKUP_DIR
+    else:
+        install(host, skill_folder(tmp_path / "src"))
+        (host / "demo-skill" / "notes" / "edited.txt").write_text("my edit", encoding="utf-8")
+        area = install_skill.UNINSTALLED_DIR
+    stamp = "20990101T000000000000Z"
+    monkeypatch.setattr(install_skill, "_stamp", lambda: stamp)
+    other = skill_folder(tmp_path / "ph" / area / stamp / "demo-skill", {"SKILL.md": b"another run's only copy"})
+    before = snapshot(host)
+    with pytest.raises(InstallSkillError) as info:
+        if action == "install":
+            install(host, skill_folder(tmp_path / "src"), force=True)
+        else:
+            uninstall("demo-skill", host, force=True)
+    assert info.value.exit_code == 7
+    assert snapshot(other) == {"SKILL.md": b"another run's only copy"}
+    assert snapshot(host) == before
+
+
+@links_supported
+def test_forced_uninstall_refuses_a_link_replaced_by_a_folder_before_its_safety_copy(
+    tmp_path: Path, host: Path, monkeypatch
+) -> None:
+    install(host, skill_folder(tmp_path / "src"))
+    shutil.rmtree(host / "demo-skill")
+    link_folder(host / "demo-skill", skill_folder(tmp_path / "elsewhere"))  # seen as a link: no copy, a note
+    outside = skill_folder(tmp_path / "outside", {"secret.txt": b"secret"})
+    real_copy_out = install_skill._copy_out
+
+    def swap_then_copy(src: Path, dst: Path) -> None:
+        os.unlink(src)  # the link becomes a real folder that holds a link
+        skill_folder(Path(src), THEIRS)
+        os.symlink(outside, Path(src) / "node_modules", target_is_directory=True)
+        real_copy_out(src, dst)
+
+    monkeypatch.setattr(install_skill, "_copy_out", swap_then_copy)
+    with pytest.raises(InstallSkillError, match="changed while it was being backed up") as info:
+        uninstall("demo-skill", host, force=True)
+    assert info.value.exit_code == 7
+    assert (host / "demo-skill" / "SKILL.md").read_bytes() == THEIRS["SKILL.md"]  # nothing was removed
+    uninstalled = tmp_path / "ph" / install_skill.UNINSTALLED_DIR
+    assert not uninstalled.exists() or list(uninstalled.rglob("*")) == []
+
+
+def test_folder_files_refuses_a_folder_swapped_for_a_link_after_it_was_listed(tmp_path: Path, monkeypatch) -> None:
+    from proofhouse.optimize import kinds
+
+    root = skill_folder(tmp_path / "skill")
+    outside = skill_folder(tmp_path / "outside", {rel: b"OUTSIDE " + blob for rel, blob in SKILL.items()})  # same layout
+    real_stat = os.stat
+    swapped: list[Path] = []
+
+    def stat_then_swap(path, *args, **kwargs):
+        result = real_stat(path, *args, **kwargs)
+        if Path(path) == root and not swapped:  # the identity check passes, then the folder is swapped
+            os.rename(root, tmp_path / "moved")
+            link_folder(root, outside)
+            swapped.append(root)
+        return result
+
+    monkeypatch.setattr(kinds.os, "stat", stat_then_swap)
+    with pytest.raises(CodedCaseError, match="replaced while it was being read"):
+        kinds.folder_files(root)
+    assert swapped == [root]
+
+
+@links_supported
+def test_forced_install_refuses_a_backup_holding_a_link_its_digest_also_saw(
+    tmp_path: Path, host: Path, monkeypatch
+) -> None:
+    """The link is there when the folder is digested, gone at the link check, back before the copy."""
+    skill_folder(host / "demo-skill", THEIRS)
+    outside = skill_folder(tmp_path / "outside", {"secret.txt": b"secret"})
+    linked = host / "demo-skill" / "linked"
+    real_stage, real_link_in = install_skill._stage, install_skill._link_in
+
+    def stage_then_link(*args, **kwargs):
+        real_stage(*args, **kwargs)
+        os.symlink(outside, linked, target_is_directory=True)
+
+    def hide_link_from_the_check(folder: Path, unchanged: str):
+        if not os.path.lexists(linked):
+            return real_link_in(folder, unchanged)
+        os.unlink(linked)
+        try:
+            return real_link_in(folder, unchanged)
+        finally:
+            os.symlink(outside, linked, target_is_directory=True)
+
+    monkeypatch.setattr(install_skill, "_stage", stage_then_link)
+    monkeypatch.setattr(install_skill, "_link_in", hide_link_from_the_check)
+    with pytest.raises(InstallSkillError, match="link or junction") as info:
+        install(host, skill_folder(tmp_path / "src"), force=True)
+    assert info.value.exit_code == 2
+    assert install_skill._is_link(linked)
+    assert backups(tmp_path) == []
+    assert records(tmp_path) == []

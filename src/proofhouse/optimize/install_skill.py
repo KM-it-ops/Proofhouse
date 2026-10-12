@@ -442,8 +442,8 @@ def _rolled_back(exc: BaseException, skill_dir: Path, home: Path | None, text: s
     if _restore_record(skill_dir, home, text) or not isinstance(exc, InstallSkillError):
         return exc
     return InstallSkillError(
-        f"{exc}; record not restored: the install record {_record_path(skill_dir, home)} no longer matches "
-        f"{skill_dir}",
+        f"{str(exc).rstrip('.')}; but record not restored: the install record {_record_path(skill_dir, home)} "
+        f"no longer matches {skill_dir}",
         exc.exit_code,
     )
 
@@ -512,8 +512,14 @@ def _link_refused(link: Path, note: str = "") -> InstallSkillError:
     )
 
 
-def _drop_copy(copy: Path) -> str:
-    """Remove a copy that failed or does not match, and its stamp folder; a note naming anything left."""
+def _drop_copy(copy: Path, exc: OSError | None = None) -> str:
+    """Remove a copy that failed or does not match, and its stamp folder; a note naming anything left.
+
+    A copy that failed because ``copy`` already existed is not this run's (another run took the same
+    stamp), so it is left alone.
+    """
+    if isinstance(exc, FileExistsError) and exc.filename is not None and Path(exc.filename) == copy:
+        return ""
     if os.path.lexists(copy) and not _discard(copy):
         return f"; a copy is left at {copy}"
     try:
@@ -632,7 +638,7 @@ def _stage(skill: SkillSource, staged: Path, skill_dir: Path) -> None:
 def _appeared(skill_dir: Path) -> InstallSkillError:
     return InstallSkillError(
         f"{skill_dir} appeared while the skill was being installed; nothing was installed. "
-        "Re-run with --force to replace it",
+        "Run install-skill --force again to replace it",
         EXIT_USAGE_ERROR,
     )
 
@@ -670,7 +676,7 @@ def _swap_in(
     except OSError as exc:
         raise InstallSkillError(
             f"cannot back up {skill_dir} to {backup}: {exc}; the existing installation was not changed"
-            f"{_drop_copy(backup)}",
+            f"{_drop_copy(backup, exc)}",
             EXIT_ENVIRONMENT_FAILURE,
         ) from exc
     if copied_link is not None:  # a link that appeared during the copy; uninstall could never restore it
@@ -819,16 +825,24 @@ def uninstall(
                     f"cannot read {skill_dir}: {exc}; nothing was removed", EXIT_ENVIRONMENT_FAILURE
                 ) from exc
         safety = _home(home) / UNINSTALLED_DIR / _stamp() / name
+        note = safety.parent / f"{name}.link.txt"  # what _copy_out writes for a link
+        if os.path.lexists(safety) or os.path.lexists(note):  # another run took the same stamp; never touch it
+            raise InstallSkillError(
+                f"{safety} already exists; nothing was removed. Run uninstall-skill --force again",
+                EXIT_ENVIRONMENT_FAILURE,
+            )
         try:
             safety.parent.mkdir(parents=True, exist_ok=True)
             _copy_out(skill_dir, safety)
-            copied = None if expected is None else folder_state_digest(safety)
+            # A link is kept as a note (``None``); a folder copied where a link was seen is a change too.
+            copied = folder_state_digest(safety) if os.path.lexists(safety) else None
         except OSError as exc:
             raise InstallSkillError(
-                f"cannot back up {skill_dir} to {safety}: {exc}; nothing was removed{_drop_copy(safety)}",
+                f"cannot back up {skill_dir} to {safety}: {exc}; nothing was removed{_drop_copy(safety, exc)}",
                 EXIT_ENVIRONMENT_FAILURE,
             ) from exc
         if copied != expected:
+            note.unlink(missing_ok=True)
             raise InstallSkillError(
                 f"{skill_dir} changed while it was being backed up; nothing was removed{_drop_copy(safety)}",
                 EXIT_ENVIRONMENT_FAILURE,
