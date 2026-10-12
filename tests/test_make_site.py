@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -69,3 +70,17 @@ def test_with_a_browser_the_site_is_opened_and_screenshotted(tmp_path: Path) -> 
     checks = {c["check"]: c for c in sitecheck.check_site(tmp_path / "w", tmp_path / "shots")}
     assert checks["screenshots at desktop and phone width"]["ok"] is True
     assert checks["no JavaScript errors in the browser"]["ok"] is True
+
+
+def test_a_browser_that_hangs_is_reported_not_measured_never_a_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    sitecheck.write_site(GOOD, tmp_path / "w")
+    monkeypatch.setattr(sitecheck, "find_browser", lambda: "/fake/chrome")
+
+    def hangs(command, **kwargs):
+        assert any(part.startswith("--user-data-dir=") for part in command)  # a fresh profile every time
+        raise subprocess.TimeoutExpired(command, kwargs["timeout"])
+
+    monkeypatch.setattr(sitecheck.subprocess, "run", hangs)
+    checks = {c["check"]: c for c in sitecheck.check_site(tmp_path / "w", tmp_path / "shots", timeout=1)}
+    assert checks["opened in a browser"]["ok"] is None
+    assert "did not finish in 1 s" in checks["opened in a browser"]["detail"]
