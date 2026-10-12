@@ -70,8 +70,14 @@ COUNTING_RULE = (
 )
 # The request fields the estimate covers, per provider. Any other field (more choices, another
 # processing tier, ...) could change what is billed, so a request carrying one is refused.
-_REQUEST_FIELDS = {"openai": frozenset({"model", "messages", "max_completion_tokens", "tools", "response_format"})}
-_OUTPUT_CAP_FIELD = {"openai": "max_completion_tokens"}
+_REQUEST_FIELDS = {
+    "openai": frozenset({"model", "messages", "max_completion_tokens", "tools", "response_format"}),
+    "openai-compatible": frozenset({"model", "messages", "max_tokens", "tools", "response_format"}),
+}
+_OUTPUT_CAP_FIELD = {"openai": "max_completion_tokens", "openai-compatible": "max_tokens"}
+SOURCE_TABLE = "price table"
+SOURCE_DECLARED = "declared by you"
+SOURCE_LOCAL = "on this machine: no charge"
 # Inside the request, only text the byte count covers: plain-string messages, function tools, and
 # text output formats. Images, audio and other parts are billed far above their bytes, so they are refused.
 _MESSAGE_ROLES = frozenset({"system", "developer", "user", "assistant"})
@@ -256,6 +262,14 @@ def worst_case_usd(entry: PriceEntry, input_tokens: int, output_tokens: int) -> 
             raise SpendRefused("PHC-COST-0003", "the worst-case amount cannot be worked out exactly") from None
 
 
+def _price_note(source: str, version: str, entry: PriceEntry) -> str:
+    if source == SOURCE_TABLE:
+        return f"prices {version}, read {entry.read_on}"
+    if source == SOURCE_DECLARED:
+        return f"price declared by you{' on ' + entry.read_on if entry.read_on else ''}"
+    return source
+
+
 def _usd_text(amount: Decimal) -> str:
     return format(amount, "f")
 
@@ -270,17 +284,66 @@ def _ceiling(value: object) -> Decimal:
     return amount
 
 
-def _check_request(body: Mapping[str, Any], *, provider: str, model: str, output_bound: int) -> None:
-    """The model and output cap are read from the bytes being counted; the caller's word is not taken."""
-    fields = _REQUEST_FIELDS.get(provider)
-    if fields is None:
+def _provider(provider: str) -> Any:
+    """The provider's profile (shipped or yours); its shape says what the request may hold."""
+    from . import providers
+
+    try:
+        profile = providers.find(provider)
+    except providers.ProviderError as exc:
+        raise SpendRefused("PHC-COST-0003", f"providers file: {exc}") from None
+    if profile is None:
         raise SpendRefused("PHC-COST-0003", f"no request shape is known for provider {provider!r}")
+    return profile
+
+
+def _declared_price(profile: Any, model: str) -> PriceEntry | None:
+    """A price you declared in your providers file. Zero is allowed only for a provider on this machine."""
+    from . import providers
+
+    for raw in providers.load_user()["prices"]:
+        if not isinstance(raw, dict) or raw.get("provider") != profile.id or raw.get("model") != model:
+            continue
+        amounts = []
+        for key in ("input_usd_per_million_tokens", "output_usd_per_million_tokens"):
+            value = raw.get(key)
+            if not isinstance(value, str) or not _PRICE.fullmatch(value):
+                raise SpendRefused("PHC-COST-0003", f"your declared price for {model!r} has a bad {key}")
+            amount = Decimal(value)
+            if amount <= 0 and not (amount == 0 and profile.local):
+                raise SpendRefused("PHC-COST-0003", f"your declared price for {model!r} must be above zero")
+            amounts.append(amount)
+        return PriceEntry(profile.id, model, amounts[0], amounts[1], None, "default", "", str(raw.get("declared_on", "")))
+    return None
+
+
+def _price_for(table: PriceTable, profile: Any, model: str) -> tuple[PriceEntry, str] | None:
+    """The shipped table first (yours cannot change it), then your declared price, then $0 on this machine."""
+    entry = table.find(profile.id, model)
+    if entry is not None:
+        return entry, SOURCE_TABLE
+    try:
+        declared = _declared_price(profile, model)
+    except ValueError as exc:  # a broken providers file
+        raise SpendRefused("PHC-COST-0003", f"providers file: {exc}") from None
+    if declared is not None:
+        return declared, SOURCE_DECLARED
+    if profile.local:
+        return PriceEntry(profile.id, model, Decimal(0), Decimal(0), None, "default", "", ""), SOURCE_LOCAL
+    return None
+
+
+def _check_request(body: Mapping[str, Any], *, shape: str, model: str, output_bound: int) -> None:
+    """The model and output cap are read from the bytes being counted; the caller's word is not taken."""
+    fields = _REQUEST_FIELDS.get(shape)
+    if fields is None:
+        raise SpendRefused("PHC-COST-0003", f"no request shape {shape!r} is known")
     extra = sorted(str(key) for key in body if key not in fields)
     if extra:
         raise SpendRefused("PHC-COST-0003", f"the request has fields the estimate does not cover: {', '.join(extra)}")
     if body.get("model") != model:
         raise SpendRefused("PHC-COST-0003", "the request names a different model from the one priced")
-    cap = body.get(_OUTPUT_CAP_FIELD[provider])
+    cap = body.get(_OUTPUT_CAP_FIELD[shape])
     if type(cap) is not int or cap != output_bound:
         raise SpendRefused("PHC-COST-0003", f"the request's output cap is not the output bound {output_bound}")
     messages = body.get("messages")
@@ -367,17 +430,23 @@ def send_within_ceiling(
         facts["body_sha256"] = hashlib.sha256(sent).hexdigest()
         facts["input_tokens_bound"] = bound = input_tokens_bound(sent)
         facts["output_tokens_bound"] = output_bound = _count(max_output_tokens, "the output-token ceiling")
-        _check_request(body, provider=provider, model=model, output_bound=output_bound)
+        profile = _provider(provider)
+        _check_request(body, shape=profile.shape, model=model, output_bound=output_bound)
         try:
             table = load_price_table()
         except PriceTableError as exc:
             reason = str(exc) if str(exc).startswith("price table") else f"price table {exc}"
             raise SpendRefused("PHC-COST-0003", reason) from None
         facts["price_table_version"] = table.version
-        entry = table.find(provider, model)
-        if entry is None:
-            raise SpendRefused("PHC-COST-0002", f"no price for {model!r} in price table {table.version}; nothing was sent")
-        facts["price"] = entry.to_dict()
+        found = _price_for(table, profile, model)
+        if found is None:
+            raise SpendRefused(
+                "PHC-COST-0002",
+                f"no price for {model!r} from {provider} in price table {table.version} or your declared prices; "
+                "nothing was sent",
+            )
+        entry, source = found
+        facts["price"] = {**entry.to_dict(), "source": source}
         limit = entry.applies_up_to_input_tokens
         if limit is not None and bound > limit:
             raise SpendRefused("PHC-COST-0003", f"the input bound {bound} is above the {limit} input tokens its price applies to")
@@ -387,7 +456,7 @@ def send_within_ceiling(
             raise SpendRefused(
                 "PHC-COST-0001",
                 f"worst case ${facts['worst_case_usd']} is over the ceiling ${facts['ceiling_usd']} for {model!r} "
-                f"(prices {table.version}, read {entry.read_on}); nothing was sent",
+                f"({_price_note(source, table.version, entry)}); nothing was sent",
             )
     except SpendRefused as refusal:
         detail = refusal.detail
