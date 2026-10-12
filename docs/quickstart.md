@@ -1,6 +1,6 @@
 # Proofhouse Quickstart
 
-Two offline surfaces, one package (`proofhouse` 0.5.0):
+Two offline surfaces, one package (`proofhouse` 0.6.0):
 
 - `proofhouse` — the compiler. Requirements → IR → fake-adapter artifact → evaluation/repair evidence.
 - `proofhouse` — the eval harness. JSONL dataset validation, rubric checks, markdown report skeletons.

@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.6.0 - 2026-10-12
 
 `execute-openai` now refuses before sending when the worst-case cost is over your ceiling.
 
