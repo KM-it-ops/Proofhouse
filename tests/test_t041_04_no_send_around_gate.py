@@ -184,6 +184,19 @@ def test_b2_catches_the_ways_round_it(tmp_path: Path, label: str) -> None:
     assert _send_references(path, where), label
 
 
+def test_b3_the_send_step_and_the_sender_cannot_repeat_a_send() -> None:
+    # One admitted worst case pays for one request: no loop, comprehension or recursion around a send.
+    tree = ast.parse(EXECUTION.read_text(encoding="utf-8"))
+    loops = (ast.For, ast.AsyncFor, ast.While, ast.ListComp, ast.SetComp, ast.DictComp, ast.GeneratorExp)
+    steps = [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef) and n.name in {"_dispatch", "_httpx_send"}]
+    assert sorted(n.name for n in steps) == ["_dispatch", "_httpx_send"]
+    for step in steps:
+        found = [type(n).__name__ for n in ast.walk(step) if isinstance(n, loops)]
+        assert found == [], f"{step.name} has {found}"
+        recursive = [n for n in ast.walk(step) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == step.name]
+        assert recursive == [], step.name
+
+
 def test_c_no_part_has_the_runner_role(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROOFHOUSE_EXPERIMENTAL", "1")
     assert parts.part_ids(parts.ROLE_RUNNER) == ()

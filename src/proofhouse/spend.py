@@ -72,6 +72,10 @@ COUNTING_RULE = (
 # processing tier, ...) could change what is billed, so a request carrying one is refused.
 _REQUEST_FIELDS = {"openai": frozenset({"model", "messages", "max_completion_tokens", "tools", "response_format"})}
 _OUTPUT_CAP_FIELD = {"openai": "max_completion_tokens"}
+# Inside the request, only text the byte count covers: plain-string messages, function tools, and
+# text output formats. Images, audio and other parts are billed far above their bytes, so they are refused.
+_MESSAGE_ROLES = frozenset({"system", "developer", "user", "assistant"})
+_OUTPUT_FORMATS = frozenset({"text", "json_object", "json_schema"})
 # A ceiling from 0.000000000001 up to (not including) 10000000000000 dollars; anything else is refused.
 _CEILING_EXPONENTS = range(-12, 13)
 ENFORCEMENT = "refused_pre_send_when_worst_case_over_ceiling"
@@ -279,6 +283,24 @@ def _check_request(body: Mapping[str, Any], *, provider: str, model: str, output
     cap = body.get(_OUTPUT_CAP_FIELD[provider])
     if type(cap) is not int or cap != output_bound:
         raise SpendRefused("PHC-COST-0003", f"the request's output cap is not the output bound {output_bound}")
+    messages = body.get("messages")
+    if not isinstance(messages, list) or not messages:
+        raise SpendRefused("PHC-COST-0003", "the request's messages must be a non-empty list")
+    for message in messages:
+        if (
+            not isinstance(message, dict)
+            or set(message) != {"role", "content"}
+            or message["role"] not in _MESSAGE_ROLES
+            or not isinstance(message["content"], str)
+        ):
+            raise SpendRefused("PHC-COST-0003", "a message is not plain text the estimate covers")
+    tools = body.get("tools", [])
+    if not isinstance(tools, list) or any(not isinstance(tool, dict) or tool.get("type") != "function" for tool in tools):
+        raise SpendRefused("PHC-COST-0003", "a tool is not a function definition the estimate covers")
+    if "response_format" in body:
+        output_format = body["response_format"]
+        if not isinstance(output_format, dict) or output_format.get("type") not in _OUTPUT_FORMATS:
+            raise SpendRefused("PHC-COST-0003", "the output format is not one the estimate covers")
 
 
 @dataclass(frozen=True, slots=True)

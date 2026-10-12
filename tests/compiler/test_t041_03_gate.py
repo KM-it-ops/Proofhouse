@@ -295,3 +295,54 @@ def test_a_ceiling_outside_the_supported_range_is_refused_with_a_short_line(pric
     assert transport.calls == []
     assert result.diagnostics[0] in {"PHC-COST-0003", "EXE-CEIL-0001"}
     assert len(json.dumps(result.to_dict())) < 20_000
+
+
+# --- review round 2: the gate looks inside messages, tools and the output format ------------------
+
+IMAGE_PART = {"type": "image_url", "image_url": {"url": "https://example.com/huge.png", "detail": "high"}}
+INSIDE = [
+    ("an image part", {**GOOD_BODY, "messages": [{"role": "user", "content": [IMAGE_PART]}]}),
+    ("an audio part", {**GOOD_BODY, "messages": [{"role": "user", "content": [{"type": "input_audio", "input_audio": {"data": "AA", "format": "wav"}}]}]}),
+    ("text parts (only plain string content is covered)", {**GOOD_BODY, "messages": [{"role": "user", "content": [{"type": "text", "text": "x"}]}]}),
+    ("an extra message field", {**GOOD_BODY, "messages": [{"role": "system", "content": "x", "name": "n"}]}),
+    ("an unknown role", {**GOOD_BODY, "messages": [{"role": "tool", "content": "x"}]}),
+    ("messages not a list", {**GOOD_BODY, "messages": {"role": "system", "content": "x"}}),
+    ("no messages", {**GOOD_BODY, "messages": []}),
+    ("a non-function tool", {**GOOD_BODY, "tools": [{"type": "web_search"}]}),
+    ("tools not a list", {**GOOD_BODY, "tools": {"type": "function"}}),
+    ("an unknown output format", {**GOOD_BODY, "response_format": {"type": "audio"}}),
+]
+
+
+@pytest.mark.parametrize("label,body", INSIDE, ids=[label for label, _ in INSIDE])
+def test_the_gate_refuses_content_its_estimate_does_not_cover(prices, label: str, body: dict) -> None:
+    prices(_price("model-a", "1", "1"))
+    gated, sent = _gate_on(body)
+    assert gated.admission.code == "PHC-COST-0003", label
+    assert sent == []
+
+
+def test_the_gate_admits_the_shapes_the_live_path_sends(prices) -> None:
+    prices(_price("model-a", "1", "1"))
+    body = {
+        **GOOD_BODY,
+        "tools": [{"type": "function", "function": {"name": "f", "parameters": {"type": "object"}}}],
+        "response_format": {"type": "json_schema", "json_schema": {"name": "o", "strict": True, "schema": {"type": "object"}}},
+    }
+    gated, sent = _gate_on(body)
+    assert gated.admission.decision == "admitted" and len(sent) == 1
+
+
+def test_a_server_error_is_not_retried_on_either_send_path(prices, monkeypatch: pytest.MonkeyPatch) -> None:
+    prices(_price("model-a", "1", "1"))
+    failing = RecordingTransport()
+    failing.send = lambda prepared: (failing.calls.append(prepared), type("R", (), {"status_code": 500, "payload": {}})())[1]
+    result, _ = _run(transport=failing)
+    assert result.diagnostics[0] == "EXE-HTTP-0001" and len(failing.calls) == 1
+    posts: list[Any] = []
+    monkeypatch.setattr(execution, "_httpx_send", lambda prepared: (posts.append(prepared), execution.LiveTransportResponse(500, {}))[1])
+    result = execute_openai(
+        json.dumps(minimal_valid_ir()),
+        LiveOpenAIRequest(opt_in=True, model="model-a", credential_value="d", max_output_tokens=8, max_cost_usd="1"),
+    )
+    assert result.diagnostics[0] == "EXE-HTTP-0001" and len(posts) == 1

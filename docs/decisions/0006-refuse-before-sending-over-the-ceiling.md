@@ -4,13 +4,13 @@ Accepted 2026-10-12.
 
 ## Decision
 
-In the Python package, nothing that can cost money is sent except through one function, `spend.send_within_ceiling`; `execute-openai` is the package's only live path. (The browser artifact `apps/proofhouse.jsx` runs inside its host and calls that host's model itself; it is not covered.) The function makes the exact request bytes, reads the model and the output cap from them rather than taking the caller's word, refuses a request with any field its estimate does not cover (more choices, another processing tier, ...), works out the most the request could cost, and calls the one send step with exactly those bytes only when that worst case is at or under the caller's ceiling (`--max-cost-usd`). Otherwise nothing is sent:
+In the Python package, nothing that can cost money is sent except through one function, `spend.send_within_ceiling`; `execute-openai` is the package's only live path. (The browser artifact `apps/proofhouse.jsx` runs inside its host and calls that host's model itself; it is not covered.) The function makes the exact request bytes, reads the model and the output cap from them rather than taking the caller's word, refuses a request with any field or content its estimate does not cover (more choices, another processing tier, image or audio parts, tools other than functions), works out the most the request could cost, and calls the one send step with exactly those bytes only when that worst case is at or under the caller's ceiling (`--max-cost-usd`). Otherwise nothing is sent:
 
 | Code | When | Exit |
 |---|---|---|
 | `PHC-COST-0001` | the worst case is over the ceiling | 7 |
 | `PHC-COST-0002` | the model has no entry in the price table | 7 |
-| `PHC-COST-0003` | no worst case could be made (table unreadable, an amount that would need rounding, a request above the size its price applies to, a request field the estimate does not cover, a ceiling outside 0.000000000001 to under 10000000000000) | 7 |
+| `PHC-COST-0003` | no worst case could be made (table unreadable, an amount that would need rounding, a request above the size its price applies to, a request field or content the estimate does not cover, a ceiling outside 0.000000000001 to under 10000000000000) | 7 |
 
 Every earlier refusal (opt-in, credential, model, ceilings, allowed hosts, compilation, unsupported fields) still runs first.
 
