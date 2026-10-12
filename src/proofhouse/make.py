@@ -23,15 +23,16 @@ from __future__ import annotations
 
 import json
 import re
+import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from . import live, providers
+from . import live, providers, sitecheck
 
-KINDS = ("prompt", "skill", "agent")
+KINDS = ("prompt", "skill", "agent", "site")
 DEFAULT_ROUNDS = 3
 DEFAULT_TARGET = 9
 
@@ -46,6 +47,12 @@ _WRITE = {
         "that best achieves the request below. It must start with YAML frontmatter between '---' lines holding exactly "
         "'name: <lowercase-hyphenated-name>' and 'description: <one line saying when to use it>', then clear instructions. "
         "Output only the file content."
+    ),
+    "site": (
+        "You build excellent websites. Build the complete static website (HTML, CSS and JavaScript, no build step, "
+        "no external dependencies) that best achieves the request below: responsive, accessible, fast, with real copy. "
+        'Reply with JSON only: {"files": {"index.html": "...", "styles.css": "...", "script.js": "..."}} '
+        "(more pages are fine; every file the pages link to must be included)."
     ),
     "agent": (
         "You write subagents for Claude Code (a Markdown file). Write the complete file that best achieves the request "
@@ -63,8 +70,9 @@ _JUDGE = (
 )
 _REVISE = (
     "Improve the {kind} below so it fully achieves the request. Fix this first: {fix}\n"
-    "Also missing: {missing}\nOutput only the improved {kind}, nothing else.\n\nREQUEST:\n{request}\n\nCURRENT {upper}:\n{current}"
+    "Also missing: {missing}\nOutput only the improved {kind}, nothing else.{form}\n\nREQUEST:\n{request}\n\nCURRENT {upper}:\n{current}"
 )
+_SITE_FORM = ' Reply with the complete site again as JSON only: {"files": {"index.html": "...", ...}}.'
 
 
 class MakeError(Exception):
@@ -221,11 +229,14 @@ def make(
             if kind == "prompt":
                 output = call("try", current, test_input or "")
                 subject = f"PROMPT:\n{current}\n\nTEST INPUT:\n{test_input}\n\nOUTPUT IT PRODUCED:\n{output}"
+            elif kind == "site":
+                output, subject = _try_site(current, folder / f"v{version}")
             else:
                 subject = f"{'SKILL.md' if kind == 'skill' else 'SUBAGENT FILE'}:\n{current}"
             score, missing, fix = _judgement(call("judge", _JUDGE.format(request=request, subject=subject)))
             result.rounds.append(Round(version, current, output, score, missing, fix))
-            (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
+            if kind != "site":
+                (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
             if score is not None and score >= target:
                 result.stopped = f"reached score {score} (target {target})"
                 break
@@ -233,6 +244,7 @@ def make(
                 break
             current = _strip_fences(call("revise", _REVISE.format(
                 kind=kind, upper=kind.upper(), fix=fix or "make it fully meet the request",
+                form=_SITE_FORM if kind == "site" else "",
                 missing="; ".join(missing) or "nothing listed", request=request, current=current,
             )) or "")
     except _Stop as stop:
@@ -242,7 +254,12 @@ def make(
     best = max(scored, key=lambda r: (r.score, r.version)) if scored else (result.rounds[-1] if result.rounds else None)
     if best is not None:
         result.best_version, result.best_score = best.version, best.score
-        _deliver(folder, kind, best.text)
+        if kind == "site":
+            source = folder / f"v{best.version}" / "site"
+            if source.is_dir():
+                shutil.copytree(source, folder / "site")
+        else:
+            _deliver(folder, kind, best.text)
     result.spent_usd = budget.spent
     _write_record(folder, request, profile.id, model, max_cost_usd, result)
     return result
@@ -250,6 +267,37 @@ def make(
 
 class _Stop(Exception):
     pass
+
+
+def _site_files(text: str) -> dict[str, str]:
+    match = re.search(r"\{.*\}", text, flags=re.S)
+    try:
+        data = json.loads(match.group(0)) if match else None
+    except ValueError:
+        data = None
+    files = data.get("files") if isinstance(data, dict) else None
+    if not isinstance(files, dict) or not all(isinstance(v, str) for v in files.values()):
+        raise sitecheck.SiteError("the model did not return the site as JSON files")
+    return files
+
+
+def _try_site(text: str, version_dir: Path) -> tuple[str, str]:
+    """Write this version of the site, check it like a visitor, and describe both for the judge."""
+    try:
+        names = sitecheck.write_site(_site_files(text), version_dir / "site")
+        checks = sitecheck.check_site(version_dir / "site", version_dir / "screenshots")
+    except sitecheck.SiteError as exc:
+        names, checks = [], [{"check": "site written", "ok": False, "detail": str(exc)}]
+    (version_dir).mkdir(parents=True, exist_ok=True)
+    (version_dir / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
+    failed = [c for c in checks if c["ok"] is False]
+    summary = "\n".join(f"- {'PASS' if c['ok'] else ('NOT MEASURED' if c['ok'] is None else 'FAIL')}: {c['check']} {c['detail']}".rstrip()
+                        for c in checks)
+    index = ""
+    if (version_dir / "site" / "index.html").is_file():
+        index = (version_dir / "site" / "index.html").read_text(encoding="utf-8")[:8000]
+    subject = f"FILES: {', '.join(names) or 'none'}\n\nindex.html:\n{index}\n\nCHECKS RUN ON THE SITE:\n{summary}"
+    return f"{len(checks) - len(failed)} of {len(checks)} checks passed", subject
 
 
 def _deliver(folder: Path, kind: str, text: str) -> None:

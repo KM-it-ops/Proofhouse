@@ -6,6 +6,7 @@ Any provider, any model.
 
 ### Added
 
+- **Websites.** `proofhouse make "brief" --kind site` has any text model write a whole site, writes it safely to disk (relative paths only, at most 60 files and 3 MB), and checks it like a visitor: title, language and phone viewport on every page, alt text on images, every internal link and file present. With Chrome or Chromium installed (or `PROOFHOUSE_BROWSER`), it takes desktop and phone screenshots and reports JavaScript errors. The judge sees the pages and the checks; the best version is copied to `site/`.
 - **Media engine.** `proofhouse generate image|video|speech|music --provider S --model M --prompt ...` uses any image, video, speech or music service.
   - Services are request templates (data): OpenAI images and speech, ElevenLabs, Replicate and fal.ai ship. Any other service, including a local GPU server, is one template (`proofhouse media add --from file.json`).
   - Slow jobs are waited for, and finished files are downloaded with plain reads.
