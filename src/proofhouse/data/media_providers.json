@@ -1,0 +1,63 @@
+{
+  "schema": "proofhouse.media-providers/v1",
+  "note": "Request templates for image, video, speech and music services. {model}, {prompt} and the other placeholders are filled in at call time. Check them against each provider's docs; add or override any service in PROOFHOUSE_HOME/media_providers.json.",
+  "providers": [
+    {
+      "id": "openai-images",
+      "name": "OpenAI images",
+      "kinds": ["image"],
+      "base_url": "https://api.openai.com/v1",
+      "key_env": "OPENAI_API_KEY",
+      "auth": "bearer",
+      "unit": "image",
+      "submit": {"path": "/images/generations", "body": {"model": "{model}", "prompt": "{prompt}", "size": "{size}", "n": 1}},
+      "result": {"asset": ["data.0.b64_json", "data.0.url"], "ext": "png"}
+    },
+    {
+      "id": "openai-speech",
+      "name": "OpenAI speech",
+      "kinds": ["speech"],
+      "base_url": "https://api.openai.com/v1",
+      "key_env": "OPENAI_API_KEY",
+      "auth": "bearer",
+      "unit": "1k_chars",
+      "submit": {"path": "/audio/speech", "body": {"model": "{model}", "input": "{prompt}", "voice": "{voice}"}},
+      "result": {"binary": true, "ext": "mp3"}
+    },
+    {
+      "id": "elevenlabs",
+      "name": "ElevenLabs",
+      "kinds": ["speech"],
+      "base_url": "https://api.elevenlabs.io/v1",
+      "key_env": "ELEVENLABS_API_KEY",
+      "auth": "header:xi-api-key",
+      "unit": "1k_chars",
+      "submit": {"path": "/text-to-speech/{voice}", "body": {"text": "{prompt}", "model_id": "{model}"}},
+      "result": {"binary": true, "ext": "mp3"}
+    },
+    {
+      "id": "replicate",
+      "name": "Replicate (any hosted image, video, audio or music model)",
+      "kinds": ["image", "video", "speech", "music"],
+      "base_url": "https://api.replicate.com/v1",
+      "key_env": "REPLICATE_API_TOKEN",
+      "auth": "bearer",
+      "unit": "request",
+      "submit": {"path": "/models/{model}/predictions", "body": {"input": {"prompt": "{prompt}"}}},
+      "poll": {"url": "urls.get", "status": "status", "done": ["succeeded"], "failed": ["failed", "canceled"]},
+      "result": {"asset": ["output.0", "output"]}
+    },
+    {
+      "id": "fal",
+      "name": "fal.ai (any hosted image, video, audio or music model)",
+      "kinds": ["image", "video", "speech", "music"],
+      "base_url": "https://queue.fal.run",
+      "key_env": "FAL_KEY",
+      "auth": "key",
+      "unit": "request",
+      "submit": {"path": "/{model}", "body": {"prompt": "{prompt}"}},
+      "poll": {"url": "status_url", "status": "status", "done": ["COMPLETED"], "failed": ["FAILED", "ERROR"], "result_url": "response_url"},
+      "result": {"asset": ["video.url", "images.0.url", "image.url", "audio.url", "audio_file.url"]}
+    }
+  ]
+}
