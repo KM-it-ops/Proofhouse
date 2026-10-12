@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import io
 import json
+import os
+import shutil
+import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -127,6 +131,92 @@ def test_force_replaces_existing_install(tmp_path: Path, capsys) -> None:
     assert out.splitlines()[0] == f"install-skill: installed 6 files -> {skill_dir.resolve()}"
     assert (skill_dir / "SKILL.md").read_text(encoding="utf-8").splitlines()[1] == "name: proofhouse"
     assert not (skill_dir / "stray.txt").exists()
+
+
+def _link_folder(link: Path, target: Path) -> Path:
+    """A folder link any user can make: a directory junction on Windows, a symlink elsewhere."""
+    if sys.platform == "win32":
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+    else:
+        os.symlink(target, link, target_is_directory=True)
+    return link
+
+
+def _files(root: Path) -> dict[str, bytes]:
+    return {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()} if root.exists() else {}
+
+
+@pytest.mark.parametrize("where", ["inside", "itself"])
+def test_force_refuses_a_skill_folder_that_is_or_holds_a_link_and_copies_nothing(
+    tmp_path: Path, capsys, where: str
+) -> None:
+    dest = tmp_path / "skills"
+    assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
+    skill_dir = dest / "proofhouse"
+    outside = tmp_path / "outside"
+    (outside / "deep").mkdir(parents=True)
+    (outside / "secret.txt").write_text("secret", encoding="utf-8")
+    (outside / "deep" / "x.txt").write_text("x", encoding="utf-8")
+    if where == "inside":
+        linked = _link_folder(skill_dir / "linked", outside)
+    else:
+        os.rename(skill_dir, tmp_path / "moved")
+        linked = _link_folder(skill_dir, outside)
+    before = _files(dest)
+
+    code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    assert code == 2 and out == ""
+    assert "is a link or junction" in err and "nothing was changed" in err
+    assert install_skill._is_link(linked)
+    assert _files(dest) == before
+    assert sorted(p.name for p in dest.iterdir()) == ["proofhouse"]
+    assert _files(outside) == {"secret.txt": b"secret", "deep/x.txt": b"x"}
+    assert _files(tmp_path / "home") == {}  # nothing copied out through the link
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="creating symlinks needs privileges on Windows")
+def test_force_refuses_and_removes_a_backup_that_picked_up_a_link_during_the_copy(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    dest = tmp_path / "skills"
+    assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
+    skill_dir = (dest / "proofhouse").resolve()
+    sentinel = (skill_dir / "SKILL.md").read_bytes()
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "secret.txt").write_text("secret", encoding="utf-8")
+    real_copytree = shutil.copytree
+
+    def link_then_copy(src, dst, *args, **kwargs):
+        if Path(src).resolve() == skill_dir and not os.path.lexists(skill_dir / "linked"):
+            os.symlink(outside, skill_dir / "linked", target_is_directory=True)
+        return real_copytree(src, dst, *args, **kwargs)
+
+    monkeypatch.setattr(shutil, "copytree", link_then_copy)
+    code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    assert code == 2 and out == ""
+    assert f"{skill_dir / 'linked'} is a link or junction" in err
+    assert (skill_dir / "SKILL.md").read_bytes() == sentinel
+    assert sorted(p.name for p in dest.iterdir()) == ["proofhouse"]
+    assert _files(tmp_path / "home") == {}
+
+
+def test_force_on_a_skill_folder_that_cannot_be_read_is_an_environment_failure(
+    tmp_path: Path, monkeypatch, capsys
+) -> None:
+    dest = tmp_path / "skills"
+    assert _run(["install-skill", "--dest", str(dest)], capsys)[0] == 0
+    before = _files(dest)
+
+    def unreadable(root: Path) -> None:
+        raise PermissionError(13, "Access is denied", str(root))
+
+    monkeypatch.setattr(install_skill, "_first_link", unreadable)
+    code, out, err = _run(["install-skill", "--dest", str(dest), "--force"], capsys)
+    assert code == 7 and out == ""
+    assert "cannot read" in err and "the existing installation was not changed" in err
+    assert _files(dest) == before
+    assert _files(tmp_path / "home") == {}
 
 
 def test_bundle_with_wrong_name_fails_verification_exit_7_and_is_removed(tmp_path: Path, capsys) -> None:

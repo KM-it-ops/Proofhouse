@@ -13,7 +13,8 @@ replacement moves the existing skill to a backup under ``PROOFHOUSE_HOME``
 (never beside the skill, where the host would load it as a second copy),
 then moves the staged copy into place; if that fails the backup is moved
 back. A failed install therefore leaves the previous installation as it was.
-No network.
+A skill folder that is or holds a symlink or junction is refused, not replaced:
+its backup could not be an exact copy. No network.
 """
 
 from __future__ import annotations
@@ -223,7 +224,9 @@ def install(
 def _swap_in(staged: Path, skill_dir: Path) -> tuple[Path | None, Path | None]:
     """Replace ``skill_dir`` with ``staged``; the live skill only ever moves by atomic rename.
 
-    1. Copy the live skill to a backup under ``PROOFHOUSE_HOME`` (nothing live is touched).
+    0. Refuse a skill folder that is or holds a link or junction.
+    1. Copy the live skill to a backup under ``PROOFHOUSE_HOME`` (nothing live is touched),
+       never following a link; refused, and the copy removed, if a link appeared meanwhile.
     2. Rename the live skill aside, within the same directory.
     3. Rename the staged skill into place; if that fails, rename the old one back.
     4. Remove the set-aside copy; returns ``(backup, leftover)``, leftover set if that failed.
@@ -234,15 +237,26 @@ def _swap_in(staged: Path, skill_dir: Path) -> tuple[Path | None, Path | None]:
         except OSError as exc:
             raise InstallSkillError(f"cannot place the new skill at {skill_dir}: {exc}", EXIT_ENVIRONMENT_FAILURE) from exc
         return None, None
+    try:
+        link = _first_link(skill_dir)
+    except OSError as exc:
+        raise InstallSkillError(
+            f"cannot read {skill_dir}: {exc}; the existing installation was not changed", EXIT_ENVIRONMENT_FAILURE
+        ) from exc
+    if link is not None:
+        raise _link_refused(link)
     backup = _backup_path()
     try:
         backup.parent.mkdir(parents=True, exist_ok=True)
-        shutil.copytree(skill_dir, backup)
+        shutil.copytree(skill_dir, backup, symlinks=True)
+        copied_link = _first_link(backup)
     except OSError as exc:
         raise InstallSkillError(
             f"cannot back up {skill_dir} to {backup}: {exc}; the existing installation was not changed",
             EXIT_ENVIRONMENT_FAILURE,
         ) from exc
+    if copied_link is not None:  # a link that appeared during the copy
+        raise _link_refused(skill_dir / copied_link.relative_to(backup), _drop_backup(backup))
     aside = skill_dir.with_name(f".{SKILL_NAME}-replaced-{backup.parent.name}")
     try:
         _move(skill_dir, aside)
@@ -278,6 +292,42 @@ def _is_link(path: Path) -> bool:
         return True
     attributes = getattr(os.lstat(path), "st_file_attributes", 0)
     return bool(attributes & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
+
+
+def _raise(exc: OSError) -> None:
+    raise exc
+
+
+def _first_link(root: Path) -> Path | None:
+    """The first link or junction at or under ``root`` (never followed), or ``None``."""
+    if _is_link(root):
+        return root
+    for folder, dirs, files in os.walk(root, onerror=_raise, followlinks=False):
+        base = Path(folder)
+        for name in sorted(dirs + files):
+            if _is_link(base / name):
+                return base / name
+    return None
+
+
+def _link_refused(link: Path, note: str = "") -> InstallSkillError:
+    return InstallSkillError(
+        f"{link} is a link or junction; install-skill --force will not replace a skill folder that is or "
+        "holds a link, because it cannot back it up exactly. Remove or replace the link "
+        f"yourself, then install again; nothing was changed{note}.",
+        EXIT_USAGE_ERROR,
+    )
+
+
+def _drop_backup(backup: Path) -> str:
+    """Remove a backup copy that holds a link, and its empty stamp folder; a note naming anything left."""
+    if not _discard(backup):
+        return f" (a partial copy is left at {backup}; delete it)"
+    try:
+        backup.parent.rmdir()
+    except OSError:
+        pass
+    return ""
 
 
 def _discard(path: Path) -> bool:
