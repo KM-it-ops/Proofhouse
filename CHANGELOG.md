@@ -28,6 +28,7 @@ The spine slice: prompts and skills go from objective to export through the same
 - **(breaking)** `proofhouse proof` no longer reports `SHIP` when no review pass ran. With no pass wired to the command it reports `UNJUDGED` with `passes: 0` and exits 3. The real-pass rules are unchanged.
 - **(breaking)** `install-skill --force` refuses to replace a skill folder that is, or holds, a link or junction (exit 2); it used to back up what the link pointed at and replace the link, so an uninstall could not put the link back. Remove or replace the link yourself, then install. This is checked again right before the backup copy, a backup that came out holding a link is refused, and a skill folder that appears while `install-skill` runs is refused (exit 2; re-run with `--force`).
 - A backup that fails or does not match is removed again, and anything that could not be removed is named in the error. If a failed install or uninstall cannot put its install record back, the error says `record not restored` and names the record.
+- Reading a skill folder refuses one whose folder, or a folder inside it, is replaced while it is being read (`PHC-SKILL-0003`).
 - Skill file names that are not portable to every OS (Windows reserved names such as `CON`, `nul.txt` or `CONIN$`, a trailing dot or space, characters Windows forbids) are refused on every OS (`PHC-SKILL-0009`), in skill versions and in `install-skill` input.
 - README, docs and CI use `proofhouse`; CI runs `proofhouse demo` from the built wheel outside the checkout.
 
