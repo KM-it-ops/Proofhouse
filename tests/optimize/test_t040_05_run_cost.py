@@ -354,3 +354,11 @@ def test_a_malformed_case_json_run_cost_is_refused_not_a_crash(prompt_case: Path
     assert code == 2, out
     assert "cost must have exactly" in out
     assert "internal error" not in out
+
+
+@pytest.mark.parametrize("value", [float("nan"), float("inf"), 1e999], ids=["NaN", "Infinity", "1e999"])
+def test_a_cost_figure_that_is_not_finite_is_refused_as_such(prompt_case: Path, value: float) -> None:
+    run_id = add(prompt_case)["run_id"]
+    rewrite_run(prompt_case, run_id, cost=known(tokens_in=value))
+    with pytest.raises(CaseError, match="non-negative number"):
+        workflow.load_run(prompt_case, run_id)
