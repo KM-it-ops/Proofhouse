@@ -521,3 +521,74 @@ def cost_after(gated: Gated, payload: object) -> tuple[dict[str, Any], str | Non
             )
             break
     return cost, warning
+
+
+def _media_price(profile: Any, model: str) -> tuple[Decimal, str] | None:
+    """Your declared price per unit for this media service and model (``*`` matches any model), or $0 on this machine."""
+    from . import providers
+
+    try:
+        declared = providers.load_user()["media_prices"]
+    except ValueError as exc:
+        raise SpendRefused("PHC-COST-0003", f"providers file: {exc}") from None
+    for wanted in (model, "*"):
+        for raw in declared:
+            if isinstance(raw, dict) and raw.get("provider") == profile.id and raw.get("model") == wanted:
+                value = raw.get("usd_per_unit")
+                if not isinstance(value, str) or not _PRICE.fullmatch(value) or (Decimal(value) <= 0 and not profile.local):
+                    raise SpendRefused("PHC-COST-0003", f"your declared price for {profile.id} {wanted} must be a decimal above zero")
+                return Decimal(value), SOURCE_DECLARED
+    if profile.local:
+        return Decimal(0), SOURCE_LOCAL
+    return None
+
+
+def send_media_within_ceiling(
+    profile: Any, model: str, params: Mapping[str, Any], *, ceiling_usd: str, send: Callable[[str, bytes], Any]
+) -> Gated:
+    """One paid media request. The gate builds it from the service's template, prices it per unit, and sends it only if
+    units x price is at or under the ceiling. The caller never hands over a body or a unit count."""
+    from . import media
+
+    facts: dict[str, Any] = {}
+    try:
+        ceiling = _ceiling(ceiling_usd)
+        facts["ceiling_usd"] = _usd_text(ceiling)
+        try:
+            url, body, units = media.build_request(profile, model, dict(params))
+        except (media.MediaError, KeyError, TypeError, ValueError, ArithmeticError) as exc:
+            raise SpendRefused("PHC-COST-0003", f"the request cannot be built ({exc})") from None
+        sent = request_body_bytes(body)
+        facts["body_sha256"] = hashlib.sha256(sent).hexdigest()
+        found = _media_price(profile, model)
+        if found is None:
+            raise SpendRefused(
+                "PHC-COST-0002",
+                f"no price for {model!r} from {profile.id}; declare one with `proofhouse media price`; nothing was sent",
+            )
+        per_unit, source = found
+        facts["price"] = {"provider": profile.id, "model": model, "unit": profile.unit, "units": str(units),
+                          "usd_per_unit": str(per_unit), "source": source}
+        with localcontext() as ctx:
+            ctx.prec = _MONEY_PRECISION
+            for signal in (Inexact, Rounded, Overflow, InvalidOperation):
+                ctx.traps[signal] = True
+            try:
+                worst = units * per_unit
+            except DecimalException:
+                raise SpendRefused("PHC-COST-0003", "the worst-case amount cannot be worked out exactly") from None
+        facts["worst_case_usd"] = _usd_text(worst)
+        if worst > ceiling:
+            raise SpendRefused(
+                "PHC-COST-0001",
+                f"worst case ${facts['worst_case_usd']} ({units} {profile.unit} x ${per_unit}) is over the ceiling "
+                f"${facts['ceiling_usd']} for {model!r}; nothing was sent",
+            )
+    except SpendRefused as refusal:
+        detail = refusal.detail
+        if refusal.code == "PHC-COST-0003":
+            detail = f"no worst-case cost could be made ({detail}); nothing was sent"
+        return Gated(Admission(decision="refused", code=refusal.code, message=f"{refusal.code}: {detail}", **facts))
+    started = time.perf_counter_ns()
+    response = send(url, sent)
+    return Gated(Admission(decision="admitted", **facts), response, None, time.perf_counter_ns() - started)

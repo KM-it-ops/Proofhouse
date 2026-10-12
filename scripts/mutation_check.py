@@ -4,8 +4,10 @@ Each mutation disables one safeguard; the named tests must then fail. Files are
 restored after every mutation (in a finally block). Run from the repo root with a
 clean working tree:  python scripts/mutation_check.py   (about two minutes; not run in CI).
 """
+import os
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 MUTATIONS = [
@@ -61,8 +63,13 @@ MUTATIONS = [
      " if True else spend.send_within_ceiling(\n",
      ["tests/compiler/test_t041_03_gate.py", "tests/test_t041_04_no_send_around_gate.py"]),
     ("over-ceiling comparison bypassed", "src/proofhouse/spend.py",
-     "        if worst > ceiling:\n", "        if False:\n",
+     "        if worst > ceiling:\n            raise SpendRefused(\n                \"PHC-COST-0001\",\n                f\"worst case ${facts['worst_case_usd']} is over",
+     "        if False:\n            raise SpendRefused(\n                \"PHC-COST-0001\",\n                f\"worst case ${facts['worst_case_usd']} is over",
      ["tests/compiler/test_t041_03_gate.py"]),
+    ("media over-ceiling comparison bypassed", "src/proofhouse/spend.py",
+     "        if worst > ceiling:\n            raise SpendRefused(\n                \"PHC-COST-0001\",\n                f\"worst case ${facts['worst_case_usd']} ({units}",
+     "        if False:\n            raise SpendRefused(\n                \"PHC-COST-0001\",\n                f\"worst case ${facts['worst_case_usd']} ({units}",
+     ["tests/test_media_engine.py"]),
     ("hidden answers reach compilation (artifact)", "apps/proofhouse.jsx",
      "if (isVisible(q, answers, byId) && hasAnswer(answers[q.id])) out[q.id] = answers[q.id];",
      "if (hasAnswer(answers[q.id])) out[q.id] = answers[q.id];",
@@ -83,8 +90,12 @@ for name, path, old, new, tests in MUTATIONS:
         text = text.replace(before, after)
     target.write_bytes(text.encode("utf-8"))
     try:
-        run = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-x", *tests],
-                             capture_output=True, text=True, check=False)
+        # A fresh bytecode cache per mutation: two mutations of the same size in the same second would
+        # otherwise reuse the first one's compiled file, and the second would never really be tested.
+        with tempfile.TemporaryDirectory() as cache:
+            run = subprocess.run([sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", "-x", *tests],
+                                 capture_output=True, text=True, check=False,
+                                 env={**os.environ, "PYTHONPYCACHEPREFIX": cache})
         killed = run.returncode != 0
         results.append((name, "killed" if killed else "SURVIVED"))
     finally:

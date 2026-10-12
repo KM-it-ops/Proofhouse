@@ -33,6 +33,7 @@ from .eval_product import ProductEvalRequest, evaluate_product
 from .execution import LiveOpenAIRequest, execute_openai
 from ..hosts_cli import add_host_commands
 from ..live_cli import add_live_commands
+from ..media_cli import add_media_commands
 from .hosted_slice import HostedSlice, HostedSliceError, HostedStore, ViewMode
 from .missionrig import (
     WorkspaceWritebackError,
@@ -823,6 +824,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_local_commands(subparsers)
     add_live_commands(subparsers)
     add_host_commands(subparsers)
+    add_media_commands(subparsers)
     add_harness_commands(subparsers)
 
     if os.environ.get("PROOFHOUSE_EXPERIMENTAL") == "1":
