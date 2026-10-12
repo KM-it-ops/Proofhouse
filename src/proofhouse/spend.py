@@ -14,13 +14,19 @@ case can be made (fail closed). Parts never make this decision.
   exactly as sent, plus a fixed margin (``COUNTING_RULE``); output tokens by the
   output-token ceiling the call already requires. Money is exact ``Decimal``:
   an amount that would need rounding is refused, never rounded.
+- **Gate**: ``send_within_ceiling`` is the only way a sender is called. It makes
+  the request bytes, works out the worst case from them, and calls ``send``
+  with exactly those bytes only when the worst case is at or under the ceiling.
+  A refusal carries a ``PHC-COST-*`` code and a one-line message, and sends nothing.
 """
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
-from collections.abc import Mapping
+import time
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, DecimalException, Inexact, InvalidOperation, Overflow, Rounded, localcontext
@@ -57,6 +63,7 @@ COUNTING_RULE = (
     "input tokens <= UTF-8 bytes of the request body as sent + 1024; "
     "assumes the provider's tokenizer makes at most one token per byte"
 )
+ENFORCEMENT = "refused_pre_send_when_worst_case_over_ceiling"
 _TOKENS_PER_PRICE_UNIT = Decimal(1_000_000)
 # Enough digits for any real request; anything that needs more is refused, not rounded.
 _MONEY_PRECISION = 60
@@ -232,3 +239,112 @@ def worst_case_usd(entry: PriceEntry, input_tokens: int, output_tokens: int) -> 
             ) / _TOKENS_PER_PRICE_UNIT
         except DecimalException:
             raise SpendRefused("PHC-COST-0003", "the worst-case amount cannot be worked out exactly") from None
+
+
+def _usd_text(amount: Decimal) -> str:
+    return format(amount, "f")
+
+
+def _ceiling(value: object) -> Decimal:
+    try:
+        amount = Decimal(value.strip()) if isinstance(value, str) else None
+    except DecimalException:
+        amount = None
+    if amount is None or not amount.is_finite() or amount <= 0:
+        raise SpendRefused("PHC-COST-0003", "the ceiling is not a positive decimal")
+    return amount
+
+
+@dataclass(frozen=True, slots=True)
+class Admission:
+    """What the gate decided before sending, and everything it knew when it decided."""
+
+    decision: str  # "admitted" or "refused"
+    code: str | None = None
+    message: str | None = None
+    ceiling_usd: str | None = None
+    worst_case_usd: str | None = None
+    input_tokens_bound: int | None = None
+    output_tokens_bound: int | None = None
+    body_sha256: str | None = None
+    price: dict[str, Any] | None = None
+    price_table_version: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "enforcement": ENFORCEMENT,
+            "decision": self.decision,
+            "code": self.code,
+            "message": self.message,
+            "ceiling_usd": self.ceiling_usd,
+            "worst_case_usd": self.worst_case_usd,
+            "input_tokens_bound": self.input_tokens_bound,
+            "counting_rule": COUNTING_RULE,
+            "output_tokens_bound": self.output_tokens_bound,
+            "body_sha256": self.body_sha256,
+            "price": None if self.price is None else dict(self.price),
+            "price_table_version": self.price_table_version,
+        }
+
+
+@dataclass(frozen=True, slots=True)
+class Gated:
+    """The gate's answer. ``response`` is what ``send`` returned, or ``None`` when nothing was sent."""
+
+    admission: Admission
+    response: Any = None
+    entry: PriceEntry | None = None
+    wall_nanoseconds: int | None = None
+
+
+def send_within_ceiling(
+    body: Mapping[str, Any],
+    *,
+    provider: str,
+    model: str,
+    max_output_tokens: int,
+    ceiling_usd: str,
+    send: Callable[[bytes], Any],
+) -> Gated:
+    """Call ``send`` once, with the exact bytes counted, only if the worst case is at or under the ceiling.
+
+    Refuses (and never calls ``send``) when the worst case is over the ceiling,
+    when the model has no price, or when no worst case can be made.
+    """
+    facts: dict[str, Any] = {}
+    try:
+        ceiling = _ceiling(ceiling_usd)
+        facts["ceiling_usd"] = _usd_text(ceiling)
+        sent = request_body_bytes(body)
+        facts["body_sha256"] = hashlib.sha256(sent).hexdigest()
+        facts["input_tokens_bound"] = bound = input_tokens_bound(sent)
+        facts["output_tokens_bound"] = output_bound = _count(max_output_tokens, "the output-token ceiling")
+        try:
+            table = load_price_table()
+        except PriceTableError as exc:
+            reason = str(exc) if str(exc).startswith("price table") else f"price table {exc}"
+            raise SpendRefused("PHC-COST-0003", reason) from None
+        facts["price_table_version"] = table.version
+        entry = table.find(provider, model)
+        if entry is None:
+            raise SpendRefused("PHC-COST-0002", f"no price for {model!r} in price table {table.version}; nothing was sent")
+        facts["price"] = entry.to_dict()
+        limit = entry.applies_up_to_input_tokens
+        if limit is not None and bound > limit:
+            raise SpendRefused("PHC-COST-0003", f"the input bound {bound} is above the {limit} input tokens its price applies to")
+        worst = worst_case_usd(entry, bound, output_bound)
+        facts["worst_case_usd"] = _usd_text(worst)
+        if worst > ceiling:
+            raise SpendRefused(
+                "PHC-COST-0001",
+                f"worst case ${facts['worst_case_usd']} is over the ceiling ${facts['ceiling_usd']} for {model!r} "
+                f"(prices {table.version}, read {entry.read_on}); nothing was sent",
+            )
+    except SpendRefused as refusal:
+        detail = refusal.detail
+        if refusal.code == "PHC-COST-0003":
+            detail = f"no worst-case cost could be made ({detail}); nothing was sent"
+        return Gated(Admission(decision="refused", code=refusal.code, message=f"{refusal.code}: {detail}", **facts))
+    started = time.perf_counter_ns()
+    response = send(sent)
+    return Gated(Admission(decision="admitted", **facts), response, entry, time.perf_counter_ns() - started)
