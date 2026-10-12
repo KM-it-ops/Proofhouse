@@ -286,3 +286,13 @@ def test_end_to_end_with_no_ai_driver_and_identical_commands(kind: str, tmp_path
         names = zipfile.ZipFile(tmp_path / "bundle.zip").namelist()
         assert "revisions/v2-files/SKILL.md" in names and "revisions/v2-files/scripts/check.py" in names
         assert "No independent pass ran on this skill" in report
+
+
+def test_review_f4_command_map_names_test_files_that_exist() -> None:
+    import re
+
+    from proofhouse import command_map
+
+    named = re.findall(r"tests/[\w/]+\.py", command_map.__doc__ or "")
+    assert named, "the map's docstring should name the architecture test"
+    assert [name for name in named if not (ROOT / name).is_file()] == []

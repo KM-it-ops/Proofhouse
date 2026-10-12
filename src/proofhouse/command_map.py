@@ -1,6 +1,6 @@
 """Every command path of the one ``proofhouse`` tree, mapped to the spine or to a registered part.
 
-The architecture test (``tests/test_t040_06_architecture.py``) fails the build
+The architecture test (``tests/test_t040_06_front_door.py``) fails the build
 when a command exists that is not listed here, when an entry names a part the
 registry does not hold, or when an entry has no one-line reason. Adding a
 command therefore needs a deliberate edit here (MISSION-040 SPEC §2.1).
