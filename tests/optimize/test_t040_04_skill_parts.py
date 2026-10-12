@@ -1367,3 +1367,35 @@ def test_a_forced_uninstall_of_a_link_never_removes_a_safety_copy_another_run_ma
     assert info.value.exit_code == 7
     assert snapshot(other) == {"SKILL.md": b"another run's only copy"}
     assert install_skill._is_link(host / "demo-skill")
+
+
+def test_a_forced_uninstall_of_a_link_never_removes_a_safety_copy_another_run_makes_meanwhile(
+    tmp_path: Path, host: Path, monkeypatch
+) -> None:
+    """Two forced uninstalls of one name from two skills folders in one clock tick: the run that takes the
+    stamp second refuses before it writes or removes anything, so neither can delete the other's copy."""
+    install(host, skill_folder(tmp_path / "src"))
+    shutil.rmtree(host / "demo-skill")
+    link_folder(host / "demo-skill", skill_folder(tmp_path / "elsewhere"))  # this run keeps a note, no copy
+    other_host = tmp_path / "other-host" / "skills"
+    install(other_host, skill_folder(tmp_path / "src"))
+    (other_host / "demo-skill" / "notes" / "edited.txt").write_text("my edit", encoding="utf-8")  # gets a copy
+    other_before = snapshot(other_host)
+    stamp = "20990101T000000000000Z"
+    monkeypatch.setattr(install_skill, "_stamp", lambda: stamp)
+    real_copy_out = install_skill._copy_out
+    other_run: list[InstallSkillError] = []
+
+    def other_run_meanwhile(src: Path, dst: Path) -> None:
+        monkeypatch.setattr(install_skill, "_copy_out", real_copy_out)
+        try:
+            uninstall("demo-skill", other_host, force=True)
+        except InstallSkillError as exc:
+            other_run.append(exc)
+        real_copy_out(src, dst)
+
+    monkeypatch.setattr(install_skill, "_copy_out", other_run_meanwhile)
+    uninstall("demo-skill", host, force=True)
+    assert not os.path.lexists(host / "demo-skill")  # this run removed its link
+    assert [exc.exit_code for exc in other_run] == [7]  # the other run took the stamp second and refused
+    assert snapshot(other_host) == other_before  # so it removed nothing
