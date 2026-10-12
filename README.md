@@ -206,6 +206,30 @@ Each round, the agent sees the goal, the files in its folder, what happened in r
 
 The loop stops when your `--check` command passes, or when the agent says it is done. It also stops when `--rounds` or `--for` runs out, when the next call would cross the one spending limit, or when you press Ctrl-C. With `--watch` and `--every`, a look that finds nothing changed sends nothing and costs nothing. Every round is kept in `rounds.jsonl`, with `loop.json` for the totals. Provider keys are blanked out of command output before it goes anywhere.
 
+### Train a model on your data
+
+```bash
+proofhouse train data examples.jsonl --out brew-data --system "You are Brew's support agent."   # or a .csv of input,output
+proofhouse train price openai <base-model> --usd-per-million <price>      # your price per million training tokens
+proofhouse train start --service openai --model <base-model> --data brew-data --epochs 3 --suffix brew --max-cost-usd 20
+proofhouse train start --service mlx-lm --model <hf-model> --data brew-data                      # LoRA on your own Mac, free
+proofhouse train services                                                 # OpenAI, Together, MLX, and any you add
+```
+
+`train data` cleans your examples into `train.jsonl` and a held-out `valid.jsonl` (chat format; duplicates dropped; it warns under 10 examples). `train start` uploads them, starts the job and waits for it (`--no-wait` returns at once; `train status` checks later). It then prints the exact `proofhouse run` line for your trained model.
+
+Before anything is uploaded, the most the job could bill is worked out: every byte of the data times the epochs, as training tokens, at the price you declared. If that is over `--max-cost-usd`, or there is no price, nothing is uploaded or started. Training on your own machine runs your command (MLX LoRA ships) and costs nothing. Any other service, online or local, is one template: `proofhouse train add --from service.json`.
+
+### Add-ons
+
+```bash
+proofhouse addons install ./acme-pack        # a folder with addon.json: providers, media and training services, tools, make kinds
+proofhouse addons list                       # every add-on, what it adds, and any that failed to load
+proofhouse make "a launch thread for Brew" --kind tweet-thread --provider ollama --model llama3   # a kind the pack added
+```
+
+Other people's providers, media services, training services, tools to install into, and new `make` kinds plug in without changing Proofhouse. A pack is data only (`addon.json`, schema `proofhouse.addon/v1`), and nothing in it runs. A Python package can also provide an add-on through the `proofhouse.addons` entry point. Its function returns the same contents, and it is code you chose to install, running as you. Shipped entries load first, then add-ons, then your own, so your entry with the same id always wins. Every request an add-on adds still goes through the spending limit. A broken add-on is skipped and reported, never fatal.
+
 ### Put it where you work
 
 ```bash

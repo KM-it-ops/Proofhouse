@@ -144,7 +144,15 @@ def user_path() -> Path:
 
 
 def all_media_providers() -> dict[str, MediaProvider]:
+    from . import addons
+
     found = {p.id: p for p in (_parse(raw, "shipped") for raw in _load(SHIPPED_PATH))}
+    for name, raw in addons.contributions("media_providers"):
+        try:
+            added = _parse(raw, f"add-on {name}")
+        except MediaError:
+            continue  # checked when the pack was installed; a package add-on's bad entry is skipped
+        found[added.id] = added
     found.update({p.id: p for p in (_parse(raw, "yours") for raw in _load(user_path()))})
     return found
 

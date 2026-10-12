@@ -43,3 +43,9 @@ Every run goes through the spend gate. It works out the most the run could cost 
 - `cost_warning` when the provider reported more tokens than the bound.
 
 Refusal codes: `PHC-COST-0001` to `0003`, and `PHC-RUN-0001` to `0006` (see [troubleshooting](troubleshooting.md)).
+
+## Training services
+
+`proofhouse train services` lists them. OpenAI and Together fine-tuning ship as online templates, and LoRA with MLX ships as a command on your own Mac. A template has three requests: upload the data file, start the job (its body must carry `"{epochs}"`), and read its status. Placeholders are `{model}`, `{file_id}`, `{valid_file_id}`, `{epochs}`, `{suffix}` and `{job_id}`; a value that is only a placeholder with nothing to fill it is left out. A service on your machine is a `command` list with `{model}`, `{data_dir}`, `{train}`, `{valid}`, `{epochs}`, `{iters}` and `{out}`. Add or override one with `proofhouse train add --from service.json` (saved in `PROOFHOUSE_HOME/training_services.json`).
+
+No training price ships. Declare yours per million training tokens with `proofhouse train price SERVICE MODEL --usd-per-million N` (`*` covers every base model of that service). A trained model's price for running it is declared like any other model's, with `proofhouse providers price`.
