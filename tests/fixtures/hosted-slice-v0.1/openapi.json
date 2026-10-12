@@ -254,6 +254,81 @@
         "x-default-hosted-slice": true
       }
     },
+    "/v0/compiler/compare": {
+      "post": {
+        "operationId": "compare",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "description": "Input text; the job then becomes the system message.",
+                    "type": "string"
+                  },
+                  "input-file": {
+                    "description": "Read the input from a file.",
+                    "type": "string"
+                  },
+                  "job": {
+                    "description": "The prompt to run on every model.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "",
+                    "type": "boolean"
+                  },
+                  "judge": {
+                    "description": "A model that scores every output against the job.",
+                    "type": "string"
+                  },
+                  "max-cost-usd": {
+                    "description": "One spending limit for every call, judge included; required if any is paid.",
+                    "type": "string"
+                  },
+                  "max-output-tokens": {
+                    "type": "integer"
+                  },
+                  "on": {
+                    "description": "A model to run it on; repeat for each, for example --on groq:llama-3.3-70b-versatile --on ollama:llama3.",
+                    "type": "string"
+                  },
+                  "out": {
+                    "description": "Folder for the results (default: compare-<job>-<time> here).",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "job",
+                  "on"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "compare",
+        "tags": [
+          "opt-in-live"
+        ],
+        "x-cli-command": "compare",
+        "x-default-hosted-slice": false
+      }
+    },
     "/v0/compiler/compile": {
       "post": {
         "operationId": "compile",
@@ -1485,6 +1560,7 @@
     "case",
     "closed-loop",
     "closed-loop-bridged-008",
+    "compare",
     "compile",
     "compile-requirements",
     "demo",
@@ -1555,6 +1631,7 @@
     "uninstall-skill"
   ],
   "x-opt-in-live": [
+    "compare",
     "execute-openai",
     "generate",
     "loop",
