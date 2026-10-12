@@ -548,6 +548,93 @@
         "x-default-hosted-slice": false
       }
     },
+    "/v0/compiler/generate": {
+      "post": {
+        "operationId": "generate",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "json": {
+                    "description": "",
+                    "type": "boolean"
+                  },
+                  "kind": {
+                    "enum": [
+                      "image",
+                      "video",
+                      "speech",
+                      "music"
+                    ],
+                    "type": "string"
+                  },
+                  "max-cost-usd": {
+                    "description": "Spending limit; required for a paid service.",
+                    "type": "string"
+                  },
+                  "model": {
+                    "description": "Model id as the service names it.",
+                    "type": "string"
+                  },
+                  "out": {
+                    "description": "File to write (extension added if missing).",
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "description": "What to make (for speech: the words to say).",
+                    "type": "string"
+                  },
+                  "provider": {
+                    "description": "Media service id (see `proofhouse media list`).",
+                    "type": "string"
+                  },
+                  "seconds": {
+                    "description": "Length for video or music, in seconds.",
+                    "type": "integer"
+                  },
+                  "size": {
+                    "description": "Image size, for example 1024x1024.",
+                    "type": "string"
+                  },
+                  "voice": {
+                    "description": "Voice id for speech.",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "provider",
+                  "model",
+                  "prompt"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "generate",
+        "tags": [
+          "opt-in-live"
+        ],
+        "x-cli-command": "generate",
+        "x-default-hosted-slice": false
+      }
+    },
     "/v0/compiler/hosted-compile": {
       "post": {
         "operationId": "hosted_compile",
@@ -832,6 +919,10 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
+                  "formats": {
+                    "description": "Renders: 16x9, 9x16, 1x1 (comma separated).",
+                    "type": "string"
+                  },
                   "input-file": {
                     "description": "A real input to test a prompt on (otherwise the model writes one).",
                     "type": "string"
@@ -845,7 +936,8 @@
                     "enum": [
                       "prompt",
                       "skill",
-                      "agent"
+                      "agent",
+                      "video"
                     ],
                     "type": "string"
                   },
@@ -856,6 +948,21 @@
                   "model": {
                     "description": "Model id as the provider names it.",
                     "type": "string"
+                  },
+                  "music-file": {
+                    "description": "Use your own music bed instead.",
+                    "type": "string"
+                  },
+                  "music-model": {
+                    "type": "string"
+                  },
+                  "music-provider": {
+                    "description": "Music service for the bed (optional).",
+                    "type": "string"
+                  },
+                  "no-captions": {
+                    "description": "Do not burn in captions.",
+                    "type": "boolean"
                   },
                   "out": {
                     "description": "Folder for the results (default ./make-<words>-<time>).",
@@ -873,9 +980,40 @@
                     "description": "Most improvement rounds (default 3).",
                     "type": "integer"
                   },
+                  "seconds": {
+                    "description": "Length in seconds (default 30).",
+                    "type": "integer"
+                  },
                   "target": {
                     "description": "Stop when the judge scores this (0-10, default 9).",
                     "type": "integer"
+                  },
+                  "visual-kind": {
+                    "description": "Shots as images (animated) or video clips.",
+                    "enum": [
+                      "image",
+                      "video"
+                    ],
+                    "type": "string"
+                  },
+                  "visual-model": {
+                    "description": "Image or video model for the shots.",
+                    "type": "string"
+                  },
+                  "visual-provider": {
+                    "description": "Media service for the shots (see `proofhouse media list`).",
+                    "type": "string"
+                  },
+                  "voice": {
+                    "description": "Voice id.",
+                    "type": "string"
+                  },
+                  "voice-model": {
+                    "type": "string"
+                  },
+                  "voice-provider": {
+                    "description": "Speech service for the voice-over (optional).",
+                    "type": "string"
                   }
                 },
                 "required": [
@@ -1256,6 +1394,7 @@
     "eval",
     "evaluate-product",
     "execute-openai",
+    "generate",
     "hosted-compile",
     "hosted-delete",
     "hosted-export",
@@ -1265,6 +1404,7 @@
     "install",
     "install-skill",
     "make",
+    "media",
     "missionrig-generate",
     "models",
     "optimize",
@@ -1306,6 +1446,7 @@
     "hosts",
     "install",
     "install-skill",
+    "media",
     "models",
     "optimize",
     "parts",
@@ -1316,6 +1457,7 @@
   ],
   "x-opt-in-live": [
     "execute-openai",
+    "generate",
     "make",
     "run"
   ],

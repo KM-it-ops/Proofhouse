@@ -10,7 +10,7 @@ from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-from . import live, make, providers, spend
+from . import live, make, providers, spend, studio
 
 EXIT_OK = 0
 EXIT_USAGE = 2
@@ -154,7 +154,40 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return EXIT_OK if result.status == "success" else EXIT_REFUSED
 
 
+def _cmd_make_video(args: argparse.Namespace) -> int:
+    if not args.visual_provider or not args.visual_model:
+        return _fail("a video needs --visual-provider and --visual-model (see `proofhouse media list`)")
+    out = Path(args.out) if args.out else Path.cwd() / f"video-{make._slug(args.request)}"
+    try:
+        made = studio.produce(
+            args.request, provider_id=args.provider, model=args.model,
+            visual_provider=args.visual_provider, visual_model=args.visual_model, visual_kind=args.visual_kind,
+            voice_provider=args.voice_provider, voice_model=args.voice_model, voice=args.voice,
+            music_provider=args.music_provider, music_model=args.music_model,
+            music_file=Path(args.music_file) if args.music_file else None,
+            seconds=args.seconds, formats=tuple(args.formats.split(",")), captions=not args.no_captions,
+            max_cost_usd=args.max_cost_usd, out_dir=out,
+        )
+    except (studio.StudioError, OSError) as exc:
+        return _fail(str(exc))
+    failed = [c for c in made.checks if not c["ok"]]
+    summary = {"folder": str(made.folder), "stopped": made.stopped, "renders": made.renders, "checks_failed": failed,
+               "spent_usd_estimated": format(made.spent_usd, "f")}
+    if args.json:
+        print(json.dumps(summary, sort_keys=True))
+    else:
+        print(f"{made.title or 'video'}: {made.stopped}")
+        for name, path in made.renders.items():
+            print(f"  {name}: {path}")
+        print(f"checks: {len(made.checks) - len(failed)} passed, {len(failed)} failed; spent about ${summary['spent_usd_estimated']}")
+        for check in failed:
+            print(f"  FAILED {check['render']} {check['check']}: {check['detail']}")
+    return EXIT_OK if made.renders and not failed else EXIT_REFUSED
+
+
 def _cmd_make(args: argparse.Namespace) -> int:
+    if args.kind == "video":
+        return _cmd_make_video(args)
     try:
         test_input = _read_text(None, args.input_file, "input")
         made = make.make(
@@ -200,7 +233,20 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make.add_argument("request", help="What you want made, in your own words.")
     p_make.add_argument("--provider", required=True, help="Provider id (see `proofhouse providers list`).")
     p_make.add_argument("--model", required=True, help="Model id as the provider names it.")
-    p_make.add_argument("--kind", default="prompt", choices=make.KINDS, help="What to make (default prompt).")
+    p_make.add_argument("--kind", default="prompt", choices=(*make.KINDS, "video"), help="What to make (default prompt).")
+    video = p_make.add_argument_group("video (--kind video)")
+    video.add_argument("--visual-provider", default=None, help="Media service for the shots (see `proofhouse media list`).")
+    video.add_argument("--visual-model", default=None, help="Image or video model for the shots.")
+    video.add_argument("--visual-kind", default="image", choices=("image", "video"), help="Shots as images (animated) or video clips.")
+    video.add_argument("--voice-provider", default=None, help="Speech service for the voice-over (optional).")
+    video.add_argument("--voice-model", default=None)
+    video.add_argument("--voice", default=None, help="Voice id.")
+    video.add_argument("--music-provider", default=None, help="Music service for the bed (optional).")
+    video.add_argument("--music-model", default=None)
+    video.add_argument("--music-file", default=None, help="Use your own music bed instead.")
+    video.add_argument("--seconds", type=int, default=30, help="Length in seconds (default 30).")
+    video.add_argument("--formats", default="16x9,9x16,1x1", help="Renders: 16x9, 9x16, 1x1 (comma separated).")
+    video.add_argument("--no-captions", action="store_true", help="Do not burn in captions.")
     p_make.add_argument("--max-cost-usd", default=None, help="Spending limit for the whole make; required for a paid provider.")
     p_make.add_argument("--rounds", type=int, default=make.DEFAULT_ROUNDS, help="Most improvement rounds (default 3).")
     p_make.add_argument("--target", type=int, default=make.DEFAULT_TARGET, help="Stop when the judge scores this (0-10, default 9).")
