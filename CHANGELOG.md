@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+Any provider, any model.
+
+### Added
+
+- `proofhouse run --provider P --model M --prompt "..."` runs a prompt on any provider that speaks the OpenAI chat format. With `--input`, the prompt becomes the system message. It prints the output, and on stderr the tokens and the estimated cost. `--json` prints the full result (output, admission, cost). One request per call, never retried.
+- `proofhouse providers list|add|remove|price`. Shipped providers:
+  - cloud: OpenAI, Anthropic and Google (their OpenAI-compatible endpoints), Mistral, Groq, Together, Fireworks, OpenRouter, DeepSeek, xAI;
+  - on your machine: Ollama, LM Studio, vLLM, llama.cpp.
+
+  Any other provider is one `providers add` line, saved in `PROOFHOUSE_HOME/providers.json`, with no code change. Keys are read from the provider's environment variable at call time and never appear in any output.
+- Every run goes through the spend gate. A price comes from the shipped table, then from a price you declare (`providers price`, labelled "declared by you"). A provider on this machine costs nothing unless you declare a price. A paid model with no price is refused (`PHC-COST-0002`), and a paid run needs `--max-cost-usd`. New refusal codes `PHC-RUN-0001` to `0006`.
+
 ## 0.6.0 - 2026-10-12
 
 `execute-openai` now refuses before sending when the worst-case cost is over your ceiling.

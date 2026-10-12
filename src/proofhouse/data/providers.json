@@ -1,0 +1,20 @@
+{
+  "schema": "proofhouse.providers/v1",
+  "note": "Addresses as each provider publishes them for OpenAI-style chat requests. Check them against your provider's own docs; add or override any provider in PROOFHOUSE_HOME/providers.json.",
+  "providers": [
+    {"id": "openai", "name": "OpenAI", "base_url": "https://api.openai.com/v1", "shape": "openai", "key_env": "OPENAI_API_KEY"},
+    {"id": "anthropic", "name": "Anthropic (OpenAI-compatible endpoint)", "base_url": "https://api.anthropic.com/v1", "shape": "openai-compatible", "key_env": "ANTHROPIC_API_KEY"},
+    {"id": "google", "name": "Google Gemini (OpenAI-compatible endpoint)", "base_url": "https://generativelanguage.googleapis.com/v1beta/openai", "shape": "openai-compatible", "key_env": "GEMINI_API_KEY"},
+    {"id": "mistral", "name": "Mistral", "base_url": "https://api.mistral.ai/v1", "shape": "openai-compatible", "key_env": "MISTRAL_API_KEY"},
+    {"id": "groq", "name": "Groq", "base_url": "https://api.groq.com/openai/v1", "shape": "openai-compatible", "key_env": "GROQ_API_KEY"},
+    {"id": "together", "name": "Together AI", "base_url": "https://api.together.xyz/v1", "shape": "openai-compatible", "key_env": "TOGETHER_API_KEY"},
+    {"id": "fireworks", "name": "Fireworks AI", "base_url": "https://api.fireworks.ai/inference/v1", "shape": "openai-compatible", "key_env": "FIREWORKS_API_KEY"},
+    {"id": "openrouter", "name": "OpenRouter", "base_url": "https://openrouter.ai/api/v1", "shape": "openai-compatible", "key_env": "OPENROUTER_API_KEY"},
+    {"id": "deepseek", "name": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "shape": "openai-compatible", "key_env": "DEEPSEEK_API_KEY"},
+    {"id": "xai", "name": "xAI", "base_url": "https://api.x.ai/v1", "shape": "openai-compatible", "key_env": "XAI_API_KEY"},
+    {"id": "ollama", "name": "Ollama (on this machine)", "base_url": "http://localhost:11434/v1", "shape": "openai-compatible", "key_env": null},
+    {"id": "lmstudio", "name": "LM Studio (on this machine)", "base_url": "http://localhost:1234/v1", "shape": "openai-compatible", "key_env": null},
+    {"id": "vllm", "name": "vLLM (on this machine)", "base_url": "http://localhost:8000/v1", "shape": "openai-compatible", "key_env": null},
+    {"id": "llamacpp", "name": "llama.cpp server (on this machine)", "base_url": "http://localhost:8080/v1", "shape": "openai-compatible", "key_env": null}
+  ]
+}

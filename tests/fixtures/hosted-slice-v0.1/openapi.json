@@ -982,6 +982,82 @@
         "x-default-hosted-slice": true
       }
     },
+    "/v0/compiler/run": {
+      "post": {
+        "operationId": "run",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "input": {
+                    "description": "Input text; the prompt then becomes the system message.",
+                    "type": "string"
+                  },
+                  "input-file": {
+                    "description": "Input file, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "json": {
+                    "description": "Emit the full result as JSON.",
+                    "type": "boolean"
+                  },
+                  "max-cost-usd": {
+                    "description": "Spending limit in USD; required for a paid provider. Refused before sending if the worst case is over it.",
+                    "type": "string"
+                  },
+                  "max-output-tokens": {
+                    "description": "Output token cap (default 1024).",
+                    "type": "integer"
+                  },
+                  "model": {
+                    "description": "Model id as the provider names it.",
+                    "type": "string"
+                  },
+                  "prompt": {
+                    "description": "Prompt text.",
+                    "type": "string"
+                  },
+                  "prompt-file": {
+                    "description": "Prompt file, or '-' for stdin.",
+                    "type": "string"
+                  },
+                  "provider": {
+                    "description": "Provider id (see `proofhouse providers list`).",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "provider",
+                  "model"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "run",
+        "tags": [
+          "opt-in-live"
+        ],
+        "x-cli-command": "run",
+        "x-default-hosted-slice": false
+      }
+    },
     "/v0/compiler/validate": {
       "post": {
         "operationId": "validate",
@@ -1105,7 +1181,9 @@
     "optimize",
     "parts",
     "proof",
+    "providers",
     "route",
+    "run",
     "scan",
     "uninstall-skill",
     "validate",
@@ -1139,11 +1217,13 @@
     "models",
     "optimize",
     "parts",
+    "providers",
     "scan",
     "uninstall-skill"
   ],
   "x-opt-in-live": [
-    "execute-openai"
+    "execute-openai",
+    "run"
   ],
   "x-q2-ratified": false
 }
