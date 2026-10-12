@@ -1,0 +1,14 @@
+{
+  "schema": "proofhouse.deploy-targets/v1",
+  "note": "Where a finished site can go. Each target runs that service's own command-line tool, signed in your usual way. Add any other in PROOFHOUSE_HOME/deploy_targets.json.",
+  "targets": [
+    {"id": "netlify", "name": "Netlify", "tool": "netlify", "install": "npm install -g netlify-cli",
+     "command": ["netlify", "deploy", "--dir", "{folder}", "--prod"], "key_env": "NETLIFY_AUTH_TOKEN"},
+    {"id": "vercel", "name": "Vercel", "tool": "vercel", "install": "npm install -g vercel",
+     "command": ["vercel", "deploy", "{folder}", "--prod", "--yes"], "key_env": "VERCEL_TOKEN"},
+    {"id": "cloudflare", "name": "Cloudflare Pages", "tool": "wrangler", "install": "npm install -g wrangler",
+     "command": ["wrangler", "pages", "deploy", "{folder}", "--project-name", "{name}"], "key_env": "CLOUDFLARE_API_TOKEN"},
+    {"id": "surge", "name": "Surge", "tool": "surge", "install": "npm install -g surge",
+     "command": ["surge", "{folder}", "{name}.surge.sh"], "key_env": "SURGE_TOKEN"}
+  ]
+}
