@@ -136,7 +136,7 @@ def _judgement(text: str | None) -> tuple[int | None, list[str], str]:
     return score, missing, fix
 
 
-class _Budget:
+class Budget:
     """One spending limit for the whole command; each call may use only what is left."""
 
     def __init__(self, limit: str | None, local: bool) -> None:
@@ -191,7 +191,7 @@ def make(
     if max_cost_usd is None and not profile.local:
         raise MakeError("name a spending limit for the whole make (--max-cost-usd)")
     try:
-        budget = _Budget(max_cost_usd, profile.local)
+        budget = Budget(max_cost_usd, profile.local)
     except InvalidOperation:
         raise MakeError("--max-cost-usd must be a decimal such as 0.50") from None
 
