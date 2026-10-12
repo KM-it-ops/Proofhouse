@@ -221,6 +221,8 @@ def _cmd_make(args: argparse.Namespace) -> int:
         print(f"spent about ${summary['spent_usd_estimated']} over {len(made.calls)} calls; everything is in {made.folder}")
         if made.kind == "skill" and made.best_version:
             print(f"install it: proofhouse install-skill --bundle {made.folder}/<skill-name>")
+        if made.kind == "site" and made.best_version:
+            print(f"open it: {made.folder}/site/index.html  (screenshots and checks are in {made.folder}/v{made.best_version})")
         if made.kind == "agent" and made.best_version:
             print(f"install it: proofhouse install agent {made.folder}/<agent-name>.md --into claude")
     return EXIT_OK if made.best_version else EXIT_REFUSED
