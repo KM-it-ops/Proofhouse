@@ -58,6 +58,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "media list": (SPINE, "", "media engine: every media service, shipped and yours"),
     "media price": (SPINE, "", "media engine: declares a price per unit"),
     "media add": (SPINE, "", "media engine: adds a media service from a template, no code change"),
+    "deploy": (SPINE, "", "delivery: puts a finished site online with the hosting service's own tool, only when you run it"),
     "addons list": (SPINE, "", "add-ons: every pack and package add-on, what each adds, and any that failed to load"),
     "addons install": (SPINE, "", "add-ons: checks and installs a pack of providers, services, tools and make kinds"),
     "addons remove": (SPINE, "", "add-ons: removes an installed pack"),

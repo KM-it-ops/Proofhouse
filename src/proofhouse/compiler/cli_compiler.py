@@ -37,6 +37,7 @@ from ..loop_cli import add_loop_commands
 from ..compare_cli import add_compare_commands
 from ..train_cli import add_train_commands
 from ..addons_cli import add_addon_commands
+from ..deploy_cli import add_deploy_commands
 from ..media_cli import add_media_commands
 from .hosted_slice import HostedSlice, HostedSliceError, HostedStore, ViewMode
 from .missionrig import (
@@ -831,6 +832,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_compare_commands(subparsers)
     add_train_commands(subparsers)
     add_addon_commands(subparsers)
+    add_deploy_commands(subparsers)
     add_host_commands(subparsers)
     add_media_commands(subparsers)
     add_harness_commands(subparsers)
