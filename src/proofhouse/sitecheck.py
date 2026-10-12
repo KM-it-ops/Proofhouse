@@ -142,7 +142,7 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 60) -> li
     if shots is not None:
         shots.mkdir(parents=True, exist_ok=True)
     for label, size in (("desktop", "1440,900"), ("phone", "390,844")):
-        with tempfile.TemporaryDirectory(prefix="proofhouse-browser-") as profile:
+        with tempfile.TemporaryDirectory(prefix="proofhouse-browser-", ignore_cleanup_errors=True) as profile:
             # A fresh profile and no shared-memory use: headless Chrome can hang on a locked profile or a small /dev/shm.
             command = [browser, "--headless=new", "--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage", "--no-first-run",
                        "--no-default-browser-check", "--disable-extensions", f"--user-data-dir={profile}",
