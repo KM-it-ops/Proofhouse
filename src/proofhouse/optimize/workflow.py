@@ -338,12 +338,28 @@ def load_run(case_dir: Path, run_id: str) -> dict:
     if sha256_text(text) != record.get("output_sha256"):
         raise CaseError(f"run {run_id} output does not match its recorded sha256; it was edited after recording")
     summary = next((item for item in load_case(case_dir).get("runs", []) if item["run_id"] == run_id), None)
-    if summary is not None and summary["output_sha256"] != record["output_sha256"]:
+    if summary is not None and summary.get("output_sha256") != record["output_sha256"]:
         raise CaseError(f"run {run_id} sha256 differs from the digest recorded in case.json")
-    # Listings and the cost table read case.json; the run file is the record, so the two must agree.
-    if summary is not None and (run_part(summary) != run_part(record) or run_cost(summary) != run_cost(record)):
-        raise CaseError(f"run {run_id} part or cost in case.json differs from its run file")
+    # Listings and the cost table read case.json; the run file is the record, so every field case.json
+    # lists for the run (and always its revision, part and cost) must be what the run file holds.
+    if summary is not None:
+        listed = {**summary, "part": run_part(summary), "cost": run_cost(summary)}
+        held = {**record, "part": run_part(record), "cost": run_cost(record)}
+        differ = sorted(field for field in {*summary, "revision", "part", "cost"} if listed.get(field) != held.get(field))
+        if differ:
+            raise CaseError(f"run {run_id} in case.json differs from its run file ({', '.join(differ)})")
     return record
+
+
+def verify_runs(case_dir: Path, data: dict) -> None:
+    """Every run ``case.json`` lists, listed once and as its run file holds it; readers of the listing call this."""
+    seen: set[object] = set()
+    for item in data.get("runs", []):
+        run_id = item.get("run_id") if isinstance(item, dict) else None
+        if run_id in seen:
+            raise CaseError(f"case.json lists run {run_id} twice")
+        seen.add(run_id)
+        load_run(case_dir, run_id)
 
 
 def runs_for_revision(case_dir: Path, data: dict, revision: int, revision_sha256: str) -> list[dict]:
@@ -658,8 +674,7 @@ def import_case(bundle: Path, case_dir: Path) -> dict:
         for item in data["revisions"]:
             # A skill version's files are re-verified here, one by one, against its manifest.
             load_revision(staging, int(item["n"]))
-        for item in data.get("runs", []):
-            load_run(staging, item["run_id"])
+        verify_runs(staging, data)
         staging.rename(case_dir)
     finally:
         if staging.exists():

@@ -152,6 +152,7 @@ def _cmd_output_list(args: argparse.Namespace) -> int:
     case_dir = Path(args.case)
     try:
         data = case_mod.load_case(case_dir)
+        workflow.verify_runs(case_dir, data)
         # A run recorded before part and cost existed reads as part none, cost unknown.
         runs = [{**run, "part": workflow.run_part(run), "cost": workflow.run_cost(run)} for run in data.get("runs", [])]
     except CaseError as exc:
@@ -203,6 +204,7 @@ def _cmd_report(args: argparse.Namespace) -> int:
     case_dir = Path(args.case)
     try:
         data = case_mod.load_case(case_dir)
+        workflow.verify_runs(case_dir, data)  # the cost table reads case.json's run listing
         numbers = checks.revision_numbers(data, revision=args.revision, all_revisions=False)
         report = checks.check_revision(case_dir, data["criteria"], numbers[0], checks.load_verdicts(case_dir))
         resolved = case_mod.model_from_case(data)

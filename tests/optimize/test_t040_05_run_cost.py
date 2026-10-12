@@ -362,3 +362,55 @@ def test_a_cost_figure_that_is_not_finite_is_refused_as_such(prompt_case: Path, 
     rewrite_run(prompt_case, run_id, cost=known(tokens_in=value))
     with pytest.raises(CaseError, match="non-negative number"):
         workflow.load_run(prompt_case, run_id)
+
+
+def test_import_refuses_a_bundle_whose_case_json_lists_a_run_twice(prompt_case: Path, tmp_path: Path) -> None:
+    case_mod.record_revision(prompt_case, "Summarise the advisory briefly. Write UNKNOWN for gaps.")
+    add(prompt_case)
+    workflow.export_case(prompt_case, tmp_path / "honest.zip")
+
+    def forge(data: dict) -> None:
+        extra = {**data["runs"][0], "revision": 2, "part": "openai", "cost": known(tokens_in=5)}
+        data["runs"].append(extra)  # a second entry for R1; no run file holds it
+
+    bundle = _reforge(tmp_path / "honest.zip", tmp_path / "forged.zip", forge)
+    with pytest.raises(CaseError, match="twice"):
+        workflow.import_case(bundle, tmp_path / "imported")
+    assert not (tmp_path / "imported").exists()
+
+
+@pytest.mark.parametrize("edit", [{"revision": 2}, {"input_id": "other"}, {"model": "Other 1"}], ids=["revision", "input", "model"])
+def test_import_refuses_a_case_json_run_entry_its_run_file_does_not_hold(prompt_case: Path, tmp_path: Path, edit: dict) -> None:
+    case_mod.record_revision(prompt_case, "Summarise the advisory briefly. Write UNKNOWN for gaps.")
+    add(prompt_case)
+    workflow.export_case(prompt_case, tmp_path / "honest.zip")
+    bundle = _reforge(tmp_path / "honest.zip", tmp_path / "forged.zip", lambda data: data["runs"][0].update(edit))
+    with pytest.raises(CaseError, match="differs from its run file"):
+        workflow.import_case(bundle, tmp_path / "imported")
+    assert not (tmp_path / "imported").exists()
+
+
+def test_import_refuses_a_case_json_run_entry_without_its_revision(prompt_case: Path, tmp_path: Path) -> None:
+    add(prompt_case)
+    workflow.export_case(prompt_case, tmp_path / "honest.zip")
+    bundle = _reforge(tmp_path / "honest.zip", tmp_path / "forged.zip", lambda data: data["runs"][0].pop("revision"))
+    with pytest.raises(CaseError):
+        workflow.import_case(bundle, tmp_path / "imported")
+    assert not (tmp_path / "imported").exists()
+
+
+@pytest.mark.parametrize("command", [["output", "list"], ["report", "--revision", "1"]], ids=["output-list", "report"])
+def test_local_readers_refuse_a_case_json_run_entry_its_run_file_does_not_hold(
+    prompt_case: Path, capsys, command: list[str]
+) -> None:
+    add(prompt_case)
+    code, out = run(["case", "criteria", "add", "--case", str(prompt_case), "--must-contain", "UNKNOWN"], capsys)
+    assert code == 0, out
+    path = prompt_case / "case.json"
+    data = json.loads(path.read_text(encoding="utf-8"))
+    data["runs"][0].update(part="openai", cost=known(tokens_in=5, tokens_out=7))  # well formed, not what R1.json says
+    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    code, out = run(["case", command[0], *command[1:], "--case", str(prompt_case)], capsys)
+    assert code == 2, out
+    assert "differs from its run file" in out
+    assert "tokens_in=5" not in out
