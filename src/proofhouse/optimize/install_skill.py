@@ -832,12 +832,12 @@ def uninstall(
             # This run's own folder, made only if it does not exist: a run that took the same stamp stops here,
             # so nothing in it is another run's to digest or remove.
             stamp_dir.mkdir()
-        except FileExistsError:
-            raise InstallSkillError(
-                f"{stamp_dir} already exists; nothing was removed. Run uninstall-skill --force again",
-                EXIT_ENVIRONMENT_FAILURE,
-            ) from None
         except OSError as exc:
+            if isinstance(exc, FileExistsError) and exc.filename is not None and Path(exc.filename) == stamp_dir:
+                raise InstallSkillError(
+                    f"{stamp_dir} already exists; nothing was removed. Run uninstall-skill --force again",
+                    EXIT_ENVIRONMENT_FAILURE,
+                ) from None
             raise InstallSkillError(
                 f"cannot back up {skill_dir} to {safety}: {exc}; nothing was removed", EXIT_ENVIRONMENT_FAILURE
             ) from exc
