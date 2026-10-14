@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 
@@ -108,3 +110,39 @@ def test_any_other_tool_is_one_entry_in_your_hosts_file(home: Path, tmp_path: Pa
     (tmp_path / "style.md").write_text("Use plain words.", encoding="utf-8")
     assert ph(["install", "rule", str(tmp_path / "style.md"), "--into", "windsurf"]) == 0
     assert (home / ".windsurf" / "rules" / "style.md").read_text(encoding="utf-8") == "Use plain words.\n"
+
+
+def _link_folder(link: Path, target: Path) -> None:
+    """A folder link any user can make: a directory junction on Windows, a symlink elsewhere."""
+    if sys.platform == "win32":
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+    else:
+        link.symlink_to(target, target_is_directory=True)
+
+
+def test_a_linked_config_folder_is_not_followed(home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    real = home / "real-claude"
+    real.mkdir()
+    victim = home / "notes.md"
+    victim.write_text("secret\n", encoding="utf-8")
+    _link_folder(home / ".claude", real)
+    (tmp_path / "house-style.md").write_text("Use plain words.", encoding="utf-8")
+    assert ph(["install", "rule", str(tmp_path / "house-style.md"), "--into", "claude"]) == 2
+    assert "link or junction" in capsys.readouterr().err
+    assert not (real / "CLAUDE.md").exists()
+    assert victim.read_text(encoding="utf-8") == "secret\n"
+
+
+def test_a_linked_claude_md_is_not_written_through(home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    claude = home / ".claude"
+    claude.mkdir()
+    victim = home / "notes.md"
+    victim.write_text("secret\n", encoding="utf-8")
+    try:
+        (claude / "CLAUDE.md").symlink_to(victim)
+    except OSError as exc:
+        pytest.skip(f"cannot create a file symlink here: {exc}")
+    (tmp_path / "house-style.md").write_text("Use plain words.", encoding="utf-8")
+    assert ph(["install", "rule", str(tmp_path / "house-style.md"), "--into", "claude"]) == 2
+    assert "link or junction" in capsys.readouterr().err
+    assert victim.read_text(encoding="utf-8") == "secret\n"

@@ -30,6 +30,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from .optimize.kinds import is_link
 from .providers import proofhouse_home
 
 HOSTS_SCHEMA = "proofhouse.hosts/v1"
@@ -116,13 +117,34 @@ def target(host_id: str, kind: str, name: str, project: Path | None) -> Target:
     else:
         root = Path.home().resolve()
         text = str(root) + template[1:] if template.startswith("~") else template
-    path = Path(text.replace("{name}", check_name(name))).resolve()
-    if root not in path.parents:
-        raise HostError(f"{path} is outside {root}")
+    path = Path(text.replace("{name}", check_name(name)))
+    if not path.is_absolute():
+        path = root / path
+    try:
+        path.relative_to(root)
+    except ValueError:
+        raise HostError(f"{path} is outside {root}") from None
+    _refuse_links(path)
     return Target(host_id, label, kind, name, path, spec["format"])
 
 
 # --- records -----------------------------------------------------------------------------------
+
+
+def _refuse_links(path: Path) -> None:
+    """Refuse a symlink or junction on ``path`` or any parent short of the drive root.
+
+    Opening the path would follow it, so a ``CLAUDE.md`` that points at another
+    file would be overwritten. A link cannot be backed up and put back as a link.
+    Nothing is changed.
+    """
+    current = path
+    while current.parent != current:
+        if os.path.lexists(current) and is_link(current):
+            raise HostError(
+                f"{current} is a link or junction; remove or replace it yourself, then install again. Nothing was changed."
+            )
+        current = current.parent
 
 
 def _record_path(t: Target) -> Path:
@@ -196,6 +218,7 @@ def _block_body(t: Target, content: Any) -> str:
 
 def install(t: Target, content: Any, *, force: bool = False) -> str:
     """Write ``content`` for ``t``. Returns what happened in one line."""
+    _refuse_links(t.path)
     record_file = _record_path(t)
     record = json.loads(record_file.read_text(encoding="utf-8")) if record_file.is_file() else None
     existing = t.path.read_text(encoding="utf-8") if t.path.is_file() else None
@@ -254,6 +277,7 @@ def install(t: Target, content: Any, *, force: bool = False) -> str:
 
 
 def uninstall(t: Target, *, force: bool = False) -> str:
+    _refuse_links(t.path)
     record_file = _record_path(t)
     if not record_file.is_file():
         raise HostError(f"Proofhouse has no record of installing {t.kind} {t.name} into {t.host_name} at {t.path}")

@@ -1,8 +1,8 @@
-"""Doc lines restored by the review-2f79534 fixes stay true and stay present.
+"""Doc lines that must stay true and stay present.
 
 - No README or docs page may say import refuses "any altered byte": import checks each
   file against the bundle's own manifest, and that manifest is not signed.
-- The README keeps the maturity and status lines chosen to be restored.
+- The README's first screen is one product. The evidence walk is labeled as the older clip.
 """
 from __future__ import annotations
 
@@ -11,8 +11,8 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 
 RESTORED = [
-    "two products in one repo",
-    "most mature part of the project",
+    "You say what you want",
+    "older evidence walk, not the product",
     "tests/test_skill_bundle.py",
     "`researched` / `cached` / `fallback`",
 ]
