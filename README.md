@@ -6,15 +6,15 @@
 [![PromptOps](https://img.shields.io/badge/promptops-clarify%20%E2%86%92%20compile%20%E2%86%92%20heal-0f766e)](#how-it-works)
 [![License](https://img.shields.io/badge/license-MIT-111827)](LICENSE)
 
-**A local workspace for revising prompts with evidence you can trace: every PASS names the exact prompt, outputs, checks and judgements it came from.**
+**You say what you want. You pick any model, from any provider. Proofhouse makes it, runs it, improves it, and keeps every version.**
 
-I built Proofhouse because I kept rewriting the same prompt for different models and never had a good answer for which version was better, or whether a revision had quietly dropped a requirement. You give it an objective and a target model; it asks its clarifying questions in one batch and turns your answers into constraints that every later revision must keep. You record each prompt revision and the outputs a model actually produced, declare the checks that matter, and Proofhouse tells you which revision passes, which constraint lacks evidence, and what changed between revisions.
+A prompt, a skill, a site, a video, or a whole launch. Proofhouse writes it with the model you name, tries it, and keeps each version with what it cost. A model on your machine costs nothing. A paid model needs a spending limit, and a price you declare when the package has none.
 
-It runs on your machine with no API key. Proofhouse writes the prompts it needs as packets; you run them in the agent or model you already use and paste the results back. It is a local tool, not a hosted service, and I make no benchmark or quality claims for it.
+It is a local tool, not a hosted service, and it makes no benchmark or quality claims. One feature of the record is the evidence trail, `proofhouse case`: you declare the checks, and a PASS names the exact prompt, outputs, checks and judgements it came from. That trail does not call a model and it does not rate quality.
 
 https://github.com/user-attachments/assets/17ec6d22-1ba7-4952-bec0-d3f24c9b29ce
 
-*44-second demo of the standalone app. You type one sentence, pick a model, answer seven questions, and get a compiled prompt where each rule is traced back to the answer that produced it. The scene is an authored example, not a recorded run. Remotion draws it; the source is in `videos/readme-hype/studio`.*
+*44-second clip of the older evidence walk, not the product. You type one sentence, pick a model, answer seven questions, and get a compiled prompt where each rule is traced back to the answer that produced it. The scene is an authored example, not a recorded run. Remotion draws it; the source is in `videos/readme-hype/studio`.*
 
 Portfolio: [km-it-ops.github.io](https://km-it-ops.github.io/)
 
@@ -112,7 +112,7 @@ Details: [docs/architecture.md](docs/architecture.md), [decision 0002](docs/deci
 | **Any provider, any model**: `proofhouse run --provider P --model M --prompt "..."` | You want a prompt run on OpenAI, Anthropic, Google, Mistral, Groq, Together, Fireworks, OpenRouter, DeepSeek, xAI, a model on your own machine (Ollama, LM Studio, vLLM, llama.cpp), or any other provider you add with one command | new | only that call, through your spending limit |
 | **Cursor or Claude Code skill**: `proofhouse install-skill` asks which agent (Cursor, Claude Code, or another one you name with its skills folder); `--host cursor` or `--host claude` skips the question. Then say "Proofhouse" in a new chat or session | You want the same clarify → compile → self-heal loop as a conversation | supported entry point | the host agent's tools |
 
-Proofhouse is two products in one repo, at different levels of maturity. The **PromptOps skill and framework (v1.3)**, the conversational meta-optimizer with current frontier model profiles, is the most mature part of the project. The headless compiler's maturity is listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
+One command, `proofhouse`, makes the thing and can keep the evidence trail. The PromptOps skill (v1.3) is the conversation entry: say "Proofhouse" after `install-skill`. The headless compiler's maturity is listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
 
 Both entries use the same framework ([`proofhouse-framework.json`](proofhouse-framework.json)) and the same model notes. The framework also covers Efficient / Balanced / Thorough token presets, loops for recurring agents (trigger, body, exit, escalation), prompt audits with missing-context labels, and agent design (permission maps, tool boundaries, stop conditions). The skill is installed to `~/.cursor/skills/proofhouse` (or `~/.claude/skills/proofhouse` with `--host claude`) and the installer checks it (the bundle ships inside the package; `tests/test_skill_bundle.py` keeps it identical to `skills/proofhouse/`); without the console script, `python -m zipfile -e skills/proofhouse/proofhouse.skill ~/.cursor/skills` (or `~/.claude/skills`) does the same. The skill can research an unfamiliar model with the host agent's tools; the command line goes online only when you ask it to run a model (`proofhouse run`, `execute-openai`), and otherwise uses your own notes (`models remember`) or a generic profile labeled `fallback`.
 

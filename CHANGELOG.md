@@ -35,6 +35,11 @@ Any provider, any model.
   Any other provider is one `providers add` line, saved in `PROOFHOUSE_HOME/providers.json`, with no code change. Keys are read from the provider's environment variable at call time and never appear in any output.
 - Every run goes through the spend gate. A price comes from the shipped table, then from a price you declare (`providers price`, labelled "declared by you"). A provider on this machine costs nothing unless you declare a price. A paid model with no price is refused (`PHC-COST-0002`), and a paid run needs `--max-cost-usd`. New refusal codes `PHC-RUN-0001` to `0006`.
 
+### Changed
+
+- The README opens with the product: you say what you want, any model makes it, and every version is kept. The 44-second clip is labeled the older evidence walk.
+- `proofhouse install` refuses a symlink or junction on the way to the file it would write, and changes nothing. A link cannot be backed up and put back as a link.
+
 ## 0.6.0 - 2026-10-12
 
 `execute-openai` now refuses before sending when the worst-case cost is over your ceiling.
