@@ -215,10 +215,17 @@ def test_shipped_native_builds_are_flagged_and_set_up_first() -> None:
     for platform_id, entry in shipped.items():
         if entry["build"]["command"]:
             assert entry["build"]["to_check"], platform_id
-            assert entry["build"]["before"][0] == ["npm", "install"], platform_id
+            # Install scripts in a package.json the model wrote could fake the build output.
+            assert entry["build"]["before"][0] == ["npm", "install", "--ignore-scripts"], platform_id
     for platform_id in ("ios", "android"):
         assert not any(name.startswith(platform_id + "/") for name in shipped[platform_id]["checks"]["files"])
-        assert ["npx", "cap", "add", platform_id] in shipped[platform_id]["build"]["before"]
+        assert ["npx", "--no-install", "cap", "add", platform_id] in shipped[platform_id]["build"]["before"]
+    for platform_id, entry in shipped.items():
+        if entry["build"]["command"]:
+            # npx must never download a package that npm install did not put in node_modules.
+            steps = [*entry["build"]["before"], entry["build"]["command"]]
+            assert all(step[:2] == ["npx", "--no-install"] for step in steps if step[0] == "npx"), platform_id
+            assert entry["build"]["tool_package"] and entry["build"]["tool_bin"], platform_id
 
 
 def test_install_checks_never_open_paths_outside_the_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -360,3 +367,285 @@ def test_a_manifest_link_outside_the_folder_does_not_count(tmp_path: Path) -> No
                                      "web_install": {"manifest": "manifest.webmanifest", "service_worker": "service-worker.js"}}}
     found = {c["check"]: c["ok"] for c in app_platforms.static_checks(folder, entry)}
     assert found["pwa manifest linked"] is False and found["pwa manifest icon"] is True
+
+
+def test_a_setup_step_cannot_fake_the_build_output(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    fake = "import pathlib\npathlib.Path('dist').mkdir()\npathlib.Path('dist/app.bin').write_text('fake')\n"
+    _platform_file(tmp_path, _python_entry({"before": [["python", "fake.py"]], "command": ["python", "noop.py"],
+                                            "output": "dist/app.bin"}))
+    result = run(tmp_path, Model([WEB, {"setup.json": "{}", "fake.py": fake, "noop.py": "pass\n"}]), ["custom"],
+                 allow_commands=True)
+    build = next(c for c in checks(result) if c["check"] == "custom build")
+    assert build["ok"] is False and "dist/app.bin" in str(build["detail"]), build
+
+
+@pytest.mark.parametrize("name", ["src-tauri/.cargo/config.toml", "node_modules/.bin/tauri", "www/.npmrc"])
+def test_model_cannot_write_into_dotted_folders(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"]}))
+    result = run(tmp_path, Model([WEB, {"setup.json": "{}", "noop.py": "pass\n", name: "x"}]), ["custom"])
+    written = next(c for c in checks(result) if c["check"] == "custom written")
+    assert written["ok"] is False and "unsafe file name" in str(written["detail"])
+
+
+@pytest.mark.parametrize("spec", ["file:./fake", "link:../fake", "../fake", "git+https://example.com/cli.git",
+                                  "github:someone/cli", "someone/cli", "https://example.com/cli.tgz", "npm:other-cli@2",
+                                  "cli.tar", "x.tgz", "x.tar.gz", "X.TGZ", "x.tgz ", " x.tar ", "..", "1.0 || file:x", "~/cli", "1.0\\fake"])
+def test_package_json_dependencies_must_come_from_the_registry(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, spec: str) -> None:
+    # A local or aliased package can put a fake build tool in node_modules/.bin.
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"]}))
+    package = json.dumps({"name": "app", "devDependencies": {"@tauri-apps/cli": spec}})
+    result = run(tmp_path, Model([WEB, {"setup.json": "{}", "noop.py": "pass\n", "package.json": package}]), ["custom"])
+    written = next(c for c in checks(result) if c["check"] == "custom written")
+    assert written["ok"] is False and "package.json" in str(written["detail"])
+
+
+def test_registry_versions_in_package_json_are_fine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"]}))
+    package = json.dumps({"name": "app", "devDependencies": {"@tauri-apps/cli": "^2.0.0", "vite": "5.4.1", "x": "latest", "a": "~1.2.3", "b": ">=1 <2", "c": "*", "d": "1.x", "e": "", "f": "^1 || ^2"}})
+    result = run(tmp_path, Model([WEB, {"setup.json": "{}", "noop.py": "pass\n", "package.json": package}]), ["custom"])
+    assert not any(c["check"] == "custom written" for c in checks(result))
+
+
+def _written(result: make.MakeResult) -> dict[str, object]:
+    return next(c for c in checks(result) if c["check"] == "custom written")
+
+
+def test_file_names_are_compared_without_regard_to_letter_case(tmp_path: Path) -> None:
+    from proofhouse import app_platforms, make_checks
+
+    fake = json.dumps({"devDependencies": {"@tauri-apps/cli": "file:./fake"}})
+    for name in ("Package.json", "www/PACKAGE.JSON"):
+        with pytest.raises(ValueError, match="registry"):
+            app_platforms.check_packages({name: fake})
+    for name in ("PACKAGE-LOCK.JSON", "Yarn.lock", "src/Pnpm-Lock.yaml"):
+        with pytest.raises(ValueError, match="lockfile"):
+            app_platforms.check_packages({name: "{}"})
+    with pytest.raises(ValueError, match="letter case"):
+        make_checks.write_files({"package.json": "{}", "Package.json": fake}, tmp_path / "out")
+    assert not (tmp_path / "out").exists()
+
+
+@pytest.mark.parametrize("name", ["pnpm-workspace.yaml", "bun.lock", "bun.lockb", "bunfig.toml", "app/Bunfig.toml"])
+def test_other_package_manager_files_are_refused(name: str) -> None:
+    from proofhouse import app_platforms
+
+    with pytest.raises(ValueError, match="may not write"):
+        app_platforms.check_packages({name: "x"})
+
+
+@pytest.mark.parametrize("pnpm", [{"overrides": {"cli": "file:./fake"}}, {"overrides": {"a": {"b": "link:../x"}}},
+                                  {"patchedDependencies": {"cli@1.0.0": "patches/cli.patch"}}])
+def test_pnpm_settings_in_package_json_are_checked(pnpm: dict[str, object]) -> None:
+    from proofhouse import app_platforms
+
+    with pytest.raises(ValueError, match="package.json"):
+        app_platforms.check_packages({"package.json": json.dumps({"name": "app", "pnpm": pnpm})})
+    app_platforms.check_packages({"package.json": json.dumps({"name": "app", "pnpm": {"overrides": {"cli": "^2.0.0"}}})})
+
+
+def test_deeply_nested_package_json_is_refused_not_a_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import app_platforms
+
+    deep = "[" * 200_000 + "]" * 200_000
+    with pytest.raises(ValueError, match="nested too deeply"):
+        app_platforms.check_packages({"package.json": deep})
+    nested: object = "file:./fake"
+    for _ in range(5000):
+        nested = [nested]
+    assert app_platforms._strings(nested) == ["file:./fake"]
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"]}))
+    result = run(tmp_path, Model([WEB, {"setup.json": "{}", "noop.py": "pass\n", "package.json": deep}]), ["custom"])
+    assert _written(result)["ok"] is False
+
+
+@pytest.mark.parametrize("name", ["www/.well-known/assetlinks.json", ".gitignore", "src/.gitignore", ".well-known/apple-app-site-association"])
+def test_well_known_folder_and_gitignore_are_allowed(name: str) -> None:
+    from proofhouse import make_checks
+
+    assert make_checks.safe_name(name)
+
+
+@pytest.mark.parametrize("name", [".gitignore/x", ".gitignore/.gitignore", ".well-known", "a/.well-known", ".env", "www/.npmrc",
+                                  ".well-known/.env", "x/.git/config", ".gitignore."])
+def test_other_dotted_parts_stay_refused(name: str) -> None:
+    from proofhouse import make_checks
+
+    assert not make_checks.safe_name(name)
+
+
+def test_a_legitimate_project_with_well_known_and_gitignore_is_written(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"]}))
+    files = {"setup.json": "{}", "noop.py": "pass\n", ".gitignore": "node_modules\n", "www/.well-known/assetlinks.json": "[]"}
+    result = run(tmp_path, Model([WEB, files]), ["custom"])
+    assert not any(c["check"] == "custom written" for c in checks(result))
+    assert (result.folder / "v1" / "custom" / "www" / ".well-known" / "assetlinks.json").is_file()
+
+
+@pytest.mark.parametrize("name", ["capacitor.config.js", "CAPACITOR.CONFIG.JS", "capacitor.config.ts", "sub/capacitor.config.js"])
+def test_platform_data_can_refuse_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"]}, refuse_files=["capacitor.config.js", "Capacitor.Config.TS"]))
+    result = run(tmp_path, Model([WEB, {"setup.json": "{}", "noop.py": "pass\n", name: "module.exports = {};"}]), ["custom"])
+    written = _written(result)
+    assert written["ok"] is False and "may not write" in str(written["detail"])
+
+
+@pytest.mark.parametrize("name", ["src-tauri/tauri.conf.json", "SRC-TAURI/Tauri.Conf.json"])
+@pytest.mark.parametrize("config", [{"build": {"runner": "evil"}}, {"build": {"beforeBuildCommand": "evil"}}])
+def test_platform_data_can_refuse_keys(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, config: dict[str, object]) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    keys = {"src-tauri/tauri.conf.json": ["build.runner", "build.beforeBuildCommand"]}
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"]}, refuse_keys=keys))
+    result = run(tmp_path, Model([WEB, {"setup.json": "{}", "noop.py": "pass\n", name: json.dumps(config)}]), ["custom"])
+    written = _written(result)
+    assert written["ok"] is False and "may not set" in str(written["detail"])
+
+
+def test_a_config_without_the_refused_keys_is_fine(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    keys = {"src-tauri/tauri.conf.json": ["build.runner"]}
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"]}, refuse_keys=keys))
+    config = json.dumps({"build": {"frontendDist": "../www"}})
+    result = run(tmp_path, Model([WEB, {"setup.json": "{}", "noop.py": "pass\n", "src-tauri/tauri.conf.json": config}]), ["custom"])
+    assert not any(c["check"] == "custom written" for c in checks(result))
+
+
+def test_shipped_tauri_and_capacitor_data_refuse_what_the_review_found() -> None:
+    from proofhouse import app_platforms
+
+    shipped = app_platforms.all_platforms()
+    package = json.dumps({"devDependencies": {"@tauri-apps/cli": "2", "@capacitor/cli": "6"}})
+    for platform_id in ("windows", "macos", "linux"):
+        for name in ("src-tauri/tauri.windows.conf.json", "src-tauri/tauri.macos.conf.json", "src-tauri/tauri.linux.conf.json",
+                     "src-tauri/tauri.android.conf.json", "src-tauri/tauri.ios.conf.json", "src-tauri/tauri.conf.json5", "src-tauri/Tauri.toml"):
+            with pytest.raises(ValueError, match="may not write"):
+                app_platforms.check_platform({name: "x", "package.json": package}, shipped[platform_id])
+        for key in ("runner", "beforeBuildCommand", "beforeBundleCommand", "beforeDevCommand"):
+            with pytest.raises(ValueError, match="build." + key):
+                app_platforms.check_platform({"src-tauri/tauri.conf.json": json.dumps({"build": {key: "x"}}), "package.json": package},
+                                             shipped[platform_id])
+    for platform_id in ("ios", "android"):
+        for name in ("capacitor.config.js", "capacitor.config.ts", "capacitor.config.mjs", "capacitor.config.cjs"):
+            with pytest.raises(ValueError, match="may not write"):
+                app_platforms.check_platform({name: "x", "package.json": package}, shipped[platform_id])
+
+
+def _tool_entry() -> dict[str, object]:
+    return _python_entry({"before": [["python", "setup.py"]], "command": ["python", "noop.py"],
+                          "tool_package": "@scope/real-cli", "tool_bin": "realtool"})
+
+
+def _setup(*packages: tuple[str, dict[str, object]]) -> str:
+    lines = ["import json, pathlib"]
+    for name, manifest in packages:
+        lines += [f"d = pathlib.Path('node_modules/{name}')", "d.mkdir(parents=True)",
+                  f"(d / 'package.json').write_text(json.dumps({manifest!r}))"]
+    return "\n".join(lines) + "\n"
+
+
+_REAL = ("@scope/real-cli", {"name": "@scope/real-cli", "bin": {"realtool": "cli.js"}})
+_LISTED = json.dumps({"name": "app", "devDependencies": {"@scope/real-cli": "^1.0.0"}})
+
+
+def _tool_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, setup: str, package: str = _LISTED) -> list[dict[str, object]]:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _tool_entry())
+    files = {"setup.json": "{}", "setup.py": setup, "noop.py": "pass\n", "package.json": package}
+    return checks(run(tmp_path, Model([WEB, files]), ["custom"], allow_commands=True))
+
+
+def _build(found: list[dict[str, object]]) -> dict[str, object]:
+    return next(c for c in found if c["check"] == "custom build")
+
+
+def test_the_build_tool_from_the_expected_package_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    found = _build(_tool_run(tmp_path, monkeypatch, _setup(_REAL, ("left-pad", {"name": "left-pad", "bin": {"other": "x.js"}}))))
+    assert found["ok"] is True, found
+
+
+@pytest.mark.parametrize("fake", [
+    ("fake", {"name": "fake", "bin": {"realtool": "x.js"}}),
+    ("realtool", {"name": "realtool", "bin": "x.js"}),
+    ("@evil/pkg", {"name": "@evil/pkg", "bin": {"RealTool": "x.js"}}),
+])
+def test_another_package_may_not_provide_the_build_tool(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, fake: tuple[str, dict[str, object]]) -> None:
+    found = _build(_tool_run(tmp_path, monkeypatch, _setup(_REAL, fake)))
+    assert found["ok"] is False and "also provides" in str(found["detail"]), found
+
+
+def test_the_build_fails_when_the_tool_package_is_not_installed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    found = _build(_tool_run(tmp_path, monkeypatch, _setup(("fake", {"name": "fake", "bin": "x.js"}))))
+    assert found["ok"] is False and "not installed" in str(found["detail"]), found
+
+
+def test_package_json_must_list_the_tool_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    found = _tool_run(tmp_path, monkeypatch, _setup(_REAL), json.dumps({"name": "app", "devDependencies": {"vite": "5"}}))
+    written = next(c for c in found if c["check"] == "custom written")
+    assert written["ok"] is False and "@scope/real-cli" in str(written["detail"])
+    assert not any(c["check"] == "custom build" for c in found)
+
+
+def test_an_output_that_cannot_be_read_fails_the_build_check(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import app_platforms
+
+    entry = _python_entry({"command": ["python", "noop.py"], "output": "dist"})
+    folder = tmp_path / "app"
+    (folder / "dist").mkdir(parents=True)
+    (folder / "noop.py").write_text("pass\n", encoding="utf-8")
+
+    def broken(path: Path) -> list[tuple[str, int, int]]:
+        raise PermissionError("no access")
+
+    monkeypatch.setattr(app_platforms, "_snapshot", broken)
+    found = app_platforms.build_check(folder, entry, True, "app")
+    assert found["ok"] is False and "dist" in str(found["detail"])
+
+
+def test_shipped_data_refuses_other_tauri_configs_and_capacitor_hooks() -> None:
+    from proofhouse import app_platforms
+
+    shipped = app_platforms.all_platforms()
+    package = {"devDependencies": {"@tauri-apps/cli": "2", "@capacitor/cli": "6"}}
+    for platform_id in ("windows", "macos", "linux"):
+        for name in ("src-tauri/tauri.windows.conf.json5", "src-tauri/Tauri.Windows.toml", "www/Tauri.toml", "app/tauri.linux.conf.json"):
+            with pytest.raises(ValueError, match="may not write"):
+                app_platforms.check_platform({name: "x", "package.json": json.dumps(package)}, shipped[platform_id])
+        with pytest.raises(ValueError, match="build.runner"):
+            app_platforms.check_platform({"www/tauri.conf.json": json.dumps({"build": {"runner": "x"}}), "package.json": json.dumps(package)},
+                                         shipped[platform_id])
+        app_platforms.check_platform({"src-tauri/tauri.conf.json": json.dumps({"build": {"frontendDist": "../www"}}),
+                                      "package.json": json.dumps(package)}, shipped[platform_id])
+    for platform_id in ("ios", "android"):
+        with pytest.raises(ValueError, match="scripts"):
+            app_platforms.check_platform({"package.json": json.dumps({**package, "scripts": {"capacitor:sync:before": "node x.js"}})},
+                                         shipped[platform_id])
+
+
+def test_a_fake_tool_is_caught_before_a_later_setup_step_runs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _python_entry({"before": [["python", "setup.py"], ["python", "hide.py"]], "command": ["python", "noop.py"],
+                                            "tool_package": "@scope/real-cli", "tool_bin": "realtool"}))
+    hide = "import shutil\nshutil.rmtree('node_modules/fake')\n"
+    files = {"setup.json": "{}", "setup.py": _setup(_REAL, ("fake", {"name": "fake", "bin": {"realtool": "x.js"}})), "hide.py": hide,
+             "noop.py": "pass\n", "package.json": _LISTED}
+    found = _build(checks(run(tmp_path, Model([WEB, files]), ["custom"], allow_commands=True)))
+    assert found["ok"] is False and "also provides" in str(found["detail"]) and found["command"] == ["python", "hide.py"], found
+
+
+def test_a_bin_folder_cannot_provide_the_build_tool(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    setup = _setup(_REAL, ("fake", {"name": "fake", "directories": {"bin": "tools"}}))
+    setup += "d = pathlib.Path('node_modules/fake/tools')\nd.mkdir()\n(d / 'realtool').write_text('x')\n"
+    found = _build(_tool_run(tmp_path, monkeypatch, setup))
+    assert found["ok"] is False and "also provides" in str(found["detail"]), found
+
+
+def test_a_deeply_nested_installed_manifest_is_not_a_crash(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    setup = _setup(_REAL) + "d = pathlib.Path('node_modules/deep')\nd.mkdir()\n(d / 'package.json').write_text('[' * 200000 + ']' * 200000)\n"
+    found = _build(_tool_run(tmp_path, monkeypatch, setup))
+    assert found["ok"] is True, found

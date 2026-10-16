@@ -43,10 +43,18 @@ def parse_json(text: str) -> dict[str, Any]:
 
 
 def safe_name(name: Any) -> bool:
-    """A relative file name that stays inside its folder on every OS (no drives, shares, "..", devices)."""
-    return isinstance(name, str) and bool(_SAFE_FILE.fullmatch(name)) and not PurePosixPath(name).is_absolute() \
-        and not PureWindowsPath(name).is_absolute() and ".." not in PurePosixPath(name).parts and not name.startswith(".") \
-        and not any(_DEVICE.fullmatch(part) or part.endswith(".") for part in PurePosixPath(name).parts)
+    """A relative file name that stays inside its folder on every OS (no drives, shares, "..", devices, dotted parts).
+
+    No part may start with a dot, so model files cannot reach tool settings or links such as .npmrc or node_modules/.bin.
+    The two exceptions are a .well-known folder (app links) and a final file named .gitignore.
+    """
+    if not (isinstance(name, str) and _SAFE_FILE.fullmatch(name) and not PurePosixPath(name).is_absolute()
+            and not PureWindowsPath(name).is_absolute() and ".." not in PurePosixPath(name).parts):
+        return False
+    parts = PurePosixPath(name).parts
+    return not any(_DEVICE.fullmatch(part) or part.endswith(".")
+                   or (part.startswith(".") and not (part == (".gitignore" if index == len(parts) - 1 else ".well-known")))
+                   for index, part in enumerate(parts))
 
 
 def write_files(files: Any, folder: Path) -> list[str]:
@@ -59,6 +67,8 @@ def write_files(files: Any, folder: Path) -> list[str]:
         if not safe_name(name):
             raise ValueError(f"unsafe file name: {name!r}")
         names.append(name)
+    if len({name.lower() for name in names}) != len(names):
+        raise ValueError("two file names differ only in letter case; the second would overwrite the first on Windows and macOS")
     folder.mkdir(parents=True, exist_ok=True)
     for name, content in files.items():
         path = folder / name

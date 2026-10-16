@@ -405,6 +405,8 @@ def _try_app(
             if output and any(PurePosixPath(name.lower()).parts[:len(output)] == output for name in additions):
                 raise ValueError(f"the model may not write files under the build output {entry['build']['output']}")
             shared_here = {(f"{web}/{name}" if web else name): text for name, text in shared_files.items()}
+            app_platforms.check_packages({**shared_here, **additions})
+            app_platforms.check_platform({**shared_here, **additions}, entry)
             names = make_checks.write_files({**shared_here, **additions}, destination)
             written[platform_id] = names
             platform_checks = app_platforms.static_checks(destination, entry)
