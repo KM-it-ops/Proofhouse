@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import proofhouse
 from proofhouse import cli, compare, live
 
 
@@ -40,6 +41,7 @@ def test_every_model_runs_and_the_results_sit_side_by_side(tmp_path: Path) -> No
     assert len(models.asked) == 4  # three runs and one judge
     record = json.loads((tmp_path / "c" / "compare.json").read_text(encoding="utf-8"))
     assert record["best"] == "ollama:qwen2.5:7b" and "advice" in record["judge"]["note"]
+    assert record["proofhouse_version"] == proofhouse.__version__
     page = (tmp_path / "c" / "side-by-side.html").read_text(encoding="utf-8")
     assert "answer from phi" in page and "9/10" in page
     assert len(list((tmp_path / "c" / "outputs").iterdir())) == 3

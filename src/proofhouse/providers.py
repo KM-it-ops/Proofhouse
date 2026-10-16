@@ -21,10 +21,22 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
+
+
+def _read_umask() -> int:
+    """The process umask, read once (os.umask can only be read by setting it, so it is put straight back)."""
+    mask = os.umask(0)
+    os.umask(mask)
+    return mask
+
+
+_UMASK = _read_umask()
 
 PROVIDERS_SCHEMA = "proofhouse.providers/v1"
 SHIPPED_PATH = Path(__file__).resolve().parent / "data" / "providers.json"
@@ -143,13 +155,43 @@ def load_user() -> dict[str, Any]:
     return data
 
 
-def save_user(data: dict[str, Any]) -> Path:
-    """Write your providers file in one step (write a temporary file, then replace)."""
-    path = user_path()
+def write_atomic(path: Path, content: str | bytes) -> None:
+    """Write ``path`` in one step: a temporary file, then replace. A failed write leaves the old file and no leftover.
+
+    Every writer gets its own temporary file, so two saves of the same file never share one.
+    The new file keeps the old one's permission bits, so a settings file you locked down stays locked down;
+    a brand-new file gets the normal create bits (0o666 minus your umask), as if it had been opened directly.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+    handle, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".proofhouse-tmp")
+    temporary = Path(name)
+    try:
+        # Closed first: Windows cannot replace a file that is still open.
+        os.close(handle)
+        # POSIX: set the permission bits before any content goes in, so it is never briefly readable by others.
+        # Windows has only a read-only flag, which would block writing and cleaning up the temporary file.
+        if os.name != "nt":
+            if path.exists():
+                shutil.copymode(path, temporary)
+            else:
+                temporary.chmod(0o666 & ~_UMASK)
+        if isinstance(content, bytes):
+            temporary.write_bytes(content)
+        else:
+            temporary.write_text(content, encoding="utf-8")
+        os.replace(temporary, path)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def save_user(data: dict[str, Any]) -> Path:
+    """Write your providers file in one step. A failed save leaves it unchanged and raises ProviderError."""
+    path = user_path()
+    try:
+        write_atomic(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
+    except OSError as exc:
+        raise ProviderError(f"could not save {path}: {exc}; it is unchanged") from None
     return path
 
 

@@ -1,5 +1,7 @@
 # Product scope
 
+> The current plan, what the finished product does and the build order, is [master-plan.md](master-plan.md). Where this page disagrees with it, the master plan wins.
+
 Decided 2026-09-21 (see [decision 0001](decisions/0001-local-first-evidence-workspace.md)).
 
 ## What Proofhouse is

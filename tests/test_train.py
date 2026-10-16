@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import proofhouse
 from proofhouse import cli, train
 
 
@@ -82,6 +83,7 @@ def test_a_job_is_uploaded_started_waited_for_and_ready_to_use(tmp_path: Path, d
     assert Decimal(result.admission["worst_case_usd"]) == Decimal(size) * 3 * 25 / 1_000_000
     assert svc.reads == ["https://api.openai.com/v1/fine_tuning/jobs/ftjob-1"] * 2
     assert "sk-train-secret" not in (tmp_path / "rec" / "train.json").read_text(encoding="utf-8")
+    assert json.loads((tmp_path / "rec" / "train.json").read_text(encoding="utf-8"))["proofhouse_version"] == proofhouse.__version__
 
 
 def test_over_the_limit_or_without_a_price_nothing_is_uploaded(tmp_path: Path, data: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -57,7 +57,10 @@ def _cmd_media_price(args: argparse.Namespace) -> int:
             return _fail(f"--usd must be a plain decimal above zero (USD per {profile.unit})")
         data["media_prices"].append({"provider": profile.id, "model": args.model, "unit": profile.unit,
                                      "usd_per_unit": args.usd, "declared_on": date.today().isoformat()})
-    path = providers.save_user(data)
+    try:
+        path = providers.save_user(data)
+    except providers.ProviderError as exc:
+        return _fail(str(exc))
     done = "removed your price" if args.remove else f"${args.usd} per {profile.unit}, declared by you"
     print(f"{profile.id} {args.model}: {done} ({path})")
     return EXIT_OK
@@ -74,8 +77,10 @@ def _cmd_media_add(args: argparse.Namespace) -> int:
         return _fail(str(exc))
     ids = {p.id for p in parsed}
     kept = [entry for entry in current if entry.get("id") not in ids]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"schema": media.MEDIA_SCHEMA, "providers": kept + entries}, indent=2) + "\n", encoding="utf-8")
+    try:
+        providers.write_atomic(path, json.dumps({"schema": media.MEDIA_SCHEMA, "providers": kept + entries}, indent=2) + "\n")
+    except OSError as exc:
+        return _fail(f"could not save {path}: {exc}; it is unchanged")
     print(f"added {', '.join(sorted(ids))} to {path}")
     return EXIT_OK
 

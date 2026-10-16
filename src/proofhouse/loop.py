@@ -26,7 +26,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
-from . import live, media, providers
+from . import __version__, live, media, providers
 from .make import Budget, _slug
 
 MAX_ACTIONS = 10
@@ -326,7 +326,7 @@ def run_loop(
 def _write_record(folder: Path, goal: str, provider: str, model: str, limit: str | None, check: str | None, watch: str | None,
                   every: float | None, allow_commands: bool, result: LoopResult, budget: Budget) -> None:
     record = {
-        "goal": goal, "provider": provider, "model": model, "workdir": str(result.workdir),
+        "proofhouse_version": __version__, "goal": goal, "provider": provider, "model": model, "workdir": str(result.workdir),
         "max_cost_usd": limit, "check": check, "watch": watch, "every_seconds": every, "commands_allowed": allow_commands,
         "stopped": result.stopped, "done": result.done, "rounds": len(result.steps), "calls": result.calls,
         "spent_usd_estimated": format(budget.spent, "f"),

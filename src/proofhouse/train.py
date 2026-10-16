@@ -29,7 +29,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlparse
 
-from . import providers, spend
+from . import __version__, providers, spend
 
 TRAIN_SCHEMA = "proofhouse.training-services/v1"
 SHIPPED_PATH = Path(__file__).resolve().parent / "data" / "training_services.json"
@@ -404,7 +404,7 @@ def start(
         result = _run_service(profile, model, train_file, valid_file, epochs, suffix, max_cost_usd, wait, folder,
                               transport, upload or _httpx_upload, get or _httpx_get, poll_every, poll_limit_seconds)
     result.folder = str(folder)
-    (folder / "train.json").write_text(json.dumps(result.to_dict(), indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+    (folder / "train.json").write_text(json.dumps({**result.to_dict(), "proofhouse_version": __version__}, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
     return result
 
 

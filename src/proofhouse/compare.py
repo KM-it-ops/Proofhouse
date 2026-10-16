@@ -18,7 +18,7 @@ from decimal import ROUND_DOWN, Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from . import live, providers
+from . import __version__, live, providers
 from .make import _slug
 
 MAX_TARGETS = 24
@@ -187,7 +187,7 @@ def _write(folder: Path, prompt: str, input_text: str | None, limit: str | None,
     for entry in result.entries:
         name = re.sub(r"[^A-Za-z0-9._-]+", "-", f"{entry.label}-{entry.provider}-{entry.model}")
         (outputs / f"{name}.md").write_text((entry.output or f"({entry.status}: {entry.message})") + "\n", encoding="utf-8")
-    record = {"prompt": prompt, "input": input_text, "max_cost_usd": limit, "best": result.best, "judge": result.judge,
+    record = {"proofhouse_version": __version__, "prompt": prompt, "input": input_text, "max_cost_usd": limit, "best": result.best, "judge": result.judge,
               "spent_usd_estimated": format(result.spent_usd, "f"), "entries": [e.to_dict() for e in result.entries],
               "note": "Dollar figures are estimates from token counts and prices, not your bill."}
     (folder / "compare.json").write_text(json.dumps(record, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")

@@ -1,5 +1,44 @@
 # Changelog
 
+## 0.8.0 - 2026-10-16
+
+Rules, MCP servers, hooks and apps for every platform.
+
+### Added
+
+- **Rules, MCP servers and hooks.** `proofhouse make "..." --kind rule|mcp|hook` makes each one and tries it for real before the judge sees it.
+  - `--kind rule` makes a Markdown instruction and checks that it installs into, and cleanly comes out of, every rule-capable tool, using throwaway settings.
+  - `--kind mcp` makes a stdio tool server, starts it, and checks its `initialize` and `tools/list` replies. Every listed tool must be valid. The best folder includes an exact install line.
+  - `--kind hook` makes a command hook for a Claude Code event, runs it on a sample event, and includes a settings snippet. A blocking hook must give a reason.
+  - Every version keeps `checks.json`.
+- **Apps for every platform.** `proofhouse make "..." --kind app` makes one shared web app and a separate package for each selected platform. Use repeatable `--platform` (for example `--platform pwa --platform android`); without it, every platform in the list is selected.
+  - Platforms are data. `app_platforms.json` ships an installable web app (PWA), Windows, macOS and Linux (Tauri), and iOS and Android (Capacitor). Add or override any platform in `PROOFHOUSE_HOME/app_platforms.json`.
+  - Each platform is checked offline: required files and keys, and for the PWA the manifest, icon and service worker.
+  - With `--allow-commands`, setup steps (such as `npm install --ignore-scripts` and `npx cap add android`) and the build run on a matching machine. The build fails if its output folder is missing, or if it already existed before the build ran.
+  - The delivered `README.md` lists the files, where the build output is, and how to build by hand.
+  - The desktop and phone builds have not yet been run end to end on real machines, so each is marked "to check".
+- **`--allow-commands` for `make`.** Nothing a model wrote is started without it. Commands run with a cleaned environment, a timeout, and a kill of every process they start (a job object on Windows). Shell characters, absolute paths, device file names and leading `-` are refused before anything starts. This is an opt-in, not a sandbox: an allowed program runs with your rights.
+- `proofhouse evaluate-product --require-req ID` (repeatable) and benchmark `required_req_ids`: a run that does not cover every required requirement fails. The ids are part of the sealed record and its checksum.
+- `docs/master-plan.md`: one plan for what Proofhouse does, where it stands, and the build order.
+
+### Changed
+
+- The hosted API contract publishes repeatable flags (`--require-req`, `compare --on`) as lists.
+- Every run record (`make`, `video`, `compare`, `loop`, `launch`, `train`) names the Proofhouse version that made it (`proofhouse_version`).
+
+### Fixed
+
+- **A failed install or update keeps what you had.** Your providers, media and training settings, installed add-ons, and agents, rules, MCP servers and hooks installed into your tools are now written in one step. If the disk is full or a file is locked, the old file stays as it was, nothing half-written is left, and you get a clear error instead of a traceback. If a tool install cannot save its record, the tool's file is put back, so a later uninstall still works. Rewritten files keep their permissions. Each write uses its own temporary file, so two Proofhouse runs saving the same file at once no longer collide.
+- **An app build cannot be faked.** Package install scripts no longer run (`npm install --ignore-scripts`). A build whose output was already there before the build step fails. The model cannot write files into dotted folders (such as `.cargo`, `node_modules/.bin` or `.npmrc`), a model-written `package.json` may only use registry versions (no `file:`, `link:`, git, URL, alias, workspace or tarball packages), and model-written lockfiles and other package-manager files are refused. File names are compared without regard to letter case; a `.well-known` folder and a `.gitignore` file are still allowed. Each platform can refuse config files and keys that would run the model's own code: Capacitor JS/TS configs and `capacitor:` package scripts, and Tauri's extra config files and its `runner` and `before…Command` settings. The build tool must come from its real package (`@tauri-apps/cli` or `@capacitor/cli`): `npx --no-install` never downloads a stand-in, and the build stops if another installed package also provides the tool. A brand-new file written safely gets your normal file permissions.
+- **Evidence record.** Rubric scoring is type-strict: `true` no longer matches `1`, and each kind of value matches only its own kind. Rubric matching now scores list, dict and null expected values as 0.0. Repeated JSON keys are rejected in the compiler commands that read JSON, and very deep nesting is a clear, line-numbered error instead of a crash.
+- **Project scan** (about 21 review fixes):
+  - It reads only regular files and never follows links, so a pipe or a link named like a manifest cannot hang or misdirect it.
+  - One unreadable folder gives a clean `scan:` line instead of a traceback, and no longer stops the scan.
+  - Every string taken from the folder is cleaned and length-bounded before printing.
+  - Pasted private keys (PEM, PuTTY, SSH2) and more token shapes are redacted from the README excerpt.
+  - Manifests with a BOM or in UTF-16 are read, and ones that cannot be parsed are noted. The README is found whatever its letter case.
+  - The folder walk is bounded by folders as well as files.
+
 ## 0.7.0 - 2026-10-12
 
 Any provider, any model.

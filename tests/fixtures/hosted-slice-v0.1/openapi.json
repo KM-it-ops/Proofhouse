@@ -292,7 +292,10 @@
                   },
                   "on": {
                     "description": "A model to run it on; repeat for each, for example --on groq:llama-3.3-70b-versatile --on ollama:llama3.",
-                    "type": "string"
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "out": {
                     "description": "Folder for the results (default: compare-<job>-<time> here).",
@@ -515,6 +518,13 @@
                   "json": {
                     "description": "Emit a single JSON result envelope.",
                     "type": "boolean"
+                  },
+                  "require-req": {
+                    "description": "Requirement id the dataset must cover (repeatable); a miss blocks the result.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "rubric": {
                     "description": "Path to JSON rubric.",
@@ -1091,6 +1101,10 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
+                  "allow-commands": {
+                    "description": "Start made MCP, hook or app build commands to check them. They run model-written code with your rights; this is not a sandbox.",
+                    "type": "boolean"
+                  },
                   "formats": {
                     "description": "Renders: 16x9, 9x16, 1x1 (comma separated).",
                     "type": "string"
@@ -1104,7 +1118,7 @@
                     "type": "boolean"
                   },
                   "kind": {
-                    "description": "What to make: prompt, skill, agent, site, copy, video, launch, or a kind an add-on adds (default prompt).",
+                    "description": "What to make: prompt, skill, agent, site, app, copy, rule, mcp, hook, video, launch, or a kind an add-on adds (default prompt).",
                     "type": "string"
                   },
                   "max-cost-usd": {
@@ -1137,6 +1151,13 @@
                   "parts": {
                     "description": "For --kind launch: which parts to make, comma separated, from site,video,agent,skill,prompt,copy (default: the planner picks).",
                     "type": "string"
+                  },
+                  "platform": {
+                    "description": "For --kind app: repeat for each target id (default: every platform in app_platforms.json).",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "provider": {
                     "description": "Provider id (see `proofhouse providers list`).",

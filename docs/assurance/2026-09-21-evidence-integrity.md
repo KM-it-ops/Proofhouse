@@ -76,12 +76,16 @@ Re-run on the ported head, same platform:
 | `python scripts/generate_model_surfaces.py --check` | in sync (18 models) |
 | `scripts/build_skill_bundle.py` | deterministic; only the JSX asset changed in both bundles |
 
-Still open from the same review, on neither branch:
-- `hosted-compile` (experimental) and `closed-loop-bridged-008` parse with plain `json.loads`, so a
-  duplicate `priority` key can silently make a mandatory requirement optional.
-- `evaluate-product` and the benchmark scorer do not require requirement coverage.
-- A deeply nested dataset row raises `RecursionError` out of `closed-loop`.
-- Rubric matching treats `1` as equal to `true`.
+The four left open by the same review were fixed on 2026-10-16 (`3dd132d`), each with regression tests:
+- `hosted-compile` (experimental), `closed-loop-bridged-008` and `compile-requirements` reject repeated JSON keys,
+  so a duplicate `priority` key can no longer make a mandatory requirement optional
+  (`tests/compiler/test_strict_json_inputs.py`).
+- `evaluate-product --require-req` and benchmark `required_req_ids` block a result whose dataset misses a
+  required requirement; the sealed record and its checksum name those ids
+  (`tests/compiler/test_required_coverage.py`).
+- A deeply nested dataset row is a line-numbered error, not a `RecursionError`
+  (`tests/compiler/test_strict_json_inputs.py`).
+- Rubric matching is type-strict: `1` no longer equals `true` (`tests/compiler/test_rubric_strict_match.py`).
 
 ## Review findings
 

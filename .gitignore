@@ -63,3 +63,9 @@ MISSION_*_Proofhouse_*.md
 CODEX_IMPLEMENTATION_PROMPT.md
 PROOFHOUSE_FILE_MANIFEST.md
 proofhouse_*.zip
+
+# Claude Code per-person settings: local paths and permission grants, never committed.
+.claude/settings.local.json
+
+# Claude Code worktrees made inside the repo.
+.claude/worktrees/

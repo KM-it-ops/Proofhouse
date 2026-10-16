@@ -147,6 +147,8 @@ proofhouse make "a skill that reviews pull requests for security issues" --kind 
 
 `make` writes version 1 with your model and tries it (a prompt runs on a test input, yours or one it writes). A judge model scores it against what you asked for, and `make` revises until the score reaches `--target` (default 9), the rounds run out (`--rounds`, default 3), or the next call would cross your spending limit, which covers the whole command. Every version, test output, score and cost is kept in one folder. The best version is `final.md`, or for a skill an installable folder (`proofhouse install-skill --bundle <folder>`). The judge is a model, so its score is advice, not proof.
 
+`--kind rule` makes a Markdown instruction and checks installation and clean removal in every rule-capable host using throwaway settings. `--kind mcp` makes a stdio server and checks its `initialize` and `tools/list` replies; the best folder includes an exact install line. `--kind hook` makes a command hook, runs it on a sample event, and includes a Claude Code settings snippet. Each version keeps `checks.json`; generated commands run with a limited environment and a timeout.
+
 Put it online when you say so, with the hosting service's own tool (signed in your usual way):
 
 ```bash
@@ -165,6 +167,8 @@ proofhouse make "launch Brew, a one-tap coffee ordering app, to busy commuters" 
 A model plans the launch: which parts it needs (site, video, support agent, skill, prompt, announcement copy) and a full brief for each, with the same names, facts and tone throughout. Then each part is made by its own engine, the same one its own command uses, and judged and improved the same way. `--parts site,copy,video` picks the parts yourself. One spending limit covers the plan and every part; a part that would not fit is skipped and says so. Each part gets its own numbered folder, and `README.md` and `launch.json` sum it all up. The video part needs the video options above and FFmpeg.
 
 `--kind copy` makes announcement copy on its own: headline, body, call to action and ready-to-post versions.
+
+`--kind app` makes a shared web app and a separate package for every selected platform. Use repeatable `--platform` (for example `--platform pwa --platform android`); without it, every target in `app_platforms.json` is selected. The catalog ships PWA, Windows, macOS, Linux, iOS and Android targets and can be extended or overridden in `PROOFHOUSE_HOME/app_platforms.json`. Each version keeps static and build results in `checks.json`; platform builds run only with `--allow-commands`, after their setup steps (such as `npm install` and `npx cap add android`). The delivered `README.md` lists files, where the build output is, and how to build by hand. The shipped desktop and phone builds have not yet been run end to end on real machines, so each is marked "to check" with what is left to confirm.
 
 ### Make a website
 
@@ -279,7 +283,7 @@ Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human
 
 ## Install and verify
 
-One Python package, version 0.7.0, ships one command, `proofhouse`. Every interface reaches the same command tree (`proofhouse-compiler` still works as an alias and prints a one-line notice on stderr; `proofhouse optimize` likewise forwards to `proofhouse case`):
+One Python package, version 0.8.0, ships one command, `proofhouse`. Every interface reaches the same command tree (`proofhouse-compiler` still works as an alias and prints a one-line notice on stderr; `proofhouse optimize` likewise forwards to `proofhouse case`):
 
 | Command group | What it is | Commands |
 |---|---|---|
