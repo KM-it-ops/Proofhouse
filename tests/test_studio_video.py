@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pytest
 
+import proofhouse
 from proofhouse import cli, live, media, studio
 
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="FFmpeg not installed")
@@ -78,6 +79,7 @@ def test_a_brief_becomes_three_finished_renders_with_voice_music_and_captions(tm
     assert "00:00:02,000 --> 00:00:04,000\nPick any model" in srt
     record = json.loads((tmp_path / "video" / "studio.json").read_text(encoding="utf-8"))
     assert record["title"] == "Proofhouse launch" and len(record["shots"]) == 3 and record["ffmpeg"]
+    assert record["proofhouse_version"] == proofhouse.__version__
     assert sorted(p.name for p in (tmp_path / "video" / "shots").iterdir()) == ["shot-01.png", "shot-02.png", "shot-03.png"]
 
 

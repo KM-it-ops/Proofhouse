@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 
+import proofhouse
 from proofhouse import cli, launch, live, media
 
 SITE = {"index.html": '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width">'
@@ -67,6 +68,7 @@ def test_a_goal_becomes_every_planned_part_each_made_by_its_engine(tmp_path: Pat
     assert team.roles[0] == "plan" and team.roles.count("judge") == 3
     record = json.loads((tmp_path / "l" / "launch.json").read_text(encoding="utf-8"))
     assert record["stopped"] == "finished" and len(record["parts"]) == 3
+    assert record["proofhouse_version"] == proofhouse.__version__
     assert "## site: made" in (tmp_path / "l" / "README.md").read_text(encoding="utf-8")
 
 

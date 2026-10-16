@@ -16,7 +16,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from . import live, make, providers, studio
+from . import __version__, live, make, providers, studio
 
 PART_KINDS = ("site", "video", "agent", "skill", "prompt", "copy")
 MAX_PARTS = 8
@@ -172,7 +172,7 @@ def _make_video(part: Part, where: Path, provider_id: str, model: str, limit: st
 
 
 def _write(folder: Path, goal: str, provider: str, model: str, limit: str | None, result: Launch, budget: make.Budget) -> None:
-    record = {"goal": goal, "name": result.name, "provider": provider, "model": model, "max_cost_usd": limit,
+    record = {"proofhouse_version": __version__, "goal": goal, "name": result.name, "provider": provider, "model": model, "max_cost_usd": limit,
               "stopped": result.stopped, "spent_usd_estimated": format(budget.spent, "f"),
               "parts": [p.to_dict() for p in result.parts],
               "note": "Dollar figures are estimates, not your bill. Judge scores are a model's advice, not proof."}

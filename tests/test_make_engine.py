@@ -7,6 +7,7 @@ from pathlib import Path
 
 import pytest
 
+import proofhouse
 from proofhouse import cli, live, make
 
 
@@ -54,6 +55,7 @@ def test_a_prompt_is_written_tried_judged_and_improved_until_the_target(tmp_path
     record = json.loads((tmp_path / "out" / "record.json").read_text(encoding="utf-8"))
     assert record["best_score"] == 9 and len(record["calls"]) == 10
     assert "advice, not proof" in record["judge_note"]
+    assert record["proofhouse_version"] == proofhouse.__version__
 
 
 def test_the_best_version_wins_when_rounds_run_out(tmp_path: Path) -> None:
