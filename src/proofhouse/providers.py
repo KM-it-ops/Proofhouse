@@ -22,6 +22,7 @@ import json
 import os
 import re
 import shutil
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -147,15 +148,19 @@ def load_user() -> dict[str, Any]:
 def write_atomic(path: Path, content: str | bytes) -> None:
     """Write ``path`` in one step: a temporary file, then replace. A failed write leaves the old file and no leftover.
 
-    The new file keeps the old one's permission bits, so a settings file you locked down stays locked down.
+    Every writer gets its own temporary file, so two saves of the same file never share one.
+    The new file keeps the old one's permission bits, so a settings file you locked down stays locked down;
+    a brand-new file keeps the temporary file's private 0o600 bits.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".proofhouse-tmp")
+    handle, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".proofhouse-tmp")
+    temporary = Path(name)
     try:
+        # Closed first: Windows cannot replace a file that is still open.
+        os.close(handle)
         # POSIX: set the permission bits before any content goes in, so it is never briefly readable by others.
         # Windows has only a read-only flag, which would block writing and cleaning up the temporary file.
         if path.exists() and os.name != "nt":
-            temporary.write_bytes(b"")
             shutil.copymode(path, temporary)
         if isinstance(content, bytes):
             temporary.write_bytes(content)
