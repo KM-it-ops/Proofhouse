@@ -73,6 +73,11 @@ To check on real machines (not yet run end to end):
    - Run each native app build once on a real Windows, macOS and Linux machine and an iOS and Android
      setup, and fix what the to-check list turns up.
    - Let add-ons reserve the new built-in kind names (rule, mcp, hook) the way `app` already is.
+   - `proofhouse "<goal>"` picks the right kind of thing to make. Today's word-matching picks correctly
+     on 7 of 32 test goals. The answer key is [overseer-test-set.md](overseer-test-set.md), waiting for
+     Boss to confirm the labels before the new picker is built.
+   - Run compiled artifacts on every provider, not only OpenAI-compatible ones (completion criterion 1,
+     [audit](assurance/2026-10-16-completion-criteria.md)).
 
 ## Known limits
 
@@ -84,3 +89,5 @@ To check on real machines (not yet run end to end):
   time limit.
 - The real tool folders a platform names (such as `CARGO_HOME`, `GRADLE_USER_HOME`, `APPDATA`) are visible
   to its build, so a build script can read whatever those tools keep there.
+- Two Proofhouse runs that save the same settings file at the same moment can collide; one run at a
+  time is safe.
