@@ -4,4 +4,5 @@ Each statement names the exact revision it covers, the commands run, their resul
 
 | Date | Scope | Revision |
 |---|---|---|
+| [2026-10-16](2026-10-16-completion-criteria.md) | Pass/fail for the ten completion criteria, 0.8.0 release candidate | `9d489eb` (branch `finish/2026-10-16`) |
 | [2026-09-21](2026-09-21-evidence-integrity.md) | Evidence-integrity fixes for review findings F01–F12 and the local evidence workflow | `16d4c04` (branch `feat/evidence-integrity`) |
