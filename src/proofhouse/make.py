@@ -30,9 +30,9 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from . import live, providers, sitecheck
+from . import live, make_checks, providers, sitecheck
 
-KINDS = ("prompt", "skill", "agent", "site", "copy")
+KINDS = ("prompt", "skill", "agent", "site", "copy", "rule", "mcp", "hook")
 DEFAULT_ROUNDS = 3
 DEFAULT_TARGET = 9
 
@@ -64,6 +64,22 @@ _WRITE = {
         "below. It must start with YAML frontmatter between '---' lines holding 'name: <lowercase-hyphenated-name>' and "
         "'description: <one line saying when to use it>', then the agent's instructions. Output only the file content."
     ),
+    "rule": (
+        "Write a standing Markdown instruction for an AI coding tool that fulfills the request. No frontmatter is needed. "
+        'Reply with JSON only: {"name": "lowercase-hyphenated-name", "content": "complete Markdown rule"}.'
+    ),
+    "mcp": (
+        "Build a working MCP server using JSON-RPC 2.0 over stdio. It must answer initialize and tools/list with at least one "
+        'tool with a name and inputSchema. Reply with JSON only: {"name": "lowercase-hyphenated-name", '
+        '"command": "python", "args": ["server.py"], "files": {"server.py": "complete source"}}. '
+        "The command and args must start the server from its file folder. Any language is allowed."
+    ),
+    "hook": (
+        "Build a Claude Code command hook. It receives event JSON on stdin and exits 0 to allow or 2 to block. "
+        'Reply with JSON only: {"event": "PreToolUse", "matcher": "optional pattern", "command": "python hook.py", '
+        '"files": {"hook.py": "complete source"}, "sample_event": {"hook_event_name": "PreToolUse"}}. '
+        "Use a documented Claude Code event name; the command must work from the file folder."
+    ),
 }
 _TEST_INPUT = (
     "Write one realistic input that the prompt below will receive in real use. Output only that input.\n\nPROMPT:\n{prompt}"
@@ -79,6 +95,11 @@ _REVISE = (
 )
 _SUBJECT = {"skill": "SKILL.md", "agent": "SUBAGENT FILE", "copy": "COPY"}
 _SITE_FORM = ' Reply with the complete site again as JSON only: {"files": {"index.html": "...", ...}}.'
+_JSON_FORM = {
+    "rule": ' Reply with the complete rule again as JSON only: {"name": "...", "content": "..."}.',
+    "mcp": ' Reply with the complete server again as JSON only: {"name": "...", "command": "...", "args": [...], "files": {...}}.',
+    "hook": ' Reply with the complete hook again as JSON only: {"event": "...", "matcher": "...", "command": "...", "files": {...}, "sample_event": {...}}.',
+}
 
 
 class MakeError(Exception):
@@ -184,6 +205,7 @@ def make(
     out_dir: Path | None = None,
     max_output_tokens: int = 2048,
     transport: live.Transport | None = None,
+    allow_commands: bool = False,
 ) -> MakeResult:
     from . import addons
 
@@ -242,11 +264,13 @@ def make(
                 subject = f"PROMPT:\n{current}\n\nTEST INPUT:\n{test_input}\n\nOUTPUT IT PRODUCED:\n{output}"
             elif kind == "site":
                 output, subject = _try_site(current, folder / f"v{version}")
+            elif kind in ("rule", "mcp", "hook"):
+                output, subject = _try_new_kind(kind, current, request, folder / f"v{version}", allow_commands)
             else:
                 subject = f"{label}:\n{current}"
             score, missing, fix = _judgement(call("judge", _JUDGE.format(request=request, subject=subject)))
             result.rounds.append(Round(version, current, output, score, missing, fix))
-            if kind != "site":
+            if kind not in ("site", "rule", "mcp", "hook"):
                 (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
             if score is not None and score >= target:
                 result.stopped = f"reached score {score} (target {target})"
@@ -255,7 +279,7 @@ def make(
                 break
             current = _strip_fences(call("revise", _REVISE.format(
                 kind=kind, upper=kind.upper(), fix=fix or "make it fully meet the request",
-                form=_SITE_FORM if kind == "site" else "",
+                form=_SITE_FORM if kind == "site" else _JSON_FORM.get(kind, ""),
                 missing="; ".join(missing) or "nothing listed", request=request, current=current,
             )) or "")
     except _Stop as stop:
@@ -269,6 +293,8 @@ def make(
             source = folder / f"v{best.version}" / "site"
             if source.is_dir():
                 shutil.copytree(source, folder / "site")
+        elif kind in ("rule", "mcp", "hook"):
+            _deliver_new_kind(folder, kind, best.text, request, best.version)
         else:
             _deliver(folder, "copy" if kind in extra else kind, best.text)
     result.spent_usd = budget.spent
@@ -309,6 +335,60 @@ def _try_site(text: str, version_dir: Path) -> tuple[str, str]:
         index = (version_dir / "site" / "index.html").read_text(encoding="utf-8")[:8000]
     subject = f"FILES: {', '.join(names) or 'none'}\n\nindex.html:\n{index}\n\nCHECKS RUN ON THE SITE:\n{summary}"
     return f"{len(checks) - len(failed)} of {len(checks)} checks passed", subject
+
+
+def _try_new_kind(kind: str, text: str, request: str, version_dir: Path, allow_commands: bool) -> tuple[str, str]:
+    version_dir.mkdir(parents=True, exist_ok=True)
+    names: list[str] = []
+    try:
+        if kind == "rule":
+            name, checks = make_checks.rule(text, request, version_dir)
+            names = [f"{name}.md"]
+        else:
+            data = make_checks.parse_json(text)
+            names = make_checks.write_files(data.get("files"), version_dir / kind)
+            checks = make_checks.mcp(data, version_dir / kind, allow_commands) if kind == "mcp" \
+                else make_checks.hook(data, version_dir / kind, allow_commands)
+            (version_dir / "manifest.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    except (ValueError, OSError) as exc:
+        checks = [{"check": f"{kind} written", "ok": False, "detail": str(exc)}]
+    (version_dir / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
+    summary = "\n".join(f"- {'PASS' if c['ok'] else ('NOT CHECKED' if c['ok'] is None else 'FAIL')}: "
+                        f"{c['check']} {c['detail']}" for c in checks)
+    subject = f"{kind.upper()} SPECIFICATION:\n{text[:12000]}\n\nFILES: {', '.join(names) or 'none'}\n\nCHECKS:\n{summary}"
+    passed = sum(c["ok"] is True for c in checks)
+    return f"{passed} of {len(checks)} checks passed", subject
+
+
+def _deliver_new_kind(folder: Path, kind: str, text: str, request: str, version: int) -> None:
+    source = folder / f"v{version}"
+    if kind == "rule":
+        for path in source.glob("*.md"):
+            shutil.copy2(path, folder / path.name)
+        return
+    if not (source / kind).is_dir():
+        return
+    data = make_checks.parse_json(text)
+    make_checks.write_files(data.get("files"), folder / kind)
+    if kind == "mcp":
+        from .hosts import check_name
+        try:
+            name = check_name(data["name"])
+        except (KeyError, ValueError):
+            name = _slug(request)
+        command, args = data.get("command"), data.get("args")
+        if not isinstance(command, str) or not isinstance(args, list) or not all(isinstance(a, str) for a in args):
+            return
+        line = make_checks.install_line(name, command, args, folder / kind)
+        if line is not None:
+            (folder / "INSTALL-MCP.txt").write_text(line + "\n", encoding="utf-8")
+    else:
+        event, command, matcher = data.get("event"), data.get("command"), data.get("matcher")
+        if not isinstance(event, str) or not isinstance(command, str):
+            return
+        snippet = make_checks.settings_snippet(event, matcher if isinstance(matcher, str) else None, command, folder / kind)
+        if snippet is not None:
+            (folder / "settings-snippet.json").write_text(json.dumps(snippet, indent=2) + "\n", encoding="utf-8")
 
 
 def _deliver(folder: Path, kind: str, text: str) -> None:
