@@ -6,6 +6,7 @@ This module does not start an HTTP server and does not pick Q2.
 
 from __future__ import annotations
 
+import argparse
 import json
 from typing import Any
 
@@ -37,6 +38,8 @@ def _argument_schema(action: Any) -> dict[str, Any]:
         schema = {"type": "number"}
     if getattr(action, "choices", None):
         schema["enum"] = list(action.choices)
+    if isinstance(action, argparse._AppendAction):
+        schema = {"type": "array", "items": schema}
     if action.help:
         schema["description"] = action.help
     return schema

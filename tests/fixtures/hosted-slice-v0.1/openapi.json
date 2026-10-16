@@ -292,7 +292,10 @@
                   },
                   "on": {
                     "description": "A model to run it on; repeat for each, for example --on groq:llama-3.3-70b-versatile --on ollama:llama3.",
-                    "type": "string"
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "out": {
                     "description": "Folder for the results (default: compare-<job>-<time> here).",
@@ -515,6 +518,13 @@
                   "json": {
                     "description": "Emit a single JSON result envelope.",
                     "type": "boolean"
+                  },
+                  "require-req": {
+                    "description": "Requirement id the dataset must cover (repeatable); a miss blocks the result.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "rubric": {
                     "description": "Path to JSON rubric.",
