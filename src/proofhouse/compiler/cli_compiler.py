@@ -29,6 +29,7 @@ from . import api, paths
 from .contracts import CONTRACT_VERSION, CompileOptions, Diagnostic, ResultEnvelope
 from .diagnostics import DiagnosticFactory, DiagnosticRegistry
 from .eval_aggregate import Aggregation
+from .eval_dataset import reject_duplicate_keys
 from .eval_product import ProductEvalRequest, evaluate_product
 from .execution import LiveOpenAIRequest, execute_openai
 from ..hosts_cli import add_host_commands
@@ -141,6 +142,16 @@ def _cli_error(command: str, message: str, document: str, *, as_json: bool) -> i
     )
     _emit(envelope, as_json=as_json)
     return _exit_code_for(envelope.diagnostics)
+
+
+def _load_strict_json(raw: bytes) -> object:
+    """Parse input JSON; a repeated key, bad UTF-8, bad JSON or runaway nesting is a ValueError."""
+    try:
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=reject_duplicate_keys)
+    except RecursionError:
+        raise ValueError("invalid JSON (nested too deeply)") from None
+    except ValueError as exc:
+        raise ValueError(f"invalid JSON ({exc})") from None
 
 
 def _product_result_to_data(result: object) -> dict:
@@ -279,7 +290,10 @@ def _cmd_closed_loop_bridged_008(args: argparse.Namespace) -> int:
     from .requirements_ir_bridge import closed_loop_from_bridged_008
 
     raw = _read_input(args.input)
-    artifacts = json.loads(raw.decode("utf-8"))
+    try:
+        artifacts = _load_strict_json(raw)
+    except ValueError as exc:
+        return _cli_error("closed-loop-bridged-008", str(exc), args.input, as_json=args.json)
     result = closed_loop_from_bridged_008(
         artifacts,
         ClosedLoopOptions(repair_budget=args.repair_budget, network_allowed=False),
@@ -311,7 +325,10 @@ def _cmd_compile_requirements(args: argparse.Namespace) -> int:
     from .api import compile_requirements_input
 
     raw = _read_input(args.input)
-    payload = json.loads(raw.decode("utf-8"))
+    try:
+        payload = _load_strict_json(raw)
+    except ValueError as exc:
+        return _cli_error("compile-requirements", str(exc), args.input, as_json=args.json)
     result = compile_requirements_input(payload)
     payload_out = result.to_dict()
     if args.json:
@@ -357,6 +374,7 @@ def _cmd_evaluate_product(args: argparse.Namespace) -> int:
         network_used=False,
         compile_ok=True,
         security_ok=True,
+        required_req_ids=tuple(args.require_req),
     )
     try:
         result = evaluate_product(request)
@@ -381,7 +399,10 @@ def _cmd_evaluate_product(args: argparse.Namespace) -> int:
 
 def _cmd_hosted_compile(args: argparse.Namespace) -> int:
     raw = _read_input(args.input)
-    intake = json.loads(raw.decode("utf-8"))
+    try:
+        intake = _load_strict_json(raw)
+    except ValueError as exc:
+        return _cli_error("hosted-compile", str(exc), args.input, as_json=args.json)
     store = HostedStore(Path(args.store), tenant_id=args.tenant)
     slice_ = HostedSlice(store)
     try:
@@ -723,6 +744,13 @@ def build_parser() -> argparse.ArgumentParser:
         default="any_fail",
         choices=("min", "max", "mean", "any_fail", "all_pass"),
         help="Score aggregation (default: any_fail).",
+    )
+    p_pe.add_argument(
+        "--require-req",
+        action="append",
+        default=[],
+        metavar="REQ-ID",
+        help="Requirement id the dataset must cover (repeatable); a miss blocks the result.",
     )
     p_pe.add_argument("--json", action="store_true", help="Emit a single JSON result envelope.")
     p_pe.set_defaults(func=_cmd_evaluate_product)

@@ -49,6 +49,7 @@ class ValidatedManifest:
     autonomous_attempts: int
     environment_digest: str
     source_hashes: dict[str, str]
+    required_req_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -71,6 +72,7 @@ class SealedEvidence:
     published_status: str
     scores_by_config: dict[str, float | None]
     score_checksum: str
+    required_req_ids: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -165,6 +167,7 @@ def validate_benchmark_manifest(
         autonomous_attempts=attempts,
         environment_digest=str(manifest["environment_digest"]),
         source_hashes=declared,
+        required_req_ids=tuple(manifest.get("required_req_ids") or ()),
     )
 
 
@@ -178,6 +181,7 @@ def seal_evidence(
     classification: str,
     published_status: str,
     scores_by_config: Mapping[str, float | None],
+    required_req_ids: tuple[str, ...] = (),
 ) -> SealedEvidence:
     if _oracle_security_failed(oracle_codes) and (
         product_eval_status == "PASS" or published_status == "PASS"
@@ -186,17 +190,18 @@ def seal_evidence(
             ("BMK-ORC-0001",),
             "oracle security failure cannot be published as a product-eval PASS",
         )
-    checksum = canonical_sha256(
-        {
-            "environment_digest": environment_digest,
-            "source_hashes": dict(sorted(source_hashes.items())),
-            "scores_by_config": {
-                key: scores_by_config[key] for key in sorted(scores_by_config)
-            },
-            "published_status": published_status,
-            "classification": classification,
-        }
-    )
+    sealed_input: dict[str, object] = {
+        "environment_digest": environment_digest,
+        "source_hashes": dict(sorted(source_hashes.items())),
+        "scores_by_config": {
+            key: scores_by_config[key] for key in sorted(scores_by_config)
+        },
+        "published_status": published_status,
+        "classification": classification,
+    }
+    if required_req_ids:
+        sealed_input["required_req_ids"] = sorted(required_req_ids)
+    checksum = canonical_sha256(sealed_input)
     return SealedEvidence(
         environment_digest=environment_digest,
         source_hashes=dict(source_hashes),
@@ -207,6 +212,7 @@ def seal_evidence(
         published_status=published_status,
         scores_by_config=dict(scores_by_config),
         score_checksum=checksum,
+        required_req_ids=tuple(sorted(required_req_ids)),
     )
 
 
@@ -235,6 +241,7 @@ def run_sealed_benchmark(
             classification="infrastructure",
             published_status="INFRA",
             scores_by_config={config.config_id: None for config in configs},
+            required_req_ids=validated.required_req_ids,
         )
         return BenchmarkRunResult(
             classification="infrastructure",
@@ -286,6 +293,7 @@ def run_sealed_benchmark(
                         network_used=config.network_used,
                         compile_ok=config.compile_ok,
                         security_ok=config.security_ok,
+                        required_req_ids=validated.required_req_ids,
                     )
                 )
                 last_product = product
@@ -324,6 +332,7 @@ def run_sealed_benchmark(
             classification="infrastructure",
             published_status="INFRA",
             scores_by_config={config.config_id: None for config in configs},
+            required_req_ids=validated.required_req_ids,
         )
         return BenchmarkRunResult(
             classification="infrastructure",
@@ -351,6 +360,7 @@ def run_sealed_benchmark(
         classification=classification,
         published_status=published_status,
         scores_by_config=scores,
+        required_req_ids=validated.required_req_ids,
     )
     return BenchmarkRunResult(
         classification=classification,

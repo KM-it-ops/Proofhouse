@@ -49,13 +49,22 @@ def load_rubric(path: Path) -> Rubric:
     return Rubric(raw["rubric_id"], raw["version"], tuple(criteria))
 
 
+def _matches(expected: object, observed: object) -> bool:
+    # bool is a subclass of int, so 1 == True. Each kind matches only itself.
+    if isinstance(expected, bool):
+        return isinstance(observed, bool) and observed == expected
+    if isinstance(expected, int | float):
+        return isinstance(observed, int | float) and not isinstance(observed, bool) and observed == expected
+    if isinstance(expected, str):
+        return isinstance(observed, str) and observed == expected
+    return False
+
+
 def score_case(rubric: Rubric, case: DatasetCase) -> dict[str, float | None]:
     out: dict[str, float | None] = {}
     for criterion in rubric.criteria:
         if criterion.field not in case.observations:
             out[criterion.criterion_id] = None
             continue
-        out[criterion.criterion_id] = (
-            1.0 if case.observations[criterion.field] == criterion.expected else 0.0
-        )
+        out[criterion.criterion_id] = 1.0 if _matches(criterion.expected, case.observations[criterion.field]) else 0.0
     return out

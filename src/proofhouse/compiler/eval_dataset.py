@@ -35,8 +35,9 @@ def reject_duplicate_keys(pairs: list[tuple[str, object]]) -> dict[str, object]:
 def _parse_line(line: str, line_no: int) -> DatasetCase:
     try:
         raw = json.loads(line, object_pairs_hook=reject_duplicate_keys, parse_constant=_reject_constant)
-    except ValueError as exc:
-        raise ValueError(f"line {line_no}: invalid JSON ({exc})") from None
+    except (ValueError, RecursionError) as exc:
+        detail = "nested too deeply" if isinstance(exc, RecursionError) else str(exc)
+        raise ValueError(f"line {line_no}: invalid JSON ({detail})") from None
     if not isinstance(raw, dict):
         raise ValueError(f"line {line_no}: each case must be a JSON object")
     case_id = raw.get("case_id")
