@@ -215,3 +215,33 @@ def test_a_rewritten_file_keeps_its_permissions(tmp_path: Path) -> None:
     target.chmod(0o600)
     providers.write_atomic(target, '{"a": 1}\n')
     assert target.stat().st_mode & 0o777 == 0o600
+
+
+def test_two_writers_never_share_a_temporary_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    target = tmp_path / "settings.json"
+    target.write_text("old\n", encoding="utf-8")
+    real_replace = os.replace
+    swapped: list[str] = []
+
+    def replace(src: object, dst: object) -> None:
+        swapped.append(str(src))
+        if len(swapped) == 1:  # another run saves the same file while this one is about to swap
+            providers.write_atomic(target, "theirs\n")
+        real_replace(src, dst)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(os, "replace", replace)
+    providers.write_atomic(target, "mine\n")
+    assert len(set(swapped)) == 2
+    assert target.read_text(encoding="utf-8") == "mine\n"
+    assert _leftovers(tmp_path) == []
+
+
+@pytest.mark.skipif(os.name == "nt", reason="permission bits are a POSIX idea; Windows has only read-only")
+def test_a_brand_new_file_gets_the_normal_create_bits(tmp_path: Path) -> None:
+    mask = os.umask(0o022)
+    try:
+        target = tmp_path / "new.json"
+        providers.write_atomic(target, "{}\n")
+        assert target.stat().st_mode & 0o777 == 0o666 & ~providers._UMASK
+    finally:
+        os.umask(mask)

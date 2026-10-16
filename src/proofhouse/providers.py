@@ -28,6 +28,16 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
+
+def _read_umask() -> int:
+    """The process umask, read once (os.umask can only be read by setting it, so it is put straight back)."""
+    mask = os.umask(0)
+    os.umask(mask)
+    return mask
+
+
+_UMASK = _read_umask()
+
 PROVIDERS_SCHEMA = "proofhouse.providers/v1"
 SHIPPED_PATH = Path(__file__).resolve().parent / "data" / "providers.json"
 USER_FILE = "providers.json"
@@ -150,7 +160,7 @@ def write_atomic(path: Path, content: str | bytes) -> None:
 
     Every writer gets its own temporary file, so two saves of the same file never share one.
     The new file keeps the old one's permission bits, so a settings file you locked down stays locked down;
-    a brand-new file keeps the temporary file's private 0o600 bits.
+    a brand-new file gets the normal create bits (0o666 minus your umask), as if it had been opened directly.
     """
     path.parent.mkdir(parents=True, exist_ok=True)
     handle, name = tempfile.mkstemp(dir=path.parent, prefix=path.name + ".", suffix=".proofhouse-tmp")
@@ -160,8 +170,11 @@ def write_atomic(path: Path, content: str | bytes) -> None:
         os.close(handle)
         # POSIX: set the permission bits before any content goes in, so it is never briefly readable by others.
         # Windows has only a read-only flag, which would block writing and cleaning up the temporary file.
-        if path.exists() and os.name != "nt":
-            shutil.copymode(path, temporary)
+        if os.name != "nt":
+            if path.exists():
+                shutil.copymode(path, temporary)
+            else:
+                temporary.chmod(0o666 & ~_UMASK)
         if isinstance(content, bytes):
             temporary.write_bytes(content)
         else:
