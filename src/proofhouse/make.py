@@ -30,7 +30,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
-from . import app_platforms, live, make_checks, providers, sitecheck
+from . import __version__, app_platforms, live, make_checks, providers, sitecheck
 
 KINDS = ("prompt", "skill", "agent", "site", "app", "copy", "rule", "mcp", "hook")
 DEFAULT_ROUNDS = 3
@@ -556,6 +556,7 @@ def _deliver(folder: Path, kind: str, text: str) -> None:
 def _write_record(folder: Path, request: str, provider_id: str, model: str, limit: str | None, result: MakeResult) -> None:
     record = {
         "schema": "proofhouse.make/v1",
+        "proofhouse_version": __version__,
         "request": request,
         "kind": result.kind,
         "provider": provider_id,

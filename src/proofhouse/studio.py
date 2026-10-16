@@ -30,7 +30,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from . import live, media, providers
+from . import __version__, live, media, providers
 
 FORMATS = {"16x9": (1920, 1080), "9x16": (1080, 1920), "1x1": (1080, 1080)}
 FPS = 30
@@ -342,6 +342,7 @@ def produce(
 def _write_record(production: Production, brief: str) -> None:
     record = {
         "schema": "proofhouse.studio/v1",
+        "proofhouse_version": __version__,
         "brief": brief,
         "title": production.title,
         "stopped": production.stopped,

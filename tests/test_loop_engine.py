@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+import proofhouse
 from proofhouse import cli, live, loop
 
 PY = f'"{sys.executable}"'
@@ -49,6 +50,7 @@ def test_the_agent_works_until_the_check_passes_and_every_round_is_kept(tmp_path
     assert [line["summary"] for line in lines] == ["read calc.py", "fixed add"] and lines[1]["check"]["exit"] == 0
     record = json.loads((tmp_path / "rec" / "loop.json").read_text(encoding="utf-8"))
     assert record["done"] is True and record["calls"] == 2 and record["commands_allowed"] is False
+    assert record["proofhouse_version"] == proofhouse.__version__
 
 
 def test_nothing_is_sent_when_the_check_already_passes(tmp_path: Path, project: Path) -> None:
