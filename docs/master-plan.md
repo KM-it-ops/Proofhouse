@@ -83,11 +83,11 @@ To check on real machines (not yet run end to end):
 
 - `--allow-commands` is an opt-in, not a sandbox. Made MCP servers, hooks and app builds run
   model-written code with your rights.
-- `npm install` during app builds can run package install scripts.
+- App setup runs `npm install --ignore-scripts`, but the build itself still runs the project's own build
+  files, such as a Rust `build.rs` or Gradle scripts. The iOS build has no output path to check yet, so
+  any successful exit passes it (to check on a Mac).
 - Builds get a cleaned environment plus named tool locations only; names that look like keys, tokens or
   passwords are refused. On Linux and macOS a process that detaches itself can outlive the build's
   time limit.
 - The real tool folders a platform names (such as `CARGO_HOME`, `GRADLE_USER_HOME`, `APPDATA`) are visible
   to its build, so a build script can read whatever those tools keep there.
-- Two Proofhouse runs that save the same settings file at the same moment can collide; one run at a
-  time is safe.
