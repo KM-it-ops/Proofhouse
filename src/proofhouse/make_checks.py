@@ -42,6 +42,13 @@ def parse_json(text: str) -> dict[str, Any]:
     return value
 
 
+def safe_name(name: Any) -> bool:
+    """A relative file name that stays inside its folder on every OS (no drives, shares, "..", devices)."""
+    return isinstance(name, str) and bool(_SAFE_FILE.fullmatch(name)) and not PurePosixPath(name).is_absolute() \
+        and not PureWindowsPath(name).is_absolute() and ".." not in PurePosixPath(name).parts and not name.startswith(".") \
+        and not any(_DEVICE.fullmatch(part) or part.endswith(".") for part in PurePosixPath(name).parts)
+
+
 def write_files(files: Any, folder: Path) -> list[str]:
     if not isinstance(files, dict) or not files or len(files) > 60 or not all(isinstance(v, str) for v in files.values()):
         raise ValueError("files must be a nonempty JSON object of text files (at most 60)")
@@ -49,9 +56,7 @@ def write_files(files: Any, folder: Path) -> list[str]:
         raise ValueError("generated files exceed 3 MB")
     names: list[str] = []
     for name in files:
-        if not isinstance(name, str) or not _SAFE_FILE.fullmatch(name) or PurePosixPath(name).is_absolute() \
-                or PureWindowsPath(name).is_absolute() or ".." in PurePosixPath(name).parts or name.startswith(".") \
-                or any(_DEVICE.fullmatch(part) or part.endswith(".") for part in PurePosixPath(name).parts):
+        if not safe_name(name):
             raise ValueError(f"unsafe file name: {name!r}")
         names.append(name)
     folder.mkdir(parents=True, exist_ok=True)
@@ -149,12 +154,19 @@ def _command(command: str, args: list[str], folder: Path) -> list[str] | None:
     return [executable, *(_local(arg, folder) for arg in args)]
 
 
-def _environment(folder: Path) -> dict[str, str]:
+def _environment(folder: Path, extra: dict[str, str] | None = None) -> dict[str, str]:
     env = {key: os.environ[key] for key in _ENV_KEYS if key in os.environ}
     env["HOME"] = str(folder)
     env["USERPROFILE"] = str(folder)
     env["TEMP"] = str(folder)
     env["TMP"] = str(folder)
+    env["TMPDIR"] = str(folder)
+    if folder.drive:
+        env["HOMEDRIVE"], env["HOMEPATH"] = folder.drive, str(folder)[len(folder.drive):]
+    else:
+        env.pop("HOMEDRIVE", None)
+        env.pop("HOMEPATH", None)
+    env.update(extra or {})
     return env
 
 
@@ -226,8 +238,9 @@ def _kill_tree(process: subprocess.Popen[bytes], job: int | None) -> None:
         process.kill()
 
 
-def _start(argv: list[str], folder: Path, stderr: Any) -> tuple[subprocess.Popen[bytes], int | None]:
-    process = subprocess.Popen(argv, cwd=folder, env=_environment(folder), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+def _start(argv: list[str], folder: Path, stderr: Any,
+           extra_env: dict[str, str] | None = None, stdout: Any = subprocess.PIPE) -> tuple[subprocess.Popen[bytes], int | None]:
+    process = subprocess.Popen(argv, cwd=folder, env=_environment(folder, extra_env), stdin=subprocess.PIPE, stdout=stdout,
                                stderr=stderr, creationflags=subprocess.CREATE_NEW_PROCESS_GROUP if os.name == "nt" else 0,
                                start_new_session=os.name != "nt")
     try:
@@ -235,6 +248,30 @@ def _start(argv: list[str], folder: Path, stderr: Any) -> tuple[subprocess.Popen
     except BaseException:
         _kill_tree(process, None)
         raise
+
+
+def build(argv: list[str], folder: Path, timeout: int, extra_env: dict[str, str] | None = None) -> dict[str, Any]:
+    """Run a platform-data build step with the same contained process and limited environment (plus extra_env)."""
+    process: subprocess.Popen[bytes] | None = None
+    job: int | None = None
+    # Output goes to a file, not a pipe: a helper left running (such as a Gradle daemon) would hold a pipe open
+    # and make a finished build wait for its time limit.
+    with tempfile.TemporaryFile() as log:
+        try:
+            process, job = _start(argv, folder, subprocess.STDOUT, extra_env, stdout=log)
+            if process.stdin is not None:
+                process.stdin.close()
+            code = process.wait(timeout=timeout)
+            log.seek(max(0, log.seek(0, os.SEEK_END) - 8000))
+            return {"ok": code == 0, "detail": f"exit code {code}", "exit_code": code,
+                    "output": log.read().decode("utf-8", errors="replace")[-2000:]}
+        except subprocess.TimeoutExpired:
+            return {"ok": False, "detail": f"timed out after {timeout} seconds", "exit_code": None, "output": ""}
+        except OSError as exc:
+            return {"ok": False, "detail": str(exc), "exit_code": None, "output": ""}
+        finally:
+            if process is not None:
+                _kill_tree(process, job)
 
 
 def mcp(data: dict[str, Any], folder: Path, allow_commands: bool) -> list[dict[str, Any]]:

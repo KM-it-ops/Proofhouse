@@ -1102,7 +1102,7 @@
                 "additionalProperties": false,
                 "properties": {
                   "allow-commands": {
-                    "description": "Start a made MCP server or hook to check it. It runs model-written code with your rights; this is not a sandbox.",
+                    "description": "Start made MCP, hook or app build commands to check them. They run model-written code with your rights; this is not a sandbox.",
                     "type": "boolean"
                   },
                   "formats": {
@@ -1118,7 +1118,7 @@
                     "type": "boolean"
                   },
                   "kind": {
-                    "description": "What to make: prompt, skill, agent, site, copy, rule, mcp, hook, video, launch, or a kind an add-on adds (default prompt).",
+                    "description": "What to make: prompt, skill, agent, site, app, copy, rule, mcp, hook, video, launch, or a kind an add-on adds (default prompt).",
                     "type": "string"
                   },
                   "max-cost-usd": {
@@ -1151,6 +1151,13 @@
                   "parts": {
                     "description": "For --kind launch: which parts to make, comma separated, from site,video,agent,skill,prompt,copy (default: the planner picks).",
                     "type": "string"
+                  },
+                  "platform": {
+                    "description": "For --kind app: repeat for each target id (default: every platform in app_platforms.json).",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "provider": {
                     "description": "Provider id (see `proofhouse providers list`).",

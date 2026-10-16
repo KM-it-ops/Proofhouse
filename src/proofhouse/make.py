@@ -27,12 +27,12 @@ import shutil
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from decimal import Decimal, InvalidOperation
-from pathlib import Path
-from typing import Any
+from pathlib import Path, PurePosixPath
+from typing import Any, Callable
 
-from . import live, make_checks, providers, sitecheck
+from . import app_platforms, live, make_checks, providers, sitecheck
 
-KINDS = ("prompt", "skill", "agent", "site", "copy", "rule", "mcp", "hook")
+KINDS = ("prompt", "skill", "agent", "site", "app", "copy", "rule", "mcp", "hook")
 DEFAULT_ROUNDS = 3
 DEFAULT_TARGET = 9
 
@@ -53,6 +53,11 @@ _WRITE = {
         "no external dependencies) that best achieves the request below: responsive, accessible, fast, with real copy. "
         'Reply with JSON only: {"files": {"index.html": "...", "styles.css": "...", "script.js": "..."}} '
         "(more pages are fine; every file the pages link to must be included)."
+    ),
+    "app": (
+        "Build a complete working shared web app for the request. Write responsive accessible HTML, CSS and JavaScript "
+        "with real functionality and no outside runtime dependency. The app will be wrapped for the chosen platforms. "
+        'Reply with JSON only: {"files": {"index.html": "...", "styles.css": "...", "script.js": "..."}}.'
     ),
     "copy": (
         "You write launch and announcement copy that people actually read: headline, short body, a clear call to action, "
@@ -206,6 +211,7 @@ def make(
     max_output_tokens: int = 2048,
     transport: live.Transport | None = None,
     allow_commands: bool = False,
+    platforms: list[str] | None = None,
 ) -> MakeResult:
     from . import addons
 
@@ -218,6 +224,17 @@ def make(
         raise MakeError("say what you want made")
     if type(rounds) is not int or not 1 <= rounds <= 20:
         raise MakeError("rounds must be 1 to 20")
+    try:
+        catalog = app_platforms.all_platforms() if kind == "app" else {}
+    except ValueError as exc:
+        raise MakeError(str(exc)) from exc
+    chosen = list(dict.fromkeys(platforms if platforms is not None else catalog))
+    if kind == "app":
+        unknown = [platform for platform in chosen if platform not in catalog]
+        if unknown:
+            raise MakeError(f"unknown platform: {', '.join(unknown)}; known: {', '.join(sorted(catalog))}")
+        if not chosen:
+            raise MakeError("choose at least one platform")
     profile = providers.find(provider_id)
     if profile is None:
         raise MakeError(f"no provider named {provider_id!r}; see `proofhouse providers list`")
@@ -262,6 +279,9 @@ def make(
             if kind == "prompt":
                 output = call("try", current, test_input or "")
                 subject = f"PROMPT:\n{current}\n\nTEST INPUT:\n{test_input}\n\nOUTPUT IT PRODUCED:\n{output}"
+            elif kind == "app":
+                output, subject = _try_app(current, request, folder / f"v{version}", chosen, catalog,
+                                           allow_commands, call)
             elif kind == "site":
                 output, subject = _try_site(current, folder / f"v{version}")
             elif kind in ("rule", "mcp", "hook"):
@@ -270,7 +290,7 @@ def make(
                 subject = f"{label}:\n{current}"
             score, missing, fix = _judgement(call("judge", _JUDGE.format(request=request, subject=subject)))
             result.rounds.append(Round(version, current, output, score, missing, fix))
-            if kind not in ("site", "rule", "mcp", "hook"):
+            if kind not in ("site", "app", "rule", "mcp", "hook"):
                 (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
             if score is not None and score >= target:
                 result.stopped = f"reached score {score} (target {target})"
@@ -279,9 +299,9 @@ def make(
                 break
             current = _strip_fences(call("revise", _REVISE.format(
                 kind=kind, upper=kind.upper(), fix=fix or "make it fully meet the request",
-                form=_SITE_FORM if kind == "site" else _JSON_FORM.get(kind, ""),
+                form=_SITE_FORM if kind in ("site", "app") else _JSON_FORM.get(kind, ""),
                 missing="; ".join(missing) or "nothing listed", request=request, current=current,
-            )) or "")
+            ) + (f"\nCHECK FAILURES FROM THIS ROUND:\n{subject}" if kind == "app" else "")) or "")
     except _Stop as stop:
         result.stopped = str(stop)
 
@@ -289,7 +309,9 @@ def make(
     best = max(scored, key=lambda r: (r.score, r.version)) if scored else (result.rounds[-1] if result.rounds else None)
     if best is not None:
         result.best_version, result.best_score = best.version, best.score
-        if kind == "site":
+        if kind == "app":
+            _deliver_app(folder, best.version, chosen, catalog)
+        elif kind == "site":
             source = folder / f"v{best.version}" / "site"
             if source.is_dir():
                 shutil.copytree(source, folder / "site")
@@ -335,6 +357,115 @@ def _try_site(text: str, version_dir: Path) -> tuple[str, str]:
         index = (version_dir / "site" / "index.html").read_text(encoding="utf-8")[:8000]
     subject = f"FILES: {', '.join(names) or 'none'}\n\nindex.html:\n{index}\n\nCHECKS RUN ON THE SITE:\n{summary}"
     return f"{len(checks) - len(failed)} of {len(checks)} checks passed", subject
+
+
+def _try_app(
+    text: str, request: str, version_dir: Path, chosen: list[str], catalog: dict[str, dict[str, Any]],
+    allow_commands: bool, call: Callable[[str, str, str | None], str | None],
+) -> tuple[str, str]:
+    _, site_subject = _try_site(text, version_dir)
+    checks: list[dict[str, Any]] = json.loads((version_dir / "checks.json").read_text(encoding="utf-8"))
+    try:
+        shared_files = _site_files(text)
+    except sitecheck.SiteError:
+        shared_files = {}
+    subjects = ["SHARED WEB APP:\n" + site_subject]
+    written: dict[str, list[str]] = {}
+    responses: dict[str, str] = {}
+    # Each platform's next round sees what it wrote last round and which of its checks failed.
+    previous = version_dir.parent / f"v{int(version_dir.name[1:]) - 1}"
+    try:
+        last_checks: list[dict[str, Any]] = json.loads((previous / "checks.json").read_text(encoding="utf-8"))
+        last_responses: dict[str, str] = json.loads((previous / "responses.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        last_checks, last_responses = [], {}
+    for platform_id in chosen:
+        entry = catalog[platform_id]
+        web = app_platforms.web_dir(entry)
+        place = f"`{web}/`" if web else "the root of your platform folder"
+        failed = [f"- {c['check']}: {c['detail']}" for c in last_checks
+                  if c.get("ok") is False and str(c.get("check", "")).startswith(platform_id + " ")]
+        last_round = (f"\nYOUR FILES LAST ROUND:\n{last_responses.get(platform_id, '')}\n"
+                      "CHECKS THAT FAILED LAST ROUND (fix these):\n" + ("\n".join(failed) or "- none")) \
+            if platform_id in last_responses else ""
+        prompt = (
+            f"Build the {entry['name']} platform shell for this working app. Shell: {entry['shell']}. "
+            f"Instructions: {entry['write']} Reply with JSON only as {{\"files\": {{...}}}}. "
+            f"The shared web files below are copied into {place}; include changed web files (under that path) when needed. "
+            f"Required files and JSON checks: {json.dumps(entry['checks'])}.\n"
+            f"OWNER REQUEST:\n{request}\nSHARED WEB FILES:\n{json.dumps(shared_files)}{last_round}"
+        )
+        response = _strip_fences(call(f"write {platform_id}", prompt) or "")
+        responses[platform_id] = response[:12000]
+        destination = version_dir / platform_id
+        try:
+            additions = _site_files(response)
+            output = PurePosixPath(entry["build"]["output"].lower()).parts
+            # Otherwise a model file could stand in for build output that the build never made.
+            if output and any(PurePosixPath(name.lower()).parts[:len(output)] == output for name in additions):
+                raise ValueError(f"the model may not write files under the build output {entry['build']['output']}")
+            shared_here = {(f"{web}/{name}" if web else name): text for name, text in shared_files.items()}
+            names = make_checks.write_files({**shared_here, **additions}, destination)
+            written[platform_id] = names
+            platform_checks = app_platforms.static_checks(destination, entry)
+            if entry["checks"].get("site"):
+                platform_checks.extend(sitecheck.check_site(destination / web, version_dir / f"screenshots-{platform_id}"))
+            platform_checks.append(app_platforms.build_check(destination, entry, allow_commands, _slug(request)))
+        except (sitecheck.SiteError, ValueError, OSError) as exc:
+            names = []
+            platform_checks = [{"check": f"{platform_id} written", "ok": False, "detail": str(exc)}]
+        checks.extend(platform_checks)
+        subjects.append(f"{entry['name']} FILES: {', '.join(names) or 'none'}\nMODEL FILES:\n{response[:12000]}")
+    version_dir.mkdir(parents=True, exist_ok=True)
+    (version_dir / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
+    (version_dir / "written.json").write_text(json.dumps(written, indent=2) + "\n", encoding="utf-8")
+    (version_dir / "responses.json").write_text(json.dumps(responses, indent=2) + "\n", encoding="utf-8")
+    summary = "\n".join(f"- {'PASS' if c['ok'] is True else 'FAIL' if c['ok'] is False else 'NOT BUILT'}: "
+                        f"{c['check']} {c['detail']}" for c in checks)
+    passed = sum(c["ok"] is True for c in checks)
+    return f"{passed} of {len(checks)} checks passed", "\n\n".join(subjects) + "\n\nCHECKS:\n" + summary
+
+
+def _deliver_app(folder: Path, version: int, chosen: list[str], catalog: dict[str, dict[str, Any]]) -> None:
+    source = folder / f"v{version}"
+    if (source / "site").is_dir():
+        shutil.copytree(source / "site", folder / "site")
+    checks: list[dict[str, Any]] = json.loads((source / "checks.json").read_text(encoding="utf-8"))
+    written: dict[str, list[str]] = json.loads((source / "written.json").read_text(encoding="utf-8"))
+    lines = ["# App", "", "Shared web app: `site/index.html` (serve over HTTPS or localhost).", ""]
+    for platform_id in chosen:
+        entry = catalog[platform_id]
+        # Only the source files go out; installed packages and build output stay in the version folder.
+        # Build steps ran model code in that folder, so each name and file is checked again: no links, nothing outside.
+        base = (source / platform_id).resolve()
+        for name in written.get(platform_id, []):
+            path = source / platform_id / str(name)
+            if not make_checks.safe_name(name) or path.is_symlink() or not path.is_file() \
+                    or not path.resolve().is_relative_to(base):
+                continue
+            target = folder / platform_id / name
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source / platform_id / name, target)
+        build = entry["build"]
+        steps = [[word.replace("{folder}", ".").replace("{name}", folder.name) for word in step]
+                 for step in [*build.get("before", []), build["command"]] if step]
+        result = next((c for c in checks if c["check"] == f"{platform_id} build"), None)
+        status = result["detail"] if result else "not built"
+        built = bool(result and result["ok"] is True and build["output"])
+        web = app_platforms.web_dir(entry)
+        lines.extend([f"## {entry['name']} ({platform_id})", "", f"Shell: {entry['shell']}",
+                      f"Files: `{platform_id}/`", f"Build status: {status}"])
+        if built:
+            lines.append(f"Built output: `v{version}/{platform_id}/{build['output']}`")
+        elif build["output"]:
+            lines.append(f"Expected output after building: `{platform_id}/{build['output']}`")
+        lines.append(f"Install: {build['install']}")
+        if build.get("to_check"):
+            lines.append(f"To check: {build['to_check']}")
+        lines.extend(["Build by hand: `" + ("cd " + platform_id + " && " + " && ".join(" ".join(step) for step in steps) if steps else
+                                          "serve " + (f"{platform_id}/{web}" if web else platform_id)
+                                          + " over HTTPS or localhost and install from the browser") + "`", ""])
+    (folder / "README.md").write_text("\n".join(lines), encoding="utf-8")
 
 
 def _try_new_kind(kind: str, text: str, request: str, version_dir: Path, allow_commands: bool) -> tuple[str, str]:

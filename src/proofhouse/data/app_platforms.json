@@ -1,0 +1,74 @@
+{
+  "schema": "proofhouse.app-platforms/v1",
+  "platforms": [
+    {
+      "id": "pwa", "name": "Installable web app", "shell": "Web manifest and service worker around the shared web app",
+      "write": "Add manifest.webmanifest with name, start_url, display and icons; add a real icon asset and service-worker.js with an offline cache; update index.html to link the manifest and register the service worker. Return the complete extra and changed files as JSON.",
+      "checks": {"files": ["index.html", "manifest.webmanifest", "service-worker.js"], "json": {"manifest.webmanifest": ["name", "start_url", "display", "icons"]},
+                 "web_install": {"manifest": "manifest.webmanifest", "service_worker": "service-worker.js"}, "site": true},
+      "build": {"tool": "", "install": "Serve the folder over HTTPS or localhost and install from the browser", "command": [], "output": ""},
+      "host_os": ["windows", "macos", "linux"]
+    },
+    {
+      "id": "windows", "name": "Windows desktop", "shell": "Tauri v2 desktop shell with the shared web app in www/", "web_dir": "www",
+      "write": "Create a complete Tauri v2 project: package.json with @tauri-apps/cli (v2) in devDependencies; app-icon.svg (a square SVG app icon); src-tauri/Cargo.toml, src-tauri/build.rs, src-tauri/src/main.rs and src-tauri/tauri.conf.json with build.frontendDist set to \"../www\" and the icons that `tauri icon` writes to src-tauri/icons. The shared web app is already in www/. Include every file needed to build on Windows.",
+      "checks": {"files": ["package.json", "app-icon.svg", "src-tauri/Cargo.toml", "src-tauri/build.rs", "src-tauri/src/main.rs", "src-tauri/tauri.conf.json"], "json": {"package.json": ["name", "devDependencies"], "src-tauri/tauri.conf.json": ["productName", "identifier", "build"]}},
+      "build": {"tool": "npx", "install": "Install Node.js, Rust (rustup), Microsoft C++ Build Tools and WebView2",
+                "before": [["npm", "install"], ["npx", "tauri", "icon", "app-icon.svg"]], "command": ["npx", "tauri", "build"],
+                "output": "src-tauri/target/release/bundle", "timeout": 1800,
+                "env": ["LOCALAPPDATA", "APPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMDATA"],
+                "home_env": {"CARGO_HOME": ".cargo", "RUSTUP_HOME": ".rustup", "npm_config_cache": ".npm"},
+                "to_check": "not yet run end to end on a real machine: `tauri icon` with an SVG source and the www/ frontendDist layout"},
+      "host_os": ["windows"]
+    },
+    {
+      "id": "macos", "name": "macOS desktop", "shell": "Tauri v2 desktop shell with the shared web app in www/", "web_dir": "www",
+      "write": "Create a complete Tauri v2 project: package.json with @tauri-apps/cli (v2) in devDependencies; app-icon.svg (a square SVG app icon); src-tauri/Cargo.toml, src-tauri/build.rs, src-tauri/src/main.rs and src-tauri/tauri.conf.json with build.frontendDist set to \"../www\" and the icons that `tauri icon` writes to src-tauri/icons. The shared web app is already in www/. Include every file needed to build on macOS.",
+      "checks": {"files": ["package.json", "app-icon.svg", "src-tauri/Cargo.toml", "src-tauri/build.rs", "src-tauri/src/main.rs", "src-tauri/tauri.conf.json"], "json": {"package.json": ["name", "devDependencies"], "src-tauri/tauri.conf.json": ["productName", "identifier", "build"]}},
+      "build": {"tool": "npx", "install": "Install Node.js, Rust (rustup) and the Xcode command line tools",
+                "before": [["npm", "install"], ["npx", "tauri", "icon", "app-icon.svg"]], "command": ["npx", "tauri", "build", "--bundles", "app"],
+                "output": "src-tauri/target/release/bundle/macos", "timeout": 1800,
+                "env": ["DEVELOPER_DIR"],
+                "home_env": {"CARGO_HOME": ".cargo", "RUSTUP_HOME": ".rustup", "npm_config_cache": ".npm"},
+                "to_check": "not yet run end to end on a real machine: `tauri icon` with an SVG source and the www/ frontendDist layout"},
+      "host_os": ["macos"]
+    },
+    {
+      "id": "linux", "name": "Linux desktop", "shell": "Tauri v2 desktop shell with the shared web app in www/", "web_dir": "www",
+      "write": "Create a complete Tauri v2 project: package.json with @tauri-apps/cli (v2) in devDependencies; app-icon.svg (a square SVG app icon); src-tauri/Cargo.toml, src-tauri/build.rs, src-tauri/src/main.rs and src-tauri/tauri.conf.json with build.frontendDist set to \"../www\" and the icons that `tauri icon` writes to src-tauri/icons. The shared web app is already in www/. Include every file needed to build on Linux.",
+      "checks": {"files": ["package.json", "app-icon.svg", "src-tauri/Cargo.toml", "src-tauri/build.rs", "src-tauri/src/main.rs", "src-tauri/tauri.conf.json"], "json": {"package.json": ["name", "devDependencies"], "src-tauri/tauri.conf.json": ["productName", "identifier", "build"]}},
+      "build": {"tool": "npx", "install": "Install Node.js, Rust (rustup) and Tauri's Linux system packages (WebKitGTK and friends)",
+                "before": [["npm", "install"], ["npx", "tauri", "icon", "app-icon.svg"]], "command": ["npx", "tauri", "build"],
+                "output": "src-tauri/target/release/bundle", "timeout": 1800,
+                "env": ["PKG_CONFIG_PATH"],
+                "home_env": {"CARGO_HOME": ".cargo", "RUSTUP_HOME": ".rustup", "npm_config_cache": ".npm"},
+                "to_check": "not yet run end to end on a real machine: `tauri icon` with an SVG source and the www/ frontendDist layout"},
+      "host_os": ["linux"]
+    },
+    {
+      "id": "ios", "name": "iOS", "shell": "Capacitor iOS app wrapping the shared web app in www/", "web_dir": "www",
+      "write": "Create package.json with @capacitor/core and @capacitor/ios in dependencies and @capacitor/cli in devDependencies, and capacitor.config.json with appId (reverse domain), appName and webDir \"www\". Do not write the ios/ folder: `npx cap add ios` generates the native project. The shared web app is already in www/.",
+      "checks": {"files": ["package.json", "capacitor.config.json"], "json": {"package.json": ["name", "dependencies", "devDependencies"], "capacitor.config.json": ["appId", "appName", "webDir"]}},
+      "build": {"tool": "npx", "install": "Install Node.js, Xcode and CocoaPods; sign in to Xcode with your Apple developer team",
+                "before": [["npm", "install"], ["npx", "cap", "add", "ios"]], "command": ["npx", "cap", "build", "ios"],
+                "output": "", "timeout": 1800,
+                "env": ["DEVELOPER_DIR"],
+                "home_env": {"npm_config_cache": ".npm", "CP_HOME_DIR": ".cocoapods"},
+                "to_check": "`cap build` makes a signed app and needs your Xcode signing team; where it writes the IPA is not checked yet"},
+      "host_os": ["macos"]
+    },
+    {
+      "id": "android", "name": "Android", "shell": "Capacitor Android app wrapping the shared web app in www/", "web_dir": "www",
+      "write": "Create package.json with @capacitor/core and @capacitor/android in dependencies and @capacitor/cli in devDependencies, and capacitor.config.json with appId (reverse domain), appName and webDir \"www\". Do not write the android/ folder: `npx cap add android` generates the native project. The shared web app is already in www/.",
+      "checks": {"files": ["package.json", "capacitor.config.json"], "json": {"package.json": ["name", "dependencies", "devDependencies"], "capacitor.config.json": ["appId", "appName", "webDir"]}},
+      "build": {"tool": "npx", "install": "Install Node.js, a JDK and Android Studio with the Android SDK (set JAVA_HOME and ANDROID_HOME)",
+                "before": [["npm", "install"], ["npx", "cap", "add", "android"]], "command": ["npx", "cap", "build", "android"],
+                "output": "android/app/build/outputs", "timeout": 1800,
+                "env": ["JAVA_HOME", "ANDROID_HOME", "ANDROID_SDK_ROOT", "LOCALAPPDATA", "APPDATA", "PROGRAMFILES"],
+                "home_env": {"GRADLE_USER_HOME": ".gradle", "npm_config_cache": ".npm"},
+                "set_env": {"GRADLE_OPTS": "-Dorg.gradle.daemon=false"},
+                "to_check": "`cap build` makes a signed AAB or APK; without keystore settings it may stop, and that is not checked yet"},
+      "host_os": ["windows", "macos", "linux"]
+    }
+  ]
+}
