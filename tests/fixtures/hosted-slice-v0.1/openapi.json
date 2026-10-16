@@ -1101,6 +1101,10 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
+                  "allow-commands": {
+                    "description": "Start a made MCP server or hook to check it. It runs model-written code with your rights; this is not a sandbox.",
+                    "type": "boolean"
+                  },
                   "formats": {
                     "description": "Renders: 16x9, 9x16, 1x1 (comma separated).",
                     "type": "string"
@@ -1114,7 +1118,7 @@
                     "type": "boolean"
                   },
                   "kind": {
-                    "description": "What to make: prompt, skill, agent, site, copy, video, launch, or a kind an add-on adds (default prompt).",
+                    "description": "What to make: prompt, skill, agent, site, copy, rule, mcp, hook, video, launch, or a kind an add-on adds (default prompt).",
                     "type": "string"
                   },
                   "max-cost-usd": {

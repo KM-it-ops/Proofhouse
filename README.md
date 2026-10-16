@@ -147,6 +147,8 @@ proofhouse make "a skill that reviews pull requests for security issues" --kind 
 
 `make` writes version 1 with your model and tries it (a prompt runs on a test input, yours or one it writes). A judge model scores it against what you asked for, and `make` revises until the score reaches `--target` (default 9), the rounds run out (`--rounds`, default 3), or the next call would cross your spending limit, which covers the whole command. Every version, test output, score and cost is kept in one folder. The best version is `final.md`, or for a skill an installable folder (`proofhouse install-skill --bundle <folder>`). The judge is a model, so its score is advice, not proof.
 
+`--kind rule` makes a Markdown instruction and checks installation and clean removal in every rule-capable host using throwaway settings. `--kind mcp` makes a stdio server and checks its `initialize` and `tools/list` replies; the best folder includes an exact install line. `--kind hook` makes a command hook, runs it on a sample event, and includes a Claude Code settings snippet. Each version keeps `checks.json`; generated commands run with a limited environment and a timeout.
+
 Put it online when you say so, with the hosting service's own tool (signed in your usual way):
 
 ```bash

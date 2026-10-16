@@ -225,6 +225,7 @@ def _cmd_make(args: argparse.Namespace) -> int:
             target=args.target,
             test_input=test_input,
             out_dir=Path(args.out) if args.out else None,
+            allow_commands=args.allow_commands,
         )
     except (make.MakeError, providers.ProviderError, OSError) as exc:
         return _fail(str(exc))
@@ -250,12 +251,18 @@ def _cmd_make(args: argparse.Namespace) -> int:
             print(f"open it: {made.folder}/site/index.html  (screenshots and checks are in {made.folder}/v{made.best_version})")
         if made.kind == "agent" and made.best_version:
             print(f"install it: proofhouse install agent {made.folder}/<agent-name>.md --into claude")
+        if made.kind == "rule" and made.best_version:
+            print(f"rule file: {made.folder}/<rule-name>.md")
+        if made.kind == "mcp" and made.best_version:
+            print(f"server: {made.folder}/mcp; install line: {made.folder}/INSTALL-MCP.txt")
+        if made.kind == "hook" and made.best_version:
+            print(f"hook: {made.folder}/hook; settings: {made.folder}/settings-snippet.json")
     return EXIT_OK if made.best_version else EXIT_REFUSED
 
 
 def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make = subparsers.add_parser(
-        "make", help="Make anything with any model (prompt, skill, agent, site, copy, video, or a whole launch) within one spending limit."
+        "make", help="Make anything with any model (prompt, skill, agent, rule, mcp, hook, site, copy, video, or a whole launch) within one spending limit."
     )
     p_make.add_argument("request", help="What you want made, in your own words.")
     p_make.add_argument("--provider", required=True, help="Provider id (see `proofhouse providers list`).")
@@ -283,6 +290,8 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make.add_argument("--target", type=int, default=make.DEFAULT_TARGET, help="Stop when the judge scores this (0-10, default 9).")
     p_make.add_argument("--input-file", default=None, help="A real input to test a prompt on (otherwise the model writes one).")
     p_make.add_argument("--out", default=None, help="Folder for the results (default ./make-<words>-<time>).")
+    p_make.add_argument("--allow-commands", action="store_true",
+                        help="Start a made MCP server or hook to check it. It runs model-written code with your rights; this is not a sandbox.")
     p_make.add_argument("--json", action="store_true", help="Emit a JSON summary.")
     p_make.set_defaults(func=_cmd_make)
 

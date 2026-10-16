@@ -54,9 +54,11 @@ ALLOWED = {
     ("optimize/reference_workflow.py", "subprocess"),  # runs the proofhouse CLI itself, offline
     ("studio.py", "subprocess"),  # runs ffmpeg and ffprobe on local files; no network
     ("sitecheck.py", "subprocess"),
+    ("make_checks.py", "subprocess"),  # starts a made MCP server or hook locally: no shell, a reduced environment, a timeout
     ("deploy.py", "subprocess"),  # runs the hosting service's own tool (netlify, vercel, wrangler, surge) when you deploy
     ("loop.py", "subprocess"),  # runs your check and watch commands, and the agent's only with --allow-commands  # opens a generated site from disk in a local headless browser
     ("optimize/cli.py", "ctypes"),  # console handling on Windows
+    ("make_checks.py", "ctypes"),  # a Windows job object so a made MCP server or hook cannot outlive its check
     ("parts.py", "import_module"),
     ("addons.py", "entry_points"),  # loads add-on packages you installed (group proofhouse.addons); their code runs as you  # loads registered parts by the module names in its own table
 }
