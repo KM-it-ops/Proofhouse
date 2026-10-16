@@ -132,8 +132,13 @@ def install(source: Path) -> Addon:
     addon = _check(raw, str(path), "pack")
     _check_entries(addon)
     target = packs_dir() / addon.name
-    target.mkdir(parents=True, exist_ok=True)
-    (target / "addon.json").write_text(json.dumps(raw, indent=2) + "\n", encoding="utf-8")
+    new_folder = not target.exists()
+    try:
+        providers.write_atomic(target / "addon.json", json.dumps(raw, indent=2) + "\n")
+    except OSError:
+        if new_folder:
+            shutil.rmtree(target, ignore_errors=True)
+        raise
     return addon
 
 

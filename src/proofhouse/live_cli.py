@@ -52,7 +52,10 @@ def _cmd_providers_add(args: argparse.Namespace) -> int:
         return _fail(str(exc))
     data["providers"] = [p for p in data["providers"] if not (isinstance(p, dict) and p.get("id") == provider.id)]
     data["providers"].append(raw)
-    path = providers.save_user(data)
+    try:
+        path = providers.save_user(data)
+    except providers.ProviderError as exc:
+        return _fail(str(exc))
     print(f"added {provider.id} ({provider.chat_url}) to {path}")
     return EXIT_OK
 
@@ -66,7 +69,10 @@ def _cmd_providers_remove(args: argparse.Namespace) -> int:
     if len(kept) == len(data["providers"]):
         return _fail(f"{args.id} is not in your providers file ({providers.user_path()}); shipped providers can be overridden, not removed")
     data["providers"] = kept
-    providers.save_user(data)
+    try:
+        providers.save_user(data)
+    except providers.ProviderError as exc:
+        return _fail(str(exc))
     print(f"removed {args.id} from {providers.user_path()}")
     return EXIT_OK
 
@@ -90,7 +96,10 @@ def _cmd_providers_price(args: argparse.Namespace) -> int:
         p for p in data["prices"] if not (isinstance(p, dict) and p.get("provider") == profile.id and p.get("model") == args.model)
     ]
     if args.remove:
-        providers.save_user(data)
+        try:
+            providers.save_user(data)
+        except providers.ProviderError as exc:
+            return _fail(str(exc))
         print(f"removed your price for {profile.id} {args.model}")
         return EXIT_OK
     prices = {}
@@ -108,7 +117,10 @@ def _cmd_providers_price(args: argparse.Namespace) -> int:
             "declared_on": date.today().isoformat(),
         }
     )
-    path = providers.save_user(data)
+    try:
+        path = providers.save_user(data)
+    except providers.ProviderError as exc:
+        return _fail(str(exc))
     print(f"{profile.id} {args.model}: ${prices['input']} in / ${prices['output']} out per million tokens, declared by you ({path})")
     return EXIT_OK
 

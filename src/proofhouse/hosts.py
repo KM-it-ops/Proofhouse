@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any
 
 from .optimize.kinds import is_link
-from .providers import proofhouse_home
+from .providers import proofhouse_home, write_atomic
 
 HOSTS_SCHEMA = "proofhouse.hosts/v1"
 SHIPPED_PATH = Path(__file__).resolve().parent / "data" / "hosts.json"
@@ -152,11 +152,8 @@ def _record_path(t: Target) -> Path:
     return proofhouse_home() / "installs" / f"{t.host}-{t.kind}-{t.name}-{key}.json"
 
 
-def _write(path: Path, text: str) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".proofhouse-tmp")
-    temporary.write_text(text, encoding="utf-8")
-    os.replace(temporary, path)
+def _write(path: Path, content: str | bytes) -> None:
+    write_atomic(path, content)
 
 
 def _backup(t: Target) -> str | None:
@@ -222,6 +219,7 @@ def install(t: Target, content: Any, *, force: bool = False) -> str:
     record_file = _record_path(t)
     record = json.loads(record_file.read_text(encoding="utf-8")) if record_file.is_file() else None
     existing = t.path.read_text(encoding="utf-8") if t.path.is_file() else None
+    before = t.path.read_bytes() if existing is not None else None
 
     if t.format == "file":
         text = str(content).rstrip("\n") + "\n"
@@ -266,13 +264,22 @@ def install(t: Target, content: Any, *, force: bool = False) -> str:
     else:
         raise HostError(f"unknown format {t.format}")
 
-    record_file.parent.mkdir(parents=True, exist_ok=True)
-    record_file.write_text(json.dumps({
-        "schema": "proofhouse.host-install/v1", "host": t.host, "kind": t.kind, "name": t.name, "path": str(t.path),
-        "format": t.format, "written": written, "digest": _digest(written if isinstance(written, str) else json.dumps(written, sort_keys=True)),
-        "created_file": existing is None if record is None else record.get("created_file", False), "backup": backup,
-        "installed_at": datetime.now(timezone.utc).isoformat(),
-    }, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    try:
+        _write(record_file, json.dumps({
+            "schema": "proofhouse.host-install/v1", "host": t.host, "kind": t.kind, "name": t.name, "path": str(t.path),
+            "format": t.format, "written": written, "digest": _digest(written if isinstance(written, str) else json.dumps(written, sort_keys=True)),
+            "created_file": existing is None if record is None else record.get("created_file", False), "backup": backup,
+            "installed_at": datetime.now(timezone.utc).isoformat(),
+        }, indent=2, sort_keys=True) + "\n")
+    except OSError:
+        # without its record the install could not be undone cleanly, so put the tool's file back as it was
+        if before is None:
+            t.path.unlink(missing_ok=True)
+        else:
+            _write(t.path, before)
+        if record is None and backup:
+            Path(backup).unlink(missing_ok=True)
+        raise
     return f"installed {t.kind} {t.name} into {t.host_name}: {t.path}"
 
 
@@ -292,7 +299,7 @@ def uninstall(t: Target, *, force: bool = False) -> str:
             raise HostError(f"{t.path} changed since Proofhouse wrote it; use --force to remove it anyway")
         backup = record.get("backup")
         if backup and Path(backup).is_file():
-            shutil.copy2(backup, t.path)
+            _write(t.path, Path(backup).read_bytes())
         else:
             t.path.unlink()
     elif t.format in ("md-block", "toml-block"):
