@@ -68,7 +68,10 @@ def _cmd_price(args: argparse.Namespace) -> int:
             return _fail("--usd-per-million must be a plain decimal above zero (USD per million training tokens)")
         data["training_prices"].append({"provider": service.id, "model": args.model, "usd_per_million_tokens": args.usd_per_million,
                                         "declared_on": date.today().isoformat()})
-    path = providers.save_user(data)
+    try:
+        path = providers.save_user(data)
+    except providers.ProviderError as exc:
+        return _fail(str(exc))
     done = "removed your price" if args.remove else f"${args.usd_per_million} per million training tokens, declared by you"
     print(f"{service.id} {args.model}: {done} ({path})")
     return EXIT_OK
@@ -85,8 +88,10 @@ def _cmd_add(args: argparse.Namespace) -> int:
         return _fail(str(exc))
     ids = {s.id for s in parsed}
     kept = [entry for entry in current if entry.get("id") not in ids]
-    path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"schema": train.TRAIN_SCHEMA, "services": kept + entries}, indent=2) + "\n", encoding="utf-8")
+    try:
+        providers.write_atomic(path, json.dumps({"schema": train.TRAIN_SCHEMA, "services": kept + entries}, indent=2) + "\n")
+    except OSError as exc:
+        return _fail(f"could not save {path}: {exc}; it is unchanged")
     print(f"added {', '.join(sorted(ids))} to {path}")
     return EXIT_OK
 

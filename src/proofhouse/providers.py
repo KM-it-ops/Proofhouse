@@ -21,6 +21,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import shutil
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -143,13 +144,36 @@ def load_user() -> dict[str, Any]:
     return data
 
 
-def save_user(data: dict[str, Any]) -> Path:
-    """Write your providers file in one step (write a temporary file, then replace)."""
-    path = user_path()
+def write_atomic(path: Path, content: str | bytes) -> None:
+    """Write ``path`` in one step: a temporary file, then replace. A failed write leaves the old file and no leftover.
+
+    The new file keeps the old one's permission bits, so a settings file you locked down stays locked down.
+    """
     path.parent.mkdir(parents=True, exist_ok=True)
-    temporary = path.with_name(path.name + ".tmp")
-    temporary.write_text(json.dumps(data, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    os.replace(temporary, path)
+    temporary = path.with_name(path.name + ".proofhouse-tmp")
+    try:
+        # POSIX: set the permission bits before any content goes in, so it is never briefly readable by others.
+        # Windows has only a read-only flag, which would block writing and cleaning up the temporary file.
+        if path.exists() and os.name != "nt":
+            temporary.write_bytes(b"")
+            shutil.copymode(path, temporary)
+        if isinstance(content, bytes):
+            temporary.write_bytes(content)
+        else:
+            temporary.write_text(content, encoding="utf-8")
+        os.replace(temporary, path)
+    except BaseException:
+        temporary.unlink(missing_ok=True)
+        raise
+
+
+def save_user(data: dict[str, Any]) -> Path:
+    """Write your providers file in one step. A failed save leaves it unchanged and raises ProviderError."""
+    path = user_path()
+    try:
+        write_atomic(path, json.dumps(data, indent=2, sort_keys=True) + "\n")
+    except OSError as exc:
+        raise ProviderError(f"could not save {path}: {exc}; it is unchanged") from None
     return path
 
 
