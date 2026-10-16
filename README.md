@@ -168,6 +168,8 @@ A model plans the launch: which parts it needs (site, video, support agent, skil
 
 `--kind copy` makes announcement copy on its own: headline, body, call to action and ready-to-post versions.
 
+`--kind app` makes a shared web app and a separate package for every selected platform. Use repeatable `--platform` (for example `--platform pwa --platform android`); without it, every target in `app_platforms.json` is selected. The catalog ships PWA, Windows, macOS, Linux, iOS and Android targets and can be extended or overridden in `PROOFHOUSE_HOME/app_platforms.json`. Each version keeps static and build results in `checks.json`; platform builds run only with `--allow-commands`, after their setup steps (such as `npm install` and `npx cap add android`). The delivered `README.md` lists files, where the build output is, and how to build by hand. The shipped desktop and phone builds have not yet been run end to end on real machines, so each is marked "to check" with what is left to confirm.
+
 ### Make a website
 
 ```bash
