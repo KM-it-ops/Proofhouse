@@ -39,6 +39,44 @@ def test_video_must_not_say_certified() -> None:
 def test_away_signal_routes_hook_or_loop() -> None:
     decision = route(RouteRequest("run this check while Boss is away", {}))
     assert decision.artifact_class in {"hook", "loop"}
+    assert "without an operator" in decision.rationale
+
+
+def test_going_away_routes_a_loop() -> None:
+    assert route(RouteRequest("Run checks when I go away", {})).artifact_class == "loop"
+    assert route(RouteRequest("send the report right away", {})).artifact_class != "loop"
+
+
+def test_still_pictures_take_the_media_lane() -> None:
+    assert route(RouteRequest("make an image", {})).artifact_class == "video"
+    assert route(RouteRequest("make a thumbnail image", {})).artifact_class == "video"
+    assert route(RouteRequest("build a docker image for the api", {})).artifact_class != "video"
+    assert route(RouteRequest("build an image search tool", {})).artifact_class != "video"
+
+
+def test_must_survive_routes_harness() -> None:
+    assert route(RouteRequest("make a process that must survive failure", {})).artifact_class == "harness"
+    assert route(RouteRequest("make an image that must survive resizing", {})).artifact_class != "harness"
+
+
+def test_credentials_route_a_tool() -> None:
+    assert route(RouteRequest("connect with credentials", {})).artifact_class == "tool"
+    assert route(RouteRequest("connect to the vendor with a token", {})).artifact_class == "tool"
+    assert route(RouteRequest("write a guide to using credentials", {})).artifact_class != "tool"
+
+
+def test_long_goals_take_linear_time() -> None:
+    import time
+
+    def seconds(count: int) -> float:
+        start = time.perf_counter()
+        route(RouteRequest("make a video for the team " * count, {}))
+        return time.perf_counter() - start
+
+    seconds(200)
+    small, large = seconds(1000), seconds(4000)
+    # Four times the text, so about four times the time; a square law would be sixteen.
+    assert large < small * 10 + 0.05
 
 
 def test_route_does_not_mutate_or_require_ir() -> None:
