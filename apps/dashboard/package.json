@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
-    "preview": "vite preview --host 127.0.0.1"
+    "preview": "vite preview --host 127.0.0.1",
+    "test:e2e": "playwright test",
+    "test:e2e:teeth": "node e2e/check-tests-have-teeth.mjs"
   },
   "dependencies": {
     "@vitejs/plugin-react": "^5.1.1",
@@ -16,6 +18,7 @@
     "vite": "^7.2.7"
   },
   "devDependencies": {
+    "@playwright/test": "1.62.1",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3"
   },
