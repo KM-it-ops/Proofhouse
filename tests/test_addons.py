@@ -73,6 +73,12 @@ def test_a_bad_pack_is_refused_before_it_is_installed(tmp_path: Path, change: di
     assert not addons.packs_dir().exists() or not any(addons.packs_dir().iterdir())
 
 
+@pytest.mark.parametrize("kind", [*make.KINDS, "video", "launch"])
+def test_an_add_on_cannot_claim_a_built_in_kind_name(tmp_path: Path, kind: str) -> None:
+    with pytest.raises(addons.AddonError):
+        addons.install(_pack(tmp_path, {**PACK, "make_kinds": [{"kind": kind, "write": "A writer prompt that is long enough."}]}))
+
+
 class _Point:
     def __init__(self, name: str, make_it) -> None:
         self.name, self._make = name, make_it
