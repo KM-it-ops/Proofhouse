@@ -28,9 +28,9 @@ def test_site_sets_ship_walk_and_does_not_inline_html() -> None:
     assert "html" not in blob.lower()
 
 
-def test_media_must_not_say_certified() -> None:
+def test_video_must_not_say_certified() -> None:
     decision = route(RouteRequest("generate a product video and thumbnail image", {}))
-    assert decision.artifact_class == "media"
+    assert decision.artifact_class == "video"
     assert decision.ship_walk is False
     assert "certified" not in decision.rationale.lower()
     assert "CERTIFIED" not in json.dumps(decision.to_dict())

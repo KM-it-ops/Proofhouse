@@ -514,12 +514,22 @@ COMPILER_COMMANDS = frozenset({
 }) | LOCAL_COMMANDS | frozenset(LEGACY_FORMS)
 
 
-def _overseer(argv_list: list[str]) -> int:
-    """``proofhouse "<objective>" [--case DIR] [--model NAME] [--json]``.
+def _ask_on_terminal(question: str, options: tuple[str, ...]) -> str:
+    print(f"{question} ({' / '.join(options)})", file=sys.stderr)
+    sys.stderr.write("> ")
+    sys.stderr.flush()
+    return sys.stdin.readline().strip()
 
-    Stdout is the route decision, exactly as ``route`` prints it; what the
-    overseer then did (a case opened, or a "no part yet" demand record) is one
-    line on stderr.
+
+def _overseer(argv_list: list[str]) -> int:
+    """``proofhouse "<objective>" [--provider ID --model NAME [--max-cost-usd N]] [--case DIR] [--json]``.
+
+    With ``--provider`` the model picks the kind of thing to make (through the
+    spend gate); without it the built-in rules pick, offline. When the goal
+    could fairly be two kinds and a person is at the terminal, one short
+    question is asked on stderr. Stdout is the decision, as ``route`` prints
+    it; what the overseer then did (a case opened, or a "no part yet" demand
+    record) is one line on stderr.
     """
     from ..optimize.case import CaseError
     from .orchestration.overseer import DEFAULT_MODEL, oversee
@@ -528,12 +538,24 @@ def _overseer(argv_list: list[str]) -> int:
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--case", default=None)
     parser.add_argument("--model", default=DEFAULT_MODEL)
+    parser.add_argument("--provider", default=None)
+    parser.add_argument("--max-cost-usd", default=None)
     try:
         args = parser.parse_args(argv_list[1:])
     except SystemExit:
         return EXIT_USAGE_ERROR
+    if args.provider and args.model == DEFAULT_MODEL:
+        print("error: name the model that picks (--model)", file=sys.stderr)
+        return EXIT_USAGE_ERROR
     try:
-        result = oversee(argv_list[0], case_dir=Path(args.case) if args.case else None, model=args.model)
+        result = oversee(
+            argv_list[0],
+            case_dir=Path(args.case) if args.case else None,
+            model=args.model,
+            provider=args.provider,
+            max_cost_usd=args.max_cost_usd,
+            ask=_ask_on_terminal if sys.stdin.isatty() else None,
+        )
     except CaseError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE_ERROR
