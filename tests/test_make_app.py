@@ -649,3 +649,68 @@ def test_a_deeply_nested_installed_manifest_is_not_a_crash(tmp_path: Path, monke
     setup = _setup(_REAL) + "d = pathlib.Path('node_modules/deep')\nd.mkdir()\n(d / 'package.json').write_text('[' * 200000 + ']' * 200000)\n"
     found = _build(_tool_run(tmp_path, monkeypatch, setup))
     assert found["ok"] is True, found
+
+
+_TICK = 1_700_000_000
+# Writes argv[1] to the output and stamps it with one fixed time, as a file system that keeps 2-second times would.
+_SAME_TICK = ("import os, pathlib, sys\nout = pathlib.Path(sys.argv[2])\nout.parent.mkdir(parents=True, exist_ok=True)\n"
+              f"out.write_text(sys.argv[1])\nos.utime(out, ({_TICK}, {_TICK}))\n")
+
+
+@pytest.mark.parametrize("output", ["dist/app.bin", "dist"])
+def test_a_build_that_rewrites_its_output_in_the_same_clock_tick_passes(tmp_path: Path, output: str) -> None:
+    from proofhouse import app_platforms
+
+    entry = _python_entry({"before": [["python", "write.py", "aaaa", "dist/app.bin"]],
+                           "command": ["python", "write.py", "bbbb", "dist/app.bin"], "output": output})
+    folder = tmp_path / "app"
+    folder.mkdir()
+    (folder / "write.py").write_text(_SAME_TICK, encoding="utf-8")
+    found = app_platforms.build_check(folder, entry, True, "app")
+    assert found["ok"] is True, found
+    assert (folder / "dist" / "app.bin").read_text(encoding="utf-8") == "bbbb"
+
+
+def test_preparing_the_output_never_touches_files_outside_the_folder(tmp_path: Path) -> None:
+    from proofhouse import app_platforms
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "keep.txt").write_text("keep", encoding="utf-8")
+    os.utime(outside / "keep.txt", (_TICK, _TICK))
+    folder = tmp_path / "app"
+    (folder / "dist").mkdir(parents=True)
+    try:
+        (folder / "dist" / "linked.txt").symlink_to(outside / "keep.txt")
+        (folder / "linked-dist").symlink_to(outside, target_is_directory=True)
+    except OSError:
+        pytest.skip("this machine cannot make symbolic links")
+    (folder / "noop.py").write_text("pass\n", encoding="utf-8")
+    for output in ("dist", "linked-dist"):
+        app_platforms.build_check(folder, _python_entry({"command": ["python", "noop.py"], "output": output}), True, "app")
+    assert (outside / "keep.txt").stat().st_mtime_ns == _TICK * 1_000_000_000
+
+
+@pytest.mark.parametrize(("platform_id", "output_type", "unsigned"), [("ios", ".app", "CODE_SIGNING_ALLOWED=NO"),
+                                                                      ("android", ".apk", "assembleDebug")])
+def test_shipped_mobile_builds_make_an_unsigned_app_and_check_it(platform_id: str, output_type: str, unsigned: str) -> None:
+    from proofhouse import app_platforms
+
+    build = {entry["id"]: entry for entry in app_platforms._read(app_platforms.SHIPPED)}[platform_id]["build"]
+    # `cap build` signs the app, so it stops without a signing team or keystore on the build machine.
+    assert "cap" not in build["command"] and unsigned in build["command"], build["command"]
+    assert build["output"].endswith(output_type), build["output"]
+
+
+def test_an_ios_build_that_exits_cleanly_without_the_app_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import app_platforms, make_checks
+
+    entry = {item["id"]: item for item in app_platforms._read(app_platforms.SHIPPED)}["ios"]
+    cap = tmp_path / "app" / "node_modules" / "@capacitor" / "cli"
+    cap.mkdir(parents=True)
+    (cap / "package.json").write_text(json.dumps({"name": "@capacitor/cli", "bin": {"cap": "bin/capacitor"}}), encoding="utf-8")
+    monkeypatch.setattr(app_platforms, "host_os", lambda: "macos")
+    # Every tool (npm, npx, xcodebuild) is a stand-in that exits 0 and writes nothing.
+    monkeypatch.setattr(make_checks, "_command", lambda command, args, folder: [sys.executable, "-c", "pass"])
+    found = app_platforms.build_check(tmp_path / "app", entry, True, "app")
+    assert found["ok"] is False and "missing" in str(found["detail"]), found
