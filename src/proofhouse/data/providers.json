@@ -3,7 +3,7 @@
   "note": "Addresses as each provider publishes them for OpenAI-style chat requests. Check them against your provider's own docs; add or override any provider in PROOFHOUSE_HOME/providers.json.",
   "providers": [
     {"id": "openai", "name": "OpenAI", "base_url": "https://api.openai.com/v1", "shape": "openai", "key_env": "OPENAI_API_KEY"},
-    {"id": "anthropic", "name": "Anthropic (OpenAI-compatible endpoint)", "base_url": "https://api.anthropic.com/v1", "shape": "openai-compatible", "key_env": "ANTHROPIC_API_KEY"},
+    {"id": "anthropic", "name": "Anthropic (OpenAI-compatible endpoint)", "base_url": "https://api.anthropic.com/v1", "shape": "openai-compatible", "key_env": "ANTHROPIC_API_KEY", "ignores": ["output.structured_json@1", "tools.function_calling@1"]},
     {"id": "google", "name": "Google Gemini (OpenAI-compatible endpoint)", "base_url": "https://generativelanguage.googleapis.com/v1beta/openai", "shape": "openai-compatible", "key_env": "GEMINI_API_KEY"},
     {"id": "mistral", "name": "Mistral", "base_url": "https://api.mistral.ai/v1", "shape": "openai-compatible", "key_env": "MISTRAL_API_KEY"},
     {"id": "groq", "name": "Groq", "base_url": "https://api.groq.com/openai/v1", "shape": "openai-compatible", "key_env": "GROQ_API_KEY"},
