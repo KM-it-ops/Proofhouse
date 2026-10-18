@@ -13,6 +13,11 @@ rationale says so. ``oversee`` acts on that decision (MISSION-040 SPEC §2.7):
   the route decision: class, rationale and whether the class was forced.
 - ``nothing_new`` and ``one_prompt``: consumption-governor exits ("don't
   build"); nothing is opened or recorded.
+- A kind Proofhouse has not met yet (named with ``artifact_class``): it is
+  never refused or swapped for a known kind. With a model set up, the model
+  researches it now, through the spend gate, and it is saved as a learned kind
+  (``learn.py``); without one, it is learned the first time it is made. Either
+  way the demand record says so and gives the ``make`` command.
 - Every other class: no case is opened. The decision is appended as "no part
   yet" to a local demand record under the Proofhouse home folder (objective,
   class, rationale, time). Offline.
@@ -28,7 +33,7 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable
 
-from .route import RouteDecision, RouteRequest, _forced_class, route
+from .route import _ALLOWED, RouteDecision, RouteRequest, _forced_class, route
 
 GOVERNOR_EXITS = frozenset({"nothing_new", "one_prompt"})
 DEMAND_DIR = "demand"
@@ -51,6 +56,8 @@ class OverseerResult:
     case_dir: Path | None = None
     # Where a "no part yet" decision was appended; ``None`` for a case or a governor exit.
     demand_record: Path | None = None
+    # For a new or add-on kind: what was done about it and how to make it, in one line.
+    note: str | None = None
 
 
 def demand_record_path() -> Path:
@@ -69,20 +76,24 @@ def default_case_dir(objective: str, cwd: Path | None = None) -> Path:
     return candidate
 
 
-def _append_demand(objective: str, decision: RouteDecision, forced: bool) -> Path:
+def _append_demand(
+    objective: str, decision: RouteDecision, forced: bool, *, status: str = "no part yet", next_step: str | None = None
+) -> Path:
     from ...optimize.case import now_iso
 
     path = demand_record_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     entry = {
         "schema": DEMAND_SCHEMA,
-        "status": "no part yet",
+        "status": status,
         "objective": objective,
         "class": decision.artifact_class,
         "rationale": decision.rationale,
         "forced": forced,
         "recorded_at": now_iso(),
     }
+    if next_step is not None:
+        entry["next"] = next_step
     with path.open("a", encoding="utf-8", newline="\n") as handle:  # append-only
         handle.write(json.dumps(entry, sort_keys=True, ensure_ascii=False) + "\n")
     return path
@@ -164,6 +175,9 @@ def oversee(
     if klass in GOVERNOR_EXITS:
         return OverseerResult(decision)
     kind = ROUTE_CLASS_KINDS.get(klass)
+    if kind is None and klass not in _ALLOWED:
+        return _new_kind(objective, decision, forced, provider=provider, model=model, max_cost_usd=max_cost_usd,
+                         transport=transport)
     if kind is None:
         return OverseerResult(decision, demand_record=_append_demand(objective, decision, forced))
     target = case_dir if case_dir is not None else default_case_dir(objective)
@@ -184,3 +198,37 @@ def oversee(
         route=route_record,
     )
     return OverseerResult(decision, case_dir=target)
+
+
+def _new_kind(
+    objective: str,
+    decision: RouteDecision,
+    forced: bool,
+    *,
+    provider: str | None,
+    model: str,
+    max_cost_usd: str | None,
+    transport: Any,
+) -> OverseerResult:
+    """A kind outside the built-in classes: an add-on's, or a new one that is researched and learned."""
+    from ... import addons, learn
+
+    klass = decision.artifact_class
+    with_model = f" --provider {provider} --model {model}" if provider is not None and model != DEFAULT_MODEL else ""
+    make_it = f'proofhouse make --kind {klass} "{objective}"{with_model}'
+    if klass in addons.make_kinds():
+        status, note = "ready to make", f"{klass} is a kind Proofhouse knows; make it: {make_it}"
+    elif not with_model:
+        status = "to learn"
+        note = f"{klass} is new to Proofhouse; your model researches it the first time you make it: {make_it} --provider ID --model NAME"
+    else:
+        try:
+            learn.learn_with_model(klass, provider_id=provider or "", model=model, max_cost_usd=max_cost_usd,
+                                   transport=transport)
+        except learn.LearnError as exc:
+            status = "to learn"
+            note = f"{klass} is new to Proofhouse and the research did not finish ({exc}); it is tried again when you make it: {make_it}"
+        else:
+            status, note = "learned", f"learned {klass} with {provider}/{model} (saved in {learn.pack_path()}); make it: {make_it}"
+    record = _append_demand(objective, decision, forced, status=status, next_step=note)
+    return OverseerResult(decision, demand_record=record, note=note)

@@ -566,6 +566,8 @@ def _overseer(argv_list: list[str]) -> int:
             "continue it with proofhouse case ...",
             file=sys.stderr,
         )
+    elif result.note is not None:
+        print(f"overseer: {result.note}; recorded in {result.demand_record}", file=sys.stderr)
     elif result.demand_record is not None:
         print(
             f"overseer: no part yet for {result.decision.artifact_class}; recorded in {result.demand_record}",

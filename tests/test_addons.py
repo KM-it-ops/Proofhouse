@@ -100,7 +100,15 @@ def test_a_python_package_add_on_is_loaded_and_a_broken_one_is_skipped(monkeypat
     assert "good-addon" in captured.out and "package" in captured.out and "skipped: bad: RuntimeError: boom" in captured.err
 
 
-def test_an_unknown_make_kind_names_every_kind_there_is(tmp_path: Path, capsys) -> None:
+def test_a_make_kind_nobody_added_is_researched_first_not_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """An unknown kind is learned (learn.py), never refused; the first thing sent is the research question."""
     addons.install(_pack(tmp_path, PACK))
-    assert cli.main(["make", "x", "--kind", "poster", "--provider", "ollama", "--model", "m", "--out", str(tmp_path / "o")]) == 2
-    assert "tweet-thread" in capsys.readouterr().err
+    sent: list[str] = []
+
+    def model(request: live.Request) -> live.Response:
+        sent.append(" ".join(m["content"] for m in json.loads(request.body_bytes)["messages"]))
+        return live.Response(200, {"choices": [{"message": {"content": "not JSON"}}], "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+
+    monkeypatch.setattr(live, "_httpx_post", model)
+    assert cli.main(["make", "x", "--kind", "poster", "--provider", "ollama", "--model", "m", "--out", str(tmp_path / "o")]) != 0
+    assert len(sent) == 1 and sent[0].startswith("Proofhouse makes many kinds") and "make a poster" in sent[0]

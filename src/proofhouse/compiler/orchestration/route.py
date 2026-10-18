@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 from bisect import bisect_left, bisect_right
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, replace
 from typing import Any, Literal
 
 ArtifactClass = Literal[
@@ -340,7 +340,7 @@ class RouteRequest:
 
 @dataclass(frozen=True)
 class RouteDecision:
-    # An ArtifactClass, or an add-on make kind that a model picked.
+    # An ArtifactClass, an add-on make kind, or a new kind named in the request (learned when first made).
     artifact_class: str
     rationale: str
     ship_walk: bool
@@ -364,13 +364,30 @@ def _text(request: RouteRequest) -> str:
 
 
 def _forced_class(request: RouteRequest) -> ArtifactClass | None:
+    """The kind the request names. A name Proofhouse does not know yet is still that kind: it is learned, not swapped."""
     forced = request.constraints.get("artifact_class")
     if not isinstance(forced, str):
         return None
     forced = LEGACY_NAMES.get(forced, forced)
     if forced in _ALLOWED:
         return forced
-    return None
+    from ...learn import kind_name
+
+    named = kind_name(forced)
+    return LEGACY_NAMES.get(named, named) if named is not None else None
+
+
+def _new_kind_reason(kind: str) -> str:
+    from ... import addons
+
+    try:
+        entry = addons.make_kinds().get(kind)
+    except Exception:  # noqa: BLE001 -- a broken add-on never stops a pick
+        entry = None
+    if entry is not None:
+        return f"constraint artifact_class={kind} (a kind from add-on {entry['addon']})"
+    return (f"constraint artifact_class={kind}: a kind Proofhouse has not made before; your model researches and "
+            f"learns it the first time it is made (proofhouse make --kind {kind})")
 
 
 def _object_spans(text: str) -> tuple[tuple[int, int], ...]:
@@ -556,6 +573,12 @@ def route(request: RouteRequest) -> RouteDecision:
         return RouteDecision("video", "non-reproducible lane; outside sealed deterministic core", False)
     if forced in {"hook", "loop"}:
         return RouteDecision(forced, "runs without an operator present", False)
+    if forced is not None and forced not in _ALLOWED:
+        return RouteDecision(forced, _new_kind_reason(forced), False)
     if forced is not None:
         return RouteDecision(forced, f"constraint artifact_class={forced}", False)
+    named = request.constraints.get("artifact_class")
+    if isinstance(named, str) and named.strip():
+        chosen = _choose(text)
+        return replace(chosen, rationale=f"artifact_class={named!r} is not a kind name; {chosen.rationale}")
     return _choose(text)

@@ -252,10 +252,18 @@ def _cmd_make(args: argparse.Namespace) -> int:
         "calls": len(made.calls),
         "spent_usd_estimated": format(made.spent_usd, "f"),
     }
+    if made.learned is not None:
+        summary["learned"] = {key: made.learned[key] for key in ("kind", "what_it_is", "sources", "sources_note")}
     if args.json:
         print(json.dumps(summary, sort_keys=True))
     else:
         best = f"version {made.best_version} (judge score {made.best_score}/10)" if made.best_version else "nothing usable"
+        if made.learned is not None:
+            from . import learn
+
+            print(f"learned a new kind, {made.kind}: {made.learned['what_it_is']}")
+            print(f"  saved in {learn.pack_path()}; sources the model named ({learn.SOURCES_NOTE}): "
+                  f"{', '.join(made.learned['sources']) or 'none'}")
         print(f"made: {best}; stopped: {made.stopped}")
         print(f"spent about ${summary['spent_usd_estimated']} over {len(made.calls)} calls; everything is in {made.folder}")
         if made.kind == "skill" and made.best_version:
@@ -283,7 +291,7 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make.add_argument("--provider", required=True, help="Provider id (see `proofhouse providers list`).")
     p_make.add_argument("--model", required=True, help="Model id as the provider names it.")
     p_make.add_argument("--kind", default="prompt",
-                        help=f"What to make: {', '.join((*make.KINDS, 'video', 'launch'))}, or a kind an add-on adds (default prompt).")
+                        help=f"What to make: {', '.join((*make.KINDS, 'video', 'launch'))}, or any other kind: an add-on's, or a new one your model researches and learns first (default prompt).")
     p_make.add_argument("--parts", default=None,
                         help=f"For --kind launch: which parts to make, comma separated, from {','.join(launch.PART_KINDS)} "
                              "(default: the planner picks).")
