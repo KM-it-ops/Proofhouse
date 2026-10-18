@@ -2,6 +2,9 @@ name: Native sample builds
 
 on:
   workflow_dispatch:
+  # A manual workflow can only be started once it is on main, so pushing this branch runs it too.
+  push:
+    branches: [ci/native-builds]
 
 permissions:
   contents: read
