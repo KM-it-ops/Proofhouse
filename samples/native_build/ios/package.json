@@ -1,0 +1,1 @@
+{"name":"proofhouse-native-sample","private":true,"version":"1.0.0","dependencies":{"@capacitor/core":"^6.0.0","@capacitor/ios":"^6.0.0"},"devDependencies":{"@capacitor/cli":"^6.0.0"}}
