@@ -69,15 +69,25 @@ To check on real machines (not yet run end to end):
 
 1. Rules, MCP servers and hooks as make kinds. Done.
 2. Apps for every platform as one make kind. Done for source, checks and builds; native builds to check.
-3. Next:
-   - Run each native app build once on a real Windows, macOS and Linux machine and an iOS and Android
-     setup, and fix what the to-check list turns up.
-   - Let add-ons reserve the new built-in kind names (rule, mcp, hook) the way `app` already is.
-   - `proofhouse "<goal>"` picks the right kind of thing to make. Today's word-matching picks correctly
-     on 7 of 32 test goals. The answer key is [overseer-test-set.md](overseer-test-set.md), waiting for
-     Boss to confirm the labels before the new picker is built.
-   - Run compiled artifacts on every provider, not only OpenAI-compatible ones (completion criterion 1,
-     [audit](assurance/2026-10-16-completion-criteria.md)).
+3. Next, as units (approved 2026-10-17). Each unit runs in its own session and branch. Claude writes
+   the failing test first and judges the result; Cursor, Codex or agy runs the edit-test loop, and a
+   tool from a different company checks each diff.
+   - **U0, tidy-up.** Land the answer key below, stop add-ons from claiming the built-in kind names
+     rule, mcp and hook (the way `app` already is), and delete stale branches.
+   - **U1, run compiled artifacts on every provider,** not only OpenAI-compatible ones (completion
+     criterion 1, [audit](assurance/2026-10-16-completion-criteria.md)). A requirement a provider
+     cannot carry stops the run before sending. Codex loop, agy check, one Opus security pass.
+   - **U2, `proofhouse "<goal>"` picks the right kind of thing to make.** A model picks when one is set
+     up; better built-in rules pick otherwise. Today's word-matching picks correctly on 7 of 32 goals in
+     the approved answer key, [overseer-test-set.md](overseer-test-set.md). The rules are also scored on
+     a second set of goals the loop never sees. Cursor loop, Codex check.
+   - **U3, native app builds on real machines.** A fixed sample app builds on Windows here and on Linux,
+     macOS, iOS and Android in a GitHub Actions job started by hand. The iOS build gets an output path
+     to check, and coarse file timestamps stop causing false failures. One Opus security pass.
+   - **U4, the dashboard works by keyboard, at phone width and with reduced motion** (completion
+     criterion 9). The tests must fail on three copies broken on purpose. Cursor loop, Codex check.
+   - **U5, final gate,** once U1 to U4 are merged: a fresh full review and fix, a new completion-criteria
+     statement, a try by a fresh user, then the 0.9.0 release on the owner's word.
 
 ## Known limits
 
