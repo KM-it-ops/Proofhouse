@@ -1,1 +1,1 @@
-{"productName":"NativeSample","version":"1.0.0","identifier":"org.proofhouse.native-sample","build":{"frontendDist":"../www"},"app":{"windows":[{"title":"Native Sample","width":640,"height":480}]},"bundle":{"active":true}}
+{"mainBinaryName":"native-sample","productName":"NativeSample","version":"1.0.0","identifier":"org.proofhouse.native-sample","build":{"frontendDist":"../www"},"app":{"windows":[{"title":"Native Sample","width":640,"height":480}]},"bundle":{"active":true}}

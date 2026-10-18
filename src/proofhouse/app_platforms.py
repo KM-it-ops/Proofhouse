@@ -48,7 +48,8 @@ def _check_build(build: Any) -> bool:
     if not isinstance(build, dict) or not isinstance(build.get("tool"), str) or not isinstance(build.get("install"), str) \
             or not _words(build.get("command")) or not isinstance(build.get("output"), str):
         return False
-    if build["output"] and not _safe_file(build["output"]):
+    output_template = build["output"].replace("{mainBinaryName}", "app").replace("{productName}", "app")
+    if build["output"] and not _safe_file(output_template):
         return False
     before, env, home_env = build.get("before", []), build.get("env", []), build.get("home_env", {})
     set_env = build.get("set_env", {})
@@ -403,6 +404,17 @@ def build_check(folder: Path, entry: dict[str, Any], allow_commands: bool, name:
     steps = [_fill(step, folder, name) for step in [*build.get("before", []), build["command"]]]
     env, timeout = _build_env(build), int(build.get("timeout", 600))
     output = build["output"]
+    if "{mainBinaryName}" in output or "{productName}" in output:
+        try:
+            config = json.loads((folder / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
+            for field in ("mainBinaryName", "productName"):
+                if "{" + field + "}" in output:
+                    value = config[field]
+                    if not isinstance(value, str) or not value or value in (".", "..") or "/" in value or "\\" in value:
+                        raise ValueError(f"invalid {field}")
+                    output = output.replace("{" + field + "}", value)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            return {"check": check, "ok": False, "detail": f"cannot determine build output: {exc}", **note}
     output_path = folder / output
     before_build: list[tuple[str, int, int, str]] | None = None
     for index, argv in enumerate(steps):
