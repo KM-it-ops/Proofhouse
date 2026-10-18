@@ -29,7 +29,7 @@ ADDON_SCHEMA = "proofhouse.addon/v1"
 ENTRY_POINT_GROUP = "proofhouse.addons"
 SECTIONS = ("providers", "media_providers", "training_services", "hosts", "deploy_targets", "make_kinds")
 _KIND = re.compile(r"[a-z][a-z0-9-]{1,39}")
-_RESERVED_KINDS = {"prompt", "skill", "agent", "site", "app", "copy", "video", "launch"}
+_RESERVED_KINDS = {"prompt", "skill", "agent", "site", "app", "copy", "rule", "mcp", "hook", "video", "launch"}
 
 
 class AddonError(ValueError):
