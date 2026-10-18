@@ -49,7 +49,15 @@ if TYPE_CHECKING:
         closed_loop_from_json,
         run_closed_loop,
     )
-    from .execution import ExecutionResult, LiveOpenAIRequest, execute_openai
+    from .execution import (
+        EXE_CAP_0001,
+        EXE_PROV_0001,
+        ExecutionResult,
+        LiveOpenAIRequest,
+        LiveRunRequest,
+        execute_on_provider,
+        execute_openai,
+    )
 
 _CLOSED_LOOP_EXPORTS = frozenset(
     {"ClosedLoopOptions", "ClosedLoopResult", "closed_loop_from_json", "run_closed_loop"}
@@ -74,7 +82,10 @@ _BRIDGE_EXPORTS = frozenset(
         "BridgedClosedLoopResult",
     }
 )
-_EXECUTION_EXPORTS = frozenset({"ExecutionResult", "LiveOpenAIRequest", "execute_openai"})
+_EXECUTION_EXPORTS = frozenset(
+    {"EXE_CAP_0001", "EXE_PROV_0001", "ExecutionResult", "LiveOpenAIRequest", "LiveRunRequest",
+     "execute_on_provider", "execute_openai"}
+)
 _LAZY_EXPORTS = (
     _CLOSED_LOOP_EXPORTS
     | _PLAIN_LANGUAGE_EXPORTS

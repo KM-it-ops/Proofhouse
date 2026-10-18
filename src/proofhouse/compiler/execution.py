@@ -30,12 +30,16 @@ from decimal import Decimal, InvalidOperation
 from typing import Any, Protocol
 from urllib.parse import urlparse
 
-from .. import spend
+from .. import providers, spend
 from . import api
+from .adapters.openai import FUNCTION_CALLING_CAPABILITY, STRUCTURED_JSON_CAPABILITY, SUPPORTED_CAPABILITIES
+from .ir import IRParseError, parse_ir
 from .runtime_context import render_runtime_context
 
 CONTRACT_VERSION = "0.1.0-live-openai-opt-in"
 DEFAULT_TARGET_URL = "https://api.openai.com/v1/chat/completions"
+# The chat-body field that carries each capability the request builder supports.
+_CAPABILITY_FIELDS = {STRUCTURED_JSON_CAPABILITY: "response_format", FUNCTION_CALLING_CAPABILITY: "tools"}
 # OAR-032 Q1. Not a LiveOpenAIRequest default; --model is still required.
 Q1_MODEL_ID = "gpt-5.6-luna"
 ALLOWED_OPENAI_HOSTS = frozenset({"api.openai.com"})
@@ -51,6 +55,8 @@ EXE_COMPILE_0001 = "EXE-COMPILE-0001"
 EXE_HTTP_0001 = "EXE-HTTP-0001"
 # A mandatory IR field cannot be honored by this single-request path.
 EXE_SEM_0001 = "EXE-SEM-0001"
+EXE_CAP_0001 = "EXE-CAP-0001"
+EXE_PROV_0001 = "EXE-PROV-0001"
 
 _REDACTED = "[REDACTED]"
 
@@ -99,6 +105,20 @@ class LiveOpenAIRequest:
 
 
 @dataclass(frozen=True, slots=True)
+class LiveRunRequest:
+    opt_in: bool = False
+    provider: str | None = None
+    model: str | None = None
+    credential_env_name: str | None = None
+    credential_value: str | None = None
+    max_output_tokens: int | None = None
+    max_cost_usd: str | None = None
+    transport: LiveTransport | None = None
+    idempotency_key: str | None = None
+    cancelled: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class ExecutionResult:
     status: str
     diagnostics: tuple[str, ...]
@@ -134,7 +154,7 @@ def _error(code: str, envelope: dict[str, Any] | None = None) -> ExecutionResult
     )
 
 
-def _secrets_from(request: LiveOpenAIRequest, resolved: str | None) -> tuple[str, ...]:
+def _secrets_from(request: LiveOpenAIRequest | LiveRunRequest, resolved: str | None) -> tuple[str, ...]:
     secrets = []
     if request.credential_value:
         secrets.append(request.credential_value)
@@ -180,7 +200,7 @@ def _resolve_credential(request: LiveOpenAIRequest) -> str | None:
     return None
 
 
-def _ceilings_ok(request: LiveOpenAIRequest) -> bool:
+def _ceilings_ok(request: LiveOpenAIRequest | LiveRunRequest) -> bool:
     """Positive integer token ceiling and a positive, finite decimal cost ceiling.
 
     ``bool`` is rejected even though it is an ``int`` subclass; ``NaN``,
@@ -222,12 +242,14 @@ def _allowlisted_url(url: str) -> bool:
     return True
 
 
-def _provider_body(model: str, lowered: dict[str, Any], system_text: str, max_output_tokens: int) -> dict[str, Any]:
+def _provider_body(
+    model: str, lowered: dict[str, Any], system_text: str, max_output_tokens: int, shape: str = "openai"
+) -> dict[str, Any]:
     messages = [{"role": "system", "content": system_text}]
     body: dict[str, Any] = {
         "model": model,
         "messages": messages,
-        "max_completion_tokens": max_output_tokens,
+        "max_completion_tokens" if shape == "openai" else "max_tokens": max_output_tokens,
     }
     tools = lowered.get("tools") or []
     if tools:
@@ -238,13 +260,15 @@ def _provider_body(model: str, lowered: dict[str, Any], system_text: str, max_ou
     return body
 
 
-def _admission(request: LiveOpenAIRequest, admission: spend.Admission) -> dict[str, Any]:
+def _admission(
+    request: LiveOpenAIRequest | LiveRunRequest, admission: spend.Admission, shape: str = "openai"
+) -> dict[str, Any]:
     """What the spend gate decided before sending, and how the output-token ceiling was applied."""
     return {
         "cost_ceiling": {"declared_usd": request.max_cost_usd, **admission.to_dict()},
         "output_token_ceiling": {
             "value": request.max_output_tokens,
-            "enforcement": "sent_as_max_completion_tokens",
+            "enforcement": "sent_as_max_completion_tokens" if shape == "openai" else "sent_as_max_tokens",
         },
     }
 
@@ -266,13 +290,20 @@ def _httpx_send(prepared: PreparedLiveRequest) -> LiveTransportResponse:
         return LiveTransportResponse(status_code=response.status_code, payload=payload)
 
 
-def execute_openai(
+def _execute_live(
     ir_raw: bytes | str,
-    request: LiveOpenAIRequest | None = None,
+    request: LiveOpenAIRequest | LiveRunRequest,
+    *,
+    provider_id: str = "openai",
+    target_url: str | None = None,
+    resolved_credential: str | None = None,
+    shape: str = "openai",
+    credential_env_name: str | None = None,
+    allow_keyless: bool = False,
+    ignores: tuple[str, ...] = (),
 ) -> ExecutionResult:
-    """Opt-in single-request live OpenAI execution. Fail closed when gates fail."""
-    request = request or LiveOpenAIRequest()
-    resolved = _resolve_credential(request)
+    """Shared single-request send path after provider-specific selection."""
+    resolved = _resolve_credential(request) if isinstance(request, LiveOpenAIRequest) else resolved_credential
     secrets = _secrets_from(request, resolved)
 
     def finish(result: ExecutionResult) -> ExecutionResult:
@@ -287,7 +318,7 @@ def execute_openai(
 
     if not request.opt_in:
         return finish(_error(EXE_OPT_0001))
-    if not resolved:
+    if not resolved and not allow_keyless:
         return finish(_error(EXE_CRED_0001))
     model = (request.model or "").strip()
     if not model:
@@ -295,8 +326,9 @@ def execute_openai(
     if not _ceilings_ok(request):
         return finish(_error(EXE_CEIL_0001))
 
-    target_url = request.target_url or DEFAULT_TARGET_URL
-    if not _allowlisted_url(target_url):
+    if target_url is None:
+        target_url = (request.target_url or DEFAULT_TARGET_URL) if isinstance(request, LiveOpenAIRequest) else ""
+    if isinstance(request, LiveOpenAIRequest) and not _allowlisted_url(target_url):
         return finish(_error(EXE_EGRESS_0001, {"target_url_rejected": True, "single_request": True}))
 
     compile_env = api.compile(ir_raw, adapter_id="openai", adapter_version="0.1.0")
@@ -311,6 +343,9 @@ def execute_openai(
         lowered = json.loads(base64.b64decode(artifact["data_base64"]))
     else:
         lowered = json.loads(artifact.get("data") or "{}")
+    # A field the provider's address drops is not sent; the runtime context renders it into the prompt instead.
+    for capability in ignores:
+        lowered.pop(_CAPABILITY_FIELDS.get(capability, ""), None)
 
     semantic = lowered.get("proofhouse_semantic_context")
     ir_document = semantic.get("ir") if isinstance(semantic, dict) else None
@@ -348,10 +383,12 @@ def execute_openai(
         "idempotency_key": idempotency_key,
         "ir_sha256": compile_env.data.get("ir_sha256"),
         "compile_artifact_sha256": artifact.get("sha256"),
-        "credential_env_name": request.credential_env_name,
+        "credential_env_name": credential_env_name if isinstance(request, LiveRunRequest) else request.credential_env_name,
         "max_output_tokens": request.max_output_tokens,
         "max_cost_usd": request.max_cost_usd,
     }
+    if isinstance(request, LiveRunRequest):
+        evidence["provider"] = provider_id
 
     if request.cancelled:
         return finish(
@@ -366,11 +403,11 @@ def execute_openai(
         url=target_url,
         method="POST",
         headers={
-            "Authorization": f"Bearer {resolved}",
+            **({"Authorization": f"Bearer {resolved}"} if resolved else {}),
             "Content-Type": "application/json",
             "Idempotency-Key": idempotency_key,
         },
-        body=_provider_body(model, lowered, runtime.system_text, int(request.max_output_tokens or 0)),
+        body=_provider_body(model, lowered, runtime.system_text, int(request.max_output_tokens or 0), shape),
         idempotency_key=idempotency_key,
         body_bytes=b"",
     )
@@ -392,23 +429,26 @@ def execute_openai(
 
     gated = spend.send_within_ceiling(
         unsent.body,
-        provider="openai",
+        provider=provider_id,
         model=model,
         max_output_tokens=request.max_output_tokens,
         ceiling_usd=request.max_cost_usd,
         send=_dispatch,
     )
     if gated.admission.decision != "admitted":
+        refusal = {
+            "single_request": True,
+            "q1_unpicked": False,
+            "q1_model": Q1_MODEL_ID,
+            "model": model,
+            "admission": _admission(request, gated.admission, shape),
+        }
+        if isinstance(request, LiveRunRequest):
+            refusal.update({"provider": provider_id, "host": host})
         return finish(
             _error(
                 str(gated.admission.code),
-                {
-                    "single_request": True,
-                    "q1_unpicked": False,
-                    "q1_model": Q1_MODEL_ID,
-                    "model": model,
-                    "admission": _admission(request, gated.admission),
-                },
+                refusal,
             )
         )
     response = gated.response
@@ -434,15 +474,17 @@ def execute_openai(
         "target_url": target_url,
         "max_output_tokens": request.max_output_tokens,
         "max_cost_usd": request.max_cost_usd,
-        "credential_env_name": request.credential_env_name,
+        "credential_env_name": credential_env_name if isinstance(request, LiveRunRequest) else request.credential_env_name,
         "idempotency_key": idempotency_key,
         "http_status": status_code,
         "provider_response": payload,
         "ir_sha256": compile_env.data.get("ir_sha256"),
         "compile_artifact_sha256": artifact.get("sha256"),
         "runtime_context": runtime.evidence(),
-        "admission": _admission(request, gated.admission),
+        "admission": _admission(request, gated.admission, shape),
     }
+    if isinstance(request, LiveRunRequest):
+        envelope["provider"] = provider_id
     cost, cost_warning = spend.cost_after(gated, payload)
     envelope["cost"] = cost
     if cost_warning is not None:
@@ -458,11 +500,13 @@ def execute_openai(
         "single_request": True,
         "host": host,
         "model_supplied": True,
-        "credential_env_name": request.credential_env_name,
+        "credential_env_name": credential_env_name if isinstance(request, LiveRunRequest) else request.credential_env_name,
         "idempotency_key": idempotency_key,
         "status": result_status,
         "http_status": status_code,
     }
+    if isinstance(request, LiveRunRequest):
+        audit["provider"] = provider_id
     return finish(
         ExecutionResult(
             status=result_status,
@@ -470,4 +514,84 @@ def execute_openai(
             envelope=envelope,
             audit_event=audit,
         )
+    )
+
+
+def execute_openai(
+    ir_raw: bytes | str,
+    request: LiveOpenAIRequest | None = None,
+) -> ExecutionResult:
+    """Opt-in single-request live OpenAI execution. Fail closed when gates fail."""
+    return _execute_live(ir_raw, request or LiveOpenAIRequest())
+
+
+def execute_on_provider(ir_raw: bytes | str, request: LiveRunRequest) -> ExecutionResult:
+    """Run a compiled artifact through a configured provider and the spend gate."""
+    if not request.opt_in:
+        return _error(EXE_OPT_0001)
+    provider_id = request.provider or ""
+    try:
+        profile = providers.find(provider_id)
+    except providers.ProviderError:
+        profile = None
+    if profile is None:
+        return _error(
+            EXE_PROV_0001, _redact_tree({"provider": provider_id, "single_request": True}, _secrets_from(request, None))
+        )
+
+    # The key comes from the provider entry's own variable, so another service's key never goes to this address.
+    # To use a different variable, add or override the provider with that key_env.
+    if request.credential_env_name and request.credential_env_name != profile.key_env:
+        return _error(EXE_CRED_0001, {"provider": provider_id, "credential_env_mismatch": True, "single_request": True})
+    if request.credential_value and not request.credential_env_name:
+        credential_env_name, resolved = None, request.credential_value
+    else:
+        credential_env_name = profile.key_env
+        resolved = os.environ.get(credential_env_name) if credential_env_name else None
+    secrets = _secrets_from(request, resolved)
+
+    def refuse(code: str, envelope: dict[str, Any] | None = None) -> ExecutionResult:
+        result = _error(code, envelope)
+        return replace(result, envelope=_redact_tree(result.envelope, secrets))
+
+    if not resolved and not (profile.local and profile.key_env is None):
+        return refuse(EXE_CRED_0001)
+    if not (request.model or "").strip():
+        return refuse(EXE_MODEL_0001)
+    if not _ceilings_ok(request):
+        return refuse(EXE_CEIL_0001)
+
+    try:
+        document = parse_ir(ir_raw).document
+    except IRParseError:
+        document = {}
+    requirements = document.get("provider_requirements") or {}
+    required = requirements.get("required_capabilities", []) if isinstance(requirements, dict) else []
+    refused = (
+        sorted(
+            {
+                cap
+                for cap in required
+                if isinstance(cap, str) and (cap not in SUPPORTED_CAPABILITIES or cap in profile.ignores)
+            }
+        )
+        if isinstance(required, list)
+        else []
+    )
+    if refused:
+        return refuse(
+            EXE_CAP_0001,
+            {"provider": provider_id, "refused_requirements": refused, "single_request": True},
+        )
+
+    return _execute_live(
+        ir_raw,
+        request,
+        provider_id=profile.id,
+        target_url=profile.chat_url,
+        resolved_credential=resolved,
+        shape=profile.shape,
+        credential_env_name=credential_env_name,
+        allow_keyless=profile.local and profile.key_env is None,
+        ignores=profile.ignores,
     )

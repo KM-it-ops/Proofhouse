@@ -86,7 +86,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "compile-requirements": (SPINE, "", "compiler: requirements-contract evaluation (experimental)"),
     "closed-loop-bridged-008": (SPINE, "", "compiler: bridged requirements loop (experimental)"),
     "evaluate-product": (SPINE, "", "compiler: imported observations against a rubric (experimental)"),
-    "execute-openai": (SPINE, "", "opt-in live send; not registered as a part in this slice (live runners are out of scope)"),
+    "execute-openai": (SPINE, "", "opt-in live send of a compiled artifact to any provider with --provider"),
     "route": (SPINE, "", "overseer station: classifies an objective (experimental)"),
     "assay": (SPINE, "", "overseer station: claim ledger (experimental)"),
     "proof": (SPINE, "", "overseer station: two-pass audit (experimental)"),

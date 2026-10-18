@@ -599,6 +599,10 @@
                     "description": "Required opt-in. Without this flag the command fail-closes.",
                     "type": "boolean"
                   },
+                  "provider": {
+                    "description": "Configured provider id for the compiled artifact.",
+                    "type": "string"
+                  },
                   "target-url": {
                     "description": "Optional URL; must be an allowlisted OpenAI API URL.",
                     "type": "string"

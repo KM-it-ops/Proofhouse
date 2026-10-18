@@ -31,7 +31,7 @@ from .diagnostics import DiagnosticFactory, DiagnosticRegistry
 from .eval_aggregate import Aggregation
 from .eval_dataset import reject_duplicate_keys
 from .eval_product import ProductEvalRequest, evaluate_product
-from .execution import LiveOpenAIRequest, execute_openai
+from .execution import LiveOpenAIRequest, LiveRunRequest, execute_on_provider, execute_openai
 from ..hosts_cli import add_host_commands
 from ..live_cli import add_live_commands
 from ..loop_cli import add_loop_commands
@@ -609,8 +609,21 @@ def _cmd_proof(args: argparse.Namespace) -> int:
 
 
 def _cmd_execute_openai(args: argparse.Namespace) -> int:
+    if args.provider and args.target_url:
+        print("error: --target-url cannot be used with --provider", file=sys.stderr)
+        return EXIT_USAGE_ERROR
     raw = _read_input(args.input)
-    result = execute_openai(
+    result = execute_on_provider(
+        raw,
+        LiveRunRequest(
+            opt_in=bool(args.opt_in),
+            provider=args.provider,
+            model=args.model,
+            credential_env_name=args.credential_env,
+            max_output_tokens=args.max_output_tokens,
+            max_cost_usd=args.max_cost_usd,
+        ),
+    ) if args.provider else execute_openai(
         raw,
         LiveOpenAIRequest(
             opt_in=bool(args.opt_in),
@@ -818,6 +831,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     p_exec.add_argument("input", help="Path to an IR JSON file, or '-' for stdin.")
+    p_exec.add_argument("--provider", default=None, help="Configured provider id for the compiled artifact.")
     p_exec.add_argument(
         "--opt-in",
         action="store_true",

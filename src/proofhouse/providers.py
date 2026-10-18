@@ -46,7 +46,8 @@ LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 _ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
 _ENV = re.compile(r"[A-Z_][A-Z0-9_]{0,127}")
-_PROVIDER_KEYS = frozenset({"id", "name", "base_url", "shape", "key_env"})
+_PROVIDER_KEYS = frozenset({"id", "name", "base_url", "shape", "key_env", "ignores"})
+_CAPABILITY = re.compile(r"[a-z][a-z0-9_.-]+@[1-9][0-9]*")
 
 
 class ProviderError(ValueError):
@@ -61,6 +62,7 @@ class Provider:
     shape: str
     key_env: str | None
     origin: str  # "shipped" or "yours"
+    ignores: tuple[str, ...] = ()
 
     @property
     def host(self) -> str:
@@ -83,6 +85,7 @@ class Provider:
             "key_env": self.key_env,
             "local": self.local,
             "origin": self.origin,
+            "ignores": list(self.ignores),
         }
 
 
@@ -116,7 +119,12 @@ def parse_provider(raw: object, origin: str) -> Provider:
     name = raw.get("name", provider_id)
     if not isinstance(name, str) or not name.strip():
         raise ProviderError(f"provider {provider_id}: name must be text")
-    return Provider(provider_id, name, check_base_url(raw["base_url"]), shape, key_env, origin)
+    ignores = raw.get("ignores", [])
+    if not isinstance(ignores, list) or any(
+        not isinstance(capability, str) or not _CAPABILITY.fullmatch(capability) for capability in ignores
+    ):
+        raise ProviderError(f"provider {provider_id}: ignores must be a list of capability ids")
+    return Provider(provider_id, name, check_base_url(raw["base_url"]), shape, key_env, origin, tuple(ignores))
 
 
 def proofhouse_home() -> Path:
