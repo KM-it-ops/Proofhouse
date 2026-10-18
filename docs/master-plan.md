@@ -77,10 +77,11 @@ To check on real machines (not yet run end to end):
    - **U1, run compiled artifacts on every provider,** not only OpenAI-compatible ones (completion
      criterion 1, [audit](assurance/2026-10-16-completion-criteria.md)). A requirement a provider
      cannot carry stops the run before sending. Codex loop, agy check, one Opus security pass.
-   - **U2, `proofhouse "<goal>"` picks the right kind of thing to make.** A model picks when one is set
-     up; better built-in rules pick otherwise. Today's word-matching picks correctly on 7 of 32 goals in
-     the approved answer key, [overseer-test-set.md](overseer-test-set.md). The rules are also scored on
-     a second set of goals the loop never sees. Cursor loop, Codex check.
+   - **U2, `proofhouse "<goal>"` picks the right kind of thing to make.** A model, when one is set up, is
+     the main picker; better built-in rules pick otherwise. The built-in rules now pick correctly on all 32
+     goals of the approved answer key, [overseer-test-set.md](overseer-test-set.md), but they were fitted to
+     those 32: on a separate set of 30 goals they never saw they pick correctly on 15. So the test asks for
+     at least 24 of 32. Cursor loop, Codex check.
    - **U3, native app builds on real machines.** A fixed sample app builds on Windows here and on Linux,
      macOS, iOS and Android in a GitHub Actions job started by hand. The iOS build gets an output path
      to check, and coarse file timestamps stop causing false failures. One Opus security pass.

@@ -15,12 +15,12 @@ PROMPT_OBJECTIVE = "summarise a security advisory for SOC analysts"
 SKILL_OBJECTIVE = "a reusable review checklist across projects"
 NO_PART = [
     ("build a marketing website", "site"),
-    ("generate a product video", "media"),
+    ("generate a product video", "video"),
     ("keep checking the queue while I am away", "loop"),
     ("run a hook while I am away", "hook"),
     ("talk to an external system with credentials", "tool"),
-    ("an mcp server whose state must survive restarts", "MCP"),
-    ("split the review into parallel isolated context workers", "subagent"),
+    ("an mcp server whose state must survive restarts", "mcp"),
+    ("split the review into parallel isolated context workers", "agent"),
     ("state must survive across runs of the batch", "harness"),
     ("a deterministic parser with no llm", "plain_code"),
 ]
@@ -139,7 +139,7 @@ def test_the_demand_record_is_append_only() -> None:
     overseer.oversee("generate a product video")
     after = overseer.demand_record_path().read_bytes()
     assert after.startswith(first)
-    assert [line["class"] for line in demand_lines()] == ["site", "media"]
+    assert [line["class"] for line in demand_lines()] == ["site", "video"]
 
 
 @pytest.mark.parametrize(("objective", "klass"), GOVERNOR)
