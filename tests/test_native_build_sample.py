@@ -54,3 +54,9 @@ def test_output_through_a_directory_link_is_rejected(tmp_path: Path) -> None:
     found = app_platforms.build_check(folder, entry, True, "app")
     assert found["ok"] is False and "outside" in found["detail"]
     assert (outside / "app.bin").read_text(encoding="utf-8") == "keep"
+
+
+def test_shipped_build_outputs_do_not_name_the_fixed_sample() -> None:
+    # The shipped entries build every app make produces, so the sample's own names must not be baked in.
+    text = app_platforms.SHIPPED.read_text(encoding="utf-8").lower()
+    assert "native-sample" not in text and "nativesample" not in text
