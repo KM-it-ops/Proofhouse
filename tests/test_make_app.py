@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 import sys
+import threading
 from pathlib import Path
 
 import pytest
@@ -689,6 +691,55 @@ def test_preparing_the_output_never_touches_files_outside_the_folder(tmp_path: P
     for output in ("dist", "linked-dist"):
         app_platforms.build_check(folder, _python_entry({"command": ["python", "noop.py"], "output": output}), True, "app")
     assert (outside / "keep.txt").stat().st_mtime_ns == _TICK * 1_000_000_000
+
+
+@pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="this system has no named pipes")
+def test_the_output_check_does_not_open_a_named_pipe(tmp_path: Path) -> None:
+    from proofhouse import app_platforms
+
+    (tmp_path / "dist").mkdir()
+    os.mkfifo(tmp_path / "dist" / "pipe")
+    # Opening a pipe that nothing writes to blocks forever, past every build time limit.
+    found: list[tuple[str, int, int, str]] = []
+    reader = threading.Thread(target=lambda: found.extend(app_platforms._snapshot(tmp_path / "dist")), daemon=True)
+    reader.start()
+    reader.join(10)
+    assert not reader.is_alive() and found[0][3].startswith("special:"), found
+
+
+@pytest.mark.skipif(sys.platform != "win32", reason="directory junctions are a Windows feature")
+def test_the_output_check_does_not_walk_into_a_directory_junction(tmp_path: Path) -> None:
+    from proofhouse import app_platforms
+
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    (outside / "private.txt").write_text("private", encoding="utf-8")
+    (tmp_path / "dist").mkdir()
+    junction = tmp_path / "dist" / "junction"
+    subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), str(outside)], check=True, capture_output=True)
+    found = app_platforms._snapshot(tmp_path / "dist")
+    assert [entry[0] for entry in found] == [str(junction)] and found[0][3].startswith("link:"), found
+
+
+def test_the_output_check_stops_hashing_past_its_limit(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import app_platforms
+
+    (tmp_path / "dist").mkdir()
+    (tmp_path / "dist" / "a.bin").write_bytes(b"a" * 10)
+    (tmp_path / "dist" / "b.bin").write_bytes(b"b" * 10)
+    monkeypatch.setattr(app_platforms, "_HASH_LIMIT", 15)
+    digests = [entry[3] for entry in app_platforms._snapshot(tmp_path / "dist")]
+    assert len(digests) == 2 and digests.count("unhashed") == 1, digests
+
+
+def test_cmd_exe_characters_in_the_tool_path_are_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import app_platforms, make_checks
+
+    # cmd.exe expands %VAR% and ! in the program path too, even inside quotes.
+    monkeypatch.setattr(make_checks, "_command", lambda command, args, folder: [r"C:\tools%PATH%\npm.cmd"])
+    monkeypatch.setattr(make_checks, "build", lambda *args: pytest.fail("the build ran"))
+    found = app_platforms.build_check(tmp_path, _python_entry({"command": ["npm", "run", "build"]}), True, "app")
+    assert found["ok"] is False and "cmd.exe" in str(found["detail"]), found
 
 
 @pytest.mark.parametrize(("platform_id", "output_type", "unsigned"), [("ios", ".app", "CODE_SIGNING_ALLOWED=NO"),

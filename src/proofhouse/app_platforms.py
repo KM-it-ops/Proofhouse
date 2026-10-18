@@ -17,6 +17,7 @@ import hashlib
 import json
 import os
 import re
+import stat
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
@@ -362,30 +363,55 @@ def _build_env(build: dict[str, Any]) -> dict[str, str]:
     return env
 
 
+# Enough to hash any real app bundle; past it files are compared by size and time only, so a huge file can't stall the check.
+_HASH_LIMIT = 1024 ** 3
+
+
+def _is_link(item: Path) -> bool:
+    """A symbolic link, or on Windows any reparse point, such as a directory junction."""
+    if item.is_symlink():
+        return True
+    return bool(getattr(item.lstat(), "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
+
+
+def _link_digest(item: Path) -> str:
+    try:
+        return "link:" + os.readlink(item)
+    except OSError:
+        return "reparse point"
+
+
 def _snapshot(path: Path) -> list[tuple[str, int, int, str]]:
-    """Record output contents without following links into another folder."""
+    """Record output contents without following links into another folder or opening anything but plain files."""
+    budget = _HASH_LIMIT
+
     def record(item: Path) -> tuple[str, int, int, str]:
-        stat = item.lstat()
-        if item.is_symlink():
-            digest = "link:" + os.readlink(item)
+        nonlocal budget
+        info = item.lstat()
+        if _is_link(item):
+            digest = _link_digest(item)
+        elif not stat.S_ISREG(info.st_mode):
+            # A pipe or device would block or never end when opened.
+            digest = f"special:{stat.S_IFMT(info.st_mode)}"
+        elif info.st_size > budget:
+            digest = "unhashed"
         else:
+            budget -= info.st_size
             with item.open("rb") as stream:
                 hasher = hashlib.sha256()
                 for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                     hasher.update(chunk)
                 digest = hasher.hexdigest()
-        return str(item), stat.st_mtime_ns, stat.st_size, digest
+        return str(item), info.st_mtime_ns, info.st_size, digest
 
-    if path.is_symlink():
-        return [record(path)]
-    if path.is_file():
+    if _is_link(path) or not path.is_dir():
         return [record(path)]
     found = []
     for root, directories, files in os.walk(path, followlinks=False):
         for name in directories[:]:
             item = Path(root) / name
-            if item.is_symlink():
-                found.append((str(item), item.lstat().st_mtime_ns, item.lstat().st_size, "link:" + os.readlink(item)))
+            if _is_link(item):
+                found.append(record(item))
                 directories.remove(name)
         found.extend(record(Path(root) / name) for name in files)
     return sorted(found)
@@ -435,7 +461,7 @@ def build_check(folder: Path, entry: dict[str, Any], allow_commands: bool, name:
         if executable is None:
             return {"check": check, "ok": None, "detail": f"not built: {argv[0]} not found (install: {build['install']})", **note}
         # Windows runs .cmd/.bat files (npm, npx) through cmd.exe, which would read these characters as commands.
-        if executable[0].lower().endswith((".cmd", ".bat")) and any(set(word) & set('&|^<>%!"') for word in argv):
+        if executable[0].lower().endswith((".cmd", ".bat")) and any(set(word) & set('&|^<>%!"') for word in [executable[0], *argv]):
             return {"check": check, "ok": False, "detail": f"not built: `{' '.join(argv)}` has characters cmd.exe would run", **note}
         outcome = make_checks.build([*executable, *argv[1:]], folder, timeout, env)
         if not outcome["ok"]:
