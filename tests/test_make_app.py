@@ -261,6 +261,16 @@ def test_model_cannot_write_the_build_output(tmp_path: Path, monkeypatch: pytest
     assert not any(c["check"] == "custom build" for c in checks(result))
 
 
+def test_model_cannot_write_a_build_output_named_in_its_own_tauri_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """f939f95-F5: the output name comes from the model's tauri.conf.json, so the guard must read that name."""
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"], "output": "dist/{mainBinaryName}.bin"}))
+    files = {"setup.json": "{}", "noop.py": "pass\n", "src-tauri/tauri.conf.json": json.dumps({"mainBinaryName": "fake"}),
+             "dist/fake.bin": "fake"}
+    written = _written(run(tmp_path, Model([WEB, files]), ["custom"]))
+    assert written["ok"] is False and "build output" in str(written["detail"])
+
+
 def test_cmd_files_refuse_characters_cmd_exe_would_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
     _platform_file(tmp_path, _python_entry({"command": ["./tool.cmd", "a&calc"]}))
