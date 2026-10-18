@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Compiled artifacts run on any provider.** `execute-openai --provider ID` sends a compiled artifact to any provider in the shipped list, an add-on, or your own `providers.json`, always through the spend gate. A required capability the provider cannot carry stops the run before sending and is named (`EXE-CAP-0001`). An entry may list `ignores`, capabilities its address accepts and drops; an ignored optional capability is written into the prompt instead. The key comes only from the provider entry's own `key_env`.
+- **`proofhouse "<goal>"` answers with make kinds** (agent, mcp, video, ...) and falls back to the older classes only where `make` has none. With `--provider` and `--model` a model picks, through the spend gate, and the built-in rules take over when its answer cannot be used. A goal that could be two kinds gets one short question when a person is at the terminal; unattended, the safer kind is picked and the reason says so. The answer key is `docs/overseer-test-set.md`.
+- **Native app builds proven on real machines.** A fixed sample app (`samples/native_build/`, built by `scripts/native_build_sample.py`) builds as a web app and on Windows, macOS, Linux, iOS and Android, with no model and no keys. `.github/workflows/native-builds.yml` runs it on GitHub's machines.
+  - iOS builds an unsigned simulator app and Android a debug APK, so neither needs signing set up. Both check that the expected file was made.
+  - Desktop output paths come from the app's own `mainBinaryName` and `productName` in `src-tauri/tauri.conf.json`.
+- **Dashboard browser checks.** Keyboard reach with visible focus, no sideways scroll at 375 px, animations that stop under reduced motion, and the error state, run on every pull request. The same tests must fail on four copies of the dashboard broken on purpose.
+
+### Changed
+
+- The built-in goal rules score every kind and ask on close calls. They were tuned to the 32-goal answer key and pass it in full, but pick correctly on only 15 of 30 goals they never saw; the test asks for at least 24 of 32.
+
+### Fixed
+
+- Add-ons can no longer claim the built-in kind names `rule`, `mcp` and `hook`.
+- The dashboard's reduced-motion rule left some animations looping; they now stop.
+- **App build output check.** A build that rewrites its output within the same clock tick now passes. The check never follows symbolic links or Windows junctions out of the app folder, opens only plain files (a named pipe used to hang it), and stops hashing past 1 GB. A `.cmd` build tool whose path holds cmd.exe special characters is refused.
+
 ## 0.8.0 - 2026-10-16
 
 Rules, MCP servers, hooks and apps for every platform.
