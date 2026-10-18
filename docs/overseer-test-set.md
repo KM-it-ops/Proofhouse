@@ -1,4 +1,4 @@
-# Overseer test set (labels for Boss to confirm)
+# Overseer test set (approved answer key)
 
 `proofhouse "<objective>"` reads a plain goal and decides what kind of thing to make. This file is the
 answer key for that decision: 32 realistic goals, each with the kind of artifact (artifact class) it

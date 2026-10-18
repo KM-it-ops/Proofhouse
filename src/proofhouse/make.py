@@ -400,7 +400,16 @@ def _try_app(
         destination = version_dir / platform_id
         try:
             additions = _site_files(response)
-            output = PurePosixPath(entry["build"]["output"].lower()).parts
+            output_name = entry["build"]["output"]
+            if "{mainBinaryName}" in output_name or "{productName}" in output_name:
+                try:
+                    config = json.loads(additions["src-tauri/tauri.conf.json"])
+                    for field in ("mainBinaryName", "productName"):
+                        if isinstance(config.get(field), str):
+                            output_name = output_name.replace("{" + field + "}", config[field])
+                except (KeyError, ValueError, TypeError, AttributeError):
+                    pass  # Static and build checks report malformed or missing config.
+            output = PurePosixPath(output_name.lower()).parts
             # Otherwise a model file could stand in for build output that the build never made.
             if output and any(PurePosixPath(name.lower()).parts[:len(output)] == output for name in additions):
                 raise ValueError(f"the model may not write files under the build output {entry['build']['output']}")

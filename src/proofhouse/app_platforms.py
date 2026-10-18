@@ -13,9 +13,11 @@ Existing fields such as home_env and set_env are described in the code below.
 from __future__ import annotations
 
 import fnmatch
+import hashlib
 import json
 import os
 import re
+import stat
 import sys
 from html.parser import HTMLParser
 from pathlib import Path
@@ -47,7 +49,8 @@ def _check_build(build: Any) -> bool:
     if not isinstance(build, dict) or not isinstance(build.get("tool"), str) or not isinstance(build.get("install"), str) \
             or not _words(build.get("command")) or not isinstance(build.get("output"), str):
         return False
-    if build["output"] and not _safe_file(build["output"]):
+    output_template = build["output"].replace("{mainBinaryName}", "app").replace("{productName}", "app")
+    if build["output"] and not _safe_file(output_template):
         return False
     before, env, home_env = build.get("before", []), build.get("env", []), build.get("home_env", {})
     set_env = build.get("set_env", {})
@@ -347,7 +350,8 @@ def _install_checks(folder: Path, entry: dict[str, Any]) -> list[dict[str, Any]]
 
 
 def _fill(words: list[str], folder: Path, name: str) -> list[str]:
-    return [word.replace("{folder}", str(folder)).replace("{name}", name) for word in words]
+    return [word.replace("{folder}", str(folder)).replace("{name}", name)
+            .replace("{gradlew}", "./android/gradlew.bat" if os.name == "nt" else "./android/gradlew") for word in words]
 
 
 def _build_env(build: dict[str, Any]) -> dict[str, str]:
@@ -359,10 +363,58 @@ def _build_env(build: dict[str, Any]) -> dict[str, str]:
     return env
 
 
-def _snapshot(path: Path) -> list[tuple[str, int, int]]:
-    """Each file under the output (or the output file itself) with its change time and size, to see if the build touched it."""
-    files = [path] if path.is_file() else sorted(item for item in path.rglob("*") if item.is_file())
-    return [(str(item), (stat := item.stat()).st_mtime_ns, stat.st_size) for item in files]
+# Enough to hash any real app bundle; past it files are compared by size and time only, so a huge file can't stall the check.
+_HASH_LIMIT = 1024 ** 3
+
+
+def _is_link(item: Path) -> bool:
+    """A symbolic link, or on Windows any reparse point, such as a directory junction."""
+    if item.is_symlink():
+        return True
+    return bool(getattr(item.lstat(), "st_file_attributes", 0) & getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0))
+
+
+def _link_digest(item: Path) -> str:
+    try:
+        return "link:" + os.readlink(item)
+    except OSError:
+        return "reparse point"
+
+
+def _snapshot(path: Path) -> list[tuple[str, int, int, str]]:
+    """Record output contents without following links into another folder or opening anything but plain files."""
+    budget = _HASH_LIMIT
+
+    def record(item: Path) -> tuple[str, int, int, str]:
+        nonlocal budget
+        info = item.lstat()
+        if _is_link(item):
+            digest = _link_digest(item)
+        elif not stat.S_ISREG(info.st_mode):
+            # A pipe or device would block or never end when opened.
+            digest = f"special:{stat.S_IFMT(info.st_mode)}"
+        elif info.st_size > budget:
+            digest = "unhashed"
+        else:
+            budget -= info.st_size
+            with item.open("rb") as stream:
+                hasher = hashlib.sha256()
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    hasher.update(chunk)
+                digest = hasher.hexdigest()
+        return str(item), info.st_mtime_ns, info.st_size, digest
+
+    if _is_link(path) or not path.is_dir():
+        return [record(path)]
+    found = []
+    for root, directories, files in os.walk(path, followlinks=False):
+        for name in directories[:]:
+            item = Path(root) / name
+            if _is_link(item):
+                found.append(record(item))
+                directories.remove(name)
+        found.extend(record(Path(root) / name) for name in files)
+    return sorted(found)
 
 
 def build_check(folder: Path, entry: dict[str, Any], allow_commands: bool, name: str) -> dict[str, Any]:
@@ -378,16 +430,30 @@ def build_check(folder: Path, entry: dict[str, Any], allow_commands: bool, name:
     steps = [_fill(step, folder, name) for step in [*build.get("before", []), build["command"]]]
     env, timeout = _build_env(build), int(build.get("timeout", 600))
     output = build["output"]
-    before_build: list[tuple[str, int, int]] | None = None
+    if "{mainBinaryName}" in output or "{productName}" in output:
+        try:
+            config = json.loads((folder / "src-tauri" / "tauri.conf.json").read_text(encoding="utf-8"))
+            for field in ("mainBinaryName", "productName"):
+                if "{" + field + "}" in output:
+                    value = config[field]
+                    if not isinstance(value, str) or not value or value in (".", "..") or "/" in value or "\\" in value:
+                        raise ValueError(f"invalid {field}")
+                    output = output.replace("{" + field + "}", value)
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            return {"check": check, "ok": False, "detail": f"cannot determine build output: {exc}", **note}
+    output_path = folder / output
+    before_build: list[tuple[str, int, int, str]] | None = None
     for index, argv in enumerate(steps):
         # Checked after the first (install) step and before every later one, so a fake tool never runs even once.
         if (index or len(steps) == 1) and build.get("tool_package"):
             problem = _tool_problem(folder, build["tool_package"], build["tool_bin"])
             if problem:
                 return {"check": check, "ok": False, "detail": f"not built: {problem}", "command": argv, **note}
-        if argv is steps[-1] and output and (folder / output).exists():
+        if argv is steps[-1] and output and not output_path.resolve().is_relative_to(folder.resolve()):
+            return {"check": check, "ok": False, "detail": f"{output} points outside the app folder", "command": argv, **note}
+        if argv is steps[-1] and output and output_path.exists():
             try:
-                before_build = _snapshot(folder / output)
+                before_build = _snapshot(output_path)
             except OSError as exc:
                 return {"check": check, "ok": False, "detail": f"could not read {output} before the build: {exc}", "command": argv, **note}
         # Found just before it runs, so a setup step can make a tool that a later step uses.
@@ -395,18 +461,20 @@ def build_check(folder: Path, entry: dict[str, Any], allow_commands: bool, name:
         if executable is None:
             return {"check": check, "ok": None, "detail": f"not built: {argv[0]} not found (install: {build['install']})", **note}
         # Windows runs .cmd/.bat files (npm, npx) through cmd.exe, which would read these characters as commands.
-        if executable[0].lower().endswith((".cmd", ".bat")) and any(set(word) & set('&|^<>%!"') for word in argv):
+        if executable[0].lower().endswith((".cmd", ".bat")) and any(set(word) & set('&|^<>%!"') for word in [executable[0], *argv]):
             return {"check": check, "ok": False, "detail": f"not built: `{' '.join(argv)}` has characters cmd.exe would run", **note}
         outcome = make_checks.build([*executable, *argv[1:]], folder, timeout, env)
         if not outcome["ok"]:
             step = "build" if argv is steps[-1] else "setup step"
             return {"check": check, **outcome, "detail": f"{step} `{' '.join(argv)}` failed: {outcome['detail']}",
                     "command": argv, **note}
-    if output and not (folder / output).exists():
+    if output and not output_path.resolve().is_relative_to(folder.resolve()):
+        return {"check": check, "ok": False, "detail": f"{output} points outside the app folder", "command": steps[-1], **note}
+    if output and not output_path.exists():
         return {"check": check, "ok": False, "detail": f"build finished but {output} is missing", "command": steps[-1], **note}
     # Output that was there before the build ran, and that the build left alone, was made by setup or the model, not built.
     try:
-        unchanged = before_build is not None and _snapshot(folder / output) == before_build
+        unchanged = before_build is not None and _snapshot(output_path) == before_build
     except OSError as exc:
         return {"check": check, "ok": False, "detail": f"could not read {output} after the build: {exc}", "command": steps[-1], **note}
     if unchanged:
