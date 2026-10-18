@@ -60,6 +60,13 @@ def test_plain_http_is_only_for_this_machine() -> None:
         assert providers.parse_provider({"id": "x", "base_url": f"http://{host}:9000/v1"}, "yours").local
 
 
+@pytest.mark.parametrize("ignores", ["tools@1", [1], ["tools"], ["Tools@1"], ["tools@0"], [None]])
+def test_a_bad_ignores_list_is_refused(ignores: object) -> None:
+    """f939f95-F3: what a provider ignores decides what is refused, so a malformed list must not load."""
+    with pytest.raises(providers.ProviderError, match="ignores"):
+        providers.parse_provider({"id": "x", "base_url": "https://api.example.com/v1", "ignores": ignores}, "yours")
+
+
 def test_an_unknown_provider_is_one_command_away(capsys) -> None:
     code, out, _ = front(["providers", "add", "brandnew", "--base-url", "https://api.brandnew.ai/v1", "--key-env", "BRANDNEW_KEY"], capsys)
     assert code == 0 and "brandnew" in out
