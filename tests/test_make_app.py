@@ -765,3 +765,12 @@ def test_an_ios_build_that_exits_cleanly_without_the_app_fails(tmp_path: Path, m
     monkeypatch.setattr(make_checks, "_command", lambda command, args, folder: [sys.executable, "-c", "pass"])
     found = app_platforms.build_check(tmp_path / "app", entry, True, "app")
     assert found["ok"] is False and "missing" in str(found["detail"]), found
+
+
+def test_native_build_notes_do_not_call_proven_builds_unconfirmed() -> None:
+    """f939f95-F1: every native build ran in the native-builds workflow, so no note may say it has not."""
+    from proofhouse import app_platforms
+
+    for platform_id, entry in {e["id"]: e for e in app_platforms._read(app_platforms.SHIPPED)}.items():
+        note = entry["build"].get("to_check", "")
+        assert "not yet" not in note, (platform_id, note)
