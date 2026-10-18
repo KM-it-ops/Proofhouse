@@ -554,7 +554,8 @@ def execute_on_provider(ir_raw: bytes | str, request: LiveRunRequest) -> Executi
         result = _error(code, envelope)
         return replace(result, envelope=_redact_tree(result.envelope, secrets))
 
-    if not resolved and not (profile.local and profile.key_env is None):
+    # A server on this machine may run without its optional key, as `proofhouse run` allows.
+    if not resolved and not profile.local:
         return refuse(EXE_CRED_0001)
     if not (request.model or "").strip():
         return refuse(EXE_MODEL_0001)
@@ -592,6 +593,6 @@ def execute_on_provider(ir_raw: bytes | str, request: LiveRunRequest) -> Executi
         resolved_credential=resolved,
         shape=profile.shape,
         credential_env_name=credential_env_name,
-        allow_keyless=profile.local and profile.key_env is None,
+        allow_keyless=profile.local,
         ignores=profile.ignores,
     )
