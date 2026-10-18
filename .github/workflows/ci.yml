@@ -143,3 +143,32 @@ jobs:
       - name: Generated model surfaces and skill bundle are in sync
         run: |
           /tmp/pr-wheel/bin/python scripts/generate_model_surfaces.py --check
+
+  # Keyboard, phone-width, reduced-motion and error-state checks on the dashboard.
+  # The teeth check runs the browser tests on the real dashboard first (they must
+  # pass), then on copies broken on purpose (they must fail), so one run covers both.
+  dashboard-browser-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: apps/dashboard
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/dashboard/package-lock.json
+
+      - name: Install dashboard dependencies
+        run: npm ci
+
+      - name: Install Chromium for the browser tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser checks, including the proof that they can fail
+        run: npm run test:e2e:teeth
