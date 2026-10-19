@@ -24,6 +24,10 @@ How it behaves everywhere:
 - **Any provider, any model, any modality:** known or unknown, commercial or open source, cloud or local.
   Providers, media services, training services, deploy targets, coding-tool hosts and app platforms are
   data. Adding one is a line or an add-on, not a code change.
+- **Nothing new is refused for being new.** A kind of thing Proofhouse has never made is researched by
+  the chosen model and learned as an add-on kind. A model or AI workspace released after this list was
+  written is found by `proofhouse models update`, which asks each provider for its models and reads the
+  official release pages, then records what it found.
 - **One front door:** the `proofhouse` command.
 - **Every paid call goes through the spending limit** (`spend.send_within_ceiling`).
 - **Every make runs the same loop:** write, try it for real, judge, revise, keep every version.
@@ -44,6 +48,8 @@ How it behaves everywhere:
 | Loops that run on their own within limits | works |
 | Train and fine-tune models (online services or on your own machine) | works |
 | Add-ons that add providers, services, tools and make kinds | works |
+| Learn a kind it does not know instead of refusing it | works |
+| Keep the model and AI-workspace list current (`proofhouse models update`) | works; list checked against official pages 2026-10-18 |
 | Project scan | works |
 | Evidence record: sealed benchmarks, type-strict rubric scoring, strict JSON inputs, required requirement coverage | works (four old defects fixed 2026-10-16) |
 
@@ -92,6 +98,10 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      statement: [assurance/2026-10-18-completion-criteria.md](assurance/2026-10-18-completion-criteria.md).
      Still open: a try by a fresh user (criterion 6), then the 0.9.0 release, PyPI and the GitHub
      releases (0.8.0's is missing too) on the owner's word.
+4. Owner's corrections (2026-10-18). Done: a kind Proofhouse does not know is researched and learned, not
+   refused; the model list keeps itself current (`proofhouse models update`) and now has GPT-6.1, GPT-6,
+   Claude Opus/Sonnet/Haiku 5.5, Gemini 4 Argon, Grok 4.7 and Grok Bot; the send address is checked
+   against the provider's host last; one run reads the providers file once.
 
 ## Known limits
 

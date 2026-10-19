@@ -284,24 +284,29 @@ def _ceiling(value: object) -> Decimal:
     return amount
 
 
-def _provider(provider: str) -> Any:
-    """The provider's profile (shipped or yours); its shape says what the request may hold."""
+def _snapshot(snapshot: Any) -> Any:
+    """The caller's one read of the providers files, or one read taken here."""
     from . import providers
 
+    if snapshot is not None:
+        return snapshot
     try:
-        profile = providers.find(provider)
+        return providers.snapshot()
     except providers.ProviderError as exc:
         raise SpendRefused("PHC-COST-0003", f"providers file: {exc}") from None
+
+
+def _provider(provider: str, snapshot: Any) -> Any:
+    """The provider's profile (shipped or yours); its shape says what the request may hold."""
+    profile = snapshot.find(provider)
     if profile is None:
         raise SpendRefused("PHC-COST-0003", f"no request shape is known for provider {provider!r}")
     return profile
 
 
-def _declared_price(profile: Any, model: str) -> PriceEntry | None:
+def _declared_price(profile: Any, model: str, user: Mapping[str, Any]) -> PriceEntry | None:
     """A price you declared in your providers file. Zero is allowed only for a provider on this machine."""
-    from . import providers
-
-    for raw in providers.load_user()["prices"]:
+    for raw in user["prices"]:
         if not isinstance(raw, dict) or raw.get("provider") != profile.id or raw.get("model") != model:
             continue
         amounts = []
@@ -317,13 +322,13 @@ def _declared_price(profile: Any, model: str) -> PriceEntry | None:
     return None
 
 
-def _price_for(table: PriceTable, profile: Any, model: str) -> tuple[PriceEntry, str] | None:
+def _price_for(table: PriceTable, profile: Any, model: str, user: Mapping[str, Any]) -> tuple[PriceEntry, str] | None:
     """The shipped table first (yours cannot change it), then your declared price, then $0 on this machine."""
     entry = table.find(profile.id, model)
     if entry is not None:
         return entry, SOURCE_TABLE
     try:
-        declared = _declared_price(profile, model)
+        declared = _declared_price(profile, model, user)
     except ValueError as exc:  # a broken providers file
         raise SpendRefused("PHC-COST-0003", f"providers file: {exc}") from None
     if declared is not None:
@@ -416,11 +421,14 @@ def send_within_ceiling(
     max_output_tokens: int,
     ceiling_usd: str,
     send: Callable[[bytes], Any],
+    snapshot: Any = None,
 ) -> Gated:
     """Call ``send`` once, with the exact bytes counted, only if the worst case is at or under the ceiling.
 
     Refuses (and never calls ``send``) when the worst case is over the ceiling,
     when the model has no price, or when no worst case can be made.
+    ``snapshot`` is the caller's one read of the providers files (``providers.snapshot()``), so the gate prices the
+    same provider entry the caller sends to; left out, the gate reads them once itself.
     """
     facts: dict[str, Any] = {}
     try:
@@ -430,7 +438,8 @@ def send_within_ceiling(
         facts["body_sha256"] = hashlib.sha256(sent).hexdigest()
         facts["input_tokens_bound"] = bound = input_tokens_bound(sent)
         facts["output_tokens_bound"] = output_bound = _count(max_output_tokens, "the output-token ceiling")
-        profile = _provider(provider)
+        known = _snapshot(snapshot)
+        profile = _provider(provider, known)
         _check_request(body, shape=profile.shape, model=model, output_bound=output_bound)
         try:
             table = load_price_table()
@@ -438,7 +447,7 @@ def send_within_ceiling(
             reason = str(exc) if str(exc).startswith("price table") else f"price table {exc}"
             raise SpendRefused("PHC-COST-0003", reason) from None
         facts["price_table_version"] = table.version
-        found = _price_for(table, profile, model)
+        found = _price_for(table, profile, model, known.user)
         if found is None:
             raise SpendRefused(
                 "PHC-COST-0002",

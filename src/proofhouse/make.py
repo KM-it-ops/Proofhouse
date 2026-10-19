@@ -12,6 +12,9 @@ Kinds:
 - ``skill``: an agent skill (a folder with ``SKILL.md``). The judge scores the
   skill text against your request, and the result is checked so that
   ``proofhouse install-skill --bundle <folder>`` accepts it.
+- any other name: a kind an add-on brings, or one Proofhouse has not met yet.
+  A new kind is researched by your model first and saved as a learned kind
+  (``learn.py``), then made like the others; it is never refused for being new.
 
 Everything lands in one folder: every version, every test output, every score,
 and every call's tokens and estimated cost (``record.json``), plus the best
@@ -141,6 +144,8 @@ class MakeResult:
     spent_usd: Decimal
     rounds: list[Round] = field(default_factory=list)
     calls: list[Call] = field(default_factory=list)
+    # The kind's entry when this make researched and learned it (learn.py); ``None`` otherwise.
+    learned: dict[str, Any] | None = None
 
 
 def _slug(text: str) -> str:
@@ -213,13 +218,18 @@ def make(
     allow_commands: bool = False,
     platforms: list[str] | None = None,
 ) -> MakeResult:
-    from . import addons
+    from . import addons, learn
 
     extra = {} if kind in KINDS else addons.make_kinds()
     if kind not in KINDS and kind not in extra:
-        raise MakeError(f"kind must be one of {', '.join([*KINDS, *addons.make_kinds()])}")
-    writer = _WRITE[kind] if kind in _WRITE else extra[kind]["write"]
-    label = _SUBJECT.get(kind) or str(extra.get(kind, {}).get("subject") or kind.upper())
+        named = learn.kind_name(kind)
+        if named is None:
+            raise MakeError("a kind is a name such as press-kit: letters, digits and hyphens, 2 to 40 characters")
+        kind = named
+    if kind in learn.OWN_ENGINE:
+        raise MakeError(f"{kind} has its own engine: run `proofhouse make --kind {kind}`")
+    # A kind nobody has taught Proofhouse yet is researched by your model first, then made (learn.py).
+    learning = kind not in KINDS and kind not in extra
     if not request.strip():
         raise MakeError("say what you want made")
     if type(rounds) is not int or not 1 <= rounds <= 20:
@@ -269,6 +279,14 @@ def make(
 
     current: str | None = None
     try:
+        if learning:
+            try:
+                result.learned = learn.learn(kind, lambda prompt: call("research", prompt), learned_by=f"{profile.id}/{model}")
+            except learn.LearnError as exc:
+                raise _Stop(f"could not learn what a {kind} is: {exc}") from None
+            extra = {**extra, kind: {**result.learned, "addon": learn.LEARNED_PACK}}
+        writer = _WRITE[kind] if kind in _WRITE else extra[kind]["write"]
+        label = _SUBJECT.get(kind) or str(extra.get(kind, {}).get("subject") or kind.upper())
         current = _strip_fences(call("write", writer, request) or "")
         if kind == "prompt" and test_input is None:
             test_input = _strip_fences(call("test input", _TEST_INPUT.format(prompt=current)) or "")
@@ -320,7 +338,7 @@ def make(
         else:
             _deliver(folder, "copy" if kind in extra else kind, best.text)
     result.spent_usd = budget.spent
-    _write_record(folder, request, profile.id, model, max_cost_usd, result)
+    _write_record(folder, request, profile.id, model, max_cost_usd, result, extra.get(kind))
     return result
 
 
@@ -564,7 +582,10 @@ def _deliver(folder: Path, kind: str, text: str) -> None:
     (skill / "SKILL.md").write_text(text + "\n", encoding="utf-8")
 
 
-def _write_record(folder: Path, request: str, provider_id: str, model: str, limit: str | None, result: MakeResult) -> None:
+def _write_record(
+    folder: Path, request: str, provider_id: str, model: str, limit: str | None, result: MakeResult,
+    kind_entry: dict[str, Any] | None = None,
+) -> None:
     record = {
         "schema": "proofhouse.make/v1",
         "proofhouse_version": __version__,
@@ -581,4 +602,8 @@ def _write_record(folder: Path, request: str, provider_id: str, model: str, limi
         "rounds": [vars(r) for r in result.rounds],
         "calls": [vars(c) for c in result.calls],
     }
+    if kind_entry is not None:  # an add-on or learned kind: say where its writer instructions came from
+        record["kind_from"] = {key: kind_entry[key] for key in (
+            "addon", "what_it_is", "sources", "sources_note", "learned_by", "learned_at") if key in kind_entry}
+        record["kind_from"]["learned_this_run"] = result.learned is not None
     (folder / "record.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")

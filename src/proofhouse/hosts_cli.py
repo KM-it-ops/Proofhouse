@@ -45,6 +45,8 @@ def _cmd_hosts_list(args: argparse.Namespace) -> int:
                 where = "+".join(scope for scope in ("user", "project") if scope in spec)
                 kinds.append(f"{kind} ({where})")
         print(f"{host['id']:<10} {host.get('name', host['id']):<14} {', '.join(kinds) or '-'}")
+        if isinstance(host.get("note"), str):
+            print(f"{'':<10} {host['note']}")
     print(f"\nAdd any other tool in {hosts.proofhouse_home() / 'hosts.json'} (same shape as the shipped list).")
     return EXIT_OK
 

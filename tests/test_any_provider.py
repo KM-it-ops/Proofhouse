@@ -216,3 +216,15 @@ def test_cli_run_reads_prompt_and_input_files(tmp_path: Path, capsys, monkeypatc
     assert code == 0
     messages = json.loads(seen[0].body_bytes)["messages"]
     assert messages == [{"role": "system", "content": "system words"}, {"role": "user", "content": "user words"}]
+
+
+def test_one_run_reads_your_providers_file_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    # The run and the spend gate share one read, so the price is judged for the entry the request goes to.
+    monkeypatch.setenv("MISTRAL_API_KEY", "sk-secret-mistral")
+    _declare("mistral", "mistral-large", "2", "6")
+    reads: list[Path] = []
+    real = providers._read
+    monkeypatch.setattr(providers, "_read", lambda path: reads.append(path) or real(path))
+    result = live.run_prompt("mistral", "mistral-large", prompt="hi", max_cost_usd="1", transport=Recorder())
+    assert result.status == "success" and result.admission["price"]["source"] == "declared by you"
+    assert reads.count(providers.user_path()) == 1

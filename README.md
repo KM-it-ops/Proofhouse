@@ -265,16 +265,16 @@ Built-in `modelNotes` cover prompting quirks, API ids, and cost and caching leve
 <!-- supported-models:begin -->
 | Tier | Models |
 |---|---|
-| **Anthropic** | Claude Fable 5.1 · Mythos 5.1 · Opus 5 · Sonnet 5 · Haiku 4.5 |
-| **OpenAI** | GPT-5.6 Sol · Terra · Luna |
-| **Google** | Gemini 3.8 Flash |
-| **xAI** | Grok 4.6 |
+| **Anthropic** | Claude Fable 5.1 · Opus 5.5 · Sonnet 5.5 · Haiku 5.5 · Mythos 5.1 |
+| **OpenAI** | GPT-6 Astra · GPT-6.1 Sol · GPT-6 Sol · GPT-6 Luna |
+| **Google** | Gemini 4 Argon · Gemini 3.8 Flash |
+| **xAI** | Grok 4.7 |
 | **Meta** | Muse Spark 1.3 |
 | **Moonshot** | Kimi K3 |
-| **Legacy** | GPT-5.5 · Gemini (generic) · Fable 5 · Mythos 5 · Opus 4.8 |
+| **Legacy** | Opus 5 · Sonnet 5 · Haiku 4.5 · GPT-5.6 Sol · Terra · Luna · GPT-5.5 · Grok 4.6 · Gemini (generic) · Fable 5 · Mythos 5 · Opus 4.8 |
 | **Other** | Skill and artifact: the host agent or the artifact web-researches the model and caches the paragraph. CLI (`proofhouse`): offline; `models remember` stores your own notes, otherwise the generic profile is used and labeled `fallback`. |
 
-Profiles last reviewed 2026-09-03; a profile older than 90 days is flagged stale. None of the 18 profiles cites sources yet, so every profile is labeled unverified. They are prompting guidance, not vendor specifications. `proofhouse models list` shows per-model ids, aliases, and dates.
+Profiles last reviewed 2026-10-18; a profile older than 90 days is flagged stale. 10 of 27 profiles cite sources; the rest are labeled unverified. They are prompting guidance, not vendor specifications. `proofhouse models list` shows per-model ids, aliases, and dates.
 
 Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human-readable [`proofhouse-framework.md`](proofhouse-framework.md)
 <!-- supported-models:end -->

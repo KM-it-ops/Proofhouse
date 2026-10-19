@@ -12,8 +12,8 @@ are ``user_supplied`` and never dated. The cache lives under ``PROOFHOUSE_HOME``
 as ``model-notes/<normalized-key>.json``.
 
 Stdlib only; nothing here opens a network connection. ``resolve_model_notes``
-accepts an injectable ``researcher`` callable; this package never constructs
-one and the CLI never passes one.
+accepts an injectable ``researcher`` callable; ``proofhouse models update`` passes
+one that returns what an official release page said, with that page as the source.
 """
 
 from __future__ import annotations
@@ -39,6 +39,8 @@ FALLBACK_ID = "other"
 VERIFICATION_UNVERIFIED = "unverified"
 VERIFICATION_SOURCED = "sourced"
 VERIFICATION_REVIEWED = "reviewed"
+# Picked out of a public page by a model and not yet reviewed: shown by ``models show``, never put into a prompt.
+VERIFICATION_FROM_PAGE = "from_page_unreviewed"
 
 Researcher = Callable[[str], tuple[str, list[str]]]
 
@@ -79,11 +81,27 @@ class ResolvedNotes:
         }
 
 
-def verification_for(sources: tuple[str, ...] | list[str], reviewed_by: str | None = None) -> str:
-    """``reviewed`` needs sources and a named reviewer; ``sourced`` needs sources; else ``unverified``."""
+def verification_for(
+    sources: tuple[str, ...] | list[str], reviewed_by: str | None = None, extracted_by: str | None = None
+) -> str:
+    """``reviewed`` needs sources and a named reviewer; notes a model picked out of a page and nobody reviewed are
+    ``from_page_unreviewed``; ``sourced`` needs sources; else ``unverified``."""
     if not sources:
         return VERIFICATION_UNVERIFIED
-    return VERIFICATION_REVIEWED if reviewed_by else VERIFICATION_SOURCED
+    if reviewed_by:
+        return VERIFICATION_REVIEWED
+    return VERIFICATION_FROM_PAGE if extracted_by else VERIFICATION_SOURCED
+
+
+def prompt_notes(resolved: ResolvedNotes) -> str:
+    """The notes that may go into a prompt: unreviewed page text is replaced by the generic profile.
+
+    A page's words reach a prompt only after you review them (``proofhouse models remember``).
+    """
+    if resolved.verification != VERIFICATION_FROM_PAGE:
+        return resolved.notes
+    other = find_model(FALLBACK_ID, load_registry())
+    return other.notes if other is not None else ""
 
 
 def proofhouse_home() -> Path:
@@ -177,7 +195,9 @@ def _from_cache(
         sources=tuple(cached.get("sources") or ()),
         provenance=cached.get("provenance"),
         notes=cached["notes"],
-        verification=verification_for(tuple(cached.get("sources") or ()), cached.get("reviewed_by")),
+        verification=verification_for(
+            tuple(cached.get("sources") or ()), cached.get("reviewed_by"), cached.get("extracted_by")
+        ),
     )
 
 
@@ -211,8 +231,14 @@ def _cache_is_newer_or_tied(cached: dict, builtin: ModelEntry) -> bool:
     return date.fromisoformat(cached_at) >= date.fromisoformat(builtin.verified_at)
 
 
-def resolve_model_notes(name: str, *, researcher: Researcher | None = None) -> ResolvedNotes:
-    """Resolve notes for ``name``: cache/builtin by freshness, else researcher, else fallback."""
+def resolve_model_notes(
+    name: str, *, researcher: Researcher | None = None, extracted_by: str | None = None
+) -> ResolvedNotes:
+    """Resolve notes for ``name``: cache/builtin by freshness, else researcher, else fallback.
+
+    ``extracted_by`` names the model that picked the researcher's notes out of a page; such notes stay
+    ``from_page_unreviewed`` until you review them.
+    """
     reg = load_registry()
     key = cache_key(name, reg)
     builtin = find_model(name, reg)
@@ -228,6 +254,8 @@ def resolve_model_notes(name: str, *, researcher: Researcher | None = None) -> R
     if researcher is not None:
         notes, sources = researcher(name)
         entry = _entry(name, key, notes, sources, registry.today().isoformat(), SOURCE_RESEARCHED, "researcher")
+        if extracted_by:
+            entry["extracted_by"] = extracted_by
         _write_cache(key, entry)
         return _from_cache(name, entry, None, reg, source=SOURCE_RESEARCHED)
     return _fallback(name, reg)

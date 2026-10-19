@@ -2,7 +2,7 @@
   "schema": "proofhouse.model-registry/v0",
   "frameworkVersion": "1.3",
   "staleAfterDays": 90,
-  "evidencePolicy": "Entries without sources are unverified: verified_at records when a maintainer last reviewed the note, not an independent check against vendor documentation. Notes are prompting guidance, not specifications; confirm model ids, limits and prices in the vendor's documentation before relying on them.",
+  "evidencePolicy": "Entries with sources were checked against those official pages on their verified_at date; entries without sources are unverified, a maintainer's review only. Notes are prompting guidance, not specifications, and anything marked 'to check' was not confirmed. `proofhouse models update` finds models released since and records them in your catalog.",
   "models": [
     {
       "id": "claude-fable-5-1",
@@ -14,9 +14,59 @@
       "aliases": [
         "fable 5.1"
       ],
-      "verified_at": "2026-09-03",
-      "sources": [],
-      "notes": "Long-horizon / science / unattended runs. 1M context, 128k output (`claude-fable-5-1`), thinking always on (disabled returns 400), default effort high, $10/$50, slower than Opus 5. State goals and success criteria, not steps -- over-specifying degrades it. Cyber + bio classifiers remain; life-sciences R&D is redirected to Opus 5 or Mythos 5.1 trusted access. Never ask it to echo/explain hidden reasoning as response text. Define explicit pause-vs-continue checkpoints for long tasks. Reach for it when Opus 5 at higher effort still fails evals."
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://platform.claude.com/docs/en/models/overview"
+      ],
+      "notes": "Long-horizon / science / unattended runs. 1M context, 128k output (`claude-fable-5-1`), thinking always on (disabled returns 400), default effort high, $10/$50, slower than Opus 5.5. State goals and success criteria, not steps -- over-specifying degrades it. Cyber + bio classifiers remain; life-sciences R&D is redirected to Opus 5 or Mythos 5.1 trusted access. Never ask it to echo/explain hidden reasoning as response text. Define explicit pause-vs-continue checkpoints for long tasks. Reach for it when Opus 5.5 at higher effort still fails evals."
+    },
+    {
+      "id": "claude-opus-5-5",
+      "display_name": "Claude Opus 5.5",
+      "trigger_label": "Opus 5.5",
+      "provider": "Anthropic",
+      "tier": "current",
+      "api_id": "claude-opus-5-5",
+      "aliases": [
+        "opus 5.5"
+      ],
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://platform.claude.com/docs/en/models/overview"
+      ],
+      "notes": "Anthropic's recommended starting model for most work: long-running agentic coding and knowledge work. 1M context, 128k output (`claude-opus-5-5`), adaptive thinking always on, default effort medium, $4/$20. Opus 5 prompting carries over until Anthropic's migration guide says otherwise (to check): give the full task spec and let it run, keep every user-required test and approval gate, cap subagent spawns, ask for concise progress explicitly, and constrain scope on large jobs. Raise effort before switching models; step up to Fable 5.1 only when evals still fall short."
+    },
+    {
+      "id": "claude-sonnet-5-5",
+      "display_name": "Claude Sonnet 5.5",
+      "trigger_label": "Sonnet 5.5",
+      "provider": "Anthropic",
+      "tier": "current",
+      "api_id": "claude-sonnet-5-5",
+      "aliases": [
+        "sonnet 5.5"
+      ],
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://platform.claude.com/docs/en/models/overview"
+      ],
+      "notes": "Anthropic's best mix of speed and intelligence (`claude-sonnet-5-5`), 1M context, 128k output, adaptive thinking, default effort high, $2/$10. Concise, direct instructions; it does not need heavy scaffolding. Good for genuine iteration and as the everyday default when Opus 5.5 is more than the task needs."
+    },
+    {
+      "id": "claude-haiku-5-5",
+      "display_name": "Claude Haiku 5.5",
+      "trigger_label": "Haiku 5.5",
+      "provider": "Anthropic",
+      "tier": "current",
+      "api_id": "claude-haiku-5-5",
+      "aliases": [
+        "haiku 5.5"
+      ],
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://platform.claude.com/docs/en/models/overview"
+      ],
+      "notes": "Anthropic's fastest model (`claude-haiku-5-5`) for high-volume, latency-sensitive work such as classification, extraction and routing. 1M context, 128k output, adaptive thinking, default effort medium, from $0.10/$0.50. Keep prompts narrow and break multi-stage work into smaller requests with automated validation."
     },
     {
       "id": "claude-mythos-5-1",
@@ -33,96 +83,80 @@
       "notes": "Same model as Fable 5.1, with looser cyber/bio safeguards, restricted to trusted-org programs (CVP / LSVP). Same prompting patterns as Fable 5.1."
     },
     {
-      "id": "claude-opus-5",
-      "display_name": "Claude Opus 5",
-      "trigger_label": "Opus 5",
-      "provider": "Anthropic",
-      "tier": "current",
-      "api_id": "claude-opus-5",
-      "aliases": [
-        "opus 5"
-      ],
-      "verified_at": "2026-09-03",
-      "sources": [],
-      "notes": "Anthropic's default for complex agentic coding. 1M context, 128k output (`claude-opus-5`), thinking on by default (disable only at effort high or below), default effort high, $5/$25. Give the full task spec and let it run -- it finishes rather than stubbing. Drop redundant generic 'double-check your work' wording (it causes over-verification); keep every user-required test, acceptance check and approval gate. Cap subagent spawns; it delegates eagerly. Ask for concise progress explicitly; default replies run long. Constrain scope on large jobs or it will expand them. Step up to Fable 5.1 only when Opus 5 at higher effort still fails evals."
-    },
-    {
-      "id": "claude-sonnet-5",
-      "display_name": "Claude Sonnet 5",
-      "trigger_label": "Sonnet 5",
-      "provider": "Anthropic",
-      "tier": "current",
-      "api_id": null,
-      "aliases": [
-        "sonnet 5"
-      ],
-      "verified_at": "2026-09-03",
-      "sources": [],
-      "notes": "Fast, capable default. Concise, direct instructions; doesn't need heavy scaffolding. Good for genuine iteration."
-    },
-    {
-      "id": "claude-haiku-4-5",
-      "display_name": "Claude Haiku 4.5",
-      "trigger_label": "Haiku 4.5",
-      "provider": "Anthropic",
-      "tier": "current",
-      "api_id": null,
-      "aliases": [
-        "haiku 4.5"
-      ],
-      "verified_at": "2026-09-03",
-      "sources": [],
-      "notes": "Optimized for speed/cost. Keep prompts narrow; break multi-stage work into smaller discrete requests."
-    },
-    {
-      "id": "gpt-5-6-sol",
-      "display_name": "GPT-5.6 Sol",
-      "trigger_label": "GPT-5.6 Sol",
+      "id": "gpt-6-astra",
+      "display_name": "GPT-6 Astra",
+      "trigger_label": "GPT-6 Astra",
       "provider": "OpenAI",
       "tier": "current",
-      "api_id": "gpt-5.6-sol",
+      "api_id": "gpt-6-astra",
       "aliases": [
-        "gpt-5.6"
+        "astra"
       ],
-      "verified_at": "2026-09-03",
-      "sources": [],
-      "notes": "Flagship GPT-5.6 (`gpt-5.6-sol`; the `gpt-5.6` alias routes here). Outcome, constraints, evidence, and completion bar -- not step lists. Lean system prompts; strip repeated rules and unused examples. More concise than 5.5 by default -- skip blanket 'be concise'; control length with `text.verbosity`. Define autonomy/approval bounds (it is proactive on multi-step work). `reasoning.effort` default medium; high/xhigh only when evals gain; reserve max. Personality vs collaboration as separate short blocks. Programmatic Tool Calling only for bounded reduction of large tool results, not every tool loop. Keep reusable prefixes stable for prompt caching."
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://developers.openai.com/api/docs/changelog"
+      ],
+      "notes": "OpenAI's most capable model (`gpt-6-astra`, released 2026-09-03) for the hardest end-to-end work: reasoning, coding, computer use, research and document creation. No `none` reasoning effort; no custom temperature, top_p or logprobs; tool calling needs the Responses API. `service_tier: \"ultrafast\"` lowers the time between output tokens. State the outcome, constraints and completion bar, give it the context and tools, and set explicit autonomy and approval bounds. Prices: to check on OpenAI's pricing page."
     },
     {
-      "id": "gpt-5-6-terra",
-      "display_name": "GPT-5.6 Terra",
-      "trigger_label": "Terra",
+      "id": "gpt-6-1-sol",
+      "display_name": "GPT-6.1 Sol",
+      "trigger_label": "GPT-6.1 Sol",
       "provider": "OpenAI",
       "tier": "current",
-      "api_id": "gpt-5.6-terra",
+      "api_id": "gpt-6.1-sol",
+      "aliases": [
+        "gpt-6.1"
+      ],
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://developers.openai.com/api/docs/changelog"
+      ],
+      "notes": "OpenAI's model for complex coding and professional work at a lower cost than GPT-6 Astra (`gpt-6.1-sol`, released 2026-09-29). $2 input, $0.10 cached, $2.50 cache write, $10 output per 1M tokens up to 272K input tokens. Responses and Chat Completions, but use the Responses API for tool calling; Multi-agent (delegating to subagents inside one request) is in beta there, and `service_tier: \"ultrafast\"` is available. Outcome-first prompts with explicit autonomy bounds; see OpenAI's GPT-6 model guidance for reasoning settings."
+    },
+    {
+      "id": "gpt-6-sol",
+      "display_name": "GPT-6 Sol",
+      "trigger_label": "GPT-6 Sol",
+      "provider": "OpenAI",
+      "tier": "current",
+      "api_id": "gpt-6-sol",
       "aliases": [],
-      "verified_at": "2026-09-03",
-      "sources": [],
-      "notes": "Balanced GPT-5.6 default for most apps (`gpt-5.6-terra`). Same prompting contract as Sol: outcome-first, lean prompts, `text.verbosity`, explicit autonomy bounds. Prefer Terra over Sol unless hard reasoning, coding, or tool coordination fails evals. Same 1M context / 128k output family. Start `reasoning.effort` at medium and test one step lower before stepping up."
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://developers.openai.com/api/docs/changelog"
+      ],
+      "notes": "GPT-6 reasoning model (`gpt-6-sol`, released 2026-09-22): text and image in, text out, Responses and Chat Completions. $2 input, $0.20 cached, $10 output per 1M tokens up to 272K input tokens. Prefer GPT-6.1 Sol for new coding and professional work at the same input and output price. Outcome-first prompts; lean system prompts."
     },
     {
-      "id": "gpt-5-6-luna",
-      "display_name": "GPT-5.6 Luna",
-      "trigger_label": "Luna",
+      "id": "gpt-6-luna",
+      "display_name": "GPT-6 Luna",
+      "trigger_label": "GPT-6 Luna",
       "provider": "OpenAI",
       "tier": "current",
-      "api_id": "gpt-5.6-luna",
+      "api_id": "gpt-6-luna",
       "aliases": [],
-      "verified_at": "2026-09-03",
-      "sources": [],
-      "notes": "Fast/cheap GPT-5.6 (`gpt-5.6-luna`). Same family prompting patterns, but keep the task narrow. Best for classification, extraction, transformation, and batch work with automated validation -- not high-error-cost agentic coding unless evals hold. Same verbosity/effort/caching levers as Sol/Terra; default effort medium and prefer `none`/`low` when quality holds."
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://developers.openai.com/api/docs/changelog"
+      ],
+      "notes": "Fast, cheap GPT-6 reasoning model (`gpt-6-luna`, released 2026-09-22): text and image in, text out. $0.10 input, $0.01 cached, $0.50 output per 1M tokens up to 272K input tokens. Also runs the Decisions API (beta) for typed answers from text and images. Keep the task narrow: classification, extraction, transformation and batch work with automated validation."
     },
     {
-      "id": "gpt-5-5",
-      "display_name": "GPT-5.5",
-      "trigger_label": "GPT-5.5",
-      "provider": "OpenAI",
-      "tier": "legacy",
-      "api_id": "gpt-5.5",
-      "aliases": [],
-      "verified_at": "2026-09-03",
-      "sources": [],
-      "notes": "Legacy. Explicit system/developer instructions, clear output format, few-shot examples for style-sensitive output. Prefer the GPT-5.6 family unless a workload is pinned here."
+      "id": "gemini-4-argon",
+      "display_name": "Gemini 4 Argon",
+      "trigger_label": "Gemini 4 Argon",
+      "provider": "Google",
+      "tier": "current",
+      "api_id": "gemini-4-argon",
+      "aliases": [
+        "argon"
+      ],
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://ai.google.dev/gemini-api/docs/changelog"
+      ],
+      "notes": "Google's most capable model (`gemini-4-argon`, generally available 2026-10-13) for complex coding, agentic, math and science tasks. Context, output limits, prices and API changes: to check in Google's 'What's new in Gemini 4 Argon'. Gemini 3.x prompting carries over until Google says otherwise (to check): concise direct instructions, depth set with `thinking_level` rather than temperature, instructions after large context."
     },
     {
       "id": "gemini-3-8-flash",
@@ -139,16 +173,18 @@
       "notes": "Google workhorse (`gemini-3.8-flash`), 1M context, 65k output, intro $0.75/$3.75. Reasoning model -- concise direct instructions; legacy CoT scaffolding hurts. Control depth with `thinking_level` (low/medium/high), not temperature/top_p (ignored on 3.x). Put instructions after large context; anchor with 'Based on the preceding information...'. Higher effort uses more tokens by design. Separate stable system instructions from per-call variable content for caching. Add 2026 date + Jan 2025 knowledge-cutoff clauses for time-sensitive or strictly grounded tasks per Google docs."
     },
     {
-      "id": "grok-4-6",
-      "display_name": "Grok 4.6",
-      "trigger_label": "Grok 4.6",
+      "id": "grok-4-7",
+      "display_name": "Grok 4.7",
+      "trigger_label": "Grok 4.7",
       "provider": "xAI",
       "tier": "current",
-      "api_id": "grok-4.6",
+      "api_id": "grok-4.7",
       "aliases": [],
-      "verified_at": "2026-09-03",
-      "sources": [],
-      "notes": "xAI frontier (`grok-4.6`), 500K context, image+text in, reasoning low/medium/high (default)/xhigh, $2/$6 per MTok below 200K prompt tokens (entire request doubles above 200K). Agentic coding and long-horizon work -- outcome-first with explicit stop/approval bounds. Set `prompt_cache_key` or `x-grok-conv-id` for cache affinity on multi-turn loops. Compact context before the 200K cliff on long agent runs. Available via xAI API, Cursor, OpenRouter."
+      "verified_at": "2026-10-18",
+      "sources": [
+        "https://docs.x.ai/developers/release-notes"
+      ],
+      "notes": "xAI's frontier model for coding, agentic tasks and knowledge work (`grok-4.7`, released 2026-09-21). 500k context, text and image in, text out with no output limit. $2 input, $0.50 cached, $6 output per 1M tokens below 200k prompt tokens; $4/$1/$12 above. Reasoning effort low, medium, high (default) or xhigh. On the Responses API it always returns `reasoning.encrypted_content`. Outcome-first prompts with explicit stop and approval bounds; compact context before 200k on long agent runs to stay on the lower price."
     },
     {
       "id": "muse-spark-1-3",
@@ -177,6 +213,110 @@
       "verified_at": "2026-09-03",
       "sources": [],
       "notes": "Moonshot open frontier (`kimi-k3`), 2.8T MoE, 1M context, native vision, $0.30 cache-hit / $3 input / $15 output per MTok. Long-horizon coding and agentic work -- best with Kimi Code harness. Default max thinking at launch; use low/high effort when available. Outcome and evidence bar, not micromanaged steps. Structure a stable prefix for Mooncake cache hits."
+    },
+    {
+      "id": "claude-opus-5",
+      "display_name": "Claude Opus 5",
+      "trigger_label": "Opus 5",
+      "provider": "Anthropic",
+      "tier": "legacy",
+      "api_id": "claude-opus-5",
+      "aliases": [
+        "opus 5"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy: Claude Opus 5.5 replaces it. Anthropic's default for complex agentic coding. 1M context, 128k output (`claude-opus-5`), thinking on by default (disable only at effort high or below), default effort high, $5/$25. Give the full task spec and let it run -- it finishes rather than stubbing. Drop redundant generic 'double-check your work' wording (it causes over-verification); keep every user-required test, acceptance check and approval gate. Cap subagent spawns; it delegates eagerly. Ask for concise progress explicitly; default replies run long. Constrain scope on large jobs or it will expand them. Step up to Fable 5.1 only when Opus 5 at higher effort still fails evals."
+    },
+    {
+      "id": "claude-sonnet-5",
+      "display_name": "Claude Sonnet 5",
+      "trigger_label": "Sonnet 5",
+      "provider": "Anthropic",
+      "tier": "legacy",
+      "api_id": null,
+      "aliases": [
+        "sonnet 5"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy: Claude Sonnet 5.5 replaces it. Fast, capable default. Concise, direct instructions; doesn't need heavy scaffolding. Good for genuine iteration."
+    },
+    {
+      "id": "claude-haiku-4-5",
+      "display_name": "Claude Haiku 4.5",
+      "trigger_label": "Haiku 4.5",
+      "provider": "Anthropic",
+      "tier": "legacy",
+      "api_id": null,
+      "aliases": [
+        "haiku 4.5"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy: Claude Haiku 5.5 replaces it. Optimized for speed/cost. Keep prompts narrow; break multi-stage work into smaller discrete requests."
+    },
+    {
+      "id": "gpt-5-6-sol",
+      "display_name": "GPT-5.6 Sol",
+      "trigger_label": "GPT-5.6 Sol",
+      "provider": "OpenAI",
+      "tier": "legacy",
+      "api_id": "gpt-5.6-sol",
+      "aliases": [
+        "gpt-5.6"
+      ],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy: the GPT-6 family replaces it for production. Flagship GPT-5.6 (`gpt-5.6-sol`; the `gpt-5.6` alias routes here). Outcome, constraints, evidence, and completion bar -- not step lists. Lean system prompts; strip repeated rules and unused examples. More concise than 5.5 by default -- skip blanket 'be concise'; control length with `text.verbosity`. Define autonomy/approval bounds (it is proactive on multi-step work). `reasoning.effort` default medium; high/xhigh only when evals gain; reserve max. Personality vs collaboration as separate short blocks. Programmatic Tool Calling only for bounded reduction of large tool results, not every tool loop. Keep reusable prefixes stable for prompt caching."
+    },
+    {
+      "id": "gpt-5-6-terra",
+      "display_name": "GPT-5.6 Terra",
+      "trigger_label": "Terra",
+      "provider": "OpenAI",
+      "tier": "legacy",
+      "api_id": "gpt-5.6-terra",
+      "aliases": [],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy: the GPT-6 family replaces it for production. Balanced GPT-5.6 default for most apps (`gpt-5.6-terra`). Same prompting contract as Sol: outcome-first, lean prompts, `text.verbosity`, explicit autonomy bounds. Prefer Terra over Sol unless hard reasoning, coding, or tool coordination fails evals. Same 1M context / 128k output family. Start `reasoning.effort` at medium and test one step lower before stepping up."
+    },
+    {
+      "id": "gpt-5-6-luna",
+      "display_name": "GPT-5.6 Luna",
+      "trigger_label": "Luna",
+      "provider": "OpenAI",
+      "tier": "legacy",
+      "api_id": "gpt-5.6-luna",
+      "aliases": [],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy: the GPT-6 family replaces it for production. Fast/cheap GPT-5.6 (`gpt-5.6-luna`). Same family prompting patterns, but keep the task narrow. Best for classification, extraction, transformation, and batch work with automated validation -- not high-error-cost agentic coding unless evals hold. Same verbosity/effort/caching levers as Sol/Terra; default effort medium and prefer `none`/`low` when quality holds."
+    },
+    {
+      "id": "gpt-5-5",
+      "display_name": "GPT-5.5",
+      "trigger_label": "GPT-5.5",
+      "provider": "OpenAI",
+      "tier": "legacy",
+      "api_id": "gpt-5.5",
+      "aliases": [],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy. Explicit system/developer instructions, clear output format, few-shot examples for style-sensitive output. Prefer the GPT-5.6 family unless a workload is pinned here."
+    },
+    {
+      "id": "grok-4-6",
+      "display_name": "Grok 4.6",
+      "trigger_label": "Grok 4.6",
+      "provider": "xAI",
+      "tier": "legacy",
+      "api_id": "grok-4.6",
+      "aliases": [],
+      "verified_at": "2026-09-03",
+      "sources": [],
+      "notes": "Legacy: Grok 4.7 replaces it. xAI frontier (`grok-4.6`), 500K context, image+text in, reasoning low/medium/high (default)/xhigh, $2/$6 per MTok below 200K prompt tokens (entire request doubles above 200K). Agentic coding and long-horizon work -- outcome-first with explicit stop/approval bounds. Set `prompt_cache_key` or `x-grok-conv-id` for cache affinity on multi-turn loops. Compact context before the 200K cliff on long agent runs. Available via xAI API, Cursor, OpenRouter."
     },
     {
       "id": "gemini",

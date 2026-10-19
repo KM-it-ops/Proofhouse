@@ -20,6 +20,12 @@
       "name": "Codex",
       "rule": {"user": "~/.codex/AGENTS.md", "project": "{project}/AGENTS.md", "format": "md-block"},
       "mcp": {"user": "~/.codex/config.toml", "format": "toml-block"}
+    },
+    {
+      "id": "grok-bot",
+      "name": "Grok Bot",
+      "note": "xAI's cloud teammate (available since 2026-08-11). It works on its own cloud computer and keeps no settings on your machine; connect tools to it as connectors in Grok.",
+      "source": "https://docs.x.ai/grok-bot/overview"
     }
   ]
 }

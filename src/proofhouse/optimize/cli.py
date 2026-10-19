@@ -77,14 +77,20 @@ def _warn_if_stale(resolved: ResolvedNotes) -> bool:
 
 
 def _cmd_models_list(args: argparse.Namespace) -> int:
+    from .. import catalog
+
     reg = load_registry()
     builtin = model_notes.list_builtin()
     cached = model_notes.list_cached()
+    found = catalog.load()
+    reminder = catalog.due(found)
     if args.json:
         data = {
             "builtin": [entry.to_dict() for entry in builtin],
             "cached": [entry.to_dict() for entry in cached],
             "stale_after_days": reg.stale_after_days,
+            "catalog": {"checked_at": found["checked_at"], "models": found["models"],
+                        "workspaces": found["workspaces"], "due": reminder},
         }
         _emit_json("models list", "success", data)
         return EXIT_SUCCESS
@@ -102,6 +108,40 @@ def _cmd_models_list(args: argparse.Namespace) -> int:
             f"  {entry.canonical_id:<20} {entry.entered_name:<20} {'-':<10} "
             f"{'cached':<8} reviewed {entry.verified_at} {entry.verification}{_stale_suffix(entry)}"
         )
+    listed_only = sorted(m["id"] or m["name"] for m in found["models"].values() if not m.get("summary"))
+    if listed_only:
+        print(f"  also offered by your providers, no notes yet: {', '.join(listed_only)}")
+    for space in found["workspaces"].values():
+        print(f"  workspace {space['name']} (first seen {space['first_seen']}): {space.get('summary') or '-'}")
+    if reminder:
+        _warn(reminder)
+    return EXIT_SUCCESS
+
+
+def _cmd_models_update(args: argparse.Namespace) -> int:
+    from .. import catalog, providers
+
+    try:
+        found = catalog.update(provider_id=args.provider, model=args.model, max_cost_usd=args.max_cost_usd,
+                               only=args.source or None)
+    except (catalog.CatalogError, providers.ProviderError, OSError) as exc:
+        return _usage_error(str(exc))
+    if args.json:
+        _emit_json("models update", "success", found.to_dict())
+        return EXIT_SUCCESS
+    print(f"models update: {len(found.new_models)} new models, {len(found.new_workspaces)} new workspaces "
+          f"(spent about ${format(found.spent_usd, 'f')})")
+    for where, what in {**found.listed, **found.read}.items():
+        print(f"  {where}: {what}")
+    for entry in found.new_models:
+        origin = ", ".join(entry["listed_by"]) or ", ".join(entry["sources"])
+        print(f"  new model {entry['id'] or entry['name']} ({origin}){': ' + entry['summary'] if entry['summary'] else ''}")
+    for entry in found.new_workspaces:
+        print(f"  new workspace {entry['name']} ({entry['sources'][0]}): {entry['summary'] or '-'}")
+        print(f"    {entry['next']}")
+    if found.note:
+        print(f"  {found.note}")
+    print(f"  kept in {catalog.catalog_path()}")
     return EXIT_SUCCESS
 
 
@@ -129,6 +169,8 @@ def _cmd_models_show(args: argparse.Namespace) -> int:
     )
     print(f"  sources: {', '.join(resolved.sources) or 'none recorded'}")
     print(f"  evidence: {resolved.verification}")
+    if resolved.verification == model_notes.VERIFICATION_FROM_PAGE:
+        print("  (not put into prompts until you review it: proofhouse models remember NAME --notes-file FILE --source-url URL)")
     print(f"  notes: {resolved.notes}")
     return EXIT_SUCCESS
 
@@ -186,7 +228,7 @@ def _add_models(subparsers: argparse._SubParsersAction) -> None:
         help=(
             "Model-note provenance: source (builtin|cached|researched|user_supplied|fallback), "
             "evidence (unverified|sourced|reviewed), canonical id, review date, stale warning. "
-            "Local cache under PROOFHOUSE_HOME; no network."
+            "Local cache under PROOFHOUSE_HOME; only `models update` uses the network."
         ),
     )
     models_sub = p_models.add_subparsers(dest="models_command", required=True)
@@ -194,6 +236,22 @@ def _add_models(subparsers: argparse._SubParsersAction) -> None:
     p_list = models_sub.add_parser("list", help="List builtin registry entries and locally cached notes.")
     p_list.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_list.set_defaults(func=_cmd_models_list)
+
+    p_update = models_sub.add_parser(
+        "update",
+        help=(
+            "Find models and workspaces released since the last update: each provider's own model list (free, its "
+            "own key), and with --provider/--model the official release notes, read through the spend gate."
+        ),
+    )
+    p_update.add_argument("--provider", default=None, help="Provider of the model that reads the release notes.")
+    p_update.add_argument("--model", default=None, help="Model that reads the release notes.")
+    p_update.add_argument("--max-cost-usd", default=None, dest="max_cost_usd",
+                          help="One spending limit for the whole update (needed for a paid provider).")
+    p_update.add_argument("--source", action="append", default=None,
+                          help="Read only this release source id (repeatable); see data/release_sources.json.")
+    p_update.add_argument("--json", action="store_true", help="Emit a single JSON object.")
+    p_update.set_defaults(func=_cmd_models_update)
 
     p_show = models_sub.add_parser("show", help="Show where a model's notes come from and how old they are.")
     p_show.add_argument("name", help="Model name, alias, or canonical id (the entered name is echoed).")

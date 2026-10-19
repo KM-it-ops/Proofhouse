@@ -1122,7 +1122,7 @@
                     "type": "boolean"
                   },
                   "kind": {
-                    "description": "What to make: prompt, skill, agent, site, app, copy, rule, mcp, hook, video, launch, or a kind an add-on adds (default prompt).",
+                    "description": "What to make: prompt, skill, agent, site, app, copy, rule, mcp, hook, video, launch, or any other kind: an add-on's, or a new one your model researches and learns first (default prompt).",
                     "type": "string"
                   },
                   "max-cost-usd": {

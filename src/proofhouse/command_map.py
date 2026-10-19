@@ -73,6 +73,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "make": (SPINE, "", "make engine: writes, tries, judges and improves a prompt, skill, agent, site, app or copy, a video, or a whole launch, within one spending limit"),
     "adapters": (SPINE, "", "utility: alias of parts limited to request builders, with its 0.4.1 output"),
     "models list": (SPINE, "", "utility: model-notes registry"),
+    "models update": (SPINE, "", "utility: adds newly released models and workspaces from each provider's own list and the official release notes"),
     "models show": (SPINE, "", "utility: model-notes registry"),
     "models remember": (SPINE, "", "utility: stores the user's own model notes"),
     "models forget": (SPINE, "", "utility: removes cached model notes"),
