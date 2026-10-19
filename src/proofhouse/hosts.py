@@ -120,6 +120,7 @@ def target(host_id: str, kind: str, name: str, project: Path | None) -> Target:
     path = Path(text.replace("{name}", check_name(name)))
     if not path.is_absolute():
         path = root / path
+    path = Path(os.path.normpath(path))  # fold ".." before the check; links are refused below, not followed
     try:
         path.relative_to(root)
     except ValueError:
