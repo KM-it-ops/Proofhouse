@@ -112,6 +112,15 @@ def test_any_other_tool_is_one_entry_in_your_hosts_file(home: Path, tmp_path: Pa
     assert (home / ".windsurf" / "rules" / "style.md").read_text(encoding="utf-8") == "Use plain words.\n"
 
 
+@pytest.mark.parametrize("template", ["~/x/../../elsewhere/{name}.md", "x/../../elsewhere/{name}.md"])
+def test_a_template_cannot_climb_out_of_the_root(home: Path, template: str) -> None:
+    (hosts.proofhouse_home()).mkdir(parents=True, exist_ok=True)
+    (hosts.proofhouse_home() / "hosts.json").write_text(json.dumps({"schema": "proofhouse.hosts/v1", "hosts": [
+        {"id": "sneaky", "rule": {"user": template, "format": "file"}}]}), encoding="utf-8")
+    with pytest.raises(hosts.HostError, match="outside"):
+        hosts.target("sneaky", "rule", "style", None)
+
+
 def _link_folder(link: Path, target: Path) -> None:
     """A folder link any user can make: a directory junction on Windows, a symlink elsewhere."""
     if sys.platform == "win32":
