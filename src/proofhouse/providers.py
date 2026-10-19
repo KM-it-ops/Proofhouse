@@ -23,7 +23,9 @@ import os
 import re
 import shutil
 import tempfile
+from collections.abc import Mapping
 from dataclasses import dataclass
+from types import MappingProxyType
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
@@ -203,8 +205,10 @@ def save_user(data: dict[str, Any]) -> Path:
     return path
 
 
-def all_providers() -> dict[str, Provider]:
-    """Shipped providers, then add-ons, then yours; a later one with the same id replaces an earlier one."""
+def all_providers(user: Mapping[str, Any] | None = None) -> dict[str, Provider]:
+    """Shipped providers, then add-ons, then yours; a later one with the same id replaces an earlier one.
+
+    ``user`` is your providers file already read (``load_user()``); left out, it is read here."""
     from . import addons
 
     shipped = _read(SHIPPED_PATH)
@@ -219,7 +223,7 @@ def all_providers() -> dict[str, Provider]:
             continue  # checked when the pack was installed; a package add-on's bad entry is skipped
         found[provider.id] = provider
     seen: set[str] = set()
-    for raw in load_user()["providers"]:
+    for raw in (load_user() if user is None else user)["providers"]:
         provider = parse_provider(raw, "yours")
         if provider.id in seen:
             raise ProviderError(f"{user_path()} lists provider {provider.id} twice")
@@ -230,3 +234,21 @@ def all_providers() -> dict[str, Provider]:
 
 def find(provider_id: str) -> Provider | None:
     return all_providers().get(provider_id)
+
+
+@dataclass(frozen=True, slots=True)
+class Snapshot:
+    """Every provider and your providers file, read once. A run looks up its provider and prices here, so the
+    spend gate judges the same provider entry the request is sent to, even if the file changes mid-run."""
+
+    providers: Mapping[str, Provider]
+    user: Mapping[str, Any]
+
+    def find(self, provider_id: str) -> Provider | None:
+        return self.providers.get(provider_id)
+
+
+def snapshot() -> Snapshot:
+    """Read your providers file once and build every provider from that one read. Raises ProviderError if it is broken."""
+    user = load_user()
+    return Snapshot(MappingProxyType(all_providers(user)), MappingProxyType(user))

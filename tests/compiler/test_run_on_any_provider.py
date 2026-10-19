@@ -408,3 +408,31 @@ def test_spend_gate_refusal_means_no_send(
     assert [kind for kind, _ in events] == ["gate"], "the gate was asked and refused; nothing was sent"
     assert transport.calls == []
     assert result.envelope["admission"]["cost_ceiling"]["decision"] == "refused"
+
+
+@pytest.mark.parametrize("address", [
+    "https://elsewhere.example/v1/chat/completions",
+    "https://api.mistral.ai@elsewhere.example/v1/chat/completions",
+])
+def test_the_send_address_is_checked_against_the_provider_host_last(
+    address: str, monkeypatch: pytest.MonkeyPatch, events: list
+) -> None:
+    # Whatever builds the address, the key goes only to the provider's own host.
+    monkeypatch.setattr(providers.Provider, "chat_url", property(lambda self: address))
+    result, transport = _run("mistral", _sentinel_ir(), events)
+    assert result.status == "error" and "EXE-EGRESS-0001" in result.diagnostics
+    assert result.envelope["provider"] == "mistral" and result.envelope["target_url_rejected"] is True
+    assert events == [] and transport.calls == []
+    assert _secret_for("mistral") not in json.dumps(result.to_dict())
+
+
+def test_one_run_reads_your_providers_file_once(monkeypatch: pytest.MonkeyPatch, events: list) -> None:
+    # The run and the spend gate share one read, so the gate judges the entry the request goes to.
+    _write_user_providers(GATEWAY)
+    reads: list[Path] = []
+    real = providers._read
+    monkeypatch.setattr(providers, "_read", lambda path: reads.append(path) or real(path))
+    result, transport = _run(GATEWAY["id"], _sentinel_ir(), events)
+    assert result.status == "success", result.to_dict()
+    _assert_sent_through_gate(GATEWAY["id"], events, transport)
+    assert reads.count(providers.user_path()) == 1

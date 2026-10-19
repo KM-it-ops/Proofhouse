@@ -301,6 +301,8 @@ def _execute_live(
     credential_env_name: str | None = None,
     allow_keyless: bool = False,
     ignores: tuple[str, ...] = (),
+    expected_host: str | None = None,
+    snapshot: providers.Snapshot | None = None,
 ) -> ExecutionResult:
     """Shared single-request send path after provider-specific selection."""
     resolved = _resolve_credential(request) if isinstance(request, LiveOpenAIRequest) else resolved_credential
@@ -330,6 +332,10 @@ def _execute_live(
         target_url = (request.target_url or DEFAULT_TARGET_URL) if isinstance(request, LiveOpenAIRequest) else ""
     if isinstance(request, LiveOpenAIRequest) and not _allowlisted_url(target_url):
         return finish(_error(EXE_EGRESS_0001, {"target_url_rejected": True, "single_request": True}))
+    # The last check before the key is attached: the address the request goes to is the provider's own host.
+    final = urlparse(target_url)
+    if expected_host is not None and ((final.hostname or "").lower() != expected_host or final.username or final.password):
+        return finish(_error(EXE_EGRESS_0001, {"provider": provider_id, "target_url_rejected": True, "single_request": True}))
 
     compile_env = api.compile(ir_raw, adapter_id="openai", adapter_version="0.1.0")
     if compile_env.status == "error":
@@ -434,6 +440,7 @@ def _execute_live(
         max_output_tokens=request.max_output_tokens,
         ceiling_usd=request.max_cost_usd,
         send=_dispatch,
+        snapshot=snapshot,
     )
     if gated.admission.decision != "admitted":
         refusal = {
@@ -530,10 +537,12 @@ def execute_on_provider(ir_raw: bytes | str, request: LiveRunRequest) -> Executi
     if not request.opt_in:
         return _error(EXE_OPT_0001)
     provider_id = request.provider or ""
+    # One read of the providers files for the whole run; the spend gate prices this same entry.
     try:
-        profile = providers.find(provider_id)
+        known = providers.snapshot()
+        profile = known.find(provider_id)
     except providers.ProviderError:
-        profile = None
+        known, profile = None, None
     if profile is None:
         return _error(
             EXE_PROV_0001, _redact_tree({"provider": provider_id, "single_request": True}, _secrets_from(request, None))
@@ -595,4 +604,6 @@ def execute_on_provider(ir_raw: bytes | str, request: LiveRunRequest) -> Executi
         credential_env_name=credential_env_name,
         allow_keyless=profile.local,
         ignores=profile.ignores,
+        expected_host=profile.host,
+        snapshot=known,
     )

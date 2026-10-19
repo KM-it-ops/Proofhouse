@@ -131,10 +131,12 @@ def run_prompt(
 ) -> RunResult:
     """Send one prompt (and optional input) to any provider through the spend gate."""
     model = (model or "").strip()
+    # One read of the providers files for the whole run; the spend gate prices this same entry.
     try:
-        profile = providers.find(provider_id)
+        known = providers.snapshot()
     except providers.ProviderError as exc:
         return _refused("PHC-RUN-0001", f"providers file: {exc}", provider_id, model)
+    profile = known.find(provider_id)
     if profile is None:
         return _refused(
             "PHC-RUN-0001", f"no provider named {provider_id!r}; see `proofhouse providers list` or add one", provider_id, model
@@ -183,6 +185,7 @@ def run_prompt(
         max_output_tokens=max_output_tokens,
         ceiling_usd=max_cost_usd,
         send=_dispatch,
+        snapshot=known,
     )
     admission = gated.admission.to_dict()
     if gated.admission.decision != "admitted":
