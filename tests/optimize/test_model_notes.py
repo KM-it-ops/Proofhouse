@@ -67,7 +67,7 @@ def test_builtin_resolve_keeps_entered_name(home: Path) -> None:
     assert resolved.canonical_id == "claude-opus-5"
     assert resolved.display_name == "Claude Opus 5"
     assert resolved.provider == "Anthropic"
-    assert resolved.tier == "current"
+    assert resolved.tier == "legacy"
     assert resolved.source == "builtin"
     assert resolved.verified_at == "2026-09-03"
     assert resolved.stale_after_days == 90
@@ -192,7 +192,7 @@ def test_stale_is_computed_from_injected_today(home: Path, monkeypatch: pytest.M
 def test_list_builtin_and_list_cached(home: Path) -> None:
     builtin = list_builtin()
     reg = load_registry()
-    assert len(builtin) == 18
+    assert len(builtin) == 27
     assert [r.canonical_id for r in builtin] == [m.id for m in reg.models]
     assert {r.source for r in builtin} == {"builtin"}
     assert list_cached() == ()

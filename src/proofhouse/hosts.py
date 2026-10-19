@@ -106,7 +106,8 @@ def target(host_id: str, kind: str, name: str, project: Path | None) -> Target:
     spec = host.get(kind)
     label = host.get("name", host_id)
     if spec is None:
-        raise HostError(f"{label} has no place for {kind}s")
+        note = f" ({host['note']})" if isinstance(host.get("note"), str) else ""
+        raise HostError(f"{label} has no place for {kind}s on your machine{note}")
     template = spec.get("project") if project is not None else spec.get("user")
     if template is None:
         where = "a project (--project DIR)" if project is None else "your user settings (leave out --project)"

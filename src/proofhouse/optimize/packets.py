@@ -13,7 +13,7 @@ import math
 import re
 from dataclasses import dataclass
 
-from .model_notes import SOURCE_FALLBACK, ResolvedNotes
+from .model_notes import SOURCE_FALLBACK, ResolvedNotes, prompt_notes
 from .registry import PACKAGE_FRAMEWORK_PATH
 
 PRESET_KEYS = ("efficient", "balanced", "thorough")
@@ -85,7 +85,7 @@ def _system_mapping(resolved: ResolvedNotes, preset_key: str, loop: bool) -> dic
     chosen = preset(preset_key)
     return {
         "resolvedModel": _resolved_model(resolved),
-        "modelNotes": resolved.notes,
+        "modelNotes": prompt_notes(resolved),
         "TOKEN_DISCIPLINE": _token_discipline(loop),
         "preset.label": str(chosen["label"]),
         "preset.note": str(chosen["note"]),

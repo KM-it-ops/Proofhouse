@@ -23,7 +23,19 @@ from proofhouse.optimize.registry import (
 
 EXPECTED_IDS = (
     "claude-fable-5-1",
+    "claude-opus-5-5",
+    "claude-sonnet-5-5",
+    "claude-haiku-5-5",
     "claude-mythos-5-1",
+    "gpt-6-astra",
+    "gpt-6-1-sol",
+    "gpt-6-sol",
+    "gpt-6-luna",
+    "gemini-4-argon",
+    "gemini-3-8-flash",
+    "grok-4-7",
+    "muse-spark-1-3",
+    "kimi-k3",
     "claude-opus-5",
     "claude-sonnet-5",
     "claude-haiku-4-5",
@@ -31,10 +43,7 @@ EXPECTED_IDS = (
     "gpt-5-6-terra",
     "gpt-5-6-luna",
     "gpt-5-5",
-    "gemini-3-8-flash",
     "grok-4-6",
-    "muse-spark-1-3",
-    "kimi-k3",
     "gemini",
     "claude-fable-5",
     "claude-mythos-5",
@@ -44,7 +53,19 @@ EXPECTED_IDS = (
 
 EXPECTED_DISPLAY_NAMES = (
     "Claude Fable 5.1",
+    "Claude Opus 5.5",
+    "Claude Sonnet 5.5",
+    "Claude Haiku 5.5",
     "Claude Mythos 5.1",
+    "GPT-6 Astra",
+    "GPT-6.1 Sol",
+    "GPT-6 Sol",
+    "GPT-6 Luna",
+    "Gemini 4 Argon",
+    "Gemini 3.8 Flash",
+    "Grok 4.7",
+    "Muse Spark 1.3",
+    "Kimi K3",
     "Claude Opus 5",
     "Claude Sonnet 5",
     "Claude Haiku 4.5",
@@ -52,10 +73,7 @@ EXPECTED_DISPLAY_NAMES = (
     "GPT-5.6 Terra",
     "GPT-5.6 Luna",
     "GPT-5.5",
-    "Gemini 3.8 Flash",
     "Grok 4.6",
-    "Muse Spark 1.3",
-    "Kimi K3",
     "Gemini",
     "Claude Fable 5",
     "Claude Mythos 5",
@@ -78,9 +96,9 @@ def test_registry_metadata() -> None:
     assert reg.stale_after_days == 90
 
 
-def test_registry_has_eighteen_models_in_fixed_order() -> None:
+def test_registry_has_twenty_seven_models_in_fixed_order() -> None:
     reg = load_registry()
-    assert len(reg.models) == 18
+    assert len(reg.models) == 27
     assert tuple(m.id for m in reg.models) == EXPECTED_IDS
     assert tuple(m.display_name for m in reg.models) == EXPECTED_DISPLAY_NAMES
     assert all(isinstance(m, ModelEntry) for m in reg.models)
@@ -186,10 +204,19 @@ def test_notes_and_verified_at_are_well_formed() -> None:
     for entry in reg.models:
         assert "|" not in entry.notes, entry.id
         assert entry.notes.strip() == entry.notes and entry.notes
-        assert entry.sources == ()
         if entry.id == "other":
             continue
         assert entry.verified_at is not None
         assert re.fullmatch(r"\d{4}-\d{2}-\d{2}", entry.verified_at), entry.id
-        assert entry.verified_at == "2026-09-03"
         assert entry.tier in {"current", "legacy"}
+        # An entry checked against official pages names them; one without sources keeps its older review date.
+        assert all(s.startswith("https://") for s in entry.sources), entry.id
+        assert entry.verified_at == ("2026-10-18" if entry.sources else "2026-09-03"), entry.id
+
+
+def test_the_models_released_since_the_last_review_are_current_and_sourced() -> None:
+    for name in ("GPT-6.1 Sol", "gpt-6-astra", "Grok 4.7", "Opus 5.5", "Sonnet 5.5", "Haiku 5.5", "Gemini 4 Argon"):
+        entry = find_model(name)
+        assert entry is not None and entry.tier == "current" and entry.sources, name
+    for name in ("Opus 5", "GPT-5.6 Sol", "Grok 4.6", "Haiku 4.5"):
+        assert find_model(name).tier == "legacy", name

@@ -72,8 +72,10 @@ def test_jsx_model_notes_carry_registry_notes() -> None:
 
 def test_readme_supported_models_table_is_generated() -> None:
     readme = (REPO_ROOT / "README.md").read_text(encoding="utf-8")
-    assert "| **Anthropic** | Claude Fable 5.1 · Mythos 5.1 · Opus 5 · Sonnet 5 · Haiku 4.5 |" in readme
-    assert "| **Legacy** | GPT-5.5 · Gemini (generic) · Fable 5 · Mythos 5 · Opus 4.8 |" in readme
+    assert "| **Anthropic** | Claude Fable 5.1 · Opus 5.5 · Sonnet 5.5 · Haiku 5.5 · Mythos 5.1 |" in readme
+    assert "| **OpenAI** | GPT-6 Astra · GPT-6.1 Sol · GPT-6 Sol · GPT-6 Luna |" in readme
+    assert "| **xAI** | Grok 4.7 |" in readme
+    assert "| **Legacy** | Opus 5 · Sonnet 5 · Haiku 4.5 · GPT-5.6 Sol · Terra · Luna · GPT-5.5 · Grok 4.6 · " in readme
     assert "labeled `fallback`" in readme
     assert "<!-- supported-models:begin -->" in readme and "<!-- supported-models:end -->" in readme
 

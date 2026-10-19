@@ -43,15 +43,16 @@ def test_local_commands_and_exit_codes_match_compiler() -> None:
     assert optimize_cli.EXIT_ENVIRONMENT_FAILURE == cli_compiler.EXIT_ENVIRONMENT_FAILURE == 7
 
 
-def test_models_list_json_has_eighteen_builtin(capsys) -> None:
+def test_models_list_json_has_twenty_seven_builtin(capsys) -> None:
     code, out, err = _run(["models", "list", "--json"], capsys)
     assert code == 0 and err == ""
     payload = _json(out)
     assert payload["command"] == "models list"
     assert payload["status"] == "success"
     data = payload["data"]
-    assert set(data) == {"builtin", "cached", "stale_after_days"}
-    assert len(data["builtin"]) == 18
+    assert set(data) == {"builtin", "cached", "stale_after_days", "catalog"}
+    assert data["catalog"]["checked_at"] is None and "proofhouse models update" in data["catalog"]["due"]
+    assert len(data["builtin"]) == 27
     assert data["cached"] == []
     assert data["stale_after_days"] == 90
     assert data["builtin"][0]["canonical_id"] == "claude-fable-5-1"
@@ -64,13 +65,13 @@ def test_models_list_human_header_and_rows(capsys, tmp_path: Path) -> None:
     notes.write_text("Zeta notes\n", encoding="utf-8")
     assert _run(["models", "remember", "Zeta 9", "--notes-file", str(notes), "--verified-at", "2026-09-20"], capsys)[0] == 0
     code, out, err = _run(["models", "list"], capsys)
-    assert code == 0 and err == ""
+    assert code == 0 and err == "warning: the model list has never been updated here; run `proofhouse models update`\n"
     lines = out.splitlines()
-    assert lines[0] == "models: 18 builtin, 1 cached (registry v1.3, stale after 90 days)"
-    assert lines[1] == f"  {'claude-fable-5-1':<20} {'Claude Fable 5.1':<20} {'Anthropic':<10} {'current':<8} reviewed 2026-09-03 unverified"
-    assert lines[18] == f"  {'other':<20} {'Other':<20} {'-':<10} {'generic':<8} reviewed - unverified"
-    assert lines[19] == f"  {'zeta-9':<20} {'Zeta 9':<20} {'-':<10} {'cached':<8} reviewed 2026-09-20 unverified"
-    assert len(lines) == 20
+    assert lines[0] == "models: 27 builtin, 1 cached (registry v1.3, stale after 90 days)"
+    assert lines[1] == f"  {'claude-fable-5-1':<20} {'Claude Fable 5.1':<20} {'Anthropic':<10} {'current':<8} reviewed 2026-10-18 sourced"
+    assert lines[27] == f"  {'other':<20} {'Other':<20} {'-':<10} {'generic':<8} reviewed - unverified"
+    assert lines[28] == f"  {'zeta-9':<20} {'Zeta 9':<20} {'-':<10} {'cached':<8} reviewed 2026-09-20 unverified"
+    assert len(lines) == 29
     assert "STALE" not in out
 
 
@@ -176,7 +177,7 @@ def test_models_show_human_first_line(capsys) -> None:
     assert lines[0] == "model: Claude Opus 5"
     assert lines[1] == "  entered: opus 5"
     assert lines[2] == "  canonical_id: claude-opus-5"
-    assert lines[3] == "  provider: Anthropic  tier: current"
+    assert lines[3] == "  provider: Anthropic  tier: legacy"
     assert lines[4] == "  source: builtin  verified_at: 2026-09-03  stale: no"
     assert lines[5] == "  sources: none recorded"
     assert lines[6] == "  evidence: unverified"
@@ -196,8 +197,8 @@ def test_models_show_stale_warning_from_injected_today(capsys, monkeypatch: pyte
 
     code, out, err = _run(["models", "list"], capsys)
     assert code == 0
-    assert out.splitlines()[4].endswith("reviewed 2026-09-03 unverified  STALE")
-    assert out.splitlines()[18].endswith("reviewed - unverified")
+    assert out.splitlines()[16].endswith("reviewed 2026-09-03 unverified  STALE")  # Claude Sonnet 5
+    assert out.splitlines()[27].endswith("reviewed - unverified")
 
     code, out, err = _run(["models", "show", "Sonnet 5", "--json"], capsys)
     payload = _json(out)
