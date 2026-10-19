@@ -9,10 +9,16 @@
 - **Native app builds proven on real machines.** A fixed sample app (`samples/native_build/`, built by `scripts/native_build_sample.py`) builds as a web app and on Windows, macOS, Linux, iOS and Android, with no model and no keys. `.github/workflows/native-builds.yml` runs it on GitHub's machines.
   - iOS builds an unsigned simulator app and Android a debug APK, so neither needs signing set up. Both check that the expected file was made.
   - Desktop output paths come from the app's own `mainBinaryName` and `productName` in `src-tauri/tauri.conf.json`.
+- **The model list keeps itself current.** `proofhouse models update` asks every provider you have a key for which models it serves (with that provider's own key, sent only to its own address), and reads the official release pages in `release_sources.json` through the spend gate. New models and AI workspaces go into your catalog; `models list` shows them and says when an update is due. You can add or replace release pages in your own `release_sources.json`. Safeguards: an add-on provider that names another provider's key is not sent it; a page is read only if it ends on https at its own site; at most 5 MB of any answer is read; notes a model picked out of a page are shown by `models show` but are not put into prompts until you review them with `models remember`.
+- **A kind Proofhouse does not know is learned, not refused.** A forced or typed kind that is neither built in nor from an add-on is researched by the chosen model through the spend gate, checked like an add-on kind, and saved in the `learned` pack.
+- **Grok Bot** is listed as a host. It is xAI's cloud teammate, so `install` says it has no place for rules on your machine.
 - **Dashboard browser checks.** Keyboard reach with visible focus, no sideways scroll at 375 px, animations that stop under reduced motion, and the error state, run on every pull request. The same tests must fail on four copies of the dashboard broken on purpose.
 
 ### Changed
 
+- **The built-in model list is current as of 2026-10-18,** checked against Anthropic's, OpenAI's, Google's and xAI's official pages: Claude Opus 5.5, Sonnet 5.5 and Haiku 5.5; GPT-6 Astra, GPT-6.1 Sol, GPT-6 Sol and GPT-6 Luna; Gemini 4 Argon; Grok 4.7. The models they replace are marked legacy.
+- **Running a compiled artifact on a provider checks the send address against the provider's host last,** just before the key is attached, as `proofhouse run` does.
+- **One run reads your providers file once.** The run and the spend gate use the same read, so the gate prices the same provider entry the request is sent to.
 - The built-in goal rules score every kind and ask on close calls. They were tuned to the 32-goal answer key and pass it in full, but pick correctly on only 15 of 30 goals they never saw; the test asks for at least 24 of 32.
 
 ### Fixed

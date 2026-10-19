@@ -44,7 +44,7 @@
 - **C10:** 0.9.0, PyPI and the GitHub releases for 0.8.0 and 0.9.0 wait on Boss.
 - **App builds:** the native builds are proven with the fixed sample app. An app a model writes can still need setup the sample did not. Signed iOS device builds and signed Android release builds are not checked.
 - **Goal picker:** the built-in rules pick correctly on 15 of 30 goals they never saw (accepted by the owner); with a model set, the model picks.
-- **Follow-ups from the review, not defects today:** a forced unknown artifact class falls back to a prompt instead of refusing; `execute_on_provider` does not re-check the final address's host as `proofhouse run` does (safe today because the address is always the validated base URL plus `/chat/completions`).
+- **Follow-ups from the review, now done (2026-10-18):** a forced kind Proofhouse does not know is researched and learned instead of falling back or being refused; `execute_on_provider` re-checks the final address's host just before the key is attached; one run reads the providers file once and the spend gate prices that same entry.
 
 ## Exclusions
 
