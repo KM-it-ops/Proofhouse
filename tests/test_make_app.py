@@ -261,6 +261,16 @@ def test_model_cannot_write_the_build_output(tmp_path: Path, monkeypatch: pytest
     assert not any(c["check"] == "custom build" for c in checks(result))
 
 
+def test_model_cannot_write_a_build_output_named_in_its_own_tauri_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """f939f95-F5: the output name comes from the model's tauri.conf.json, so the guard must read that name."""
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    _platform_file(tmp_path, _python_entry({"command": ["python", "noop.py"], "output": "dist/{mainBinaryName}.bin"}))
+    files = {"setup.json": "{}", "noop.py": "pass\n", "src-tauri/tauri.conf.json": json.dumps({"mainBinaryName": "fake"}),
+             "dist/fake.bin": "fake"}
+    written = _written(run(tmp_path, Model([WEB, files]), ["custom"]))
+    assert written["ok"] is False and "build output" in str(written["detail"])
+
+
 def test_cmd_files_refuse_characters_cmd_exe_would_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
     _platform_file(tmp_path, _python_entry({"command": ["./tool.cmd", "a&calc"]}))
@@ -693,6 +703,31 @@ def test_preparing_the_output_never_touches_files_outside_the_folder(tmp_path: P
     assert (outside / "keep.txt").stat().st_mtime_ns == _TICK * 1_000_000_000
 
 
+_LINK_OUT = ("import os, sys\n"
+             "try:\n    os.symlink(sys.argv[1], 'out', target_is_directory=True)\n"
+             "except OSError:\n    import _winapi\n    _winapi.CreateJunction(sys.argv[1], 'out')\n"
+             "open(os.path.join('out', 'app.bin'), 'w').write('built')\n")
+_MARK = "open('ran.txt', 'w').write('ran')\n"
+
+
+@pytest.mark.parametrize("linked_by", ["setup", "build"])
+def test_an_output_linked_outside_the_folder_fails_the_build_check(tmp_path: Path, linked_by: str) -> None:
+    """f939f95-F4: output that resolves outside the app folder is refused, whether a setup step or the build links it."""
+    from proofhouse import app_platforms
+
+    outside, folder = tmp_path / "outside", tmp_path / "app"
+    outside.mkdir()
+    folder.mkdir()
+    (folder / "link.py").write_text(_LINK_OUT, encoding="utf-8")
+    (folder / "mark.py").write_text(_MARK, encoding="utf-8")
+    link_step, mark_step = ["python", "link.py", str(outside)], ["python", "mark.py"]
+    build = {"before": [link_step], "command": mark_step} if linked_by == "setup" else {"command": link_step}
+    found = app_platforms.build_check(folder, _python_entry({**build, "output": "out/app.bin"}), True, "app")
+    assert found["ok"] is False and "outside the app folder" in found["detail"], found
+    if linked_by == "setup":
+        assert not (folder / "ran.txt").exists()
+
+
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="this system has no named pipes")
 def test_the_output_check_does_not_open_a_named_pipe(tmp_path: Path) -> None:
     from proofhouse import app_platforms
@@ -765,3 +800,12 @@ def test_an_ios_build_that_exits_cleanly_without_the_app_fails(tmp_path: Path, m
     monkeypatch.setattr(make_checks, "_command", lambda command, args, folder: [sys.executable, "-c", "pass"])
     found = app_platforms.build_check(tmp_path / "app", entry, True, "app")
     assert found["ok"] is False and "missing" in str(found["detail"]), found
+
+
+def test_native_build_notes_do_not_call_proven_builds_unconfirmed() -> None:
+    """f939f95-F1: every native build ran in the native-builds workflow, so no note may say it has not."""
+    from proofhouse import app_platforms
+
+    for platform_id, entry in {e["id"]: e for e in app_platforms._read(app_platforms.SHIPPED)}.items():
+        note = entry["build"].get("to_check", "")
+        assert "not yet" not in note, (platform_id, note)

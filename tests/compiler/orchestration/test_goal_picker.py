@@ -141,6 +141,14 @@ def test_unattended_a_goal_with_a_question_says_it_took_the_safer_pick(monkeypat
     assert overseer.decide("anything", ask=lambda q, o: "2").artifact_class == "hook"
 
 
+def test_an_answer_that_names_two_kinds_keeps_the_safer_pick(monkeypatch: pytest.MonkeyPatch) -> None:
+    """f939f95-F6: "a loop or a hook" picks neither, so the safer pick stands instead of the first kind listed."""
+    two_ways = RouteDecision("hook", "runs on an event", False, "Should it run on a timer or on an event?", ("loop", "hook"))
+    monkeypatch.setattr(overseer, "route", lambda request: two_ways)
+    decision = overseer.decide("anything", ask=lambda q, o: "not sure, a loop or a hook")
+    assert decision.artifact_class == "hook" and "safer pick" in decision.rationale
+
+
 @pytest.mark.parametrize(("old", "new"), [("subagent", "agent"), ("MCP", "mcp"), ("media", "video")])
 def test_old_class_names_still_force_a_class(old: str, new: str) -> None:
     assert overseer.decide("anything", {"artifact_class": old}).artifact_class == new

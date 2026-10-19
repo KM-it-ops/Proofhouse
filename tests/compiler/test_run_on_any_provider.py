@@ -347,6 +347,18 @@ def test_missing_key_for_a_cloud_provider_stops_before_the_gate(monkeypatch: pyt
     assert events == [] and transport.calls == []
 
 
+def test_a_local_server_whose_key_is_unset_runs_without_one(monkeypatch: pytest.MonkeyPatch, events: list) -> None:
+    """f939f95-F2: `proofhouse run` sends to a local server whose key variable is unset; so must a compiled artifact."""
+    _write_user_providers(
+        {"id": "ollama", "name": "Ollama", "base_url": "http://localhost:11434/v1", "shape": "openai-compatible",
+         "key_env": "OLLAMA_SERVER_KEY"}
+    )
+    monkeypatch.delenv("OLLAMA_SERVER_KEY", raising=False)
+    result, transport = _run("ollama", _sentinel_ir(), events)
+    assert result.status == "success", result.to_dict()
+    prepared = _assert_sent_through_gate("ollama", events, transport)
+    assert "Authorization" not in prepared.headers
+
 @pytest.mark.parametrize(("provider_id", "other_env"), [("groq", "OPENAI_API_KEY"), ("ollama", "SOME_SERVER_SECRET")])
 def test_another_variable_key_never_goes_to_this_provider(
     monkeypatch: pytest.MonkeyPatch, events: list, provider_id: str, other_env: str

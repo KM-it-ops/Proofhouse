@@ -20,7 +20,7 @@
                 "output": "src-tauri/target/release/{mainBinaryName}.exe", "timeout": 1800,
                 "env": ["LOCALAPPDATA", "APPDATA", "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMDATA"],
                 "home_env": {"CARGO_HOME": ".cargo", "RUSTUP_HOME": ".rustup", "npm_config_cache": ".npm"},
-                "to_check": "not yet run end to end on a real machine: `tauri icon` with an SVG source and the www/ frontendDist layout"},
+                "to_check": "proven with the fixed sample app on a GitHub Windows machine; an app a model wrote can still need setup the sample did not"},
       "host_os": ["windows"]
     },
     {
@@ -34,7 +34,7 @@
                 "output": "src-tauri/target/release/bundle/macos/{productName}.app", "timeout": 1800,
                 "env": ["DEVELOPER_DIR"],
                 "home_env": {"CARGO_HOME": ".cargo", "RUSTUP_HOME": ".rustup", "npm_config_cache": ".npm"},
-                "to_check": "not yet run end to end on a real machine: `tauri icon` with an SVG source and the www/ frontendDist layout"},
+                "to_check": "proven with the fixed sample app on a GitHub macOS machine; an app a model wrote can still need setup the sample did not"},
       "host_os": ["macos"]
     },
     {
@@ -48,7 +48,7 @@
                 "output": "src-tauri/target/release/{mainBinaryName}", "timeout": 1800,
                 "env": ["PKG_CONFIG_PATH"],
                 "home_env": {"CARGO_HOME": ".cargo", "RUSTUP_HOME": ".rustup", "npm_config_cache": ".npm"},
-                "to_check": "not yet run end to end on a real machine: `tauri icon` with an SVG source and the www/ frontendDist layout"},
+                "to_check": "proven with the fixed sample app on a GitHub Linux machine; an app a model wrote can still need setup the sample did not"},
       "host_os": ["linux"]
     },
     {
@@ -62,7 +62,7 @@
                 "output": "ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app", "timeout": 1800,
                 "env": ["DEVELOPER_DIR"],
                 "home_env": {"npm_config_cache": ".npm", "CP_HOME_DIR": ".cocoapods"},
-                "to_check": "unsigned simulator App.app build on macOS runner is not yet confirmed"},
+                "to_check": "unsigned simulator build proven with the fixed sample app on a GitHub macOS machine; a signed device build is not checked"},
       "host_os": ["macos"]
     },
     {
@@ -77,7 +77,7 @@
                 "env": ["JAVA_HOME", "ANDROID_HOME", "ANDROID_SDK_ROOT", "LOCALAPPDATA", "APPDATA", "PROGRAMFILES"],
                 "home_env": {"GRADLE_USER_HOME": ".gradle", "npm_config_cache": ".npm"},
                 "set_env": {"GRADLE_OPTS": "-Dorg.gradle.daemon=false"},
-                "to_check": "debug APK build on Android runner is not yet confirmed"},
+                "to_check": "debug APK proven with the fixed sample app on a GitHub Linux machine; a signed release build is not checked"},
       "host_os": ["windows", "macos", "linux"]
     }
   ]

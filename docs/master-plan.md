@@ -37,7 +37,7 @@ How it behaves everywhere:
 | Make prompts, skills, agents, copy | works |
 | Make rules, MCP servers, hooks (each one tried for real before delivery) | works |
 | Make websites and put them online (Netlify, Vercel, Cloudflare, Surge, or any target added) | works |
-| Make apps for every platform | works; native builds proven on all six platforms ([run](https://github.com/KM-it-ops/Proofhouse/actions/runs/39157949115)) |
+| Make apps for every platform | works; native builds proven on all six platforms ([run](https://github.com/KM-it-ops/Proofhouse/actions/runs/39161715167)) |
 | Images, video, voice, music; full video engine (generated clips, images, voice, music, editing, render) | works |
 | Multi-part launch from one goal | works |
 | Install agents, rules and MCP servers into Claude Code, Cursor, Codex, or any tool added | works |
@@ -87,8 +87,11 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    - **U4, the dashboard works by keyboard, at phone width and with reduced motion** (completion
      criterion 9). The tests must fail on three copies broken on purpose. Cursor loop, Codex check.
      Done (PR 67).
-   - **U5, final gate,** once U1 to U4 are merged: a fresh full review and fix, a new completion-criteria
-     statement, a try by a fresh user, then the 0.9.0 release on the owner's word.
+   - **U5, final gate.** Review and fixes done (2026-10-18): a fresh full review of main at f939f95 found
+     two wrong behaviours and four safeguards no test checked; all six are fixed or tested. New
+     statement: [assurance/2026-10-18-completion-criteria.md](assurance/2026-10-18-completion-criteria.md).
+     Still open: a try by a fresh user (criterion 6), then the 0.9.0 release, PyPI and the GitHub
+     releases (0.8.0's is missing too) on the owner's word.
 
 ## Known limits
 

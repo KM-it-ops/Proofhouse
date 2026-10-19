@@ -20,6 +20,9 @@
 - Add-ons can no longer claim the built-in kind names `rule`, `mcp` and `hook`.
 - The dashboard's reduced-motion rule left some animations looping; they now stop.
 - **App build output check.** A build that rewrites its output within the same clock tick now passes. The check never follows symbolic links or Windows junctions out of the app folder, opens only plain files (a named pipe used to hang it), and stops hashing past 1 GB. A `.cmd` build tool whose path holds cmd.exe special characters is refused.
+- A compiled artifact sent to a server on this machine runs without a key when the provider's key variable is unset, as `proofhouse run` already did. Before, it was refused unless the entry had no `key_env` at all.
+- Native build notes for Windows, macOS, Linux, iOS and Android no longer say the builds were never run; they say what the sample-app runs proved and what is still unchecked.
+- New tests for four safeguards that no test checked: a malformed provider `ignores` list, build output linked outside the app folder, a model writing the build output named in its own Tauri config, and an answer to the goal question that names two kinds.
 
 ## 0.8.0 - 2026-10-16
 
