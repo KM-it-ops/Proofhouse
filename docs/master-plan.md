@@ -24,6 +24,11 @@ How it behaves everywhere:
 - **Any provider, any model, any modality:** known or unknown, commercial or open source, cloud or local.
   Providers, media services, training services, deploy targets, coding-tool hosts and app platforms are
   data. Adding one is a line or an add-on, not a code change.
+- **Anything new is learned, not refused.** A kind of thing to make, a model, an AI workspace, an app
+  platform, a deploy target or a service that Proofhouse has never seen is researched by the chosen model
+  (through the spending limit), saved with its source and date, and reused. It is never refused and never
+  quietly swapped for a known one. The model list keeps itself current from each provider's own list and
+  its official release pages; the shipped list is the starting point, not the ceiling.
 - **One front door:** the `proofhouse` command.
 - **Every paid call goes through the spending limit** (`spend.send_within_ceiling`).
 - **Every make runs the same loop:** write, try it for real, judge, revise, keep every version.
@@ -46,6 +51,9 @@ How it behaves everywhere:
 | Add-ons that add providers, services, tools and make kinds | works |
 | Project scan | works |
 | Evidence record: sealed benchmarks, type-strict rubric scoring, strict JSON inputs, required requirement coverage | works (four old defects fixed 2026-10-16) |
+| Learn a kind of thing to make that it has never seen | not yet: `make --kind <new>` refuses (U6) |
+| Keep the model list current from providers and release pages | not yet: no `proofhouse models update` (U7) |
+| Learn a new AI workspace, app platform, deploy target or service | not yet: unknown ones are refused (U8) |
 
 ### Apps in detail
 
@@ -92,6 +100,24 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      statement: [assurance/2026-10-18-completion-criteria.md](assurance/2026-10-18-completion-criteria.md).
      Still open: a try by a fresh user (criterion 6), then the 0.9.0 release, PyPI and the GitHub
      releases (0.8.0's is missing too) on the owner's word.
+4. Anything new is learned, not refused (owner's correction, 2026-10-18). From 2026-10-22 Claude writes
+   only briefs, the failing tests and decisions; the edit-test loops, the cross-checks and the Opus
+   security passes run on the other plans (the Opus pass through agy).
+   - **U6, an unknown make kind is learned.** `make --kind <new>` has the chosen model research the kind
+     through the spending limit, saves it as a learned add-on kind (marked learned, with source and date)
+     and makes it through the normal loop; the next run reuses it. The goal picker learns a kind the model
+     names instead of swapping it, and so does the compiler for an unknown artifact class. With no model
+     set it says so and saves nothing. A learned kind runs no commands without `--allow-commands`. The
+     user can list and remove learned kinds. Codex loop, agy check, Opus security pass.
+   - **U7, `proofhouse models update`.** Asks each provider for its models through its documented list
+     address (data in `providers.json`; "to check" where the official docs don't confirm one) and reads
+     each provider's official release page through a model, listing new models as "announced, not yet
+     listed". Results are saved with source and date in the user's Proofhouse folder. Cursor loop, Codex
+     check, Opus security pass.
+   - **U8, the same learning for AI workspaces, app platforms, deploy targets, and media and training
+     services,** using U6's mechanism instead of "unknown platform" and similar refusals. Cursor loop,
+     Codex check.
+   - **Then:** 0.9.0 release prep (changelog, version, build check) and a new completion statement.
 
 ## Known limits
 
