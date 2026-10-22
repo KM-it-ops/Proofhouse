@@ -7,7 +7,7 @@
 | Package | `proofhouse` 0.8.0 (0.9.0 not cut yet) |
 | Platform | Windows 11, CPython 3.14.6, uv; macOS and Linux through GitHub Actions |
 | Maintainer | KM-it-ops (repository owner); audit done by an AI coding agent. Each status below is the agent's reading of the evidence, not a sign-off. |
-| Independent review | A fresh full review of `f939f95` (record `review-f939f95.md`, kept with the owner's review records, outside this repository) found two wrong behaviours and four safeguards no test checked. All six are fixed or tested on `claude/u5-final-gate`. The one fix that touches key handling had a separate Opus security pass, which found no problem. **The fix commits have not had their own fresh review.** |
+| Independent review | A fresh full review of `f939f95` (record `review-f939f95.md`, kept with the owner's review records, outside this repository) found two wrong behaviours and four safeguards no test checked. All six are fixed or tested on `claude/u5-final-gate`. The one fix that touches key handling had a separate Opus security pass, which found no problem. On 2026-10-22 Codex reviewed the fix commits (`f939f95...d652b7f`) and found no problems: each fix's test fails when its fix or safeguard is removed. |
 
 ## Commands and results
 
@@ -39,7 +39,6 @@
 
 ## Gaps
 
-- **Fix review:** the six fix commits on `claude/u5-final-gate` were checked by their own tests and, for the key-handling fix, one security pass; they have not had a fresh full review.
 - **C6:** a fresh user still needs to try the reference workflow (Boss).
 - **C10:** 0.9.0, PyPI and the GitHub releases for 0.8.0 and 0.9.0 wait on Boss.
 - **App builds:** the native builds are proven with the fixed sample app. An app a model writes can still need setup the sample did not. Signed iOS device builds and signed Android release builds are not checked.
