@@ -66,27 +66,55 @@ def _read(path: Path) -> list[dict[str, Any]]:
 
 def all_targets() -> dict[str, dict[str, Any]]:
     """Shipped targets, then add-ons, then yours; a later one with the same id replaces an earlier one."""
-    from . import addons
+    from . import addons, learn_catalog
 
-    found = {t["id"]: t for t in _read(SHIPPED_PATH)}
+    shipped = {t["id"]: t for t in _read(SHIPPED_PATH)}
+    user = {t["id"]: t for t in _read(providers.proofhouse_home() / "deploy_targets.json")}
+    found = learn_catalog.merge_learned(shipped, "deploy_targets", user=user)
     for name, raw in addons.contributions("deploy_targets"):
+        if name == learn_catalog.LEARNED_PACK:
+            continue
         try:
             found[raw["id"]] = {**_check(raw, f"add-on {name}"), "origin": f"add-on {name}"}
         except DeployError:
             continue  # checked when the pack was installed; a package add-on's bad entry is skipped
-    found.update({t["id"]: t for t in _read(providers.proofhouse_home() / "deploy_targets.json")})
+    found.update(user)
     return found
 
 
-def deploy(folder: Path, target_id: str, *, name: str | None = None, dry_run: bool = False, timeout: int = 900) -> Deployed:
+def deploy(folder: Path, target_id: str, *, name: str | None = None, dry_run: bool = False, timeout: int = 900,
+           allow_commands: bool = False, research: Any = None, ask: Any = None) -> Deployed:
     folder = folder.resolve()
     if (folder / "site" / "index.html").is_file():
         folder = folder / "site"  # a make folder: deploy the finished site inside it
     if not (folder / "index.html").is_file():
         raise DeployError(f"{folder} has no index.html to deploy")
-    target = all_targets().get(target_id)
+    from . import learn_catalog
+
+    targets = all_targets()
+    if target_id not in targets:
+        if ask is None and research is None:
+            raise DeployError(f"no deploy target named {target_id!r}; known: {', '.join(sorted(targets))}")
+        from .learn import LearnError
+
+        try:
+            if ask is not None:
+                learn_catalog.ensure_deploy(target_id, None, ask)
+            else:
+                learn_catalog.ensure_deploy(target_id, research)
+        except LearnError as exc:
+            raise DeployError(str(exc)) from None
+        targets = all_targets()
+    target = targets.get(target_id)
     if target is None:
-        raise DeployError(f"no deploy target named {target_id!r}; known: {', '.join(sorted(all_targets()))}")
+        raise DeployError(f"could not learn deploy target {target_id!r}")
+    learned = learn_catalog.learned_raw("deploy_targets", target_id)
+    if learned and learn_catalog.needs_approval(learned):
+        raise DeployError(learn_catalog.refusal_message(learned, thing=f"Deploy target {target_id}",
+                                                        command=f"{learn_catalog.APPROVE_CMD} {target_id}"))
+    if not dry_run and learn_catalog.learned_requires_commands("deploy_targets", target_id) and not allow_commands:
+        from . import make_checks
+        raise DeployError(make_checks.NOT_ALLOWED)
     label = name or re.sub(r"[^a-z0-9-]+", "-", folder.parent.name.lower() if folder.name == "site" else folder.name.lower()).strip("-")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", label or ""):
         raise DeployError("--name must be lowercase letters, digits and hyphens")

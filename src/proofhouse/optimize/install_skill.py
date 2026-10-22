@@ -49,6 +49,7 @@ import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from ..compiler.canonical import canonical_sha256
 from ..parts import SKILL_HOSTS
@@ -136,16 +137,32 @@ class SkillSource:
 
 
 def _check_host(host: str) -> None:
-    if host not in HOSTS:
-        raise InstallSkillError(f"unknown host {host!r}; choose from {', '.join(sorted(HOSTS))}", EXIT_USAGE_ERROR)
+    from ..learn_catalog import skill_hosts
+
+    if host not in skill_hosts():
+        raise InstallSkillError(f"unknown host {host!r}; choose from {', '.join(sorted(skill_hosts()))}", EXIT_USAGE_ERROR)
+
+
+def _learn_host(host: str, research: Any = None, ask: Any = None) -> None:
+    from .. import learn
+    from ..learn_catalog import ensure_host, skill_hosts
+
+    if host in skill_hosts():
+        return
+    try:
+        ensure_host(host, research, ask)
+    except learn.LearnError as exc:
+        raise InstallSkillError(str(exc), EXIT_USAGE_ERROR) from None
 
 
 def default_dest(host: str) -> Path:
+    from ..learn_catalog import skill_hosts
+
     _check_host(host)
-    return Path.home() / HOSTS[host][0] / "skills"
+    return Path.home() / skill_hosts()[host][0] / "skills"
 
 
-def resolve_host(host: str | None, dest: Path | None) -> str | None:
+def resolve_host(host: str | None, dest: Path | None, research: Any = None, ask: Any = None) -> str | None:
     """The agent to install for, without guessing.
 
     An explicit ``host`` wins. With ``dest`` the folder is already chosen, so no agent is needed
@@ -153,6 +170,13 @@ def resolve_host(host: str | None, dest: Path | None) -> str | None:
     none or several is a usage error that lists the ``--host`` choices.
     """
     if host is not None:
+        from ..learn_catalog import skill_hosts
+
+        if host not in skill_hosts():
+            if research is None and ask is None:
+                _check_host(host)
+            else:
+                _learn_host(host, research, ask)
         _check_host(host)
         return host
     if dest is not None:
@@ -539,12 +563,19 @@ def install(
     force: bool = False,
     host: str | None = None,
     home: Path | None = None,
+    research: Any = None,
+    ask: Any = None,
 ) -> InstallResult:
     """Install into ``dest``, or into ``host``'s skills folder; never assumes an agent.
 
     ``bundle`` is a zip or a skill folder (default: Proofhouse's own skill).
     ``home`` overrides ``PROOFHOUSE_HOME`` for backups and install records.
     """
+    if host is not None:
+        from ..learn_catalog import skill_hosts
+
+        if host not in skill_hosts() and (research is not None or ask is not None):
+            _learn_host(host, research, ask)
     dest_dir = _dest_dir(dest, host, "installed")
     bundle_path = Path(bundle) if bundle is not None else DEFAULT_BUNDLE
     skill = read_skill(bundle_path, dest_dir)

@@ -40,6 +40,19 @@ def _cmd_install(args: argparse.Namespace) -> int:
     return EXIT_OK
 
 
+def _cmd_approve(args: argparse.Namespace) -> int:
+    from . import learn_catalog
+    from .learn import LearnError
+
+    try:
+        path = learn_catalog.approve(args.id)
+    except LearnError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return EXIT_USAGE
+    print(f"approved {args.id} ({path})")
+    return EXIT_OK
+
+
 def _cmd_remove(args: argparse.Namespace) -> int:
     try:
         gone = addons.remove(args.name)
@@ -62,3 +75,7 @@ def add_addon_commands(subparsers: argparse._SubParsersAction) -> None:
     p = sub.add_parser("remove", help="Remove an installed add-on pack.")
     p.add_argument("name")
     p.set_defaults(func=_cmd_remove)
+    p = sub.add_parser("approve", help="Approve a learned entry that sends a key or runs a command.")
+    p.add_argument("pack", choices=["learned"])
+    p.add_argument("id", help="Entry id in the learned pack.")
+    p.set_defaults(func=_cmd_approve)

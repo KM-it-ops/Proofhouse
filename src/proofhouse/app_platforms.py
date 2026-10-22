@@ -90,39 +90,47 @@ def _read(path: Path) -> list[dict[str, Any]]:
     if not isinstance(data, dict) or data.get("schema") != SCHEMA or not isinstance(data.get("platforms"), list):
         raise ValueError(f"{path} must be a {SCHEMA} file with a platforms list")
     for entry in data["platforms"]:
-        if not isinstance(entry, dict) or not isinstance(entry.get("id"), str) or not _ID.fullmatch(entry["id"]):
-            raise ValueError(f"{path}: invalid platform id")
-        if not all(isinstance(entry.get(key), str) for key in ("name", "shell", "write")):
-            raise ValueError(f"{path}: {entry['id']} needs name, shell and write")
-        web_dir = entry.get("web_dir", "")
-        if not isinstance(web_dir, str) or (web_dir and not _safe_file(web_dir)):
-            raise ValueError(f"{path}: {entry['id']} has an invalid web_dir")
-        checks, build, hosts = entry.get("checks"), entry.get("build"), entry.get("host_os")
-        if not isinstance(checks, dict) or not isinstance(checks.get("files"), list) or not isinstance(checks.get("json"), dict):
-            raise ValueError(f"{path}: {entry['id']} needs file and JSON checks")
-        if not all(isinstance(file, str) and _safe_file(file) for file in checks["files"]):
-            raise ValueError(f"{path}: {entry['id']} has invalid required files")
-        if not all(isinstance(name, str) and _safe_file(name) and isinstance(keys, list)
-                   and all(isinstance(key, str) and key for key in keys) for name, keys in checks["json"].items()):
-            raise ValueError(f"{path}: {entry['id']} has invalid JSON checks")
-        install = checks.get("web_install")
-        if install is not None and not (isinstance(install, dict) and all(
-                isinstance(install.get(key), str) and _safe_file(install[key]) for key in ("manifest", "service_worker"))):
-            raise ValueError(f"{path}: {entry['id']} web_install needs manifest and service_worker file names")
-        if not isinstance(checks.get("site", False), bool):
-            raise ValueError(f"{path}: {entry['id']} site must be true or false")
-        if not _check_build(build):
-            raise ValueError(f"{path}: {entry['id']} has invalid build data")
-        if not _check_refusals(entry):
-            raise ValueError(f"{path}: {entry['id']} has invalid refuse_files or refuse_keys")
-        if not isinstance(hosts, list) or not all(host in ("windows", "macos", "linux") for host in hosts):
-            raise ValueError(f"{path}: {entry['id']} has invalid host_os")
+        _validate_entry(entry, str(path))
     return data["platforms"]
 
 
+def _validate_entry(entry: dict[str, Any], where: str) -> None:
+    if not isinstance(entry, dict) or not isinstance(entry.get("id"), str) or not _ID.fullmatch(entry["id"]):
+        raise ValueError(f"{where}: invalid platform id")
+    if not all(isinstance(entry.get(key), str) for key in ("name", "shell", "write")):
+        raise ValueError(f"{where}: {entry['id']} needs name, shell and write")
+    web_dir = entry.get("web_dir", "")
+    if not isinstance(web_dir, str) or (web_dir and not _safe_file(web_dir)):
+        raise ValueError(f"{where}: {entry['id']} has an invalid web_dir")
+    checks, build, hosts = entry.get("checks"), entry.get("build"), entry.get("host_os")
+    if not isinstance(checks, dict) or not isinstance(checks.get("files"), list) or not isinstance(checks.get("json"), dict):
+        raise ValueError(f"{where}: {entry['id']} needs file and JSON checks")
+    if not all(isinstance(file, str) and _safe_file(file) for file in checks["files"]):
+        raise ValueError(f"{where}: {entry['id']} has invalid required files")
+    if not all(isinstance(name, str) and _safe_file(name) and isinstance(keys, list)
+               and all(isinstance(key, str) and key for key in keys) for name, keys in checks["json"].items()):
+        raise ValueError(f"{where}: {entry['id']} has invalid JSON checks")
+    install = checks.get("web_install")
+    if install is not None and not (isinstance(install, dict) and all(
+            isinstance(install.get(key), str) and _safe_file(install[key]) for key in ("manifest", "service_worker"))):
+        raise ValueError(f"{where}: {entry['id']} web_install needs manifest and service_worker file names")
+    if not isinstance(checks.get("site", False), bool):
+        raise ValueError(f"{where}: {entry['id']} site must be true or false")
+    if not _check_build(build):
+        raise ValueError(f"{where}: {entry['id']} has invalid build data")
+    if not _check_refusals(entry):
+        raise ValueError(f"{where}: {entry['id']} has invalid refuse_files or refuse_keys")
+    if not isinstance(hosts, list) or not all(host in ("windows", "macos", "linux") for host in hosts):
+        raise ValueError(f"{where}: {entry['id']} has invalid host_os")
+
+
 def all_platforms() -> dict[str, dict[str, Any]]:
-    found = {entry["id"]: entry for entry in _read(SHIPPED)}
-    found.update({entry["id"]: entry for entry in _read(providers.proofhouse_home() / "app_platforms.json")})
+    from . import learn_catalog
+
+    shipped = {entry["id"]: entry for entry in _read(SHIPPED)}
+    user = {entry["id"]: entry for entry in _read(providers.proofhouse_home() / "app_platforms.json")}
+    found = learn_catalog.merge_learned(shipped, "app_platforms", user=user)
+    found.update(user)
     return found
 
 

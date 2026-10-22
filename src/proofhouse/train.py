@@ -150,16 +150,30 @@ def user_path() -> Path:
 
 
 def all_services() -> dict[str, TrainService]:
-    from . import addons
+    from . import addons, learn_catalog
 
-    found = {s.id: s for s in (_parse(raw, "shipped") for raw in _load(SHIPPED_PATH))}
+    shipped = {s.id: s for s in (_parse(raw, "shipped") for raw in _load(SHIPPED_PATH))}
+    user = {s.id: s for s in (_parse(raw, "yours") for raw in _load(user_path()))}
+    merged = learn_catalog.merge_learned(
+        {sid: {"id": sid} for sid in shipped},
+        "training_services",
+        user={sid: {"id": sid} for sid in user},
+    )
+    found = dict(shipped)
     for name, raw in addons.contributions("training_services"):
+        if name == learn_catalog.LEARNED_PACK:
+            if raw.get("id") in merged and raw.get("id") not in shipped and raw.get("id") not in user:
+                try:
+                    found[_parse(raw, f"add-on {name}").id] = _parse(raw, f"add-on {name}")
+                except TrainError:
+                    continue
+            continue
         try:
             added = _parse(raw, f"add-on {name}")
         except TrainError:
             continue  # checked when the pack was installed; a package add-on's bad entry is skipped
         found[added.id] = added
-    found.update({s.id: s for s in (_parse(raw, "yours") for raw in _load(user_path()))})
+    found.update(user)
     return found
 
 
@@ -382,12 +396,41 @@ def start(
     get: Read | None = None,
     poll_every: float = 30.0,
     poll_limit_seconds: float = 6 * 3600.0,
+    allow_commands: bool = False,
+    research: Any = None,
+    ask: Any = None,
 ) -> TrainResult:
+    from . import learn, learn_catalog
+
     model = (model or "").strip()
     profile = find(service_id)
     if profile is None:
-        return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: no training service named {service_id!r}; see `proofhouse train services`",
-                           service_id, model)
+        if ask is None and research is None:
+            return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: no training service named {service_id!r}; see `proofhouse train services`",
+                               service_id, model)
+        try:
+            if ask is not None:
+                learn_catalog.ensure_train(service_id, None, ask)
+            else:
+                learn_catalog.ensure_train(service_id, research)
+        except learn.LearnError as exc:
+            return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: {exc}", service_id, model)
+        profile = find(service_id)
+    if profile is None:
+        return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: could not learn training service {service_id!r}", service_id, model)
+    learned = learn_catalog.learned_raw("training_services", service_id)
+    if learned and learn_catalog.needs_approval(learned):
+        return TrainResult(
+            "refused",
+            "PHC-RUN-0001",
+            learn_catalog.refusal_message(learned, thing=f"Training service {service_id}",
+                                          command=f"{learn_catalog.APPROVE_CMD} {service_id}"),
+            service_id,
+            model,
+        )
+    if profile.command is not None and learn_catalog.learned_requires_commands("training_services", service_id) and not allow_commands:
+        from . import make_checks
+        return TrainResult("refused", "PHC-RUN-0002", f"PHC-RUN-0002: {make_checks.NOT_ALLOWED}", service_id, model)
     if not model:
         return TrainResult("refused", "PHC-RUN-0002", "PHC-RUN-0002: name the base model to train", profile.id, model)
     try:

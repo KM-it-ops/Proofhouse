@@ -79,15 +79,19 @@ def _check_hosts(found: list[Any], where: str) -> list[dict[str, Any]]:
 
 def all_hosts() -> dict[str, dict[str, Any]]:
     """Shipped hosts, then add-ons, then yours (``PROOFHOUSE_HOME/hosts.json``); a later one with the same id replaces it."""
-    from . import addons
+    from . import addons, learn_catalog
 
-    found = {host["id"]: host for host in _read_hosts(SHIPPED_PATH)}
+    shipped = {host["id"]: host for host in _read_hosts(SHIPPED_PATH)}
+    user = {host["id"]: host for host in _read_hosts(proofhouse_home() / "hosts.json")}
+    found = learn_catalog.merge_learned(shipped, "hosts", user=user)
     for name, host in addons.contributions("hosts"):
+        if name == learn_catalog.LEARNED_PACK:
+            continue
         try:
             found.update({h["id"]: h for h in _check_hosts([host], f"add-on {name}")})
         except HostError:
             continue  # checked when the pack was installed; a package add-on's bad entry is skipped
-    found.update({host["id"]: host for host in _read_hosts(proofhouse_home() / "hosts.json")})
+    found.update(user)
     return found
 
 

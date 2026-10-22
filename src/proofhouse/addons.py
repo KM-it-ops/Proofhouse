@@ -27,7 +27,7 @@ from . import providers
 
 ADDON_SCHEMA = "proofhouse.addon/v1"
 ENTRY_POINT_GROUP = "proofhouse.addons"
-SECTIONS = ("providers", "media_providers", "training_services", "hosts", "deploy_targets", "make_kinds")
+SECTIONS = ("providers", "media_providers", "training_services", "hosts", "deploy_targets", "make_kinds", "app_platforms")
 _KIND = re.compile(r"[a-z][a-z0-9-]{1,39}")
 _RESERVED_KINDS = {"prompt", "skill", "agent", "site", "app", "copy", "rule", "mcp", "hook", "video", "launch"}
 
@@ -144,7 +144,7 @@ def install(source: Path) -> Addon:
 
 def _check_entries(addon: Addon) -> None:
     """Parse every entry with the parser its section uses, so a bad pack is refused before it is installed."""
-    from . import deploy, hosts, media, train
+    from . import app_platforms, deploy, hosts, media, train
 
     try:
         for entry in addon.contents["providers"]:
@@ -157,6 +157,8 @@ def _check_entries(addon: Addon) -> None:
             hosts._check_hosts(addon.contents["hosts"], f"add-on {addon.name}")
         for entry in addon.contents["deploy_targets"]:
             deploy._check(entry, f"add-on {addon.name}")
+        for entry in addon.contents["app_platforms"]:
+            app_platforms._validate_entry(entry, f"add-on {addon.name}")
     except (providers.ProviderError, media.MediaError, train.TrainError, hosts.HostError, deploy.DeployError) as exc:
         raise AddonError(f"{addon.name}: {exc}") from None
 

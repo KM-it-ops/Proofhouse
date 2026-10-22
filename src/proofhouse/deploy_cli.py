@@ -27,8 +27,14 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
     if not args.folder or not args.to:
         print("error: name the folder and where it goes: proofhouse deploy FOLDER --to TARGET (see --list)", file=sys.stderr)
         return EXIT_USAGE
+    research = None
+    if getattr(args, "provider", None) and getattr(args, "model", None):
+        from .learn_catalog import Research
+
+        research = Research(args.provider, args.model, max_cost_usd=getattr(args, "max_cost_usd", None))
     try:
-        done = deploy.deploy(Path(args.folder), args.to, name=args.name, dry_run=args.dry_run)
+        done = deploy.deploy(Path(args.folder), args.to, name=args.name, dry_run=args.dry_run,
+                             allow_commands=bool(getattr(args, "allow_commands", False)), research=research)
     except (deploy.DeployError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -53,4 +59,8 @@ def add_deploy_commands(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--dry-run", action="store_true", help="Print the exact command and run nothing.")
     p.add_argument("--list", action="store_true", help="List deploy targets.")
     p.add_argument("--json", action="store_true")
+    p.add_argument("--provider", default=None, help="Provider for researching an unknown deploy target.")
+    p.add_argument("--model", default=None, help="Model for researching an unknown deploy target.")
+    p.add_argument("--max-cost-usd", default=None, help="Spending limit for researching an unknown deploy target.")
+    p.add_argument("--allow-commands", action="store_true", help="Run a learned deploy target's command.")
     p.set_defaults(func=_cmd_deploy)

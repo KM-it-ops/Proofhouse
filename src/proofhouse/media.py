@@ -144,16 +144,30 @@ def user_path() -> Path:
 
 
 def all_media_providers() -> dict[str, MediaProvider]:
-    from . import addons
+    from . import addons, learn_catalog
 
-    found = {p.id: p for p in (_parse(raw, "shipped") for raw in _load(SHIPPED_PATH))}
+    shipped = {p.id: p for p in (_parse(raw, "shipped") for raw in _load(SHIPPED_PATH))}
+    user = {p.id: p for p in (_parse(raw, "yours") for raw in _load(user_path()))}
+    merged = learn_catalog.merge_learned(
+        {pid: {"id": pid} for pid in shipped},
+        "media_providers",
+        user={pid: {"id": pid} for pid in user},
+    )
+    found = dict(shipped)
     for name, raw in addons.contributions("media_providers"):
+        if name == learn_catalog.LEARNED_PACK:
+            if raw.get("id") in merged and raw.get("id") not in shipped and raw.get("id") not in user:
+                try:
+                    found[_parse(raw, f"add-on {name}").id] = _parse(raw, f"add-on {name}")
+                except MediaError:
+                    continue
+            continue
         try:
             added = _parse(raw, f"add-on {name}")
         except MediaError:
             continue  # checked when the pack was installed; a package add-on's bad entry is skipped
         found[added.id] = added
-    found.update({p.id: p for p in (_parse(raw, "yours") for raw in _load(user_path()))})
+    found.update(user)
     return found
 
 
@@ -272,15 +286,43 @@ def generate(
     get: Callable[[str, dict[str, str]], MediaResponse] | None = None,
     poll_every: float = 2.0,
     poll_limit_seconds: float = 900.0,
+    research: Any = None,
+    ask: Any = None,
 ) -> MediaResult:
     """Make one image, video clip, voice track or music track and save it at ``out`` (extension added if missing)."""
+    from . import learn, learn_catalog
+
     model = (model or "").strip()
     try:
         profile = find(provider_id)
     except MediaError as exc:
         return _refused("PHC-RUN-0001", str(exc), provider_id, model, kind)
     if profile is None:
-        return _refused("PHC-RUN-0001", f"no media service named {provider_id!r}; see `proofhouse media list`", provider_id, model, kind)
+        if ask is None and research is None:
+            return _refused("PHC-RUN-0001", f"no media service named {provider_id!r}; see `proofhouse media list`", provider_id, model, kind)
+        try:
+            if ask is not None:
+                learn_catalog.ensure_media(provider_id, None, ask)
+            else:
+                learn_catalog.ensure_media(provider_id, research)
+        except learn.LearnError as exc:
+            return _refused("PHC-RUN-0001", str(exc), provider_id, model, kind)
+        try:
+            profile = find(provider_id)
+        except MediaError as exc:
+            return _refused("PHC-RUN-0001", str(exc), provider_id, model, kind)
+    if profile is None:
+        return _refused("PHC-RUN-0001", f"could not learn media service {provider_id!r}", provider_id, model, kind)
+    learned = learn_catalog.learned_raw("media_providers", provider_id)
+    if learned and learn_catalog.needs_approval(learned):
+        return _refused(
+            "PHC-RUN-0001",
+            learn_catalog.refusal_message(learned, thing=f"Media service {provider_id}",
+                                          command=f"{learn_catalog.APPROVE_CMD} {provider_id}"),
+            provider_id,
+            model,
+            kind,
+        )
     if kind not in profile.kinds:
         return _refused("PHC-RUN-0002", f"{profile.name} does not make {kind} (it makes {', '.join(profile.kinds)})", profile.id, model, kind)
     if not model or not prompt.strip():

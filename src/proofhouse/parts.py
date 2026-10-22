@@ -588,6 +588,12 @@ class SkillHostWriterPart:
 
     part_id = HOST_WRITER_ID
 
+    @staticmethod
+    def _skill_hosts() -> Mapping[str, tuple[str, str, str]]:
+        from .learn_catalog import skill_hosts
+
+        return skill_hosts()
+
     def __init__(self, status: str) -> None:
         manifest = {
             "hosts": {
@@ -641,8 +647,8 @@ class SkillHostWriterPart:
             items.append(
                 {
                     "need": f"host {host}",
-                    "resolution": SUPPORTED if host in SKILL_HOSTS else UNSUPPORTED,
-                    "reason": f"hosts are {', '.join(sorted(SKILL_HOSTS))}",
+                    "resolution": SUPPORTED if host in self._skill_hosts() else UNSUPPORTED,
+                    "reason": f"hosts are {', '.join(sorted(self._skill_hosts()))}",
                 }
             )
         elif request.get("dest") is None:

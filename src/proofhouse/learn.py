@@ -91,24 +91,9 @@ def pack_path() -> Path:
 
 def save(entry: dict[str, Any]) -> Path:
     """Add or replace one kind in the ``learned`` pack. A pack that cannot be read is kept aside, never lost."""
-    path = pack_path()
-    kinds: list[dict[str, Any]] = []
-    if path.is_file():
-        try:
-            kinds = addons._check(json.loads(path.read_text(encoding="utf-8")), str(path), "pack").contents["make_kinds"]
-        except (OSError, ValueError):
-            stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-            path.replace(path.with_name(f"addon.json.unreadable-{stamp}"))
-    raw = {
-        "schema": addons.ADDON_SCHEMA,
-        "name": LEARNED_PACK,
-        "version": "1",
-        "description": "Kinds Proofhouse researched and learned the first time you asked for them",
-        "make_kinds": [k for k in kinds if k.get("kind") != entry["kind"]] + [entry],
-    }
-    addons._check(raw, str(path), "pack")  # the same check every pack passes
-    providers.write_atomic(path, json.dumps(raw, indent=2, ensure_ascii=False) + "\n")
-    return path
+    from .learn_catalog import _save_section
+
+    return _save_section("make_kinds", entry, "kind")
 
 
 def learn(kind: str, ask: Callable[[str], str | None], *, learned_by: str) -> dict[str, Any]:
