@@ -14,7 +14,7 @@ import json
 import os
 import re
 from dataclasses import dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from typing import Any, Callable
 from urllib.parse import urlparse
 
@@ -305,10 +305,11 @@ def path_rejected(path: Path, root: Path) -> str | None:
 
 
 def _placed(folder: str) -> Path:
-    """Where a skills folder lands. An absolute path is not joined onto the home folder."""
+    """Where a skills folder lands. An absolute path, or one with a drive letter on any system, is not
+    joined onto the home folder."""
     home = Path.home().resolve()
     raw = Path(folder)
-    if raw.is_absolute() or raw.drive or folder.startswith(("\\\\", "//", "/", "\\")):
+    if raw.is_absolute() or PureWindowsPath(folder).drive or folder.startswith(("\\\\", "//", "/", "\\")):
         return Path(os.path.normpath(folder))
     return Path(os.path.normpath(home / folder))
 
@@ -325,7 +326,7 @@ def _host_path_ok(template: str, project: bool) -> bool:
         root = Path.home().resolve()
         text = str(root) + template[1:] if template.startswith("~") else template
     path = Path(text.replace("{name}", "sample-name"))
-    if not path.is_absolute():
+    if not path.is_absolute() and not PureWindowsPath(text).drive:
         path = root / path
     path = Path(os.path.normpath(path))
     if path_rejected(path, root if project else Path.home().resolve()):
