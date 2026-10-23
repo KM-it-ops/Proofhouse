@@ -298,8 +298,16 @@ def build_job_request(profile: TrainService, model: str, params: dict[str, Any])
     if profile.create is None or profile.base_url is None:
         raise TrainError(f"{profile.id} runs on this machine and has no job request")
     values = {k: v for k, v in params.items() if k != "data_files"} | {"model": model}
-    url = profile.base_url.rstrip("/") + _fill(profile.create["path"], {k: v for k, v in values.items() if isinstance(v, str)})
-    if (urlparse(url).hostname or "").lower() != (urlparse(profile.base_url).hostname or "").lower():
+    filled = _fill(profile.create["path"], {k: v for k, v in values.items() if isinstance(v, str)})
+    if not isinstance(filled, str):
+        raise TrainError(f"{profile.id}: the request address leaves the service's host")
+    url = profile.base_url.rstrip("/") + filled
+    if profile.origin == "add-on learned":
+        from .learn_catalog import service_path_ok
+
+        if not service_path_ok(profile.base_url, filled):
+            raise TrainError(f"{profile.id}: the request address leaves the service's host")
+    elif (urlparse(url).hostname or "").lower() != (urlparse(profile.base_url).hostname or "").lower():
         raise TrainError(f"{profile.id}: the request address leaves the service's host")
     body = _fill(profile.create["body"], values)
     if epochs not in _numbers(body):
@@ -492,7 +500,13 @@ def _run_service(profile: TrainService, model: str, train_file: Path, valid_file
         upload_spec = profile.upload or {}
         fields = {k: _fill(v, {"file_name": path.name}) for k, v in (upload_spec.get("fields") or {}).items()}
         try:
-            answer = upload(profile.base_url.rstrip("/") + upload_spec["path"], _headers(profile, secret, json_body=False),
+            upload_path = upload_spec["path"]
+            if profile.origin == "add-on learned":
+                from .learn_catalog import service_path_ok
+
+                if not isinstance(upload_path, str) or not service_path_ok(profile.base_url or "", upload_path):
+                    raise TrainError(f"{profile.id}: the request address leaves the service's host")
+            answer = upload(profile.base_url.rstrip("/") + upload_path, _headers(profile, secret, json_body=False),
                             fields, str(upload_spec.get("file_field", "file")), path.name, path.read_bytes())
         except Exception as exc:  # noqa: BLE001 -- the live boundary must not leak the key
             return TrainResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: the data upload failed ({type(exc).__name__}); no job was started", **base)
@@ -536,7 +550,13 @@ def _run_service(profile: TrainService, model: str, train_file: Path, valid_file
 
 
 def _status_url(profile: TrainService, job_id: str) -> str:
-    return (profile.base_url or "").rstrip("/") + _fill((profile.status or {})["path"], {"job_id": job_id})
+    path = _fill((profile.status or {})["path"], {"job_id": job_id})
+    if profile.origin == "add-on learned":
+        from .learn_catalog import service_path_ok
+
+        if not isinstance(path, str) or not service_path_ok(profile.base_url or "", path):
+            raise TrainError(f"{profile.id}: the request address leaves the service's host")
+    return (profile.base_url or "").rstrip("/") + path
 
 
 def _apply_status(profile: TrainService, result: TrainResult, answer: TrainResponse) -> str | None:

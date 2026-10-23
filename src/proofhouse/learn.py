@@ -55,14 +55,42 @@ def research_prompt(kind: str) -> str:
     return _RESEARCH.replace("{kind}", kind)
 
 
-def extract_answer(answer: str | None) -> dict[str, Any] | None:
-    """The one JSON object in a research answer, or ``None`` when it is not that object."""
-    match = re.search(r"\{.*\}", answer or "", flags=re.S)
+def nesting(value: Any) -> int:
+    """How deep a JSON value is, counted without recursion so a hostile answer cannot crash the count."""
+    deepest = 0
+    pending: list[tuple[Any, int]] = [(value, 1)]
+    while pending:
+        item, depth = pending.pop()
+        if depth > deepest:
+            deepest = depth
+        if isinstance(item, dict):
+            pending.extend((child, depth + 1) for child in item.values())
+        elif isinstance(item, list):
+            pending.extend((child, depth + 1) for child in item)
+    return deepest
+
+
+def extract_answer(answer: str | None, *, thing: str = "the answer") -> dict[str, Any] | None:
+    """The one JSON object in a research answer, or ``None`` when it is not that object.
+
+    An answer nested deeper than the built-in entries need is a ``LearnError`` naming ``thing``.
+    ``RecursionError`` never leaves this function.
+    """
     try:
-        data = json.loads(match.group(0)) if match else None
-    except ValueError:
-        data = None
-    return data if isinstance(data, dict) else None
+        match = re.search(r"\{.*\}", answer or "", flags=re.S)
+        try:
+            data = json.loads(match.group(0)) if match else None
+        except ValueError:
+            data = None
+        if not isinstance(data, dict):
+            return None
+        from . import learn_catalog
+
+        if nesting(data) > learn_catalog.answer_depth_limit():
+            raise LearnError(f"{thing} is nested too deeply")
+        return data
+    except RecursionError:
+        raise LearnError(f"{thing} is nested too deeply") from None
 
 
 def provenance(answer: dict[str, Any], *, learned_by: str, what_limit: int = 600, source_limit: int = 10) -> dict[str, Any]:
@@ -95,7 +123,7 @@ def ask_model(provider_id: str, model: str, prompt: str, *, max_cost_usd: str | 
 
 def parse(kind: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
     """The make-kind entry the research answer describes, or ``LearnError``."""
-    data = extract_answer(answer)
+    data = extract_answer(answer, thing=kind)
     if data is None:
         raise LearnError("the model's research answer was not the JSON asked for")
     what = data.get("what_it_is")

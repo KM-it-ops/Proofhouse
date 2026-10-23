@@ -128,6 +128,12 @@ def _parse(raw: object, origin: str) -> MediaProvider:
         base = providers.check_base_url(raw.get("base_url"))
     except providers.ProviderError as exc:
         raise MediaError(f"{pid}: {exc}") from None
+    if origin in ("learned", "add-on learned") and result.get("ext") is not None:
+        from .learn_catalog import media_ext_problem
+
+        problem = media_ext_problem(result.get("ext"))
+        if problem:
+            raise MediaError(f"{pid}: {problem}")
     return MediaProvider(pid, str(raw.get("name", pid)), kinds, base, key_env, auth, unit, submit, poll, result, origin)
 
 

@@ -574,27 +574,24 @@ def install(
     ``bundle`` is a zip or a skill folder (default: Proofhouse's own skill).
     ``home`` overrides ``PROOFHOUSE_HOME`` for backups and install records.
     """
+    record = None
     if host is not None:
-        from .. import hosts as host_mod
-        from ..learn_catalog import APPROVE_CMD, path_rejected, refusal_message, skill_hosts, unapproved
+        from ..learn_catalog import APPROVE_CMD, active_skill_host, refusal_message, skill_hosts, unapproved
 
         if host not in skill_hosts() and (research is not None or ask is not None):
             _learn_host(host, research, ask)
-        record = host_mod.all_hosts().get(host)
+        record = active_skill_host(host)
         pending = unapproved("hosts", host, record)
         if pending is not None:
             raise InstallSkillError(refusal_message(
                 pending, thing=f"Host {host}", command=f"{APPROVE_CMD} {host}"), EXIT_USAGE_ERROR)
     dest_dir = _dest_dir(dest, host, "installed")
-    if host is not None and dest is None:
-        from .. import hosts as host_mod
+    if host is not None and dest is None and record is not None and record.get("origin") == "add-on learned":
         from ..learn_catalog import path_rejected
 
-        record = host_mod.all_hosts().get(host)
-        if record is not None and record.get("origin") == "add-on learned":
-            problem = path_rejected(dest_dir, Path.home())
-            if problem:
-                raise InstallSkillError(problem, EXIT_USAGE_ERROR)
+        problem = path_rejected(dest_dir, Path.home())
+        if problem:
+            raise InstallSkillError(problem, EXIT_USAGE_ERROR)
     bundle_path = Path(bundle) if bundle is not None else DEFAULT_BUNDLE
     skill = read_skill(bundle_path, dest_dir)
     skill_dir = dest_dir / skill.name
@@ -832,10 +829,9 @@ def uninstall(
     if problem is not None:
         raise InstallSkillError(f"{problem}; nothing was removed", EXIT_USAGE_ERROR)
     if host is not None:
-        from .. import hosts as host_mod
-        from ..learn_catalog import APPROVE_CMD, refusal_message, unapproved
+        from ..learn_catalog import APPROVE_CMD, active_skill_host, refusal_message, unapproved
 
-        pending = unapproved("hosts", host, host_mod.all_hosts().get(host))
+        pending = unapproved("hosts", host, active_skill_host(host))
         if pending is not None:
             raise InstallSkillError(refusal_message(
                 pending, thing=f"Host {host}", command=f"{APPROVE_CMD} {host}"), EXIT_USAGE_ERROR)

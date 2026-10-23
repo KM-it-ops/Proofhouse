@@ -801,6 +801,164 @@ def test_catalog_learning_uses_the_shared_steps(monkeypatch: pytest.MonkeyPatch)
         learn_catalog._save_section("hosts", {"id": "acme-ide"}, "id")
 
 
+# --- third-round review: training paths, media types, nesting, skill-folder approval ------------
+
+
+_EVIL_PATHS = (".evil.com/v1/files", "@evil.com/x", "//evil.com/x", "https://evil.com/x")
+_TRAIN_PATHS = {"upload": "/files", "create": "/jobs", "status": "/jobs/{job_id}"}
+_PROGRAM_EXT = (
+    "exe", "com", "bat", "cmd", "ps1", "psm1", "vbs", "vbe", "js", "jse", "wsf", "wsh",
+    "msi", "msp", "scr", "lnk", "pif", "cpl", "hta", "reg", "jar", "sh", "py", "pyw",
+)
+
+
+def _online_train(**paths: str) -> dict:
+    spec = {**_TRAIN_PATHS, **paths}
+    return {"what_it_is": "t", "name": "T", "base_url": "https://api.train.example", "key_env": "TRAIN_KEY", "auth": "bearer",
+            "upload": {"path": spec["upload"], "id": "id"},
+            "create": {"path": spec["create"], "body": {"epochs": "{epochs}"}, "id": "id"},
+            "status": {"path": spec["status"], "field": "status", "done": ["done"]},
+            "sources": ["https://example.org/t"]}
+
+
+def _poke_train_path(field: str, path: str) -> None:
+    raw = json.loads(learn.pack_path().read_text(encoding="utf-8"))
+    for item in raw["training_services"]:
+        if item.get("id") == "new-trainer":
+            for name, good in _TRAIN_PATHS.items():
+                item[name]["path"] = good
+            item[field]["path"] = path
+            item["approved"] = True
+    learn.write_pack(raw)
+
+
+def test_learned_training_paths_cannot_send_the_key_to_another_host(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    good = learn_catalog.parse_train("new-trainer", json.dumps(_online_train()), learned_by="ollama/m")
+    preview = learn_catalog.would_do(good)
+    for address in ("https://api.train.example/files", "https://api.train.example/jobs", "https://api.train.example/jobs/{job_id}"):
+        assert address in preview
+    for field in ("upload", "create", "status"):
+        for shape in _EVIL_PATHS:
+            text = json.dumps(_online_train(**{field: shape}))
+            with pytest.raises(learn.LearnError, match="host"):
+                learn_catalog.ensure_train("loop", None, ask=lambda prompt, text=text: text)
+            assert learn_catalog.learned_raw("training_services", "loop") is None
+    learn_catalog._save_section("training_services", good, "id")
+    assert cli.main(["addons", "approve", "learned", "new-trainer"]) == 0
+    assert cli.main(["train", "price", "new-trainer", "m", "--usd-per-million", "1"]) == 0
+    monkeypatch.setenv("TRAIN_KEY", "sk-train-secret")
+    data = tmp_path / "data.jsonl"
+    data.write_text(json.dumps({"messages": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "yo"}]}) + "\n",
+                    encoding="utf-8")
+    for field in ("upload", "create", "status"):
+        for shape in _EVIL_PATHS:
+            _poke_train_path(field, shape)
+            seen: list[str] = []
+
+            def upload(url, headers, fields, file_field, file_name, content, seen=seen):
+                seen.append(url)
+                return train.TrainResponse(200, {"id": "file-1"})
+
+            def transport(request, seen=seen):
+                seen.append(request.url)
+                return train.TrainResponse(200, {"id": "job-1"})
+
+            def read(url, headers, seen=seen):
+                seen.append(url)
+                return train.TrainResponse(200, {"status": "done"})
+
+            if field == "status":
+                result = train.status("new-trainer", "job-1", get=read)
+            else:
+                result = train.start("new-trainer", "m", data, max_cost_usd="1", upload=upload, transport=transport, get=read,
+                                      wait=False, out_dir=tmp_path / f"out-{field}")
+            assert not any("evil.com" in url for url in seen)
+            assert result.status != "success"
+            assert "sk-train-secret" not in (result.message or "")
+
+
+def test_learned_media_ext_is_a_plain_file_type(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    good = learn_catalog.parse_media("acme-images", json.dumps({**MEDIA, "result": {**MEDIA["result"], "ext": "png"}}),
+                                     learned_by="ollama/m")
+    assert "file type: png" in learn_catalog.would_do(good)
+    for ext in ("", ".cmd", "mp4:x", "a/b", "a" * 11, *_PROGRAM_EXT):
+        text = json.dumps({**MEDIA, "result": {"binary": True, "ext": ext}})
+        with pytest.raises(learn.LearnError, match="file type"):
+            learn_catalog.ensure_media("acme-images", None, ask=lambda prompt, text=text: text)
+        assert learn_catalog.learned_raw("media_providers", "acme-images") is None
+    learn_catalog._save_section("media_providers", good, "id")
+    assert cli.main(["addons", "approve", "learned", "acme-images"]) == 0
+    assert cli.main(["media", "price", "acme-images", "m", "--usd", "0.01"]) == 0
+    raw = json.loads(learn.pack_path().read_text(encoding="utf-8"))
+    for item in raw["media_providers"]:
+        if item.get("id") == "acme-images":
+            item["result"]["ext"] = "cmd"
+            item["approved"] = True
+    learn.write_pack(raw)
+    monkeypatch.setenv("ACME_IMAGE_KEY", "sk-media-secret")
+    seen: list[str] = []
+    result = media.generate("image", "acme-images", "m", prompt="a cat", out=tmp_path / "pic", max_cost_usd="1",
+                            transport=lambda request: seen.append(request.url) or media.MediaResponse(200, content=b"picture"))
+    assert seen == [] and result.status != "success"
+    assert "sk-media-secret" not in (result.message or "")
+    assert not (tmp_path / "pic.cmd").exists()
+
+
+def test_a_deeply_nested_answer_is_refused_and_saves_nothing() -> None:
+    deep: object = {"what_it_is": "too deep"}
+    for _ in range(30):
+        deep = {"wrap": deep}
+    text = json.dumps(deep)
+    with pytest.raises(learn.LearnError, match="new-trainer") as caught:
+        learn_catalog.ensure_train("new-trainer", None, ask=lambda prompt, text=text: text)
+    assert "nested too deeply" in str(caught.value)
+    assert learn_catalog.learned_raw("training_services", "new-trainer") is None
+    bomb = '{"a":' * 10000 + "1" + "}" * 10000
+    with pytest.raises(learn.LearnError, match="acme-ide") as host_caught:
+        learn_catalog.ensure_host("acme-ide", None, ask=lambda prompt: bomb)
+    assert "nested too deeply" in str(host_caught.value)
+    assert learn_catalog.learned_raw("hosts", "acme-ide") is None
+    with pytest.raises(learn.LearnError, match="press-kit") as kind_caught:
+        learn.learn("press-kit", lambda prompt: bomb, learned_by="ollama/m")
+    assert "nested too deeply" in str(kind_caught.value)
+    saved = learn.pack_path().read_text(encoding="utf-8") if learn.pack_path().is_file() else ""
+    assert "press-kit" not in saved and "new-trainer" not in saved and "acme-ide" not in saved
+    openai_like = {"what_it_is": "t", "name": "T", "base_url": "https://api.train.example", "auth": "none",
+                   "upload": {"path": "/v1/files", "id": "id"},
+                   "create": {"path": "/v1/jobs", "id": "id", "body": {"method": {"type": "supervised", "supervised": {
+                       "hyperparameters": {"n_epochs": "{epochs}"}}}}},
+                   "status": {"path": "/v1/jobs/{job_id}", "field": "status", "done": ["succeeded"]},
+                   "sources": ["https://example.org/t"]}
+    assert learn_catalog.parse_train("openai-like", json.dumps(openai_like), learned_by="ollama/m")["approved"] is False
+
+
+@pytest.mark.parametrize("host_id", ["codex", "grok-bot"])
+def test_a_learned_skill_folder_on_a_shipped_host_needs_approval(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                                 host_id: str) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
+    folder = f".{host_id}-learned"
+    answer = {**HOST, "name": host_id, "skills_folder": folder,
+              "rule": {"user": f"~/{folder}/AGENTS.md", "format": "md-block"}}
+    entry = learn_catalog.parse_host(host_id, json.dumps(answer), learned_by="ollama/m")
+    learn_catalog._save_section("hosts", entry, "id")
+    assert learn_catalog.skill_hosts()[host_id][0] == folder
+    assert hosts.all_hosts()[host_id].get("origin") != "add-on learned"
+    with pytest.raises(install_skill.InstallSkillError, match=f"approve learned {host_id}"):
+        install_skill.install(host=host_id, bundle=_skill(tmp_path), home=tmp_path / "ph")
+    assert not (home / folder).exists()
+    assert cli.main(["addons", "approve", "learned", host_id]) == 0
+    installed = install_skill.install(host=host_id, bundle=tmp_path / "skill", home=tmp_path / "ph")
+    assert (installed.dest / "SKILL.md").is_file()
+    learned = learn_catalog.learned_raw("hosts", host_id)
+    assert learned is not None
+    learn_catalog._save_section("hosts", {**learned, "approved": False}, "id")
+    with pytest.raises(install_skill.InstallSkillError, match=f"approve learned {host_id}"):
+        install_skill.uninstall("demo-skill", host=host_id, home=tmp_path / "ph")
+    assert (installed.dest / "SKILL.md").is_file()
+
+
 # --- the command line, one test per list --------------------------------------------------------
 
 

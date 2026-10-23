@@ -124,6 +124,13 @@ def would_do(entry: dict[str, Any]) -> str:
     if isinstance(entry.get("base_url"), str):
         path = submit.get("path") if isinstance(submit.get("path"), str) else ""
         parts.append(f"address: {entry['base_url']}{path}")
+        for label in ("upload", "create", "status"):
+            spec = entry.get(label)
+            if isinstance(spec, dict) and isinstance(spec.get("path"), str):
+                parts.append(f"{label}: {entry['base_url'].rstrip('/')}{spec['path']}")
+    result = entry.get("result") if isinstance(entry.get("result"), dict) else {}
+    if isinstance(result.get("ext"), str) and result["ext"]:
+        parts.append(f"file type: {result['ext']}")
     if build.get("before"):
         parts.append(f"before: {build['before']}")
     command = build.get("command") or entry.get("command")
@@ -449,8 +456,8 @@ def _only_known(section: str, field: str, value: Any) -> Any:
     return kept
 
 
-def _answer(answer: str | None) -> dict[str, Any]:
-    data = learn.extract_answer(answer)
+def _answer(answer: str | None, *, thing: str) -> dict[str, Any]:
+    data = learn.extract_answer(answer, thing=thing)
     if data is None:
         raise LearnError("the model's research answer was not the JSON asked for")
     what = data.get("what_it_is")
@@ -458,6 +465,72 @@ def _answer(answer: str | None) -> dict[str, Any]:
         raise LearnError("the model did not say what it is")
     _within_limits(data)
     return data
+
+
+_PROGRAM_EXT = frozenset(
+    "exe com bat cmd ps1 psm1 vbs vbe js jse wsf wsh msi msp scr lnk pif cpl hta reg jar sh py pyw".split()
+)
+_FILE_EXT = re.compile(r"[A-Za-z0-9]{1,10}")
+
+
+def answer_depth_limit() -> int:
+    """How deep a built-in entry of any learned list is. A research answer deeper than this is refused."""
+    deepest = 1
+    for section in _LISTS:
+        for entry in _builtin_entries(section):
+            deepest = max(deepest, learn.nesting(entry))
+    return deepest
+
+
+def service_path_ok(base_url: str, path: str) -> bool:
+    """True when ``path`` joined to ``base_url`` is https on exactly that host.
+
+    The join is the one the request uses: the base with one trailing slash removed, then the path.
+    Anything else is refused, never rewritten.
+    """
+    if not isinstance(base_url, str) or not isinstance(path, str):
+        return False
+    if not path.startswith("/") or path.startswith("//") or any(char.isspace() for char in path):
+        return False
+    url = base_url.rstrip("/") + path
+    parsed, base = urlparse(url), urlparse(base_url)
+    host = (parsed.hostname or "").lower()
+    base_host = (base.hostname or "").lower()
+    if parsed.scheme != "https" or not host or host != base_host:
+        return False
+    if parsed.username or parsed.password or (parsed.path or "").startswith("//"):
+        return False
+    return public_https(url)
+
+
+def _train_paths_ok(entry: dict[str, Any]) -> bool:
+    """Every path on a learned training service, joined to its base, stays on that host."""
+    base = entry.get("base_url")
+    if not base:
+        return True
+    if not isinstance(base, str):
+        return False
+
+    def bad(spec: Any) -> bool:
+        if isinstance(spec, dict):
+            for key, value in spec.items():
+                if key == "path":
+                    if not service_path_ok(base, value if isinstance(value, str) else ""):
+                        return True
+                elif bad(value):
+                    return True
+        elif isinstance(spec, list):
+            return any(bad(item) for item in spec)
+        return False
+
+    return not any(bad(entry.get(name)) for name in ("upload", "create", "status"))
+
+
+def media_ext_problem(ext: object) -> str | None:
+    """Why ``ext`` cannot be the suffix of a learned media file, or ``None`` when it can."""
+    if isinstance(ext, str) and _FILE_EXT.fullmatch(ext) and ext.lower() not in _PROGRAM_EXT:
+        return None
+    return "a media file type must be 1 to 10 letters or digits, and not a program"
 
 
 def public_https(url: str) -> bool:
@@ -498,7 +571,7 @@ def _finish(entry: dict[str, Any], data: dict[str, Any], *, learned_by: str) -> 
 def parse_platform(platform_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
     from . import app_platforms
 
-    data = _answer(answer)
+    data = _answer(answer, thing=f"platform {platform_id}")
     entry = {key: data[key] for key in ("name", "shell", "write", "checks", "build", "host_os") if key in data}
     for field in ("checks", "build"):
         if field in entry:
@@ -519,7 +592,7 @@ def parse_platform(platform_id: str, answer: str | None, *, learned_by: str) -> 
 
 
 def parse_host(host_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
-    data = _answer(answer)
+    data = _answer(answer, thing=f"host {host_id}")
     entry: dict[str, Any] = {"id": host_id, "name": str(data.get("name", host_id))}
     for key in ("rule", "agent", "mcp", "note", "skills_folder", "start_hint"):
         if key in data:
@@ -533,7 +606,7 @@ def parse_host(host_id: str, answer: str | None, *, learned_by: str) -> dict[str
 def parse_deploy(target_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
     from . import deploy
 
-    data = _answer(answer)
+    data = _answer(answer, thing=f"deploy target {target_id}")
     if "base_url" in data and not public_https(str(data.get("base_url"))):
         raise LearnError("a deploy address must be https")
     if not _command_urls_ok(data.get("command")):
@@ -548,7 +621,7 @@ def parse_deploy(target_id: str, answer: str | None, *, learned_by: str) -> dict
 def parse_media(service_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
     from . import media
 
-    data = _answer(answer)
+    data = _answer(answer, thing=f"media service {service_id}")
     entry = {key: data[key] for key in ("name", "kinds", "base_url", "key_env", "auth", "unit", "submit", "poll", "result") if key in data}
     for field in ("submit", "poll", "result"):
         if field in entry:
@@ -557,6 +630,11 @@ def parse_media(service_id: str, answer: str | None, *, learned_by: str) -> dict
     _finish(entry, data, learned_by=learned_by)
     if not public_https(str(entry.get("base_url", ""))):
         raise LearnError("a media service address must be https")
+    result = entry.get("result")
+    if isinstance(result, dict) and "ext" in result:
+        problem = media_ext_problem(result.get("ext"))
+        if problem:
+            raise LearnError(problem)
     media._parse(entry, "learned")
     return entry
 
@@ -564,7 +642,7 @@ def parse_media(service_id: str, answer: str | None, *, learned_by: str) -> dict
 def parse_train(service_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
     from . import train
 
-    data = _answer(answer)
+    data = _answer(answer, thing=f"training service {service_id}")
     entry = {key: data[key] for key in ("name", "command", "upload", "create", "status", "base_url", "key_env", "auth", "provider", "use_hint") if key in data}
     for field in ("upload", "create", "status"):
         if field in entry:
@@ -575,6 +653,8 @@ def parse_train(service_id: str, answer: str | None, *, learned_by: str) -> dict
         raise LearnError("a training service address must be https")
     if entry.get("base_url") and not public_https(str(entry["base_url"])):
         raise LearnError("a training service address must be https")
+    if not _train_paths_ok(entry):
+        raise LearnError("a training service address must stay on its own host")
     train._parse(entry, "learned")
     return entry
 
@@ -605,14 +685,16 @@ def split_contributions(section: str) -> tuple[list[tuple[str, dict[str, Any]]],
     return others, learned
 
 
-def skill_hosts() -> dict[str, tuple[str, str, str]]:
-    """Built-in skill hosts, then yours, then other add-on packs, then learned if the id is still free."""
+def _skill_host_table() -> dict[str, tuple[tuple[str, str, str], dict[str, Any] | None]]:
+    """id -> (folder row, the entry that supplied it). None marks a built-in skill-host constant."""
     from . import hosts
     from .parts import SKILL_HOSTS
 
-    found = dict(SKILL_HOSTS)
+    found: dict[str, tuple[tuple[str, str, str], dict[str, Any] | None]] = {
+        host_id: (row, None) for host_id, row in SKILL_HOSTS.items()
+    }
 
-    def consider(host: dict[str, Any], *, replace: bool) -> None:
+    def consider(host: dict[str, Any], *, replace: bool, learned: bool) -> None:
         folder = host.get("skills_folder")
         if not isinstance(folder, str) or not folder.strip() or not isinstance(host.get("id"), str):
             return
@@ -620,16 +702,37 @@ def skill_hosts() -> dict[str, tuple[str, str, str]]:
             return
         label = str(host.get("name", host["id"]))
         hint = str(host.get("start_hint") or f"a new {label} session")
-        found[host["id"]] = (folder, label, hint)
+        entry = {**host, "origin": f"add-on {LEARNED_PACK}"} if learned else host
+        found[host["id"]] = ((folder, label, hint), entry)
 
     for host in hosts._read_hosts(providers.proofhouse_home() / "hosts.json"):
-        consider(host, replace=True)
-    others, learned = split_contributions("hosts")
+        consider(host, replace=True, learned=False)
+    others, learned_rows = split_contributions("hosts")
     for _name, host in others:
-        consider(host, replace=True)
-    for _name, host in learned:
-        consider(host, replace=False)
+        consider(host, replace=True, learned=False)
+    for _name, host in learned_rows:
+        consider(host, replace=False, learned=True)
     return found
+
+
+def skill_hosts() -> dict[str, tuple[str, str, str]]:
+    """Built-in skill hosts, then yours, then other add-on packs, then learned if the id is still free."""
+    return {host_id: row for host_id, (row, _entry) in _skill_host_table().items()}
+
+
+def active_skill_host(host_id: str) -> dict[str, Any] | None:
+    """The entry that supplies this host's skills folder, so approval checks that same entry.
+
+    A built-in skill-host constant has no entry of its own; the catalog host is used instead.
+    A learned host that fills a gap (for example ``codex``) is the entry install will write into.
+    """
+    from . import hosts
+
+    found = _skill_host_table().get(host_id)
+    if found is None:
+        return hosts.all_hosts().get(host_id)
+    entry = found[1]
+    return hosts.all_hosts().get(host_id) if entry is None else entry
 
 
 def merge_learned(built_in: dict[str, Any], section: str, *, id_key: str = "id", user: dict[str, Any] | None = None) -> dict[str, Any]:
