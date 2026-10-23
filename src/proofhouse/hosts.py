@@ -309,6 +309,12 @@ def install(t: Target, content: Any, *, force: bool = False) -> str:
 
 
 def uninstall(t: Target, *, force: bool = False) -> str:
+    from . import learn_catalog
+
+    pending = learn_catalog.unapproved("hosts", t.host, all_hosts().get(t.host))
+    if pending:
+        raise HostError(learn_catalog.refusal_message(
+            pending, thing=f"Host {t.host}", command=f"{learn_catalog.APPROVE_CMD} {t.host}"))
     _refuse_links(t.path)
     record_file = _record_path(t)
     if not record_file.is_file():

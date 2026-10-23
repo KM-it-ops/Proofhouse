@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from proofhouse import addons, app_platforms, cli, deploy, hosts, learn, learn_catalog, live, make, make_checks, media, spend, train
+from proofhouse import addons, app_platforms, cli, deploy, hosts, learn, learn_catalog, live, make, make_checks, media, providers, spend, train
 from proofhouse.optimize import install_skill
 
 WEB = {"index.html": "<!doctype html><html><body><h1>App</h1></body></html>"}
@@ -98,6 +98,9 @@ class ResearchModel:
         if text.startswith("Build the "):
             return live.Response(200, {"choices": [{"message": {"content": json.dumps({"files": {"setup.json": '{"name":"x"}'}})}}],
                                        "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+        if text.startswith("Build a complete working shared web app"):
+            return live.Response(200, {"choices": [{"message": {"content": json.dumps({"files": WEB})}}],
+                                       "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
         raise AssertionError(text[:120])
 
 
@@ -141,6 +144,25 @@ def test_unknown_host_is_learned_for_skill_install(tmp_path: Path, monkeypatch: 
     assert model.sent[0].startswith("Proofhouse installs agents, rules and skills")
     assert "acme-ide" in learn_catalog.skill_hosts()
     assert not (tmp_path / "home" / ".acme" / "skills").exists()
+
+
+def test_install_skill_dest_keeps_files_unchanged_until_host_approval(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
+    entry = learn_catalog.parse_host("acme-ide", json.dumps(HOST), learned_by="ollama/m")
+    learn_catalog._save_section("hosts", entry, "id")
+    bundle = _skill(tmp_path)
+    destination = home / ".acme" / "skills"
+
+    def snapshot() -> dict[str, bytes | None]:
+        return {str(path.relative_to(tmp_path)): path.read_bytes() if path.is_file() else None
+                for path in tmp_path.rglob("*")}
+
+    before = snapshot()
+    with pytest.raises(install_skill.InstallSkillError, match="approve learned acme-ide"):
+        install_skill.install(host="acme-ide", dest=destination, bundle=bundle, home=tmp_path / "ph")
+    assert snapshot() == before
 
 
 def test_unknown_deploy_target_is_learned_on_dry_run(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -213,16 +235,8 @@ def _skill(tmp_path: Path) -> Path:
 
 def _offline(monkeypatch: pytest.MonkeyPatch, answers: dict[str, dict]) -> None:
     """Answer a research call without leaving the machine. The real spend gate still runs."""
-
-    def fake(request: live.Request) -> live.Response:
-        text = " ".join(part["content"] for part in json.loads(request.body_bytes)["messages"])
-        for prefix, answer in answers.items():
-            if text.startswith(prefix):
-                return live.Response(200, {"choices": [{"message": {"content": json.dumps(answer)}}],
-                                           "usage": {"prompt_tokens": 3, "completion_tokens": 3}})
-        raise AssertionError(text[:160])
-
-    monkeypatch.setattr(live, "_httpx_post", fake)
+    model = ResearchModel({key: json.dumps(value) for key, value in answers.items()})
+    monkeypatch.setattr(live, "_httpx_post", model)
 
 
 def _ran(monkeypatch: pytest.MonkeyPatch, module) -> dict:
@@ -361,6 +375,28 @@ def test_approve_changes_one_list_only() -> None:
     assert learn_catalog.learned_raw("deploy_targets", "twin")["approved"] is False
 
 
+def test_unapproved_learned_service_cannot_write_price_records(capsys: pytest.CaptureFixture[str]) -> None:
+    media_entry = learn_catalog.parse_media("acme-images", json.dumps(MEDIA), learned_by="ollama/m")
+    learn_catalog._save_section("media_providers", media_entry, "id")
+    online = {"what_it_is": "t", "name": "T", "base_url": "https://api.train.example", "auth": "none",
+              "upload": {"path": "/files", "id": "id"},
+              "create": {"path": "/jobs", "body": {"epochs": "{epochs}"}, "id": "id"},
+              "status": {"path": "/jobs/{job_id}", "field": "status", "done": ["done"]},
+              "sources": ["https://example.org/t"]}
+    train_entry = learn_catalog.parse_train("new-trainer", json.dumps(online), learned_by="ollama/m")
+    learn_catalog._save_section("training_services", train_entry, "id")
+    assert cli.main(["media", "price", "acme-images", "m", "--usd", "0.01"]) != 0
+    assert "approve learned acme-images" in capsys.readouterr().err
+    assert cli.main(["train", "price", "new-trainer", "m", "--usd-per-million", "1"]) != 0
+    assert "approve learned new-trainer" in capsys.readouterr().err
+    assert not (providers.proofhouse_home() / "providers.json").exists()
+    assert cli.main(["addons", "approve", "learned", "acme-images"]) == 0
+    assert cli.main(["addons", "approve", "learned", "new-trainer"]) == 0
+    assert cli.main(["media", "price", "acme-images", "m", "--usd", "0.01"]) == 0
+    assert cli.main(["train", "price", "new-trainer", "m", "--usd-per-million", "1"]) == 0
+    assert (providers.proofhouse_home() / "providers.json").is_file()
+
+
 # --- addresses -----------------------------------------------------------------------------------
 
 
@@ -462,6 +498,70 @@ def test_learned_poll_result_stays_on_https_and_the_same_host(tmp_path: Path, mo
     assert "http://evil.example/" not in got and "sk-secret-value" not in (result.message or "")
 
 
+@pytest.mark.parametrize("asset", ["http://127.0.0.1/private", "https://other.example/file"])
+def test_learned_media_refuses_returned_asset_outside_its_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                                    asset: str) -> None:
+    entry = learn_catalog.parse_media("acme-images", json.dumps(MEDIA), learned_by="ollama/m")
+    learn_catalog._save_section("media_providers", entry, "id")
+    assert cli.main(["addons", "approve", "learned", "acme-images"]) == 0
+    assert cli.main(["media", "price", "acme-images", "m", "--usd", "0.01"]) == 0
+    monkeypatch.setenv("ACME_IMAGE_KEY", "test-key")
+    fetched: list[str] = []
+    result = media.generate("image", "acme-images", "m", prompt="a cat", out=tmp_path / "pic", max_cost_usd="1",
+                            transport=lambda request: media.MediaResponse(200, {"url": asset}),
+                            get=lambda url, headers: fetched.append(url) or media.MediaResponse(200, content=b"picture"))
+    assert result.status == "error" and asset in (result.message or "")
+    assert fetched == [] and not (tmp_path / "pic.png").exists()
+
+
+def test_learned_media_status_redirect_names_address(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    entry = learn_catalog.parse_media("acme-images", json.dumps({**MEDIA, "poll": {"url": "status_url", "status": "state", "done": ["done"]}}),
+                                      learned_by="ollama/m")
+    learn_catalog._save_section("media_providers", entry, "id")
+    assert cli.main(["addons", "approve", "learned", "acme-images"]) == 0
+    assert cli.main(["media", "price", "acme-images", "m", "--usd", "0.01"]) == 0
+    monkeypatch.setenv("ACME_IMAGE_KEY", "test-key")
+    result = media.generate("image", "acme-images", "m", prompt="a cat", out=tmp_path / "pic", max_cost_usd="1",
+                            transport=lambda request: media.MediaResponse(200, {"status_url": "https://api.acme.example/status"}),
+                            get=lambda url, headers: media.MediaResponse(302, location="http://evil.example/steal"), poll_every=0, poll_limit_seconds=0)
+    assert result.status == "error" and "http://evil.example/steal" in (result.message or "")
+
+
+def test_learned_training_status_redirect_names_address() -> None:
+    online = {"what_it_is": "t", "name": "T", "base_url": "https://api.train.example", "auth": "none",
+              "upload": {"path": "/files", "id": "id"},
+              "create": {"path": "/jobs", "body": {"epochs": "{epochs}"}, "id": "id"},
+              "status": {"path": "/jobs/{job_id}", "field": "status", "done": ["done"]},
+              "sources": ["https://example.org/t"]}
+    entry = learn_catalog.parse_train("new-trainer", json.dumps(online), learned_by="ollama/m")
+    learn_catalog._save_section("training_services", entry, "id")
+    assert cli.main(["addons", "approve", "learned", "new-trainer"]) == 0
+    fetched: list[str] = []
+    read = lambda url, headers: fetched.append(url) or train.TrainResponse(302, location="http://evil.example/steal")
+    redirected = train.status("new-trainer", "job-1", get=read)
+    assert redirected.status == "error" and "http://evil.example/steal" in (redirected.message or "")
+    profile = train.find("new-trainer")
+    assert profile is not None
+    polling = train.TrainResult("started", None, None, "new-trainer", "m", job_id="job-1")
+    train._wait(profile, polling, {}, read, 0, 0, None)
+    assert polling.status == "error" and "http://evil.example/steal" in (polling.message or "")
+
+
+def test_unapproved_training_status_does_not_read_or_fetch_a_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    online = {"what_it_is": "t", "name": "T", "base_url": "https://api.train.example", "key_env": "TRAIN_KEY", "auth": "bearer",
+              "upload": {"path": "/files", "id": "id"},
+              "create": {"path": "/jobs", "body": {"epochs": "{epochs}"}, "id": "id"},
+              "status": {"path": "/jobs/{job_id}", "field": "status", "done": ["done"]},
+              "sources": ["https://example.org/t"]}
+    entry = learn_catalog.parse_train("new-trainer", json.dumps(online), learned_by="ollama/m")
+    learn_catalog._save_section("training_services", entry, "id")
+    monkeypatch.setenv("TRAIN_KEY", "test-key")
+    fetched: list[str] = []
+    result = train.status("new-trainer", "job-1", get=lambda url, headers: fetched.append(url) or train.TrainResponse(200, {"status": "done"}))
+    assert result.status == "refused" and "approve learned new-trainer" in (result.message or "")
+    assert fetched == []
+
+
 def test_learned_training_client_does_not_follow_redirects(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: dict = {}
 
@@ -516,22 +616,41 @@ def test_learned_host_paths_stay_inside_home(tmp_path: Path, monkeypatch: pytest
         learn_catalog.parse_host("eviltool", json.dumps(ph), learned_by="ollama/m")
 
 
+def test_host_path_with_inner_dotdot_is_refused_instead_of_rewritten(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
+    for answer in ({**HOST, "skills_folder": ".acme/../elsewhere"},
+                   {**HOST, "rule": {"user": "~/.acme/../elsewhere/AGENTS.md", "format": "md-block"}}):
+        with pytest.raises(learn.LearnError, match="paths"):
+            learn_catalog.parse_host("eviltool", json.dumps(answer), learned_by="ollama/m")
+
+
 def test_a_skills_folder_junction_cannot_leave_home(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     home = tmp_path / "home"
     outside = tmp_path / "outside"
     home.mkdir()
     outside.mkdir()
     monkeypatch.setattr(Path, "home", lambda: home)
-    entry = learn_catalog.parse_host("eviltool", json.dumps({**HOST, "skills_folder": "linked"}), learned_by="ollama/m")
-    learn_catalog._save_section("hosts", entry, "id")
     link = home / "linked"
     if os.name == "nt":
         subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(outside)], check=True, capture_output=True)
     else:
         link.symlink_to(outside, target_is_directory=True)
-    assert cli.main(["addons", "approve", "learned", "eviltool"]) == 0
+    with pytest.raises(learn.LearnError, match="paths"):
+        learn_catalog.parse_host("eviltool", json.dumps({**HOST, "skills_folder": "linked"}), learned_by="ollama/m")
+    assert learn_catalog.learned_raw("hosts", "eviltool") is None
+    assert list(outside.iterdir()) == []
+    entry = learn_catalog.parse_host("late-tool", json.dumps({**HOST, "skills_folder": "late"}), learned_by="ollama/m")
+    learn_catalog._save_section("hosts", entry, "id")
+    late_link = home / "late"
+    if os.name == "nt":
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(late_link), str(outside)], check=True, capture_output=True)
+    else:
+        late_link.symlink_to(outside, target_is_directory=True)
+    assert cli.main(["addons", "approve", "learned", "late-tool"]) == 0
     with pytest.raises(install_skill.InstallSkillError, match="outside"):
-        install_skill.install(host="eviltool", bundle=_skill(tmp_path), home=tmp_path / "ph")
+        install_skill.install(host="late-tool", bundle=_skill(tmp_path), home=tmp_path / "ph")
     assert not (outside / "skills" / "demo-skill").exists()
 
 
@@ -541,6 +660,30 @@ def test_a_host_name_is_not_rewritten(tmp_path: Path, monkeypatch: pytest.Monkey
         learn_catalog.ensure_host("../x", None, ask=lambda prompt: json.dumps(HOST))
     assert learn_catalog.learned_raw("hosts", "x") is None
     assert learn_catalog.plain_host_id("../x") is None
+    assert learn_catalog.plain_host_id("a/b") is None
+    assert learn_catalog.plain_host_id("!!") is None
+    assert learn_catalog.plain_host_id(" Foo ") == "foo"
+
+
+def test_relearned_unapproved_host_cannot_remove_existing_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", lambda: home)
+    entry = learn_catalog.parse_host("acme-ide", json.dumps(HOST), learned_by="ollama/m")
+    learn_catalog._save_section("hosts", entry, "id")
+    assert cli.main(["addons", "approve", "learned", "acme-ide"]) == 0
+    installed = install_skill.install(host="acme-ide", bundle=_skill(tmp_path), home=tmp_path / "ph")
+    target = hosts.target("acme-ide", "rule", "safe-rule", None)
+    hosts.install(target, "Keep this rule.\n")
+    learned = learn_catalog.learned_raw("hosts", "acme-ide")
+    assert learned is not None
+    learn_catalog._save_section("hosts", {**learned, "approved": False}, "id")
+    with pytest.raises(install_skill.InstallSkillError, match="approve learned acme-ide"):
+        install_skill.uninstall("demo-skill", host="acme-ide", home=tmp_path / "ph")
+    with pytest.raises(hosts.HostError, match="approve learned acme-ide"):
+        hosts.uninstall(target)
+    assert (installed.dest / "SKILL.md").is_file()
+    assert "Keep this rule." in target.path.read_text(encoding="utf-8")
 
 
 # --- order, listings and a bad pack -------------------------------------------------------------
@@ -586,16 +729,17 @@ def test_listing_an_unapproved_service_does_not_read_its_key(capsys: pytest.Capt
     assert train_row["key_env"] == "TRAIN_KEY" and train_row["key_set"] is None and "sk-train" not in json.dumps(train_row)
 
 
-def test_a_readable_pack_of_the_wrong_shape_is_kept_aside(tmp_path: Path) -> None:
+@pytest.mark.parametrize("bad", ["[]\n", '{"hosts": [42]}\n'])
+def test_a_readable_pack_of_the_wrong_shape_is_kept_aside(tmp_path: Path, bad: str) -> None:
     path = learn.pack_path()
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("[]\n", encoding="utf-8")
+    path.write_text(bad, encoding="utf-8")
     entry = learn_catalog.parse_host("acme-ide", json.dumps(HOST), learned_by="ollama/m")
     learn_catalog._save_section("hosts", entry, "id")
     saved = json.loads(path.read_text(encoding="utf-8"))
     assert isinstance(saved, dict) and saved["hosts"][0]["id"] == "acme-ide"
     aside = list(path.parent.glob("addon.json.unreadable-*"))
-    assert aside and aside[0].read_text(encoding="utf-8").strip() == "[]"
+    assert aside and aside[0].read_text(encoding="utf-8") == bad
 
 
 def test_an_oversize_answer_is_refused_and_extra_keys_are_dropped() -> None:
@@ -606,6 +750,22 @@ def test_an_oversize_answer_is_refused_and_extra_keys_are_dropped() -> None:
     media_answer = {**MEDIA, "submit": {**MEDIA["submit"], "evil": "rm -rf"}}
     entry = learn_catalog.parse_media("acme-images", json.dumps(media_answer), learned_by="ollama/m")
     assert "evil" not in entry["submit"] and entry["approved"] is False
+    too_long_key = {**MEDIA, "submit": {"path": "/images", "body": {"x" * 3001: "value"}}}
+    with pytest.raises(learn.LearnError, match="size limit"):
+        learn_catalog.parse_media("key-too-long", json.dumps(too_long_key), learned_by="ollama/m")
+    assert learn_catalog.learned_raw("media_providers", "key-too-long") is None
+
+
+def test_approval_preview_lists_all_platform_and_host_paths() -> None:
+    answer = {**PLATFORM, "checks": {**PLATFORM["checks"], "web_install": {"manifest": "manifest.json", "service_worker": "sw.js"}},
+              "build": {**PLATFORM["build"], "output": "dist/app.exe"}, "web_dir": "web"}
+    platform = learn_catalog.parse_platform("gadget-os", json.dumps(answer), learned_by="ollama/m")
+    preview = learn_catalog.would_do(platform)
+    for path in ("setup.json", "manifest.json", "sw.js", "dist/app.exe", "web"):
+        assert path in preview
+    host = learn_catalog.parse_host("acme-ide", json.dumps(HOST), learned_by="ollama/m")
+    preview = learn_catalog.would_do(host)
+    assert ".acme" in preview and "~/.acme/AGENTS.md" in preview
 
 
 def test_catalog_learning_uses_the_shared_steps(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -646,39 +806,73 @@ def test_catalog_learning_uses_the_shared_steps(monkeypatch: pytest.MonkeyPatch)
 
 def test_cli_learns_an_unknown_platform(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     _offline(monkeypatch, {"Proofhouse wraps working apps": PLATFORM})
-    code = cli.main(["make", "an app", "--kind", "app", "--platform", "gadget-os", "--provider", "ollama", "--model", "m",
-                     "--max-cost-usd", "1", "--allow-commands", "--out", str(tmp_path / "out")])
+    args = ["make", "an app", "--kind", "app", "--platform", "gadget-os", "--provider", "ollama", "--model", "m",
+            "--max-cost-usd", "1", "--allow-commands", "--out", str(tmp_path / "out")]
+    code = cli.main(args)
     assert code != 0 and "approve learned gadget-os" in capsys.readouterr().err
     assert learn_catalog.learned_raw("app_platforms", "gadget-os")["approved"] is False
+    assert not (tmp_path / "out").exists()
+    assert cli.main(["addons", "approve", "learned", "gadget-os"]) == 0
+    assert cli.main(args) == 0
+    assert (tmp_path / "out" / "gadget-os" / "setup.json").is_file()
 
 
 def test_cli_learns_an_unknown_deploy_target(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    _offline(monkeypatch, {"Proofhouse deploys finished sites": DEPLOY})
-    code = cli.main(["deploy", str(_site(tmp_path)), "--to", "myhost", "--provider", "ollama", "--model", "m",
+    deploy_answer = {**DEPLOY, "tool": sys.executable, "command": [sys.executable, "-c", "import sys;print(sys.argv[1])", "{folder}"]}
+    _offline(monkeypatch, {"Proofhouse deploys finished sites": deploy_answer})
+    site = _site(tmp_path)
+    code = cli.main(["deploy", str(site), "--to", "myhost", "--provider", "ollama", "--model", "m",
                      "--max-cost-usd", "1", "--dry-run"])
     assert code != 0 and "approve learned myhost" in capsys.readouterr().err
     assert learn_catalog.learned_raw("deploy_targets", "myhost")["approved"] is False
+    assert cli.main(["addons", "approve", "learned", "myhost"]) == 0
+    assert cli.main(["deploy", str(site), "--to", "myhost", "--allow-commands"]) == 0
+    records = (providers.proofhouse_home() / "deploys.jsonl").read_text(encoding="utf-8").splitlines()
+    assert json.loads(records[-1])["status"] == "deployed"
+    assert str(site) in json.loads(records[-1])["command"]
 
 
 def test_cli_learns_an_unknown_media_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
     _offline(monkeypatch, {"Proofhouse generates images, video, speech and music": MEDIA})
-    code = cli.main(["generate", "image", "--provider", "acme-images", "--model", "m", "--prompt", "a cat",
+    args = ["generate", "image", "--provider", "acme-images", "--model", "m", "--prompt", "a cat",
                      "--research-provider", "ollama", "--research-model", "m", "--max-cost-usd", "1",
-                     "--out", str(tmp_path / "pic")])
+                     "--out", str(tmp_path / "pic")]
+    code = cli.main(args)
     text = capsys.readouterr()
     assert code != 0 and "approve learned acme-images" in text.out + text.err
     assert learn_catalog.learned_raw("media_providers", "acme-images")["approved"] is False
+    assert not (tmp_path / "pic.png").exists()
+    assert cli.main(["addons", "approve", "learned", "acme-images"]) == 0
+    assert cli.main(["media", "price", "acme-images", "m", "--usd", "0.01"]) == 0
+    monkeypatch.setenv("ACME_IMAGE_KEY", "test-key")
+    monkeypatch.setattr(media, "_httpx_post", lambda request, **kwargs: media.MediaResponse(200, {"url": "https://api.acme.example/pic"}))
+    monkeypatch.setattr(media, "_httpx_get", lambda url, headers, **kwargs: media.MediaResponse(200, content=b"picture"))
+    assert cli.main(args) == 0
+    assert (tmp_path / "pic.png").read_bytes() == b"picture"
+
+
+def test_top_level_generate_other_forms_keep_eval_pointer(capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["generate", "anything-else"]) != 0
+    assert capsys.readouterr().err.strip() == "error: 'proofhouse generate' moved; use: proofhouse eval generate ..."
 
 
 def test_cli_learns_an_unknown_training_service(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    _offline(monkeypatch, {"Proofhouse trains models through online APIs or local": TRAIN})
+    keyed = {**TRAIN, "key_env": "TRAIN_KEY", "command": [sys.executable, "-c",
+             "import os,sys;sys.exit(0 if os.environ.get('TRAIN_KEY') else 3)"]}
+    _offline(monkeypatch, {"Proofhouse trains models through online APIs or local": keyed})
     data = tmp_path / "data.jsonl"
-    data.write_text("{}\n", encoding="utf-8")
-    code = cli.main(["train", "start", "--service", "local-tune", "--model", "m", "--data", str(data),
-                     "--provider", "ollama", "--max-cost-usd", "1", "--allow-commands", "--out", str(tmp_path / "train")])
+    data.write_text(json.dumps({"messages": [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "yo"}]}) + "\n", encoding="utf-8")
+    args = ["train", "start", "--service", "local-tune", "--model", "m", "--data", str(data),
+            "--provider", "ollama", "--max-cost-usd", "1", "--allow-commands", "--out", str(tmp_path / "train")]
+    code = cli.main(args)
     text = capsys.readouterr()
     assert code != 0 and "approve learned local-tune" in text.out + text.err
     assert learn_catalog.learned_raw("training_services", "local-tune")["approved"] is False
+    assert not (tmp_path / "train").exists()
+    assert cli.main(["addons", "approve", "learned", "local-tune"]) == 0
+    monkeypatch.setenv("TRAIN_KEY", "test-key")
+    assert cli.main(args) == 0
+    assert (tmp_path / "train" / "train.json").is_file()
 
 
 def test_cli_learns_an_unknown_host_for_install_and_skills(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
@@ -693,8 +887,19 @@ def test_cli_learns_an_unknown_host_for_install_and_skills(tmp_path: Path, monke
     assert code != 0 and "approve learned acme-ide" in capsys.readouterr().err
     assert learn_catalog.learned_raw("hosts", "acme-ide")["approved"] is False
     assert not (home / ".acme").exists()
-    code = cli.main(["install-skill", "--host", "other-ide", "--bundle", str(_skill(tmp_path)), "--provider", "ollama",
-                     "--model", "m", "--max-cost-usd", "1"])
+    assert cli.main(["addons", "approve", "learned", "acme-ide"]) == 0
+    assert cli.main(["install", "rule", str(rule), "--into", "acme-ide"]) == 0
+    assert (home / ".acme" / "AGENTS.md").is_file()
+    destination = home / ".acme" / "skills"
+    skill_args = ["install-skill", "--host", "other-ide", "--dest", str(destination), "--bundle", str(_skill(tmp_path)),
+                  "--provider", "ollama", "--model", "m", "--max-cost-usd", "1"]
+    code = cli.main(skill_args)
     assert code != 0 and "approve learned other-ide" in capsys.readouterr().err
     assert "other-ide" in learn_catalog.skill_hosts()
-    assert not (home / ".acme" / "skills").exists()
+    assert not destination.exists()
+    assert cli.main(["addons", "approve", "learned", "other-ide"]) == 0
+    default_args = ["install-skill", "--host", "other-ide", "--bundle", str(tmp_path / "skill"),
+                    "--provider", "ollama", "--model", "m", "--max-cost-usd", "1"]
+    assert cli.main(default_args) == 0
+    assert (destination / "demo-skill" / "SKILL.md").is_file()
+    assert cli.main(skill_args + ["--force"]) == 0

@@ -582,7 +582,7 @@ def install(
             _learn_host(host, research, ask)
         record = host_mod.all_hosts().get(host)
         pending = unapproved("hosts", host, record)
-        if pending is not None and dest is None:
+        if pending is not None:
             raise InstallSkillError(refusal_message(
                 pending, thing=f"Host {host}", command=f"{APPROVE_CMD} {host}"), EXIT_USAGE_ERROR)
     dest_dir = _dest_dir(dest, host, "installed")
@@ -831,6 +831,14 @@ def uninstall(
     problem = skill_name_problem(name)
     if problem is not None:
         raise InstallSkillError(f"{problem}; nothing was removed", EXIT_USAGE_ERROR)
+    if host is not None:
+        from .. import hosts as host_mod
+        from ..learn_catalog import APPROVE_CMD, refusal_message, unapproved
+
+        pending = unapproved("hosts", host, host_mod.all_hosts().get(host))
+        if pending is not None:
+            raise InstallSkillError(refusal_message(
+                pending, thing=f"Host {host}", command=f"{APPROVE_CMD} {host}"), EXIT_USAGE_ERROR)
     dest_dir = _dest_dir(dest, host, "removed")
     skill_dir = dest_dir / name
     history, record_text = _read_record(skill_dir, home)

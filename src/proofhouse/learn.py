@@ -137,7 +137,10 @@ def read_pack() -> dict[str, Any]:
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         data = None
-    if not isinstance(data, dict) or any(key in data and not isinstance(data[key], list) for key in addons.SECTIONS):
+    try:
+        checked = addons._check(data, str(path), "pack")
+        addons._check_entries(checked)
+    except (TypeError, ValueError):
         _keep_aside(path)
         return _empty_pack()
     return data

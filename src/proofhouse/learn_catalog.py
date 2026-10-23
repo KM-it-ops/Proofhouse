@@ -134,6 +134,19 @@ def would_do(entry: dict[str, Any]) -> str:
     if build.get("set_env"):
         parts.append(f"set_env: {build['set_env']}")
     paths: list[str] = []
+    checks = entry.get("checks") if isinstance(entry.get("checks"), dict) else {}
+    paths.extend(path for path in checks.get("files", []) if isinstance(path, str))
+    paths.extend(path for path in checks.get("json", {}) if isinstance(path, str))
+    web_install = checks.get("web_install") if isinstance(checks.get("web_install"), dict) else {}
+    paths.extend(path for path in web_install.values() if isinstance(path, str))
+    paths.extend(path for path in entry.get("refuse_files", []) if isinstance(path, str))
+    paths.extend(path for path in entry.get("refuse_keys", {}) if isinstance(path, str))
+    if isinstance(build.get("output"), str) and build["output"]:
+        paths.append(build["output"])
+    if isinstance(entry.get("web_dir"), str) and entry["web_dir"]:
+        paths.append(entry["web_dir"])
+    home_env = build.get("home_env") if isinstance(build.get("home_env"), dict) else {}
+    paths.extend(path for path in home_env.values() if isinstance(path, str))
     for kind in ("rule", "agent", "mcp"):
         spec = entry.get(kind)
         if isinstance(spec, dict):
@@ -296,6 +309,8 @@ def _placed(folder: str) -> Path:
 def _host_path_ok(template: str, project: bool) -> bool:
     from . import hosts
 
+    if any(part in (".", "..") for part in re.split(r"[\\/]", template)):
+        return False
     if project:
         root = Path.cwd().resolve()
         text = template.replace("{project}", str(root))
@@ -328,7 +343,8 @@ def _host_paths_ok(host: dict[str, Any]) -> bool:
                 return False
     folder = host.get("skills_folder")
     if folder is not None:
-        if not isinstance(folder, str) or path_rejected(_placed(folder), Path.home().resolve()) \
+        if not isinstance(folder, str) or any(part in (".", "..") for part in re.split(r"[\\/]", folder)) \
+                or path_rejected(_placed(folder), Path.home().resolve()) \
                 or path_rejected(_placed(folder) / "skills", Path.home().resolve()):
             return False
     return True
@@ -347,6 +363,8 @@ def _within_limits(data: dict[str, Any]) -> None:
                 walk(item)
         elif isinstance(value, dict):
             for name, item in value.items():
+                if not isinstance(name, str) or len(name) > _TEXT_LIMIT:
+                    raise LearnError("the model's answer is over the size limit; nothing was saved")
                 walk(item, name)
 
     walk(data)
@@ -602,7 +620,7 @@ def skill_hosts() -> dict[str, tuple[str, str, str]]:
             return
         label = str(host.get("name", host["id"]))
         hint = str(host.get("start_hint") or f"a new {label} session")
-        found[host["id"]] = (folder.lstrip("./"), label, hint)
+        found[host["id"]] = (folder, label, hint)
 
     for host in hosts._read_hosts(providers.proofhouse_home() / "hosts.json"):
         consider(host, replace=True)

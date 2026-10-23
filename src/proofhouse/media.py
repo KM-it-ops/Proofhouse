@@ -404,6 +404,14 @@ def _same_service_url(profile: MediaProvider, url: Any) -> bool:
 
 def _wait_and_fetch(profile: MediaProvider, response: MediaResponse, headers: dict[str, str], read: Callable[..., MediaResponse],
                     every: float, limit: float) -> bytes:
+    def checked_read(url: str, request_headers: dict[str, str]) -> MediaResponse:
+        if profile.origin == "add-on learned" and not _same_service_url(profile, url):
+            raise MediaError(f"{profile.name} gave an address that is not https on its own host: {url}")
+        answer = read(url, request_headers)
+        if profile.origin == "add-on learned" and (answer.location or 300 <= answer.status_code < 400):
+            raise MediaError(f"{profile.name} redirected to {answer.location or 'another address'}; nothing was sent there")
+        return answer
+
     if profile.result.get("binary"):
         if response.content is None:
             raise MediaError(f"{profile.name} answered with JSON where a file was expected")
@@ -415,7 +423,7 @@ def _wait_and_fetch(profile: MediaProvider, response: MediaResponse, headers: di
             raise MediaError(f"{profile.name} gave no address on its own host to check the job: {status_url}")
         waited = 0.0
         while True:
-            state = read(status_url, headers)
+            state = checked_read(status_url, headers)
             current = state.payload or {}
             status = _dig(current, profile.poll["status"])
             if status in profile.poll["done"]:
@@ -431,12 +439,12 @@ def _wait_and_fetch(profile: MediaProvider, response: MediaResponse, headers: di
             result_url = _dig(payload, profile.poll["result_url"]) or _dig(response.payload or {}, profile.poll["result_url"])
             if not _same_service_url(profile, result_url):
                 raise MediaError(f"{profile.name} gave an address that is not https on its own host: {result_url}")
-            payload = read(result_url, headers).payload or {}
+            payload = checked_read(result_url, headers).payload or {}
     for path in profile.result.get("asset", []):
         found = _dig(payload, path)
         if isinstance(found, str) and found:
             if found.startswith(("https://", "http://")):
-                fetched = read(found, {})
+                fetched = checked_read(found, {})
                 if fetched.content is None:
                     raise MediaError(f"{profile.name}'s file address returned no file")
                 return fetched.content

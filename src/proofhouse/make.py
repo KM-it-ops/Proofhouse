@@ -259,7 +259,6 @@ def make(
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = out_dir or Path.cwd() / f"make-{_slug(request)}-{stamp}"
-    folder.mkdir(parents=True, exist_ok=False)
     result = MakeResult(folder, kind, "rounds used up", None, None, Decimal(0))
 
     def call(role: str, prompt: str, input_text: str | None = None) -> str | None:
@@ -301,6 +300,7 @@ def make(
                 if pending:
                     raise MakeError(learn_catalog.refusal_message(
                         pending, thing=f"Platform {platform_id}", command=f"{learn_catalog.APPROVE_CMD} {platform_id}"))
+        folder.mkdir(parents=True, exist_ok=False)
         if learning:
             try:
                 result.learned = learn.learn(kind, lambda prompt: call("research", prompt), learned_by=f"{profile.id}/{model}")

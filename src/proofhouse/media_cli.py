@@ -64,6 +64,12 @@ def _cmd_media_price(args: argparse.Namespace) -> int:
         return _fail(str(exc))
     if profile is None:
         return _fail(f"no media service named {args.provider!r}; see `proofhouse media list`")
+    from . import learn_catalog
+
+    pending = learn_catalog.unapproved("media_providers", profile.id, profile)
+    if pending:
+        return _fail(learn_catalog.refusal_message(
+            pending, thing=f"Media service {profile.id}", command=f"{learn_catalog.APPROVE_CMD} {profile.id}"))
     data["media_prices"] = [p for p in data["media_prices"]
                             if not (isinstance(p, dict) and p.get("provider") == profile.id and p.get("model") == args.model)]
     if not args.remove:

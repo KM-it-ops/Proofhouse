@@ -108,11 +108,14 @@ def _parse(raw: object, origin: str) -> TrainService:
     if not isinstance(sid, str) or not providers._ID.fullmatch(sid):
         raise TrainError(f"training service id {sid!r} must be lowercase letters, digits, '.', '_' or '-'")
     hint = str(raw.get("use_hint") or "")
+    key_env = raw.get("key_env")
+    if key_env is not None and (not isinstance(key_env, str) or not providers._ENV.fullmatch(key_env)):
+        raise TrainError(f"{sid}: key_env must be an environment variable name")
     command = raw.get("command")
     if command is not None:
         if not isinstance(command, list) or not command or not all(isinstance(c, str) and c for c in command):
             raise TrainError(f"{sid}: command must be a list of words")
-        return TrainService(sid, str(raw.get("name", sid)), None, None, "none", None, None, None, None, tuple(command), hint, origin)
+        return TrainService(sid, str(raw.get("name", sid)), None, key_env, "none", None, None, None, None, tuple(command), hint, origin)
     upload, create, status = raw.get("upload"), raw.get("create"), raw.get("status")
     if not isinstance(upload, dict) or not isinstance(upload.get("path"), str) or not isinstance(upload.get("id"), str):
         raise TrainError(f"{sid}: upload needs a path and the id field of the answer")
@@ -125,9 +128,6 @@ def _parse(raw: object, origin: str) -> TrainService:
     auth = raw.get("auth", "bearer")
     if auth not in ("bearer", "none") and not (isinstance(auth, str) and auth.startswith("header:") and len(auth) > 7):
         raise TrainError(f"{sid}: auth must be bearer, none or header:<Name>")
-    key_env = raw.get("key_env")
-    if key_env is not None and (not isinstance(key_env, str) or not providers._ENV.fullmatch(key_env)):
-        raise TrainError(f"{sid}: key_env must be an environment variable name")
     try:
         base = providers.check_base_url(raw.get("base_url"))
     except providers.ProviderError as exc:
@@ -557,7 +557,12 @@ def _wait(profile: TrainService, result: TrainResult, headers: dict[str, str], r
     waited = 0.0
     while result.status == "started":
         try:
-            _apply_status(profile, result, read(_status_url(profile, result.job_id or ""), headers))
+            answer = read(_status_url(profile, result.job_id or ""), headers)
+            if answer.location or 300 <= answer.status_code < 400:
+                result.status, result.code = "error", "PHC-RUN-0006"
+                result.message = _scrub(f"PHC-RUN-0006: {profile.name} redirected to {answer.location or 'another address'}; nothing was sent there", secret)
+                return
+            _apply_status(profile, result, answer)
         except Exception as exc:  # noqa: BLE001 -- a failed read is reported; the job keeps running at the service
             result.message = _scrub(f"could not read the job status ({type(exc).__name__}); check later with `proofhouse train status`", secret)
             return
@@ -571,13 +576,24 @@ def _wait(profile: TrainService, result: TrainResult, headers: dict[str, str], r
 
 
 def status(service_id: str, job_id: str, *, get: Read | None = None) -> TrainResult:
+    from . import learn_catalog
+
     profile = find(service_id)
     if profile is None or profile.command is not None:
         return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: no online training service named {service_id!r}", service_id, "")
+    pending = learn_catalog.unapproved("training_services", service_id, profile)
+    if pending:
+        return TrainResult("refused", "PHC-RUN-0001", learn_catalog.refusal_message(
+            pending, thing=f"Training service {service_id}", command=f"{learn_catalog.APPROVE_CMD} {service_id}"), service_id, "")
     secret = os.environ.get(profile.key_env) if profile.key_env else None
     result = TrainResult("started", None, None, profile.id, "", job_id=job_id)
     try:
-        state = _apply_status(profile, result, (get or _httpx_get)(_status_url(profile, job_id), _headers(profile, secret)))
+        answer = (get or _httpx_get)(_status_url(profile, job_id), _headers(profile, secret))
+        if answer.location or 300 <= answer.status_code < 400:
+            return TrainResult("error", "PHC-RUN-0006", _scrub(
+                f"PHC-RUN-0006: {profile.name} redirected to {answer.location or 'another address'}; nothing was sent there", secret),
+                profile.id, "", job_id=job_id)
+        state = _apply_status(profile, result, answer)
     except Exception as exc:  # noqa: BLE001 -- the live boundary must not leak the key
         return TrainResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: could not read the job status ({type(exc).__name__})", profile.id, "", job_id=job_id)
     if result.status == "started":

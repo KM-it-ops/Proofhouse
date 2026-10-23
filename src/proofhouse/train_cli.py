@@ -64,6 +64,12 @@ def _cmd_price(args: argparse.Namespace) -> int:
         return _fail(str(exc))
     if service is None:
         return _fail(f"no training service named {args.service!r}; see `proofhouse train services`")
+    from . import learn_catalog
+
+    pending = learn_catalog.unapproved("training_services", service.id, service)
+    if pending:
+        return _fail(learn_catalog.refusal_message(
+            pending, thing=f"Training service {service.id}", command=f"{learn_catalog.APPROVE_CMD} {service.id}"))
     data["training_prices"] = [p for p in data["training_prices"]
                                if not (isinstance(p, dict) and p.get("provider") == service.id and p.get("model") == args.model)]
     if not args.remove:

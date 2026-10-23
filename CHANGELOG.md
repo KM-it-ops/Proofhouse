@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Unknown platforms, hosts, deploy targets, and media and training services are learned, not refused.** The chosen model researches the name through the spend gate, the answer is checked and saved in the `learned` add-on pack, and the command continues; keyed or command-running learned entries need `proofhouse addons approve learned <id>` or `--allow-commands` before anything runs.
+- **Unknown platforms, hosts, deploy targets, and media and training services are learned, not refused.** The chosen model researches the name through the spend gate, and the checked answer is saved in the `learned` add-on pack. The requested use waits for `proofhouse addons approve learned <id>`; learned commands also need `--allow-commands`.
 - **Compiled artifacts run on any provider.** `execute-openai --provider ID` sends a compiled artifact to any provider in the shipped list, an add-on, or your own `providers.json`, always through the spend gate. A required capability the provider cannot carry stops the run before sending and is named (`EXE-CAP-0001`). An entry may list `ignores`, capabilities its address accepts and drops; an ignored optional capability is written into the prompt instead. The key comes only from the provider entry's own `key_env`.
 - **`proofhouse "<goal>"` answers with make kinds** (agent, mcp, video, ...) and falls back to the older classes only where `make` has none. With `--provider` and `--model` a model picks, through the spend gate, and the built-in rules take over when its answer cannot be used. A goal that could be two kinds gets one short question when a person is at the terminal; unattended, the safer kind is picked and the reason says so. The answer key is `docs/overseer-test-set.md`.
 - **Native app builds proven on real machines.** A fixed sample app (`samples/native_build/`, built by `scripts/native_build_sample.py`) builds as a web app and on Windows, macOS, Linux, iOS and Android, with no model and no keys. `.github/workflows/native-builds.yml` runs it on GitHub's machines.
@@ -25,6 +25,7 @@
 
 ### Fixed
 
+- U8 learned entries now show all platform and host paths before approval, preserve leading dots in skill folders, and leave output and destination folders untouched while approval is pending. Service prices, status reads and removals also honor approval. Learned media checks returned file, result and status addresses and reports redirects; local training receives only its named key. Invalid learned pack sections are kept aside, and answer size limits include object keys. Offline command-line tests now cover use after approval for all five learned lists.
 - Add-ons can no longer claim the built-in kind names `rule`, `mcp` and `hook`.
 - The dashboard's reduced-motion rule left some animations looping; they now stop.
 - **App build output check.** A build that rewrites its output within the same clock tick now passes. The check never follows symbolic links or Windows junctions out of the app folder, opens only plain files (a named pipe used to hang it), and stops hashing past 1 GB. A `.cmd` build tool whose path holds cmd.exe special characters is refused.
