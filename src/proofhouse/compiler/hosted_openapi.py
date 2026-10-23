@@ -50,8 +50,8 @@ def _command_request_schema(subparser: Any) -> dict[str, Any]:
     required: list[str] = []
     for action in subparser._actions:
         option_strings = tuple(action.option_strings)
-        if action.dest in {"help", "func"}:
-            continue
+        if action.dest in {"help", "func", "research_provider", "research_model"}:
+            continue  # local research flags; not part of the hosted compiler contract
         if option_strings == ("-h", "--help") or option_strings == ("--help",):
             continue
         name = action.dest.replace("_", "-")

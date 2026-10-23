@@ -49,6 +49,7 @@ import zipfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from ..compiler.canonical import canonical_sha256
 from ..parts import SKILL_HOSTS
@@ -136,16 +137,35 @@ class SkillSource:
 
 
 def _check_host(host: str) -> None:
-    if host not in HOSTS:
-        raise InstallSkillError(f"unknown host {host!r}; choose from {', '.join(sorted(HOSTS))}", EXIT_USAGE_ERROR)
+    from ..learn_catalog import skill_hosts
+
+    if host not in skill_hosts():
+        raise InstallSkillError(
+            f"invalid choice {host!r}; name --provider and --model to research a host Proofhouse does not know",
+            EXIT_USAGE_ERROR,
+        )
+
+
+def _learn_host(host: str, research: Any = None, ask: Any = None) -> None:
+    from .. import learn
+    from ..learn_catalog import ensure_host, skill_hosts
+
+    if host in skill_hosts():
+        return
+    try:
+        ensure_host(host, research, ask)
+    except learn.LearnError as exc:
+        raise InstallSkillError(str(exc), EXIT_USAGE_ERROR) from None
 
 
 def default_dest(host: str) -> Path:
+    from ..learn_catalog import skill_hosts
+
     _check_host(host)
-    return Path.home() / HOSTS[host][0] / "skills"
+    return Path.home() / skill_hosts()[host][0] / "skills"
 
 
-def resolve_host(host: str | None, dest: Path | None) -> str | None:
+def resolve_host(host: str | None, dest: Path | None, research: Any = None, ask: Any = None) -> str | None:
     """The agent to install for, without guessing.
 
     An explicit ``host`` wins. With ``dest`` the folder is already chosen, so no agent is needed
@@ -153,6 +173,13 @@ def resolve_host(host: str | None, dest: Path | None) -> str | None:
     none or several is a usage error that lists the ``--host`` choices.
     """
     if host is not None:
+        from ..learn_catalog import skill_hosts
+
+        if host not in skill_hosts():
+            if research is None and ask is None:
+                _check_host(host)
+            else:
+                _learn_host(host, research, ask)
         _check_host(host)
         return host
     if dest is not None:
@@ -539,13 +566,32 @@ def install(
     force: bool = False,
     host: str | None = None,
     home: Path | None = None,
+    research: Any = None,
+    ask: Any = None,
 ) -> InstallResult:
     """Install into ``dest``, or into ``host``'s skills folder; never assumes an agent.
 
     ``bundle`` is a zip or a skill folder (default: Proofhouse's own skill).
     ``home`` overrides ``PROOFHOUSE_HOME`` for backups and install records.
     """
+    record = None
+    if host is not None:
+        from ..learn_catalog import APPROVE_CMD, active_skill_host, refusal_message, skill_hosts, unapproved
+
+        if host not in skill_hosts() and (research is not None or ask is not None):
+            _learn_host(host, research, ask)
+        record = active_skill_host(host)
+        pending = unapproved("hosts", host, record)
+        if pending is not None:
+            raise InstallSkillError(refusal_message(
+                pending, thing=f"Host {host}", command=f"{APPROVE_CMD} {host}"), EXIT_USAGE_ERROR)
     dest_dir = _dest_dir(dest, host, "installed")
+    if host is not None and dest is None and record is not None and record.get("origin") == "add-on learned":
+        from ..learn_catalog import path_rejected
+
+        problem = path_rejected(dest_dir, Path.home())
+        if problem:
+            raise InstallSkillError(problem, EXIT_USAGE_ERROR)
     bundle_path = Path(bundle) if bundle is not None else DEFAULT_BUNDLE
     skill = read_skill(bundle_path, dest_dir)
     skill_dir = dest_dir / skill.name
@@ -782,6 +828,13 @@ def uninstall(
     problem = skill_name_problem(name)
     if problem is not None:
         raise InstallSkillError(f"{problem}; nothing was removed", EXIT_USAGE_ERROR)
+    if host is not None:
+        from ..learn_catalog import APPROVE_CMD, active_skill_host, refusal_message, unapproved
+
+        pending = unapproved("hosts", host, active_skill_host(host))
+        if pending is not None:
+            raise InstallSkillError(refusal_message(
+                pending, thing=f"Host {host}", command=f"{APPROVE_CMD} {host}"), EXIT_USAGE_ERROR)
     dest_dir = _dest_dir(dest, host, "removed")
     skill_dir = dest_dir / name
     history, record_text = _read_record(skill_dir, home)

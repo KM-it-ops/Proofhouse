@@ -141,6 +141,8 @@ def legacy_form_pointer(argv: list[str]) -> str | None:
         return None
     if argv[0] == "validate" and not any(arg == "--dataset" or arg.startswith("--dataset=") for arg in argv[1:]):
         return None
+    if argv[0] == "generate" and len(argv) > 1 and argv[1] in ("image", "video", "speech", "music"):
+        return None
     return f"error: 'proofhouse {argv[0]}' moved; use: {LEGACY_FORMS[argv[0]]}"
 
 

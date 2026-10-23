@@ -240,11 +240,13 @@ def make(
         raise MakeError(str(exc)) from exc
     chosen = list(dict.fromkeys(platforms if platforms is not None else catalog))
     if kind == "app":
-        unknown = [platform for platform in chosen if platform not in catalog]
-        if unknown:
-            raise MakeError(f"unknown platform: {', '.join(unknown)}; known: {', '.join(sorted(catalog))}")
         if not chosen:
             raise MakeError("choose at least one platform")
+        from . import learn_catalog
+
+        for platform_id in chosen:
+            if learn_catalog.plain_platform_id(platform_id) is None:
+                raise MakeError(f"{platform_id!r} is not a plain platform name")
     profile = providers.find(provider_id)
     if profile is None:
         raise MakeError(f"no provider named {provider_id!r}; see `proofhouse providers list`")
@@ -257,7 +259,6 @@ def make(
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = out_dir or Path.cwd() / f"make-{_slug(request)}-{stamp}"
-    folder.mkdir(parents=True, exist_ok=False)
     result = MakeResult(folder, kind, "rounds used up", None, None, Decimal(0))
 
     def call(role: str, prompt: str, input_text: str | None = None) -> str | None:
@@ -279,6 +280,27 @@ def make(
 
     current: str | None = None
     try:
+        if kind == "app":
+            from . import learn_catalog
+
+            for platform_id in chosen:
+                if platform_id not in catalog:
+                    try:
+                        learn_catalog.ensure_platform(platform_id, None, lambda prompt, pid=platform_id: call("research", prompt))
+                    except (learn.LearnError, _Stop):
+                        raise MakeError(
+                            f"unknown platform: {platform_id}; known: {', '.join(sorted(catalog))}"
+                        ) from None
+            catalog = app_platforms.all_platforms()
+            missing = [platform for platform in chosen if platform not in catalog]
+            if missing:
+                raise MakeError(f"unknown platform: {', '.join(missing)}; known: {', '.join(sorted(catalog))}")
+            for platform_id in chosen:
+                pending = learn_catalog.unapproved("app_platforms", platform_id, catalog.get(platform_id))
+                if pending:
+                    raise MakeError(learn_catalog.refusal_message(
+                        pending, thing=f"Platform {platform_id}", command=f"{learn_catalog.APPROVE_CMD} {platform_id}"))
+        folder.mkdir(parents=True, exist_ok=False)
         if learning:
             try:
                 result.learned = learn.learn(kind, lambda prompt: call("research", prompt), learned_by=f"{profile.id}/{model}")

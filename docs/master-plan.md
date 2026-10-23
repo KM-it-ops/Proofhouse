@@ -49,6 +49,7 @@ How it behaves everywhere:
 | Train and fine-tune models (online services or on your own machine) | works |
 | Add-ons that add providers, services, tools and make kinds | works |
 | Learn a kind it does not know instead of refusing it | works |
+| Learn an app platform, coding-tool host, deploy target, media or training service it does not know | works; each is saved unapproved and does nothing until `proofhouse addons approve learned <id>` |
 | Keep the model and AI-workspace list current (`proofhouse models update`) | works; list checked against official pages 2026-10-18 |
 | Project scan | works |
 | Evidence record: sealed benchmarks, type-strict rubric scoring, strict JSON inputs, required requirement coverage | works (four old defects fixed 2026-10-16) |
@@ -102,6 +103,14 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    refused; the model list keeps itself current (`proofhouse models update`) and now has GPT-6.1, GPT-6,
    Claude Opus/Sonnet/Haiku 5.5, Gemini 4 Argon, Grok 4.7 and Grok Bot; the send address is checked
    against the provider's host last; one run reads the providers file once.
+   - **U8, learn the other lists too.** Done (2026-10-23). An app platform, coding-tool host, deploy
+     target, media service or training service Proofhouse does not know is researched by the chosen
+     model and learned, from the command line as well as the Python API. A learned entry is saved
+     unapproved: until the owner runs `proofhouse addons approve learned <id>`, it sends, runs and
+     writes nothing, and shows exactly what it would do. Learned addresses must be https on a public
+     host, and the key never leaves that host; learned file paths stay inside the home folder.
+     `proofhouse generate image|video|speech|music` now reaches media from the command line. Cursor
+     and Codex built and fixed it; agy, Codex, Cursor and two Opus security passes checked each round.
 
 ## Known limits
 

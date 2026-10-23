@@ -57,6 +57,9 @@ class MediaProvider:
 
     @property
     def local(self) -> bool:
+        # A learned service is never treated as local, even at a loopback address: it always needs a spending limit.
+        if self.origin == "add-on learned":
+            return False
         return (urlparse(self.base_url).hostname or "").lower() in providers.LOCAL_HOSTS
 
 
@@ -73,6 +76,7 @@ class MediaResponse:
     status_code: int
     payload: dict[str, Any] | None = None
     content: bytes | None = None
+    location: str | None = None
 
 
 Transport = Callable[[str, str, dict[str, str], bytes | None], MediaResponse]
@@ -124,6 +128,12 @@ def _parse(raw: object, origin: str) -> MediaProvider:
         base = providers.check_base_url(raw.get("base_url"))
     except providers.ProviderError as exc:
         raise MediaError(f"{pid}: {exc}") from None
+    if origin in ("learned", "add-on learned") and result.get("ext") is not None:
+        from .learn_catalog import media_ext_problem
+
+        problem = media_ext_problem(result.get("ext"))
+        if problem:
+            raise MediaError(f"{pid}: {problem}")
     return MediaProvider(pid, str(raw.get("name", pid)), kinds, base, key_env, auth, unit, submit, poll, result, origin)
 
 
@@ -144,16 +154,28 @@ def user_path() -> Path:
 
 
 def all_media_providers() -> dict[str, MediaProvider]:
-    from . import addons
+    """Shipped services, then yours, then other add-on packs. A learned service is used only when the id is still free."""
+    from . import learn_catalog
 
-    found = {p.id: p for p in (_parse(raw, "shipped") for raw in _load(SHIPPED_PATH))}
-    for name, raw in addons.contributions("media_providers"):
+    shipped = {p.id: p for p in (_parse(raw, "shipped") for raw in _load(SHIPPED_PATH))}
+    user = {p.id: p for p in (_parse(raw, "yours") for raw in _load(user_path()))}
+    found = dict(shipped)
+    found.update(user)
+    others, learned = learn_catalog.split_contributions("media_providers")
+    for name, raw in others:
         try:
             added = _parse(raw, f"add-on {name}")
         except MediaError:
             continue  # checked when the pack was installed; a package add-on's bad entry is skipped
         found[added.id] = added
-    found.update({p.id: p for p in (_parse(raw, "yours") for raw in _load(user_path()))})
+    for name, raw in learned:
+        if raw.get("id") in found:
+            continue
+        try:
+            added = _parse(raw, f"add-on {name}")
+        except MediaError:
+            continue
+        found[added.id] = added
     return found
 
 
@@ -225,28 +247,32 @@ def _headers(profile: MediaProvider, secret: str | None) -> dict[str, str]:
     return headers
 
 
-def _httpx_post(request: MediaRequest) -> MediaResponse:
+def _httpx_post(request: MediaRequest, *, follow_redirects: bool = True) -> MediaResponse:
     try:
         import httpx
     except ImportError:
         raise ModuleNotFoundError("httpx") from None
-    with httpx.Client(timeout=600.0, follow_redirects=True) as client:
+    with httpx.Client(timeout=600.0, follow_redirects=follow_redirects) as client:
         reply = client.post(request.url, headers=request.headers, content=request.body_bytes)
         return _as_response(reply)
 
 
-def _httpx_get(url: str, headers: dict[str, str]) -> MediaResponse:
+def _httpx_get(url: str, headers: dict[str, str], *, follow_redirects: bool = True) -> MediaResponse:
     """A plain read (job status, finished file). It sends no body and costs nothing."""
     try:
         import httpx
     except ImportError:
         raise ModuleNotFoundError("httpx") from None
-    with httpx.Client(timeout=600.0, follow_redirects=True) as client:
+    with httpx.Client(timeout=600.0, follow_redirects=follow_redirects) as client:
         return _as_response(client.get(url, headers=headers))
 
 
 def _as_response(reply: Any) -> MediaResponse:
-    kind = reply.headers.get("content-type", "")
+    headers = getattr(reply, "headers", {}) or {}
+    location = headers.get("location") or headers.get("Location")
+    if isinstance(location, str) and 300 <= reply.status_code < 400:
+        return MediaResponse(reply.status_code, None, None, location)
+    kind = headers.get("content-type", "")
     if "json" in kind:
         try:
             return MediaResponse(reply.status_code, reply.json())
@@ -272,15 +298,43 @@ def generate(
     get: Callable[[str, dict[str, str]], MediaResponse] | None = None,
     poll_every: float = 2.0,
     poll_limit_seconds: float = 900.0,
+    research: Any = None,
+    ask: Any = None,
 ) -> MediaResult:
     """Make one image, video clip, voice track or music track and save it at ``out`` (extension added if missing)."""
+    from . import learn, learn_catalog
+
     model = (model or "").strip()
     try:
         profile = find(provider_id)
     except MediaError as exc:
         return _refused("PHC-RUN-0001", str(exc), provider_id, model, kind)
     if profile is None:
-        return _refused("PHC-RUN-0001", f"no media service named {provider_id!r}; see `proofhouse media list`", provider_id, model, kind)
+        if ask is None and research is None:
+            return _refused("PHC-RUN-0001", f"no media service named {provider_id!r}; see `proofhouse media list`", provider_id, model, kind)
+        try:
+            if ask is not None:
+                learn_catalog.ensure_media(provider_id, None, ask)
+            else:
+                learn_catalog.ensure_media(provider_id, research)
+        except learn.LearnError as exc:
+            return _refused("PHC-RUN-0001", str(exc), provider_id, model, kind)
+        try:
+            profile = find(provider_id)
+        except MediaError as exc:
+            return _refused("PHC-RUN-0001", str(exc), provider_id, model, kind)
+    if profile is None:
+        return _refused("PHC-RUN-0001", f"could not learn media service {provider_id!r}", provider_id, model, kind)
+    pending = learn_catalog.unapproved("media_providers", provider_id, profile)
+    if pending:
+        return _refused(
+            "PHC-RUN-0001",
+            learn_catalog.refusal_message(pending, thing=f"Media service {provider_id}",
+                                          command=f"{learn_catalog.APPROVE_CMD} {provider_id}"),
+            provider_id,
+            model,
+            kind,
+        )
     if kind not in profile.kinds:
         return _refused("PHC-RUN-0002", f"{profile.name} does not make {kind} (it makes {', '.join(profile.kinds)})", profile.id, model, kind)
     if not model or not prompt.strip():
@@ -293,13 +347,14 @@ def generate(
             return _refused("PHC-RUN-0002", "name a spending limit for a paid service (--max-cost-usd)", profile.id, model, kind)
         max_cost_usd = "0.000000000001"
     headers = _headers(profile, secret)
-    read = get or _httpx_get
+    follow = profile.origin != "add-on learned"
+    read = get or (lambda url, hdrs: _httpx_get(url, hdrs, follow_redirects=follow))
 
     def _dispatch(url: str, body_bytes: bytes) -> Any:
         # The only paid send. It runs only when the spend gate calls it, with the request the gate built and counted.
         request = MediaRequest(url, headers, {}, body_bytes)
         try:
-            return transport(request) if transport is not None else _httpx_post(request)
+            return transport(request) if transport is not None else _httpx_post(request, follow_redirects=follow)
         except ModuleNotFoundError:
             return "httpx is not installed (pip install 'proofhouse[live]')"
         except Exception as exc:  # noqa: BLE001 -- the live boundary must not leak the key
@@ -316,6 +371,10 @@ def generate(
     response = gated.response
     if not isinstance(response, MediaResponse):
         return MediaResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: the request could not be sent ({response}); nothing more was tried", **base, cost=cost)
+    if response.location or 300 <= response.status_code < 400:
+        where = response.location or "another address"
+        return MediaResult("error", "PHC-RUN-0006", _scrub(
+            f"PHC-RUN-0006: {profile.name} redirected to {where}; nothing was sent there", secret), **base, cost=cost)
     if not 200 <= response.status_code < 300:
         reason = _dig(response.payload or {}, "error.message") or _dig(response.payload or {}, "detail")
         message = f"PHC-RUN-0006: {profile.name} answered HTTP {response.status_code}" + (f": {reason}" if isinstance(reason, str) else "")
@@ -335,8 +394,30 @@ def _scrub(text: str, secret: str | None) -> str:
     return text.replace(secret, _REDACTED) if secret else text
 
 
+def _same_service_url(profile: MediaProvider, url: Any) -> bool:
+    """A status or result address: https (or local http for a built-in) and the service's own host."""
+    if not isinstance(url, str) or not url:
+        return False
+    if profile.origin == "add-on learned":
+        from .learn_catalog import public_https
+
+        if not public_https(url):
+            return False
+    elif not url.startswith(("https://", "http://localhost", "http://127.0.0.1")):
+        return False
+    return (urlparse(url).hostname or "").lower() == (urlparse(profile.base_url).hostname or "").lower()
+
+
 def _wait_and_fetch(profile: MediaProvider, response: MediaResponse, headers: dict[str, str], read: Callable[..., MediaResponse],
                     every: float, limit: float) -> bytes:
+    def checked_read(url: str, request_headers: dict[str, str]) -> MediaResponse:
+        if profile.origin == "add-on learned" and not _same_service_url(profile, url):
+            raise MediaError(f"{profile.name} gave an address that is not https on its own host: {url}")
+        answer = read(url, request_headers)
+        if profile.origin == "add-on learned" and (answer.location or 300 <= answer.status_code < 400):
+            raise MediaError(f"{profile.name} redirected to {answer.location or 'another address'}; nothing was sent there")
+        return answer
+
     if profile.result.get("binary"):
         if response.content is None:
             raise MediaError(f"{profile.name} answered with JSON where a file was expected")
@@ -344,11 +425,11 @@ def _wait_and_fetch(profile: MediaProvider, response: MediaResponse, headers: di
     payload = response.payload or {}
     if profile.poll:
         status_url = _dig(payload, profile.poll["url"])
-        if not isinstance(status_url, str) or not status_url.startswith(("https://", "http://localhost", "http://127.0.0.1")):
-            raise MediaError(f"{profile.name} gave no address to check the job")
+        if not _same_service_url(profile, status_url):
+            raise MediaError(f"{profile.name} gave no address on its own host to check the job: {status_url}")
         waited = 0.0
         while True:
-            state = read(status_url, headers)
+            state = checked_read(status_url, headers)
             current = state.payload or {}
             status = _dig(current, profile.poll["status"])
             if status in profile.poll["done"]:
@@ -362,14 +443,14 @@ def _wait_and_fetch(profile: MediaProvider, response: MediaResponse, headers: di
             waited += every
         if profile.poll.get("result_url"):
             result_url = _dig(payload, profile.poll["result_url"]) or _dig(response.payload or {}, profile.poll["result_url"])
-            if not isinstance(result_url, str):
-                raise MediaError(f"{profile.name} gave no address for the result")
-            payload = read(result_url, headers).payload or {}
+            if not _same_service_url(profile, result_url):
+                raise MediaError(f"{profile.name} gave an address that is not https on its own host: {result_url}")
+            payload = checked_read(result_url, headers).payload or {}
     for path in profile.result.get("asset", []):
         found = _dig(payload, path)
         if isinstance(found, str) and found:
             if found.startswith(("https://", "http://")):
-                fetched = read(found, {})
+                fetched = checked_read(found, {})
                 if fetched.content is None:
                     raise MediaError(f"{profile.name}'s file address returned no file")
                 return fetched.content

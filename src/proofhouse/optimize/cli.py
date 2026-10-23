@@ -752,12 +752,19 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
     dest = Path(args.dest) if args.dest else None
     bundle = Path(args.bundle) if args.bundle else None
     try:
+        research = None
+        if getattr(args, "provider", None) and getattr(args, "model", None):
+            from ..learn_catalog import Research
+
+            research = Research(args.provider, args.model, max_cost_usd=getattr(args, "max_cost_usd", None))
         if args.host is None and dest is None and _stdin_is_terminal():
             host, dest, agent = _ask_agent()
         else:
-            host = install_mod.resolve_host(args.host, dest)
-            agent = install_mod.HOSTS[host][1] if host else None
-        result = install_mod.install(dest, bundle, force=args.force, host=host)
+            from ..learn_catalog import skill_hosts
+
+            host = install_mod.resolve_host(args.host, dest, research=research)
+            agent = skill_hosts()[host][1] if host else None
+        result = install_mod.install(dest, bundle, force=args.force, host=host, research=research)
     except install_mod.InstallSkillError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return exc.exit_code
@@ -782,7 +789,9 @@ def _cmd_install_skill(args: argparse.Namespace) -> int:
     print(f"  verified: name: {result.name}")
     if result.backup is not None:
         print(f"  previous installation kept at: {result.backup}")
-    where = install_mod.HOSTS[host][2] if host else f"a new chat or session in {agent or 'your agent'}"
+    from ..learn_catalog import skill_hosts
+
+    where = skill_hosts()[host][2] if host else f"a new chat or session in {agent or 'your agent'}"
     if result.name == install_mod.SKILL_NAME:
         print(f'  next: start {where} and say "Proofhouse"')
     else:
@@ -832,7 +841,6 @@ def _add_install_skill(subparsers: argparse._SubParsersAction) -> None:
     )
     p_install.add_argument(
         "--host",
-        choices=sorted(install_mod.HOSTS),
         default=None,
         help=(
             "Agent to install for: cursor (~/.cursor/skills) or claude (Claude Code, ~/.claude/skills). "
@@ -860,6 +868,9 @@ def _add_install_skill(subparsers: argparse._SubParsersAction) -> None:
         action="store_true",
         help="Replace an existing <dest>/<name> directory (it is backed up first).",
     )
+    p_install.add_argument("--provider", default=None, help="Provider that researches a host Proofhouse does not know.")
+    p_install.add_argument("--model", default=None, help="Model that researches a host Proofhouse does not know.")
+    p_install.add_argument("--max-cost-usd", default=None, help="Spending limit for researching a host.")
     p_install.add_argument("--json", action="store_true", help="Emit a single JSON object.")
     p_install.set_defaults(func=_cmd_install_skill)
 

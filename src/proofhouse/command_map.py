@@ -62,6 +62,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "addons list": (SPINE, "", "add-ons: every pack and package add-on, what each adds, and any that failed to load"),
     "addons install": (SPINE, "", "add-ons: checks and installs a pack of providers, services, tools and make kinds"),
     "addons remove": (SPINE, "", "add-ons: removes an installed pack"),
+    "addons approve": (SPINE, "", "add-ons: approves a learned entry that sends a key or runs a command"),
     "train data": (SPINE, "", "training: cleans examples into training and check files"),
     "train services": (SPINE, "", "training: every training service, online and on this machine, shipped and yours"),
     "train price": (SPINE, "", "training: declares a price per million training tokens"),

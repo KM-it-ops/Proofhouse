@@ -55,14 +55,76 @@ def research_prompt(kind: str) -> str:
     return _RESEARCH.replace("{kind}", kind)
 
 
+def nesting(value: Any) -> int:
+    """How deep a JSON value is, counted without recursion so a hostile answer cannot crash the count."""
+    deepest = 0
+    pending: list[tuple[Any, int]] = [(value, 1)]
+    while pending:
+        item, depth = pending.pop()
+        if depth > deepest:
+            deepest = depth
+        if isinstance(item, dict):
+            pending.extend((child, depth + 1) for child in item.values())
+        elif isinstance(item, list):
+            pending.extend((child, depth + 1) for child in item)
+    return deepest
+
+
+def extract_answer(answer: str | None, *, thing: str = "the answer") -> dict[str, Any] | None:
+    """The one JSON object in a research answer, or ``None`` when it is not that object.
+
+    An answer nested deeper than the built-in entries need is a ``LearnError`` naming ``thing``.
+    ``RecursionError`` never leaves this function.
+    """
+    try:
+        match = re.search(r"\{.*\}", answer or "", flags=re.S)
+        try:
+            data = json.loads(match.group(0)) if match else None
+        except ValueError:
+            data = None
+        if not isinstance(data, dict):
+            return None
+        from . import learn_catalog
+
+        if nesting(data) > learn_catalog.answer_depth_limit():
+            raise LearnError(f"{thing} is nested too deeply")
+        return data
+    except RecursionError:
+        raise LearnError(f"{thing} is nested too deeply") from None
+
+
+def provenance(answer: dict[str, Any], *, learned_by: str, what_limit: int = 600, source_limit: int = 10) -> dict[str, Any]:
+    """Where a learned entry came from. The sources are the model's own list, marked as not checked."""
+    sources = answer.get("sources") if isinstance(answer.get("sources"), list) else []
+    what = answer.get("what_it_is")
+    text = what.strip() if isinstance(what, str) else ""
+    return {
+        "what_it_is": text[:what_limit],
+        "sources": [s for s in sources if isinstance(s, str) and re.match(r"https?://\S+$", s) and len(s) <= 300][:source_limit],
+        "sources_note": SOURCES_NOTE,
+        "learned_by": learned_by,
+        "learned_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+
+
+def ask_model(provider_id: str, model: str, prompt: str, *, max_cost_usd: str | None = None,
+              max_output_tokens: int = 2048, transport: Any = None) -> str | None:
+    """One research call through ``live.run_prompt``, and so through the spend gate."""
+    from . import live
+
+    reply = live.run_prompt(
+        provider_id, model, prompt=prompt, input_text=None,
+        max_output_tokens=max_output_tokens, max_cost_usd=max_cost_usd, transport=transport,
+    )
+    if reply.status != "success":
+        raise LearnError(reply.message or reply.code or "the research call did not succeed")
+    return reply.output_text
+
+
 def parse(kind: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
     """The make-kind entry the research answer describes, or ``LearnError``."""
-    match = re.search(r"\{.*\}", answer or "", flags=re.S)
-    try:
-        data = json.loads(match.group(0)) if match else None
-    except ValueError:
-        data = None
-    if not isinstance(data, dict):
+    data = extract_answer(answer, thing=kind)
+    if data is None:
         raise LearnError("the model's research answer was not the JSON asked for")
     what = data.get("what_it_is")
     write = data.get("write")
@@ -72,16 +134,11 @@ def parse(kind: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
         raise LearnError("the model wrote no usable instructions for making one")
     subject = data.get("subject")
     label = re.sub(r"[^A-Z0-9 ]+", " ", subject.upper()).strip()[:40] if isinstance(subject, str) else ""
-    sources = data.get("sources") if isinstance(data.get("sources"), list) else []
     return {
         "kind": kind,
         "write": f"{write.strip()[:6000]}\n\nWhat a {kind} is: {what.strip()[:600]}",
         "subject": label or kind.upper().replace("-", " "),
-        "what_it_is": what.strip()[:600],
-        "sources": [s for s in sources if isinstance(s, str) and re.match(r"https?://\S+$", s) and len(s) <= 300][:10],
-        "sources_note": SOURCES_NOTE,
-        "learned_by": learned_by,
-        "learned_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        **provenance(data, learned_by=learned_by),
     }
 
 
@@ -89,26 +146,73 @@ def pack_path() -> Path:
     return addons.packs_dir() / LEARNED_PACK / "addon.json"
 
 
+def _empty_pack() -> dict[str, Any]:
+    return {"schema": addons.ADDON_SCHEMA, "name": LEARNED_PACK, "version": "1",
+            "description": "Things Proofhouse researched the first time you asked for them"}
+
+
+def _keep_aside(path: Path) -> None:
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
+    path.replace(path.with_name(f"addon.json.unreadable-{stamp}"))
+
+
+def read_pack() -> dict[str, Any]:
+    """The learned pack. A file that cannot be read, or that is not a pack object, is kept aside."""
+    path = pack_path()
+    if not path.is_file():
+        return _empty_pack()
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        data = None
+    try:
+        checked = addons._check(data, str(path), "pack")
+        addons._check_entries(checked)
+    except (TypeError, ValueError):
+        _keep_aside(path)
+        return _empty_pack()
+    return data
+
+
+def write_pack(raw: dict[str, Any]) -> Path:
+    providers.write_atomic(pack_path(), json.dumps(raw, indent=2, ensure_ascii=False) + "\n")
+    return pack_path()
+
+
+def save_section(section: str, entry: dict[str, Any], id_key: str) -> Path:
+    """Add or replace one entry in the learned pack. The pack is checked before it is written."""
+    from . import app_platforms, deploy, hosts, media, train
+
+    raw = read_pack()
+    for key in addons.SECTIONS:
+        raw.setdefault(key, [])
+    entries = [item for item in raw.get(section, []) if isinstance(item, dict) and item.get(id_key) != entry[id_key]]
+    raw[section] = entries + [entry]
+    raw["schema"] = addons.ADDON_SCHEMA
+    raw["name"] = LEARNED_PACK
+    raw.setdefault("version", "1")
+    raw.setdefault("description", "Things Proofhouse researched the first time you asked for them")
+    addon = addons._check(raw, str(pack_path()), "pack")
+    if section == "app_platforms":
+        for item in addon.contents["app_platforms"]:
+            app_platforms._validate_entry(item, "learned")
+    if section == "hosts":
+        hosts._check_hosts(addon.contents["hosts"], "learned")
+    if section == "deploy_targets":
+        for item in addon.contents["deploy_targets"]:
+            deploy._check(item, "learned")
+    if section == "media_providers":
+        for item in addon.contents["media_providers"]:
+            media._parse(item, "learned")
+    if section == "training_services":
+        for item in addon.contents["training_services"]:
+            train._parse(item, "learned")
+    return write_pack(raw)
+
+
 def save(entry: dict[str, Any]) -> Path:
     """Add or replace one kind in the ``learned`` pack. A pack that cannot be read is kept aside, never lost."""
-    path = pack_path()
-    kinds: list[dict[str, Any]] = []
-    if path.is_file():
-        try:
-            kinds = addons._check(json.loads(path.read_text(encoding="utf-8")), str(path), "pack").contents["make_kinds"]
-        except (OSError, ValueError):
-            stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-            path.replace(path.with_name(f"addon.json.unreadable-{stamp}"))
-    raw = {
-        "schema": addons.ADDON_SCHEMA,
-        "name": LEARNED_PACK,
-        "version": "1",
-        "description": "Kinds Proofhouse researched and learned the first time you asked for them",
-        "make_kinds": [k for k in kinds if k.get("kind") != entry["kind"]] + [entry],
-    }
-    addons._check(raw, str(path), "pack")  # the same check every pack passes
-    providers.write_atomic(path, json.dumps(raw, indent=2, ensure_ascii=False) + "\n")
-    return path
+    return save_section("make_kinds", entry, "kind")
 
 
 def learn(kind: str, ask: Callable[[str], str | None], *, learned_by: str) -> dict[str, Any]:
@@ -128,15 +232,9 @@ def learn_with_model(
     transport: Any = None,
 ) -> dict[str, Any]:
     """``learn`` with one ``live.run_prompt`` call, for callers outside ``make`` (the front door)."""
-    from . import live
 
     def ask(prompt: str) -> str | None:
-        reply = live.run_prompt(
-            provider_id, model, prompt=prompt, input_text=None,
-            max_output_tokens=max_output_tokens, max_cost_usd=max_cost_usd, transport=transport,
-        )
-        if reply.status != "success":
-            raise LearnError(reply.message or reply.code or "the research call did not succeed")
-        return reply.output_text
+        return ask_model(provider_id, model, prompt, max_cost_usd=max_cost_usd,
+                         max_output_tokens=max_output_tokens, transport=transport)
 
     return learn(kind, ask, learned_by=f"{provider_id}/{model}")

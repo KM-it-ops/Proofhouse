@@ -78,16 +78,27 @@ def _check_hosts(found: list[Any], where: str) -> list[dict[str, Any]]:
 
 
 def all_hosts() -> dict[str, dict[str, Any]]:
-    """Shipped hosts, then add-ons, then yours (``PROOFHOUSE_HOME/hosts.json``); a later one with the same id replaces it."""
-    from . import addons
+    """Shipped hosts, then yours, then other add-on packs. A learned host is used only when the id is still free."""
+    from . import learn_catalog
 
-    found = {host["id"]: host for host in _read_hosts(SHIPPED_PATH)}
-    for name, host in addons.contributions("hosts"):
+    shipped = {host["id"]: host for host in _read_hosts(SHIPPED_PATH)}
+    user = {host["id"]: host for host in _read_hosts(proofhouse_home() / "hosts.json")}
+    found = dict(shipped)
+    found.update(user)
+    others, learned = learn_catalog.split_contributions("hosts")
+    for name, host in others:
         try:
-            found.update({h["id"]: h for h in _check_hosts([host], f"add-on {name}")})
+            found.update({item["id"]: item for item in _check_hosts([host], f"add-on {name}")})
         except HostError:
             continue  # checked when the pack was installed; a package add-on's bad entry is skipped
-    found.update({host["id"]: host for host in _read_hosts(proofhouse_home() / "hosts.json")})
+    for name, host in learned:
+        if not isinstance(host.get("id"), str) or host["id"] in found:
+            continue
+        try:
+            checked = _check_hosts([host], f"add-on {name}")[0]
+        except HostError:
+            continue
+        found[checked["id"]] = {**checked, "origin": f"add-on {learn_catalog.LEARNED_PACK}"}
     return found
 
 
@@ -126,6 +137,12 @@ def target(host_id: str, kind: str, name: str, project: Path | None) -> Target:
         path.relative_to(root)
     except ValueError:
         raise HostError(f"{path} is outside {root}") from None
+    if host.get("origin") == "add-on learned":
+        from .learn_catalog import path_rejected
+
+        problem = path_rejected(path, root)
+        if problem:
+            raise HostError(problem)
     _refuse_links(path)
     return Target(host_id, label, kind, name, path, spec["format"])
 
@@ -217,6 +234,12 @@ def _block_body(t: Target, content: Any) -> str:
 
 def install(t: Target, content: Any, *, force: bool = False) -> str:
     """Write ``content`` for ``t``. Returns what happened in one line."""
+    from . import learn_catalog
+
+    pending = learn_catalog.unapproved("hosts", t.host, all_hosts().get(t.host))
+    if pending:
+        raise HostError(learn_catalog.refusal_message(
+            pending, thing=f"Host {t.host}", command=f"{learn_catalog.APPROVE_CMD} {t.host}"))
     _refuse_links(t.path)
     record_file = _record_path(t)
     record = json.loads(record_file.read_text(encoding="utf-8")) if record_file.is_file() else None
@@ -286,6 +309,12 @@ def install(t: Target, content: Any, *, force: bool = False) -> str:
 
 
 def uninstall(t: Target, *, force: bool = False) -> str:
+    from . import learn_catalog
+
+    pending = learn_catalog.unapproved("hosts", t.host, all_hosts().get(t.host))
+    if pending:
+        raise HostError(learn_catalog.refusal_message(
+            pending, thing=f"Host {t.host}", command=f"{learn_catalog.APPROVE_CMD} {t.host}"))
     _refuse_links(t.path)
     record_file = _record_path(t)
     if not record_file.is_file():

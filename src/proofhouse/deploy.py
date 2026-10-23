@@ -65,28 +65,64 @@ def _read(path: Path) -> list[dict[str, Any]]:
 
 
 def all_targets() -> dict[str, dict[str, Any]]:
-    """Shipped targets, then add-ons, then yours; a later one with the same id replaces an earlier one."""
-    from . import addons
+    """Shipped targets, then yours, then other add-on packs. A learned target is used only when the id is still free."""
+    from . import learn_catalog
 
-    found = {t["id"]: t for t in _read(SHIPPED_PATH)}
-    for name, raw in addons.contributions("deploy_targets"):
+    shipped = {t["id"]: t for t in _read(SHIPPED_PATH)}
+    user = {t["id"]: t for t in _read(providers.proofhouse_home() / "deploy_targets.json")}
+    found = dict(shipped)
+    found.update(user)
+    others, learned = learn_catalog.split_contributions("deploy_targets")
+    for name, raw in others:
         try:
             found[raw["id"]] = {**_check(raw, f"add-on {name}"), "origin": f"add-on {name}"}
-        except DeployError:
+        except (DeployError, KeyError):
             continue  # checked when the pack was installed; a package add-on's bad entry is skipped
-    found.update({t["id"]: t for t in _read(providers.proofhouse_home() / "deploy_targets.json")})
+    for name, raw in learned:
+        if not isinstance(raw.get("id"), str) or raw["id"] in found:
+            continue
+        try:
+            checked = _check(raw, f"add-on {name}")
+        except DeployError:
+            continue
+        found[checked["id"]] = {**checked, "origin": f"add-on {learn_catalog.LEARNED_PACK}"}
     return found
 
 
-def deploy(folder: Path, target_id: str, *, name: str | None = None, dry_run: bool = False, timeout: int = 900) -> Deployed:
+def deploy(folder: Path, target_id: str, *, name: str | None = None, dry_run: bool = False, timeout: int = 900,
+           allow_commands: bool = False, research: Any = None, ask: Any = None) -> Deployed:
     folder = folder.resolve()
     if (folder / "site" / "index.html").is_file():
         folder = folder / "site"  # a make folder: deploy the finished site inside it
     if not (folder / "index.html").is_file():
         raise DeployError(f"{folder} has no index.html to deploy")
-    target = all_targets().get(target_id)
+    from . import learn_catalog
+
+    targets = all_targets()
+    if target_id not in targets:
+        if ask is None and research is None:
+            raise DeployError(f"no deploy target named {target_id!r}; known: {', '.join(sorted(targets))}")
+        from .learn import LearnError
+
+        try:
+            if ask is not None:
+                learn_catalog.ensure_deploy(target_id, None, ask)
+            else:
+                learn_catalog.ensure_deploy(target_id, research)
+        except LearnError as exc:
+            raise DeployError(str(exc)) from None
+        targets = all_targets()
+    target = targets.get(target_id)
     if target is None:
-        raise DeployError(f"no deploy target named {target_id!r}; known: {', '.join(sorted(all_targets()))}")
+        raise DeployError(f"could not learn deploy target {target_id!r}")
+    pending = learn_catalog.unapproved("deploy_targets", target_id, target)
+    if pending:
+        raise DeployError(learn_catalog.refusal_message(pending, thing=f"Deploy target {target_id}",
+                                                        command=f"{learn_catalog.APPROVE_CMD} {target_id}"))
+    learned = learn_catalog.is_learned(target)
+    if not dry_run and learned and not allow_commands:
+        from . import make_checks
+        raise DeployError(make_checks.NOT_ALLOWED)
     label = name or re.sub(r"[^a-z0-9-]+", "-", folder.parent.name.lower() if folder.name == "site" else folder.name.lower()).strip("-")
     if not re.fullmatch(r"[a-z0-9][a-z0-9-]{0,62}", label or ""):
         raise DeployError("--name must be lowercase letters, digits and hyphens")
@@ -95,10 +131,14 @@ def deploy(folder: Path, target_id: str, *, name: str | None = None, dry_run: bo
         return Deployed(target_id, str(folder), command, "dry run")
     tool = target.get("tool") or command[0]
     if shutil.which(command[0]) is None:
-        hint = f"; install it with: {target['install']}" if target.get("install") else ""
+        hint = ""
+        if target.get("install"):
+            text = learn_catalog.suggested(str(target["install"]), target.get("learned_by")) if learned else str(target["install"])
+            hint = f"; install it with: {text}"
         raise DeployError(f"{tool} is not installed{hint}")
     try:
-        run = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+        env = learn_catalog.command_env(folder, target.get("key_env") if isinstance(target.get("key_env"), str) else None) if learned else None
+        run = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False, env=env)
     except subprocess.TimeoutExpired:
         raise DeployError(f"{tool} did not finish in {timeout} seconds") from None
     output = (run.stdout or "") + (run.stderr or "")

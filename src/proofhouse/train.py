@@ -61,6 +61,9 @@ class TrainService:
     def local(self) -> bool:
         if self.command is not None:
             return True
+        # A learned online service is never local, so it cannot skip the spending limit.
+        if self.origin == "add-on learned":
+            return False
         return (urlparse(self.base_url or "").hostname or "").lower() in providers.LOCAL_HOSTS
 
 
@@ -75,6 +78,7 @@ class TrainRequest:
 class TrainResponse:
     status_code: int
     payload: dict[str, Any] | None = None
+    location: str | None = None
 
 
 @dataclass
@@ -104,11 +108,14 @@ def _parse(raw: object, origin: str) -> TrainService:
     if not isinstance(sid, str) or not providers._ID.fullmatch(sid):
         raise TrainError(f"training service id {sid!r} must be lowercase letters, digits, '.', '_' or '-'")
     hint = str(raw.get("use_hint") or "")
+    key_env = raw.get("key_env")
+    if key_env is not None and (not isinstance(key_env, str) or not providers._ENV.fullmatch(key_env)):
+        raise TrainError(f"{sid}: key_env must be an environment variable name")
     command = raw.get("command")
     if command is not None:
         if not isinstance(command, list) or not command or not all(isinstance(c, str) and c for c in command):
             raise TrainError(f"{sid}: command must be a list of words")
-        return TrainService(sid, str(raw.get("name", sid)), None, None, "none", None, None, None, None, tuple(command), hint, origin)
+        return TrainService(sid, str(raw.get("name", sid)), None, key_env, "none", None, None, None, None, tuple(command), hint, origin)
     upload, create, status = raw.get("upload"), raw.get("create"), raw.get("status")
     if not isinstance(upload, dict) or not isinstance(upload.get("path"), str) or not isinstance(upload.get("id"), str):
         raise TrainError(f"{sid}: upload needs a path and the id field of the answer")
@@ -121,9 +128,6 @@ def _parse(raw: object, origin: str) -> TrainService:
     auth = raw.get("auth", "bearer")
     if auth not in ("bearer", "none") and not (isinstance(auth, str) and auth.startswith("header:") and len(auth) > 7):
         raise TrainError(f"{sid}: auth must be bearer, none or header:<Name>")
-    key_env = raw.get("key_env")
-    if key_env is not None and (not isinstance(key_env, str) or not providers._ENV.fullmatch(key_env)):
-        raise TrainError(f"{sid}: key_env must be an environment variable name")
     try:
         base = providers.check_base_url(raw.get("base_url"))
     except providers.ProviderError as exc:
@@ -150,16 +154,28 @@ def user_path() -> Path:
 
 
 def all_services() -> dict[str, TrainService]:
-    from . import addons
+    """Shipped services, then yours, then other add-on packs. A learned service is used only when the id is still free."""
+    from . import learn_catalog
 
-    found = {s.id: s for s in (_parse(raw, "shipped") for raw in _load(SHIPPED_PATH))}
-    for name, raw in addons.contributions("training_services"):
+    shipped = {s.id: s for s in (_parse(raw, "shipped") for raw in _load(SHIPPED_PATH))}
+    user = {s.id: s for s in (_parse(raw, "yours") for raw in _load(user_path()))}
+    found = dict(shipped)
+    found.update(user)
+    others, learned = learn_catalog.split_contributions("training_services")
+    for name, raw in others:
         try:
             added = _parse(raw, f"add-on {name}")
         except TrainError:
             continue  # checked when the pack was installed; a package add-on's bad entry is skipped
         found[added.id] = added
-    found.update({s.id: s for s in (_parse(raw, "yours") for raw in _load(user_path()))})
+    for name, raw in learned:
+        if raw.get("id") in found:
+            continue
+        try:
+            added = _parse(raw, f"add-on {name}")
+        except TrainError:
+            continue
+        found[added.id] = added
     return found
 
 
@@ -282,8 +298,16 @@ def build_job_request(profile: TrainService, model: str, params: dict[str, Any])
     if profile.create is None or profile.base_url is None:
         raise TrainError(f"{profile.id} runs on this machine and has no job request")
     values = {k: v for k, v in params.items() if k != "data_files"} | {"model": model}
-    url = profile.base_url.rstrip("/") + _fill(profile.create["path"], {k: v for k, v in values.items() if isinstance(v, str)})
-    if (urlparse(url).hostname or "").lower() != (urlparse(profile.base_url).hostname or "").lower():
+    filled = _fill(profile.create["path"], {k: v for k, v in values.items() if isinstance(v, str)})
+    if not isinstance(filled, str):
+        raise TrainError(f"{profile.id}: the request address leaves the service's host")
+    url = profile.base_url.rstrip("/") + filled
+    if profile.origin == "add-on learned":
+        from .learn_catalog import service_path_ok
+
+        if not service_path_ok(profile.base_url, filled):
+            raise TrainError(f"{profile.id}: the request address leaves the service's host")
+    elif (urlparse(url).hostname or "").lower() != (urlparse(profile.base_url).hostname or "").lower():
         raise TrainError(f"{profile.id}: the request address leaves the service's host")
     body = _fill(profile.create["body"], values)
     if epochs not in _numbers(body):
@@ -316,7 +340,7 @@ def _httpx_post(request: TrainRequest) -> TrainResponse:
         import httpx
     except ImportError:
         raise ModuleNotFoundError("httpx") from None
-    with httpx.Client(timeout=120.0) as client:
+    with httpx.Client(timeout=120.0, follow_redirects=False) as client:
         return _as_response(client.post(request.url, headers=request.headers, content=request.body_bytes))
 
 
@@ -327,7 +351,7 @@ def _httpx_upload(url: str, headers: dict[str, str], fields: dict[str, str], fil
         import httpx
     except ImportError:
         raise ModuleNotFoundError("httpx") from None
-    with httpx.Client(timeout=600.0) as client:
+    with httpx.Client(timeout=600.0, follow_redirects=False) as client:
         reply = client.post(url, headers=headers, data=fields, files={file_field: (file_name, content, "application/jsonl")})
         return _as_response(reply)
 
@@ -338,16 +362,20 @@ def _httpx_get(url: str, headers: dict[str, str]) -> TrainResponse:
         import httpx
     except ImportError:
         raise ModuleNotFoundError("httpx") from None
-    with httpx.Client(timeout=60.0) as client:
+    with httpx.Client(timeout=60.0, follow_redirects=False) as client:
         return _as_response(client.get(url, headers=headers))
 
 
 def _as_response(reply: Any) -> TrainResponse:
+    headers = getattr(reply, "headers", {}) or {}
+    location = headers.get("location") or headers.get("Location")
+    if not isinstance(location, str) or not 300 <= reply.status_code < 400:
+        location = None
     try:
-        payload = reply.json()
+        payload = None if location else reply.json()
     except ValueError:
         payload = None
-    return TrainResponse(reply.status_code, payload if isinstance(payload, dict) else None)
+    return TrainResponse(reply.status_code, payload if isinstance(payload, dict) else None, location if isinstance(location, str) else None)
 
 
 def _dig(data: Any, path: str) -> Any:
@@ -382,12 +410,41 @@ def start(
     get: Read | None = None,
     poll_every: float = 30.0,
     poll_limit_seconds: float = 6 * 3600.0,
+    allow_commands: bool = False,
+    research: Any = None,
+    ask: Any = None,
 ) -> TrainResult:
+    from . import learn, learn_catalog
+
     model = (model or "").strip()
     profile = find(service_id)
     if profile is None:
-        return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: no training service named {service_id!r}; see `proofhouse train services`",
-                           service_id, model)
+        if ask is None and research is None:
+            return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: no training service named {service_id!r}; see `proofhouse train services`",
+                               service_id, model)
+        try:
+            if ask is not None:
+                learn_catalog.ensure_train(service_id, None, ask)
+            else:
+                learn_catalog.ensure_train(service_id, research)
+        except learn.LearnError as exc:
+            return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: {exc}", service_id, model)
+        profile = find(service_id)
+    if profile is None:
+        return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: could not learn training service {service_id!r}", service_id, model)
+    pending = learn_catalog.unapproved("training_services", service_id, profile)
+    if pending:
+        return TrainResult(
+            "refused",
+            "PHC-RUN-0001",
+            learn_catalog.refusal_message(pending, thing=f"Training service {service_id}",
+                                          command=f"{learn_catalog.APPROVE_CMD} {service_id}"),
+            service_id,
+            model,
+        )
+    if profile.command is not None and learn_catalog.is_learned(profile) and not allow_commands:
+        from . import make_checks
+        return TrainResult("refused", "PHC-RUN-0002", f"PHC-RUN-0002: {make_checks.NOT_ALLOWED}", service_id, model)
     if not model:
         return TrainResult("refused", "PHC-RUN-0002", "PHC-RUN-0002: name the base model to train", profile.id, model)
     try:
@@ -443,14 +500,21 @@ def _run_service(profile: TrainService, model: str, train_file: Path, valid_file
         upload_spec = profile.upload or {}
         fields = {k: _fill(v, {"file_name": path.name}) for k, v in (upload_spec.get("fields") or {}).items()}
         try:
-            answer = upload(profile.base_url.rstrip("/") + upload_spec["path"], _headers(profile, secret, json_body=False),
+            upload_path = upload_spec["path"]
+            if profile.origin == "add-on learned":
+                from .learn_catalog import service_path_ok
+
+                if not isinstance(upload_path, str) or not service_path_ok(profile.base_url or "", upload_path):
+                    raise TrainError(f"{profile.id}: the request address leaves the service's host")
+            answer = upload(profile.base_url.rstrip("/") + upload_path, _headers(profile, secret, json_body=False),
                             fields, str(upload_spec.get("file_field", "file")), path.name, path.read_bytes())
         except Exception as exc:  # noqa: BLE001 -- the live boundary must not leak the key
             return TrainResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: the data upload failed ({type(exc).__name__}); no job was started", **base)
         file_id = _dig(answer.payload or {}, upload_spec["id"])
-        if not 200 <= answer.status_code < 300 or not isinstance(file_id, str):
+        if answer.location or not 200 <= answer.status_code < 300 or not isinstance(file_id, str):
+            where = f"; redirected to {answer.location}; nothing was sent there" if answer.location else ""
             return TrainResult("error", "PHC-RUN-0006", _scrub(f"PHC-RUN-0006: {profile.name} did not accept the data file "
-                               f"(HTTP {answer.status_code}); no job was started", secret), **base)
+                               f"(HTTP {answer.status_code}){where}; no job was started", secret), **base)
         ids[label] = file_id
 
     headers = _headers(profile, secret)
@@ -474,9 +538,10 @@ def _run_service(profile: TrainService, model: str, train_file: Path, valid_file
     if not isinstance(response, TrainResponse):
         return TrainResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: the job request could not be sent ({response})", **base, admission=admission)
     job_id = _dig(response.payload or {}, str((profile.create or {}).get("id", "id")))
-    if not 200 <= response.status_code < 300 or not isinstance(job_id, str):
+    if response.location or not 200 <= response.status_code < 300 or not isinstance(job_id, str):
         reason = _dig(response.payload or {}, "error.message")
-        message = f"PHC-RUN-0006: {profile.name} answered HTTP {response.status_code}" + (f": {reason}" if isinstance(reason, str) else "")
+        where = f"; redirected to {response.location}; nothing was sent there" if response.location else ""
+        message = f"PHC-RUN-0006: {profile.name} answered HTTP {response.status_code}" + (f": {reason}" if isinstance(reason, str) else "") + where
         return TrainResult("error", "PHC-RUN-0006", _scrub(message, secret), **base, admission=admission)
     result = TrainResult("started", None, None, **base, job_id=job_id, admission=admission)
     if wait:
@@ -485,7 +550,13 @@ def _run_service(profile: TrainService, model: str, train_file: Path, valid_file
 
 
 def _status_url(profile: TrainService, job_id: str) -> str:
-    return (profile.base_url or "").rstrip("/") + _fill((profile.status or {})["path"], {"job_id": job_id})
+    path = _fill((profile.status or {})["path"], {"job_id": job_id})
+    if profile.origin == "add-on learned":
+        from .learn_catalog import service_path_ok
+
+        if not isinstance(path, str) or not service_path_ok(profile.base_url or "", path):
+            raise TrainError(f"{profile.id}: the request address leaves the service's host")
+    return (profile.base_url or "").rstrip("/") + path
 
 
 def _apply_status(profile: TrainService, result: TrainResult, answer: TrainResponse) -> str | None:
@@ -506,7 +577,12 @@ def _wait(profile: TrainService, result: TrainResult, headers: dict[str, str], r
     waited = 0.0
     while result.status == "started":
         try:
-            _apply_status(profile, result, read(_status_url(profile, result.job_id or ""), headers))
+            answer = read(_status_url(profile, result.job_id or ""), headers)
+            if answer.location or 300 <= answer.status_code < 400:
+                result.status, result.code = "error", "PHC-RUN-0006"
+                result.message = _scrub(f"PHC-RUN-0006: {profile.name} redirected to {answer.location or 'another address'}; nothing was sent there", secret)
+                return
+            _apply_status(profile, result, answer)
         except Exception as exc:  # noqa: BLE001 -- a failed read is reported; the job keeps running at the service
             result.message = _scrub(f"could not read the job status ({type(exc).__name__}); check later with `proofhouse train status`", secret)
             return
@@ -520,13 +596,24 @@ def _wait(profile: TrainService, result: TrainResult, headers: dict[str, str], r
 
 
 def status(service_id: str, job_id: str, *, get: Read | None = None) -> TrainResult:
+    from . import learn_catalog
+
     profile = find(service_id)
     if profile is None or profile.command is not None:
         return TrainResult("refused", "PHC-RUN-0001", f"PHC-RUN-0001: no online training service named {service_id!r}", service_id, "")
+    pending = learn_catalog.unapproved("training_services", service_id, profile)
+    if pending:
+        return TrainResult("refused", "PHC-RUN-0001", learn_catalog.refusal_message(
+            pending, thing=f"Training service {service_id}", command=f"{learn_catalog.APPROVE_CMD} {service_id}"), service_id, "")
     secret = os.environ.get(profile.key_env) if profile.key_env else None
     result = TrainResult("started", None, None, profile.id, "", job_id=job_id)
     try:
-        state = _apply_status(profile, result, (get or _httpx_get)(_status_url(profile, job_id), _headers(profile, secret)))
+        answer = (get or _httpx_get)(_status_url(profile, job_id), _headers(profile, secret))
+        if answer.location or 300 <= answer.status_code < 400:
+            return TrainResult("error", "PHC-RUN-0006", _scrub(
+                f"PHC-RUN-0006: {profile.name} redirected to {answer.location or 'another address'}; nothing was sent there", secret),
+                profile.id, "", job_id=job_id)
+        state = _apply_status(profile, result, answer)
     except Exception as exc:  # noqa: BLE001 -- the live boundary must not leak the key
         return TrainResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: could not read the job status ({type(exc).__name__})", profile.id, "", job_id=job_id)
     if result.status == "started":
@@ -550,12 +637,19 @@ def _run_local(profile: TrainService, model: str, train_file: Path, valid_file: 
     command = [str(_fill(word, values)) for word in profile.command or ()]
     if shutil.which(command[0]) is None and not Path(command[0]).is_file():
         return TrainResult("refused", "PHC-RUN-0002", f"PHC-RUN-0002: {command[0]} is not installed on this machine", **base)
+    from . import learn_catalog
+
+    env = learn_catalog.command_env(folder, profile.key_env) if learn_catalog.is_learned(profile) else None
     with (folder / "train.log").open("w", encoding="utf-8") as log:
-        run = subprocess.run(command, cwd=folder, stdout=log, stderr=subprocess.STDOUT, check=False)
+        run = subprocess.run(command, cwd=folder, stdout=log, stderr=subprocess.STDOUT, check=False, env=env)
     result = TrainResult("success" if run.returncode == 0 else "error", None if run.returncode == 0 else "PHC-RUN-0006",
                          None if run.returncode == 0 else f"PHC-RUN-0006: the training command exited {run.returncode}; see train.log",
                          **base, trained_model=str(out) if run.returncode == 0 else None,
                          admission={"price": {"source": spend.SOURCE_LOCAL}, "command": command})
     if run.returncode == 0 and profile.use_hint:
-        result.use = str(_fill(profile.use_hint, values))
+        text = str(_fill(profile.use_hint, values))
+        if learn_catalog.is_learned(profile):
+            saved = learn_catalog.learned_raw("training_services", profile.id)
+            text = learn_catalog.suggested(text, saved.get("learned_by") if saved else None)
+        result.use = text
     return result
