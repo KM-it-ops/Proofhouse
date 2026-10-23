@@ -296,6 +296,11 @@ def make(
             missing = [platform for platform in chosen if platform not in catalog]
             if missing:
                 raise MakeError(f"unknown platform: {', '.join(missing)}; known: {', '.join(sorted(catalog))}")
+            for platform_id in chosen:
+                pending = learn_catalog.unapproved("app_platforms", platform_id, catalog.get(platform_id))
+                if pending:
+                    raise MakeError(learn_catalog.refusal_message(
+                        pending, thing=f"Platform {platform_id}", command=f"{learn_catalog.APPROVE_CMD} {platform_id}"))
         if learning:
             try:
                 result.learned = learn.learn(kind, lambda prompt: call("research", prompt), learned_by=f"{profile.id}/{model}")

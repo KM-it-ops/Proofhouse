@@ -22,6 +22,17 @@ def _fail(message: str) -> int:
     return EXIT_USAGE
 
 
+def _key_set(origin: str, key_env: str | None, section: str, entry_id: str) -> bool | None:
+    """Whether a key variable is set. An unapproved learned entry reports nothing: the variable is not read."""
+    if origin == "add-on learned":
+        from . import learn_catalog
+
+        saved = learn_catalog.learned_raw(section, entry_id)
+        if saved is not None and saved.get("approved") is not True:
+            return None
+    return bool(key_env and os.environ.get(key_env))
+
+
 def _cmd_media_list(args: argparse.Namespace) -> int:
     try:
         found = media.all_media_providers()
@@ -29,14 +40,17 @@ def _cmd_media_list(args: argparse.Namespace) -> int:
         return _fail(str(exc))
     rows = [
         {"id": p.id, "name": p.name, "kinds": list(p.kinds), "unit": p.unit, "key_env": p.key_env, "local": p.local,
-         "key_set": bool(p.key_env and os.environ.get(p.key_env)), "origin": p.origin}
+         "key_set": _key_set(p.origin, p.key_env, "media_providers", p.id), "origin": p.origin}
         for p in found.values()
     ]
     if args.json:
         print(json.dumps({"media_providers": rows}, sort_keys=True))
         return EXIT_OK
     for row in rows:
-        key = "none needed" if not row["key_env"] else f"{row['key_env']} ({'set' if row['key_set'] else 'not set'})"
+        if row["key_set"] is None:
+            key = row["key_env"] or "none needed"
+        else:
+            key = "none needed" if not row["key_env"] else f"{row['key_env']} ({'set' if row['key_set'] else 'not set'})"
         print(f"{row['id']:<14} {'/'.join(row['kinds']):<26} per {row['unit']:<9} {key:<32} {row['name']}")
     print(f"\nAdd any other service: proofhouse media add --from template.json  (saved in {media.user_path()})")
     return EXIT_OK
@@ -94,8 +108,13 @@ def _cmd_generate(args: argparse.Namespace) -> int:
     if args.seconds is not None:
         params["seconds"] = args.seconds
     out = Path(args.out) if args.out else Path.cwd() / f"{args.kind}-{date.today().isoformat()}"
+    research = None
+    if args.research_provider and args.research_model:
+        from .learn_catalog import Research
+
+        research = Research(args.research_provider, args.research_model, max_cost_usd=args.max_cost_usd)
     result = media.generate(args.kind, args.provider, args.model, prompt=args.prompt, out=out, params=params,
-                            max_cost_usd=args.max_cost_usd)
+                            max_cost_usd=args.max_cost_usd, research=research)
     if args.json:
         print(json.dumps(result.to_dict(), sort_keys=True, default=str))
     elif result.status == "success":
@@ -117,6 +136,8 @@ def add_media_commands(subparsers: argparse._SubParsersAction) -> None:
     p_gen.add_argument("--voice", default=None, help="Voice id for speech.")
     p_gen.add_argument("--seconds", type=int, default=None, help="Length for video or music, in seconds.")
     p_gen.add_argument("--max-cost-usd", default=None, help="Spending limit; required for a paid service.")
+    p_gen.add_argument("--research-provider", default=None, help="Provider that researches a media service Proofhouse does not know.")
+    p_gen.add_argument("--research-model", default=None, help="Model that researches a media service Proofhouse does not know.")
     p_gen.add_argument("--json", action="store_true")
     p_gen.set_defaults(func=_cmd_generate)
 

@@ -17,6 +17,7 @@
 
 ### Changed
 
+- **Every learned platform, host, deploy target, and media or training service needs approval before it is used,** with or without a key. `proofhouse addons approve learned <id> --list <list>` approves one entry when that id is in more than one list.
 - **The built-in model list is current as of 2026-10-18,** checked against Anthropic's, OpenAI's, Google's and xAI's official pages: Claude Opus 5.5, Sonnet 5.5 and Haiku 5.5; GPT-6 Astra, GPT-6.1 Sol, GPT-6 Sol and GPT-6 Luna; Gemini 4 Argon; Grok 4.7. The models they replace are marked legacy.
 - **Running a compiled artifact on a provider checks the send address against the provider's host last,** just before the key is attached, as `proofhouse run` does.
 - **One run reads your providers file once.** The run and the spend gate use the same read, so the gate prices the same provider entry the request is sent to.

@@ -140,7 +140,10 @@ def _check_host(host: str) -> None:
     from ..learn_catalog import skill_hosts
 
     if host not in skill_hosts():
-        raise InstallSkillError(f"unknown host {host!r}; choose from {', '.join(sorted(skill_hosts()))}", EXIT_USAGE_ERROR)
+        raise InstallSkillError(
+            f"invalid choice {host!r}; name --provider and --model to research a host Proofhouse does not know",
+            EXIT_USAGE_ERROR,
+        )
 
 
 def _learn_host(host: str, research: Any = None, ask: Any = None) -> None:
@@ -572,11 +575,26 @@ def install(
     ``home`` overrides ``PROOFHOUSE_HOME`` for backups and install records.
     """
     if host is not None:
-        from ..learn_catalog import skill_hosts
+        from .. import hosts as host_mod
+        from ..learn_catalog import APPROVE_CMD, path_rejected, refusal_message, skill_hosts, unapproved
 
         if host not in skill_hosts() and (research is not None or ask is not None):
             _learn_host(host, research, ask)
+        record = host_mod.all_hosts().get(host)
+        pending = unapproved("hosts", host, record)
+        if pending is not None and dest is None:
+            raise InstallSkillError(refusal_message(
+                pending, thing=f"Host {host}", command=f"{APPROVE_CMD} {host}"), EXIT_USAGE_ERROR)
     dest_dir = _dest_dir(dest, host, "installed")
+    if host is not None and dest is None:
+        from .. import hosts as host_mod
+        from ..learn_catalog import path_rejected
+
+        record = host_mod.all_hosts().get(host)
+        if record is not None and record.get("origin") == "add-on learned":
+            problem = path_rejected(dest_dir, Path.home())
+            if problem:
+                raise InstallSkillError(problem, EXIT_USAGE_ERROR)
     bundle_path = Path(bundle) if bundle is not None else DEFAULT_BUNDLE
     skill = read_skill(bundle_path, dest_dir)
     skill_dir = dest_dir / skill.name

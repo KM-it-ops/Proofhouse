@@ -75,8 +75,27 @@ def _content(args: argparse.Namespace) -> tuple[str, object]:
     return hosts.check_name(name), text
 
 
+def _research(args: argparse.Namespace):
+    if args.provider and args.model:
+        from .learn_catalog import Research
+
+        return Research(args.provider, args.model, max_cost_usd=args.max_cost_usd)
+    return None
+
+
 def _cmd_install(args: argparse.Namespace) -> int:
     try:
+        if args.into not in hosts.all_hosts():
+            research = _research(args)
+            if research is None:
+                return _fail(f"a model is needed to research host {args.into!r}; name --provider and --model")
+            from .learn import LearnError
+            from .learn_catalog import ensure_host
+
+            try:
+                ensure_host(args.into, research)
+            except LearnError as exc:
+                return _fail(str(exc))
         name, content = _content(args)
         target = hosts.target(args.into, args.kind, name, Path(args.project) if args.project else None)
         if target.kind == "rule" and target.format == "file" and target.path.suffix == ".mdc" and not str(content).startswith("---"):
@@ -124,6 +143,9 @@ def add_host_commands(subparsers: argparse._SubParsersAction) -> None:
             p.add_argument("--command", dest="command_line", default=None, help="Command that starts the server.")
             p.add_argument("--arg", action="append", help="One argument for the command (repeat for more; write --arg=-y for one that starts with a dash).")
             p.add_argument("--env", action="append", help="NAME=value for the server's environment (repeat for more).")
+        p.add_argument("--provider", default=None, help="Provider that researches a tool Proofhouse does not know.")
+        p.add_argument("--model", default=None, help="Model that researches a tool Proofhouse does not know.")
+        p.add_argument("--max-cost-usd", default=None, help="Spending limit for researching a tool.")
         p.set_defaults(func=_cmd_install, kind=kind)
 
         u = uninstall_sub.add_parser(kind, help=f"Remove an installed {kind}.")

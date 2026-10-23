@@ -45,7 +45,7 @@ def _cmd_approve(args: argparse.Namespace) -> int:
     from .learn import LearnError
 
     try:
-        path = learn_catalog.approve(args.id)
+        path = learn_catalog.approve(args.id, list_name=args.list_name)
     except LearnError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
@@ -78,4 +78,6 @@ def add_addon_commands(subparsers: argparse._SubParsersAction) -> None:
     p = sub.add_parser("approve", help="Approve a learned entry that sends a key or runs a command.")
     p.add_argument("pack", choices=["learned"])
     p.add_argument("id", help="Entry id in the learned pack.")
+    p.add_argument("--list", dest="list_name", default=None,
+                   help="Which list, when the same id was learned in more than one: app_platforms, hosts, deploy_targets, media_providers or training_services.")
     p.set_defaults(func=_cmd_approve)

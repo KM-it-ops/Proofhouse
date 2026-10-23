@@ -42,12 +42,15 @@ def _cmd_services(args: argparse.Namespace) -> int:
     except train.TrainError as exc:
         return _fail(str(exc))
     rows = [{"id": s.id, "name": s.name, "where": "this machine" if s.local else "online", "key_env": s.key_env,
-             "key_set": bool(s.key_env and os.environ.get(s.key_env)), "origin": s.origin} for s in found.values()]
+             "key_set": _key_set(s.origin, s.key_env, s.id), "origin": s.origin} for s in found.values()]
     if args.json:
         print(json.dumps({"training_services": rows}, sort_keys=True))
         return EXIT_OK
     for row in rows:
-        key = "none needed" if not row["key_env"] else f"{row['key_env']} ({'set' if row['key_set'] else 'not set'})"
+        if row["key_set"] is None:
+            key = row["key_env"] or "none needed"
+        else:
+            key = "none needed" if not row["key_env"] else f"{row['key_env']} ({'set' if row['key_set'] else 'not set'})"
         print(f"{row['id']:<10} {row['where']:<13} {key:<30} {row['name']}")
     print(f"\nAdd any other service: proofhouse train add --from template.json  (saved in {train.user_path()})")
     return EXIT_OK
@@ -115,9 +118,26 @@ def _show(result: train.TrainResult, as_json: bool) -> int:
     return EXIT_OK if result.status in ("success", "started") else EXIT_REFUSED
 
 
+def _key_set(origin: str, key_env: str | None, entry_id: str) -> bool | None:
+    """Whether a key variable is set. An unapproved learned entry reports nothing: the variable is not read."""
+    if origin == "add-on learned":
+        from . import learn_catalog
+
+        saved = learn_catalog.learned_raw("training_services", entry_id)
+        if saved is not None and saved.get("approved") is not True:
+            return None
+    return bool(key_env and os.environ.get(key_env))
+
+
 def _cmd_start(args: argparse.Namespace) -> int:
+    research = None
+    if args.provider and args.model:
+        from .learn_catalog import Research
+
+        research = Research(args.provider, args.model, max_cost_usd=args.max_cost_usd)
     result = train.start(args.service, args.model, Path(args.data), epochs=args.epochs, suffix=args.suffix,
-                         max_cost_usd=args.max_cost_usd, wait=not args.no_wait, out_dir=Path(args.out) if args.out else None)
+                         max_cost_usd=args.max_cost_usd, wait=not args.no_wait, out_dir=Path(args.out) if args.out else None,
+                         allow_commands=args.allow_commands, research=research)
     return _show(result, args.json)
 
 
@@ -159,6 +179,8 @@ def add_train_commands(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("--epochs", type=int, default=3, help="Passes over the data (default 3); it sets the cost limit too.")
     p.add_argument("--suffix", default=None, help="A short name added to the trained model's id.")
     p.add_argument("--max-cost-usd", default=None, help="Spending limit; required for a paid service.")
+    p.add_argument("--provider", default=None, help="Provider that researches a training service Proofhouse does not know.")
+    p.add_argument("--allow-commands", action="store_true", help="Run a learned training command on this machine.")
     p.add_argument("--no-wait", action="store_true", help="Start the job and return; check it with `train status`.")
     p.add_argument("--out", default=None, help="Folder for the record (default: train-<service>-<time> here).")
     p.add_argument("--json", action="store_true")

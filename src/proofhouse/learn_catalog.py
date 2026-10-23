@@ -1,22 +1,31 @@
 """Research and learn entries Proofhouse does not know yet (platforms, hosts, deploy targets, media and training services).
 
-Each list uses the same flow as make kinds (``learn.py``): one research call through the spend gate, strict
-parse, validate with that list's own checker, save in the ``learned`` add-on pack, then continue. Built-in
-and user entries always win over learned ones. Keyed or command-running learned entries need explicit
-approval or ``--allow-commands`` before anything runs.
+Each list uses the same steps as make kinds (``learn.py``): pull the JSON out of the answer, record where it
+came from, one research call through the spend gate, check it, and save it in the ``learned`` add-on pack.
+Built-in entries come first, then yours, then other add-on packs, and learned entries last: a learned entry
+never replaces one that is already there. Every learned entry is saved unapproved. Until you approve that
+one entry, using it stops before anything runs, is sent or is written.
 """
 
 from __future__ import annotations
 
+import ipaddress
 import json
+import os
 import re
 from dataclasses import dataclass
-from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlparse
 
-from . import addons, providers
+from . import addons, learn, providers
 from .learn import LEARNED_PACK, SOURCES_NOTE, LearnError, pack_path
+
+_LISTS = ("app_platforms", "hosts", "deploy_targets", "media_providers", "training_services")
+_NAME_LIMIT = 100
+_TEXT_LIMIT = 2000
+_LIST_LIMIT = 50
+_URLISH = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S+")
 
 _HOST_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
 _PLATFORM_ID = re.compile(r"[a-z0-9][a-z0-9._-]*")
@@ -35,110 +44,133 @@ def _need_model(what: str) -> LearnError:
 
 
 def _json_blob(answer: str | None) -> dict[str, Any] | None:
-    match = re.search(r"\{.*\}", answer or "", flags=re.S)
-    try:
-        data = json.loads(match.group(0)) if match else None
-    except ValueError:
-        data = None
-    return data if isinstance(data, dict) else None
+    return learn.extract_answer(answer)
 
 
 def _meta(answer: dict[str, Any], *, learned_by: str) -> dict[str, Any]:
-    sources = answer.get("sources") if isinstance(answer.get("sources"), list) else []
-    return {
-        "what_it_is": str(answer.get("what_it_is", "")).strip()[:600],
-        "sources": [s for s in sources if isinstance(s, str) and re.match(r"https?://\S+$", s) and len(s) <= 300][:10],
-        "sources_note": SOURCES_NOTE,
-        "learned_by": learned_by,
-        "learned_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-    }
-
-
-def _https_url(url: str) -> bool:
-    return isinstance(url, str) and url.startswith("https://") and " " not in url
+    return learn.provenance(answer, learned_by=learned_by, what_limit=_TEXT_LIMIT, source_limit=_LIST_LIMIT)
 
 
 def _pack_raw() -> dict[str, Any]:
-    path = pack_path()
-    if not path.is_file():
-        return {"schema": addons.ADDON_SCHEMA, "name": LEARNED_PACK, "version": "1",
-                "description": "Things Proofhouse researched the first time you asked for them"}
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
-        path.replace(path.with_name(f"addon.json.unreadable-{stamp}"))
-        return {"schema": addons.ADDON_SCHEMA, "name": LEARNED_PACK, "version": "1",
-                "description": "Things Proofhouse researched the first time you asked for them"}
+    return learn.read_pack()
 
 
 def _save_section(section: str, entry: dict[str, Any], id_key: str) -> Path:
-    from . import app_platforms, deploy, hosts, media, train
-
-    raw = _pack_raw()
-    for key in addons.SECTIONS:
-        raw.setdefault(key, [])
-    entries = [e for e in raw.get(section, []) if e.get(id_key) != entry[id_key]] + [entry]
-    raw[section] = entries
-    raw["schema"] = addons.ADDON_SCHEMA
-    raw["name"] = LEARNED_PACK
-    raw.setdefault("version", "1")
-    raw.setdefault("description", "Things Proofhouse researched the first time you asked for them")
-    addon = addons._check(raw, str(pack_path()), "pack")
-    if section == "app_platforms":
-        for item in addon.contents["app_platforms"]:
-            app_platforms._validate_entry(item, "learned")
-    if section == "hosts":
-        hosts._check_hosts(addon.contents["hosts"], "learned")
-    if section == "deploy_targets":
-        for item in addon.contents["deploy_targets"]:
-            deploy._check(item, "learned")
-    if section == "media_providers":
-        for item in addon.contents["media_providers"]:
-            media._parse(item, "learned")
-    if section == "training_services":
-        for item in addon.contents["training_services"]:
-            train._parse(item, "learned")
-    providers.write_atomic(pack_path(), json.dumps(raw, indent=2, ensure_ascii=False) + "\n")
-    return pack_path()
+    return learn.save_section(section, entry, id_key)
 
 
 def learned_raw(section: str, entry_id: str, id_key: str = "id") -> dict[str, Any] | None:
-    raw = _pack_raw()
+    raw = learn.read_pack()
     for entry in raw.get(section, []):
         if isinstance(entry, dict) and entry.get(id_key) == entry_id:
             return entry
     return None
 
 
-def approve(entry_id: str) -> Path:
-    raw = _pack_raw()
-    found = False
-    for section in addons.SECTIONS:
+def approve(entry_id: str, *, list_name: str | None = None) -> Path:
+    """Approve one learned entry. The same id in two lists is left alone until ``--list`` names one."""
+    raw = learn.read_pack()
+    found: list[str] = []
+    for section in _LISTS:
         items = raw.get(section, [])
-        for index, entry in enumerate(items):
-            if not isinstance(entry, dict):
-                continue
-            key = entry.get("kind") if section == "make_kinds" else entry.get("id")
-            if key == entry_id:
-                items[index] = {**entry, "approved": True}
-                found = True
+        if isinstance(items, list) and any(isinstance(entry, dict) and entry.get("id") == entry_id for entry in items):
+            found.append(section)
     if not found:
         raise LearnError(f"no learned entry named {entry_id!r}; see `proofhouse addons list`")
-    providers.write_atomic(pack_path(), json.dumps(raw, indent=2, ensure_ascii=False) + "\n")
-    return pack_path()
+    if list_name is None and len(found) > 1:
+        raise LearnError(f"{entry_id!r} is in more than one list ({', '.join(found)}); nothing was changed. Name one with --list")
+    if list_name is not None and list_name not in found:
+        raise LearnError(f"no learned {entry_id!r} in {list_name}; it is in {', '.join(found)}")
+    chosen = {list_name} if list_name else set(found)
+    for section in chosen:
+        items = raw[section]
+        for index, entry in enumerate(items):
+            if isinstance(entry, dict) and entry.get("id") == entry_id:
+                items[index] = {**entry, "approved": True}
+    return learn.write_pack(raw)
 
 
 def needs_approval(entry: dict[str, Any]) -> bool:
-    return entry.get("approved") is False
+    return entry.get("approved") is not True
+
+
+def origin_of(active: Any) -> str | None:
+    if isinstance(active, dict):
+        value = active.get("origin")
+        return value if isinstance(value, str) else None
+    value = getattr(active, "origin", None)
+    return value if isinstance(value, str) else None
+
+
+def is_learned(active: Any) -> bool:
+    return origin_of(active) == f"add-on {LEARNED_PACK}"
+
+
+def unapproved(section: str, entry_id: str, active: Any) -> dict[str, Any] | None:
+    """The learned entry when it is the one in use and has not been approved. A built-in or your own entry hides it."""
+    if not is_learned(active):
+        return None
+    learned = learned_raw(section, entry_id)
+    if learned is None or learned.get("approved") is True:
+        return None
+    return learned
+
+
+def would_do(entry: dict[str, Any]) -> str:
+    """What a learned entry would do, with nothing run: address, command, env, paths, key name and sources."""
+    parts: list[str] = []
+    build = entry.get("build") if isinstance(entry.get("build"), dict) else {}
+    submit = entry.get("submit") if isinstance(entry.get("submit"), dict) else {}
+    if isinstance(entry.get("base_url"), str):
+        path = submit.get("path") if isinstance(submit.get("path"), str) else ""
+        parts.append(f"address: {entry['base_url']}{path}")
+    if build.get("before"):
+        parts.append(f"before: {build['before']}")
+    command = build.get("command") or entry.get("command")
+    if command:
+        parts.append(f"command: {command}")
+    if build.get("env"):
+        parts.append(f"env: {build['env']}")
+    if build.get("set_env"):
+        parts.append(f"set_env: {build['set_env']}")
+    paths: list[str] = []
+    for kind in ("rule", "agent", "mcp"):
+        spec = entry.get(kind)
+        if isinstance(spec, dict):
+            paths.extend(spec[key] for key in ("user", "project") if isinstance(spec.get(key), str))
+    if isinstance(entry.get("skills_folder"), str):
+        paths.append(entry["skills_folder"])
+    if paths:
+        parts.append("paths: " + ", ".join(paths))
+    if entry.get("key_env"):
+        parts.append(f"key: {entry['key_env']}")
+    who = str(entry.get("learned_by") or "the model")
+    for field in ("install", "use_hint"):
+        text = entry.get(field)
+        if isinstance(text, str) and text:
+            parts.append(f"{field}: {text} (suggested by {who}, not checked)")
+    sources = ", ".join(entry.get("sources") or []) or "none"
+    parts.append(f"Sources ({entry.get('sources_note', SOURCES_NOTE)}): {sources}")
+    return "; ".join(parts)
 
 
 def refusal_message(entry: dict[str, Any], *, thing: str, command: str) -> str:
-    sources = ", ".join(entry.get("sources") or []) or "none"
-    address = entry.get("base_url") or entry.get("command") or entry.get("install")
-    return (f"{thing} is not approved yet; nothing was sent to {address}. "
-            f"Sources ({entry.get('sources_note', SOURCES_NOTE)}): {sources}. "
+    return (f"{thing} is not approved yet; nothing was run, sent or written. {would_do(entry)}. "
             f"After you check them, run: {command}")
+
+
+def suggested(text: str, learned_by: str | None) -> str:
+    return f"{text} (suggested by {learned_by or 'the model'}, not checked)"
+
+
+def command_env(folder: Path, key_env: str | None = None) -> dict[str, str]:
+    """The cleaned command environment, plus only the key variable this entry names."""
+    from .make_checks import _environment
+
+    env = _environment(folder)
+    if isinstance(key_env, str) and key_env and key_env in os.environ:
+        env[key_env] = os.environ[key_env]
+    return env
 
 
 APPROVE_CMD = "proofhouse addons approve learned"
@@ -150,7 +182,8 @@ def plain_platform_id(text: str) -> str | None:
 
 
 def plain_host_id(text: str) -> str | None:
-    name = re.sub(r"[^a-z0-9]+", "-", text.strip().lower()).strip("-")
+    """A host id exactly as typed, in lowercase. Anything else is refused, never rewritten."""
+    name = text.strip().lower()
     return name if _HOST_ID.fullmatch(name) else None
 
 
@@ -209,8 +242,58 @@ _TRAIN_RESEARCH = (
 # --- parsers ------------------------------------------------------------------------------------
 
 
+def leaves_root(path: Path, root: Path) -> bool:
+    """True when ``path``, or where it points after links are followed, is outside ``root``."""
+    folded = Path(os.path.normpath(path))
+    root_folded = Path(os.path.normpath(root))
+    try:
+        folded.relative_to(root_folded)
+    except ValueError:
+        return True
+    try:
+        folded.resolve().relative_to(root_folded.resolve())
+    except ValueError:
+        return True
+    return False
+
+
+def in_blocked_area(path: Path) -> bool:
+    """True when ``path`` is inside ``~/.ssh`` or Proofhouse's own folder."""
+    home = Path.home().resolve()
+    areas = [home / ".ssh", providers.proofhouse_home()]
+    folded = Path(os.path.normpath(path))
+    resolved = folded.resolve()
+    for area in areas:
+        area_folded = Path(os.path.normpath(area))
+        bases = [area_folded]
+        if area_folded.exists():
+            bases.append(area_folded.resolve())
+        for candidate in (folded, resolved):
+            for base in bases:
+                try:
+                    candidate.relative_to(base)
+                except ValueError:
+                    continue
+                return True
+    return False
+
+
+def path_rejected(path: Path, root: Path) -> str | None:
+    if leaves_root(path, root) or in_blocked_area(path):
+        return f"{path} is outside the home folder"
+    return None
+
+
+def _placed(folder: str) -> Path:
+    """Where a skills folder lands. An absolute path is not joined onto the home folder."""
+    home = Path.home().resolve()
+    raw = Path(folder)
+    if raw.is_absolute() or raw.drive or folder.startswith(("\\\\", "//", "/", "\\")):
+        return Path(os.path.normpath(folder))
+    return Path(os.path.normpath(home / folder))
+
+
 def _host_path_ok(template: str, project: bool) -> bool:
-    import os
     from . import hosts
 
     if project:
@@ -223,9 +306,7 @@ def _host_path_ok(template: str, project: bool) -> bool:
     if not path.is_absolute():
         path = root / path
     path = Path(os.path.normpath(path))
-    try:
-        path.relative_to(root)
-    except ValueError:
+    if path_rejected(path, root if project else Path.home().resolve()):
         return False
     return hosts.check_name("sample-name") == "sample-name"
 
@@ -246,23 +327,166 @@ def _host_paths_ok(host: dict[str, Any]) -> bool:
             if not isinstance(template, str) or not _host_path_ok(template, key == "project"):
                 return False
     folder = host.get("skills_folder")
-    if folder is not None and (not isinstance(folder, str) or folder.startswith(("/", "\\")) or ".." in Path(folder).parts):
-        return False
+    if folder is not None:
+        if not isinstance(folder, str) or path_rejected(_placed(folder), Path.home().resolve()) \
+                or path_rejected(_placed(folder) / "skills", Path.home().resolve()):
+            return False
     return True
 
 
-def parse_platform(platform_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
-    from . import app_platforms
+def _within_limits(data: dict[str, Any]) -> None:
+    def walk(value: Any, key: str | None = None) -> None:
+        if isinstance(value, str):
+            limit = _NAME_LIMIT if key == "name" else _TEXT_LIMIT
+            if len(value) > limit:
+                raise LearnError("the model's answer is over the size limit; nothing was saved")
+        elif isinstance(value, list):
+            if len(value) > _LIST_LIMIT:
+                raise LearnError("the model's answer is over the size limit; nothing was saved")
+            for item in value:
+                walk(item)
+        elif isinstance(value, dict):
+            for name, item in value.items():
+                walk(item, name)
 
-    data = _json_blob(answer)
+    walk(data)
+
+
+def _builtin_entries(section: str) -> list[dict[str, Any]]:
+    from . import app_platforms, deploy, hosts, media, train
+
+    paths = {
+        "app_platforms": (app_platforms.SHIPPED, "platforms"),
+        "hosts": (hosts.SHIPPED_PATH, "hosts"),
+        "deploy_targets": (deploy.SHIPPED_PATH, "targets"),
+        "media_providers": (media.SHIPPED_PATH, "providers"),
+        "training_services": (train.SHIPPED_PATH, "services"),
+    }
+    path, key = paths[section]
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return [entry for entry in data.get(key, []) if isinstance(entry, dict)]
+
+
+def _allowed_keys(section: str, field: str) -> set[str]:
+    found: set[str] = set()
+    for entry in _builtin_entries(section):
+        value = entry.get(field)
+        if isinstance(value, dict):
+            found.update(value)
+    return found
+
+
+def _builtin_env_names() -> set[str]:
+    names: set[str] = set()
+    for entry in _builtin_entries("app_platforms"):
+        build = entry.get("build") if isinstance(entry.get("build"), dict) else {}
+        if isinstance(build.get("env"), list):
+            names.update(name for name in build["env"] if isinstance(name, str))
+        for key in ("set_env", "home_env"):
+            if isinstance(build.get(key), dict):
+                names.update(build[key])
+    return names
+
+
+def _max_timeout() -> int:
+    found = [600]
+    for entry in _builtin_entries("app_platforms"):
+        build = entry.get("build") if isinstance(entry.get("build"), dict) else {}
+        if type(build.get("timeout")) is int:
+            found.append(build["timeout"])
+    return max(found)
+
+
+def _filter_build(build: dict[str, Any]) -> dict[str, Any]:
+    allowed = _allowed_keys("app_platforms", "build")
+    kept = {key: value for key, value in build.items() if key in allowed} if allowed else dict(build)
+    names = _builtin_env_names()
+    if isinstance(kept.get("env"), list):
+        kept["env"] = [name for name in kept["env"] if isinstance(name, str) and name in names]
+    for key in ("set_env", "home_env"):
+        if isinstance(kept.get(key), dict):
+            kept[key] = {name: value for name, value in kept[key].items() if name in names}
+    if "timeout" in kept:
+        timeout = kept["timeout"]
+        if type(timeout) is not int or not 1 <= timeout <= _max_timeout():
+            raise LearnError("build timeout must be a whole number of seconds, at most the largest built-in timeout")
+    return kept
+
+
+def _only_known(section: str, field: str, value: Any) -> Any:
+    if not isinstance(value, dict):
+        return value
+    if field == "build":
+        return _filter_build(value)
+    allowed = _allowed_keys(section, field)
+    kept = {key: item for key, item in value.items() if key in allowed} if allowed else dict(value)
+    if field == "checks" and isinstance(kept.get("web_install"), dict):
+        inner: set[str] = set()
+        for entry in _builtin_entries(section):
+            checks = entry.get("checks")
+            if isinstance(checks, dict) and isinstance(checks.get("web_install"), dict):
+                inner.update(checks["web_install"])
+        if inner:
+            kept["web_install"] = {key: item for key, item in kept["web_install"].items() if key in inner}
+    return kept
+
+
+def _answer(answer: str | None) -> dict[str, Any]:
+    data = learn.extract_answer(answer)
     if data is None:
         raise LearnError("the model's research answer was not the JSON asked for")
     what = data.get("what_it_is")
     if not isinstance(what, str) or not what.strip():
         raise LearnError("the model did not say what it is")
-    entry = {k: data[k] for k in ("name", "shell", "write", "checks", "build", "host_os") if k in data}
-    entry["id"] = platform_id
+    _within_limits(data)
+    return data
+
+
+def public_https(url: str) -> bool:
+    """True for https on a public host. Local, private, link-local and reserved addresses are refused."""
+    if not isinstance(url, str) or not url.startswith("https://") or any(char.isspace() for char in url):
+        return False
+    host = (urlparse(url).hostname or "").lower().rstrip(".")
+    if not host or host == "localhost" or host.endswith(".localhost"):
+        return False
+    try:
+        address = ipaddress.ip_address(host)
+    except ValueError:
+        return True
+    mapped = getattr(address, "ipv4_mapped", None)
+    if mapped is not None:
+        address = mapped
+    return bool(address.is_global)
+
+
+def _command_urls_ok(command: Any) -> bool:
+    if not isinstance(command, list):
+        return True
+    for word in command:
+        if not isinstance(word, str):
+            return False
+        for match in _URLISH.finditer(word):
+            if not match.group(0).lower().startswith("https://"):
+                return False
+    return True
+
+
+def _finish(entry: dict[str, Any], data: dict[str, Any], *, learned_by: str) -> dict[str, Any]:
     entry.update(_meta(data, learned_by=learned_by))
+    entry["approved"] = False
+    return entry
+
+
+def parse_platform(platform_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
+    from . import app_platforms
+
+    data = _answer(answer)
+    entry = {key: data[key] for key in ("name", "shell", "write", "checks", "build", "host_os") if key in data}
+    for field in ("checks", "build"):
+        if field in entry:
+            entry[field] = _only_known("app_platforms", field, entry[field])
+    entry["id"] = platform_id
+    _finish(entry, data, learned_by=learned_by)
     try:
         app_platforms._validate_entry(entry, "learned")
     except ValueError as exc:
@@ -277,17 +501,12 @@ def parse_platform(platform_id: str, answer: str | None, *, learned_by: str) -> 
 
 
 def parse_host(host_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
-    data = _json_blob(answer)
-    if data is None:
-        raise LearnError("the model's research answer was not the JSON asked for")
-    what = data.get("what_it_is")
-    if not isinstance(what, str) or not what.strip():
-        raise LearnError("the model did not say what it is")
+    data = _answer(answer)
     entry: dict[str, Any] = {"id": host_id, "name": str(data.get("name", host_id))}
     for key in ("rule", "agent", "mcp", "note", "skills_folder", "start_hint"):
         if key in data:
-            entry[key] = data[key]
-    entry.update(_meta(data, learned_by=learned_by))
+            entry[key] = _only_known("hosts", key, data[key]) if key in ("rule", "agent", "mcp") else data[key]
+    _finish(entry, data, learned_by=learned_by)
     if not _host_paths_ok(entry):
         raise LearnError("the model named paths that are not allowed")
     return entry
@@ -296,61 +515,49 @@ def parse_host(host_id: str, answer: str | None, *, learned_by: str) -> dict[str
 def parse_deploy(target_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
     from . import deploy
 
-    data = _json_blob(answer)
-    if data is None:
-        raise LearnError("the model's research answer was not the JSON asked for")
-    what = data.get("what_it_is")
-    if not isinstance(what, str) or not what.strip():
-        raise LearnError("the model did not say what it is")
-    entry = {k: data[k] for k in ("name", "tool", "install", "command", "key_env") if k in data}
-    entry["id"] = target_id
-    entry.update(_meta(data, learned_by=learned_by))
-    deploy._check(entry, "learned")
-    if entry.get("key_env"):
-        entry["approved"] = False
-    base = entry.get("base_url")
-    if isinstance(base, str) and not _https_url(base):
+    data = _answer(answer)
+    if "base_url" in data and not public_https(str(data.get("base_url"))):
         raise LearnError("a deploy address must be https")
+    if not _command_urls_ok(data.get("command")):
+        raise LearnError("a deploy address must be https")
+    entry = {key: data[key] for key in ("name", "tool", "install", "command", "key_env") if key in data}
+    entry["id"] = target_id
+    _finish(entry, data, learned_by=learned_by)
+    deploy._check(entry, "learned")
     return entry
 
 
 def parse_media(service_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
     from . import media
 
-    data = _json_blob(answer)
-    if data is None:
-        raise LearnError("the model's research answer was not the JSON asked for")
-    what = data.get("what_it_is")
-    if not isinstance(what, str) or not what.strip():
-        raise LearnError("the model did not say what it is")
-    entry = {k: data[k] for k in ("name", "kinds", "base_url", "key_env", "auth", "unit", "submit", "poll", "result") if k in data}
+    data = _answer(answer)
+    entry = {key: data[key] for key in ("name", "kinds", "base_url", "key_env", "auth", "unit", "submit", "poll", "result") if key in data}
+    for field in ("submit", "poll", "result"):
+        if field in entry:
+            entry[field] = _only_known("media_providers", field, entry[field])
     entry["id"] = service_id
-    entry.update(_meta(data, learned_by=learned_by))
-    if not _https_url(str(entry.get("base_url", ""))):
+    _finish(entry, data, learned_by=learned_by)
+    if not public_https(str(entry.get("base_url", ""))):
         raise LearnError("a media service address must be https")
     media._parse(entry, "learned")
-    if entry.get("key_env"):
-        entry["approved"] = False
     return entry
 
 
 def parse_train(service_id: str, answer: str | None, *, learned_by: str) -> dict[str, Any]:
     from . import train
 
-    data = _json_blob(answer)
-    if data is None:
-        raise LearnError("the model's research answer was not the JSON asked for")
-    what = data.get("what_it_is")
-    if not isinstance(what, str) or not what.strip():
-        raise LearnError("the model did not say what it is")
-    entry = {k: data[k] for k in ("name", "command", "upload", "create", "status", "base_url", "key_env", "auth", "provider", "use_hint") if k in data}
+    data = _answer(answer)
+    entry = {key: data[key] for key in ("name", "command", "upload", "create", "status", "base_url", "key_env", "auth", "provider", "use_hint") if key in data}
+    for field in ("upload", "create", "status"):
+        if field in entry:
+            entry[field] = _only_known("training_services", field, entry[field])
     entry["id"] = service_id
-    entry.update(_meta(data, learned_by=learned_by))
-    if entry.get("base_url") and not _https_url(str(entry["base_url"])):
+    _finish(entry, data, learned_by=learned_by)
+    if not _command_urls_ok(entry.get("command")):
+        raise LearnError("a training service address must be https")
+    if entry.get("base_url") and not public_https(str(entry["base_url"])):
         raise LearnError("a training service address must be https")
     train._parse(entry, "learned")
-    if entry.get("key_env"):
-        entry["approved"] = False
     return entry
 
 
@@ -362,45 +569,65 @@ def _learn(section: str, entry_id: str, id_key: str, prompt: str, parse: Callabl
 
 
 def learn_with_model(section: str, entry_id: str, id_key: str, prompt: str, parse: Callable[..., dict[str, Any]], research: Research) -> dict[str, Any]:
-    from . import live
-
     def ask(prompt_text: str) -> str | None:
-        reply = live.run_prompt(
-            research.provider_id, research.model, prompt=prompt_text, input_text=None,
-            max_output_tokens=4096, max_cost_usd=research.max_cost_usd, transport=research.transport,
+        return learn.ask_model(
+            research.provider_id, research.model, prompt_text, max_cost_usd=research.max_cost_usd,
+            max_output_tokens=4096, transport=research.transport,
         )
-        if reply.status != "success":
-            raise LearnError(reply.message or reply.code or "the research call did not succeed")
-        return reply.output_text
 
     return _learn(section, entry_id, id_key, prompt, parse, ask, learned_by=f"{research.provider_id}/{research.model}")
 
 
+def split_contributions(section: str) -> tuple[list[tuple[str, dict[str, Any]]], list[tuple[str, dict[str, Any]]]]:
+    """Other add-on entries, then learned entries. Learned is always last and never replaces."""
+    others: list[tuple[str, dict[str, Any]]] = []
+    learned: list[tuple[str, dict[str, Any]]] = []
+    for name, raw in addons.contributions(section):
+        (learned if name == LEARNED_PACK else others).append((name, raw))
+    return others, learned
+
+
 def skill_hosts() -> dict[str, tuple[str, str, str]]:
+    """Built-in skill hosts, then yours, then other add-on packs, then learned if the id is still free."""
+    from . import hosts
     from .parts import SKILL_HOSTS
 
     found = dict(SKILL_HOSTS)
-    for name, host in addons.contributions("hosts"):
+
+    def consider(host: dict[str, Any], *, replace: bool) -> None:
         folder = host.get("skills_folder")
-        if not isinstance(folder, str) or not folder.strip():
-            continue
+        if not isinstance(folder, str) or not folder.strip() or not isinstance(host.get("id"), str):
+            return
+        if host["id"] in found and not replace:
+            return
         label = str(host.get("name", host["id"]))
         hint = str(host.get("start_hint") or f"a new {label} session")
-        if host["id"] not in found or name == LEARNED_PACK:
-            found[host["id"]] = (folder.lstrip("./"), label, hint)
+        found[host["id"]] = (folder.lstrip("./"), label, hint)
+
+    for host in hosts._read_hosts(providers.proofhouse_home() / "hosts.json"):
+        consider(host, replace=True)
+    others, learned = split_contributions("hosts")
+    for _name, host in others:
+        consider(host, replace=True)
+    for _name, host in learned:
+        consider(host, replace=False)
     return found
 
 
 def merge_learned(built_in: dict[str, Any], section: str, *, id_key: str = "id", user: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Built-in, then yours, then other add-on packs. A learned entry is added only when the id is still free."""
     found = dict(built_in)
-    reserved = set(built_in) | set(user or {})
-    for name, raw in addons.contributions(section):
-        eid = raw.get(id_key)
-        if not isinstance(eid, str):
-            continue
-        if name == LEARNED_PACK and eid in reserved:
-            continue
+    for eid, raw in (user or {}).items():
         found[eid] = raw
+    others, learned = split_contributions(section)
+    for _name, raw in others:
+        eid = raw.get(id_key)
+        if isinstance(eid, str):
+            found[eid] = raw
+    for _name, raw in learned:
+        eid = raw.get(id_key)
+        if isinstance(eid, str) and eid not in found:
+            found[eid] = {**raw, "origin": f"add-on {LEARNED_PACK}"}
     return found
 
 
