@@ -48,6 +48,16 @@ proofhouse compare "Summarise this contract in five bullet points." --input-file
 
 Every model runs the same job at the same time. You get a table (score, cost, time, why) and a side-by-side page, `side-by-side.html`, with every output in full. With `--judge`, one more model scores the outputs without seeing which model wrote which, and the best is named; that score is advice, not proof. One spending limit covers every call, the judge's included. Each call gets an equal share of it, so the total never passes it.
 
+If your coding agent already ran the job and saved each answer to a file, you can compare without calling any model:
+
+```bash
+proofhouse compare "Summarise this contract in five bullet points." \
+  --entry cursor:composer-2.5=outputs/cursor.md --entry codex=outputs/codex.md \
+  --score cursor:composer-2.5=8 --score codex=9 --note codex="shorter and clearer"
+```
+
+Give at least two `--entry LABEL=path` pairs (label is free text, for example an agent name or `provider:model`). Optional `--score` and `--note` use the same label. Proofhouse copies the files, writes `side-by-side.html` and `compare.json`, and prints a small table. Scores are whatever the agents reported, not proof, and Proofhouse spends nothing on this path.
+
 ### Make it
 
 ```bash

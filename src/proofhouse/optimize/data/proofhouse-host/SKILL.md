@@ -37,6 +37,7 @@ Scores are advice because the same model writes and judges. If the person has a 
 proofhouse check site ./my-site
 proofhouse check mcp ./my-mcp --allow-commands
 proofhouse record site ./my-site --out ./out --request "bakery landing" --agent cursor --score 8
+proofhouse compare "the job" --entry cursor=out-a.md --entry codex=out-b.md --score cursor=8 --score codex=9
 proofhouse render video ./my-video --formats 1x1 --size-scale 0.25
 ```
 
