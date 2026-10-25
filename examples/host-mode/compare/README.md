@@ -18,7 +18,7 @@ Files live under `outputs/`. Codex and Grok outputs were not edited for this exa
 
 ## Rubric and scores
 
-The Cursor agent judged all three with the same rubric:
+Claude judged all three with the same rubric. Claude is a fourth agent, not one of the three writers, so none of the scores is a writer grading its own work (the first version of this example had Cursor score all three, including its own):
 
 1. Word count between 45 and 60 (counted with a small Python script using `[A-Za-z0-9]+` tokens, not by eye).
 2. Concrete places or uses, not vague hype.
@@ -28,9 +28,9 @@ The Cursor agent judged all three with the same rubric:
 
 | Label | Words | Score | Note |
 |-------|------:|------:|------|
-| codex | 51 | 7/10 | Never says offline; signal-free wording is still clear and concrete. |
-| grok | 46 | 9/10 | Says offline upfront with plain high/low language and sharp scenes. |
-| cursor | 48 | 8/10 | Offline and local data are clear; slack or flood is slightly niche jargon. |
+| codex | 51 | 6/10 | Never says offline; "far from service" is generic and the beach, boat and fishing scenes are stock. |
+| grok | 46 | 8/10 | Says offline in the first line, names what is stored (high and low water times and heights) and ends on a vivid scene. |
+| cursor | 48 | 7/10 | Clear and local-data focused, but "slack or flood" is niche and the last sentence repeats the first. |
 
 Scores are one agent’s advice on style and rubric fit, not proof of quality. The paragraphs were **not** checked for factual claims about tides or apps, because Tidewatch is fictional.
 
@@ -62,4 +62,4 @@ On Windows PowerShell, read `job.txt` into a variable and pass it as the first a
 
 **Does:** Proofhouse can assemble a file-based comparison and a readable side-by-side page with no API key and no model call inside Proofhouse.
 
-**Does not:** Pick a universally best writer, validate tide science, or show that any CLI subscription is “better” in general. This is one run, one short job, and three subjective scores from the same Cursor session that also wrote the third answer.
+**Does not:** Pick a universally best writer, validate tide science, or show that any CLI subscription is “better” in general. This is one run, one short job, and three subjective scores from one independent judge. The judge read the three paragraphs with their labels, so the scoring was not fully blind.
