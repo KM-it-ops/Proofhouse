@@ -1,7 +1,7 @@
 {
   "title": "Tidewatch launch",
   "voiceover": "Meet Tidewatch. Tide tables in your pocket, no signal required. Works fully offline with bundled tide data for two years. A $4.99 one-time purchase. No accounts and no ads.",
-  "music": "soft brushed snare with muted upright bass, 92 BPM, nautical but not cartoon pirate",
+  "music": "soft ambient chord pad, generated locally with FFmpeg; no paid music",
   "shots": [
     {
       "seconds": 3,
@@ -33,5 +33,7 @@
       "caption": "No accounts and no ads",
       "file": "shot-05.png"
     }
-  ]
+  ],
+  "voice_file": "voice.wav",
+  "music_file": "music.wav"
 }
