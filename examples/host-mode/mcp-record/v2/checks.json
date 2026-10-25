@@ -1,0 +1,7 @@
+[
+  {
+    "check": "MCP tools/list",
+    "ok": true,
+    "detail": "listed 2 tools (ran with Proofhouse's own Python; the python you install with may differ)"
+  }
+]

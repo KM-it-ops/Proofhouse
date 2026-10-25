@@ -1,0 +1,1 @@
+proofhouse install mcp unit-desk --command=python --arg="examples/host-mode/mcp/server.py" --into <host>
