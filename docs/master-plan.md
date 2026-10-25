@@ -97,10 +97,10 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    - **U5, final gate.** Review and fixes done (2026-10-18): a fresh full review of main at f939f95 found
      two wrong behaviours and four safeguards no test checked; all six are fixed or tested. New
      statement: [assurance/2026-10-18-completion-criteria.md](assurance/2026-10-18-completion-criteria.md).
-     Still open: a try by a fresh user (criterion 6), then the 0.9.0 tag, PyPI and the GitHub
-     releases (0.8.0's is missing too) on the owner's word.
+     Still open: a try by a fresh user (criterion 6), then PyPI on the owner's word (held). The
+     v0.9.0 tag and the GitHub releases for 0.8.0 and 0.9.0 were made on 2026-10-25.
    - **0.9.0 prepared (2026-10-23).** Version set, CHANGELOG closed, package built and checked, not
-     tagged or published. Statement:
+     published. Tagged `v0.9.0` and released on GitHub 2026-10-25. Statement:
      [assurance/2026-10-23-completion-criteria.md](assurance/2026-10-23-completion-criteria.md).
 4. Owner's corrections (2026-10-18). Done: a kind Proofhouse does not know is researched and learned, not
    refused; the model list keeps itself current (`proofhouse models update`) and now has GPT-6.1, GPT-6,
