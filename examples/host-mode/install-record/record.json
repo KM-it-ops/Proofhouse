@@ -1,0 +1,29 @@
+{
+  "agent": "claude",
+  "best_version": 2,
+  "delivered": [
+    "release-notes-writer.md"
+  ],
+  "judge": "codex",
+  "judge_note": "Scored by codex, a different agent from the writer (claude); still advice, not proof.",
+  "judge_score": 7,
+  "kind": "agent",
+  "proofhouse_version": "0.10.0",
+  "request": "Agent that turns merged changes into release notes; installed and removed with proofhouse install/uninstall",
+  "rounds": [
+    {
+      "passed": false,
+      "score": 3,
+      "version": 1
+    },
+    {
+      "judge": "codex",
+      "judge_note": "Commit titles alone may not establish the customer impact needed for accurate notes.",
+      "judge_score": 7,
+      "passed": true,
+      "score": 7,
+      "version": 2
+    }
+  ],
+  "schema": "proofhouse.host/v1"
+}

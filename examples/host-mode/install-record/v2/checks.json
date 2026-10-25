@@ -1,0 +1,17 @@
+[
+  {
+    "check": "agent frontmatter",
+    "ok": true,
+    "detail": "release-notes-writer"
+  },
+  {
+    "check": "length",
+    "ok": true,
+    "detail": "254 words"
+  },
+  {
+    "check": "filler",
+    "ok": true,
+    "detail": ""
+  }
+]
