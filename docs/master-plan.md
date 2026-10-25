@@ -132,7 +132,18 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    - Honest limit: the same model writing and judging is weaker than a second judge, so scores are advice
      and the skill suggests a second agent as judge when the person has one. Any paid media service still
      goes through the spending limit.
-   - Then, on host mode: one real example for every command, built by Cursor, then limit tests.
+   - `proofhouse compare "job" --entry LABEL=file ...` puts saved answers from any agents side by side
+     (`side-by-side.html` plus `compare.json`), with optional scores and notes, no model call.
+   - `proofhouse referee start|round|status` lets the agent run its own improve loop while Proofhouse runs
+     the agent's check after each round, enforces the round and time limits, and keeps `loop.json` and
+     `rounds.jsonl`. The check runs with secret-named variables removed. The record is a plain log, not
+     tamper-proof, and two rounds at once are not locked.
+   - `proofhouse check|record launch` covers a multi-part launch from one goal: each part is checked as its
+     own kind (video parts structurally only), shared names must appear in every text part, every fact in at
+     least one, and avoid-words nowhere; record delivers every part plus a generated README.
+   - Examples built by Cursor, Codex and Grok with no key: `examples/host-mode/` has one per kind, plus
+     `compare`, `loop` and `launch` with their records. Scores in them are the agents' own advice.
+   - Then, on host mode: limit tests.
 
 ## Known limits
 

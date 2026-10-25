@@ -110,7 +110,3 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "missionrig-generate": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
     "workspace-consume": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
 }
-
-from .cli import _ensure_referee_commands
-
-_ensure_referee_commands()
