@@ -1,0 +1,7 @@
+[
+  {
+    "check": "skill frontmatter",
+    "ok": true,
+    "detail": "changelog-from-git"
+  }
+]
