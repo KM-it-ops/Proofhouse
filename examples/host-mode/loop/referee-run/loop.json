@@ -1,0 +1,14 @@
+{
+  "agent": "cursor",
+  "check": "python -m unittest -q",
+  "check_fingerprint": "5d8150e5076abc479227d963a606c64db764288df8555a3e540360af2c6bdfae",
+  "command_timeout": 300,
+  "goal": "make every slugify test pass",
+  "mode": "host",
+  "proofhouse_version": "0.10.0",
+  "rounds_limit": 8,
+  "seconds_limit": null,
+  "started_at": "2026-10-25T19:53:18+00:00",
+  "status": "done",
+  "workdir": "examples\\host-mode\\loop\\work"
+}
