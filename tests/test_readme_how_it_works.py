@@ -1,8 +1,8 @@
-"""README "How it works" is executable: every ``pc ...`` line runs, with the exit code its comment states.
+"""The evidence trail's "How it works" (docs/evidence-trail.md) is executable: every ``pc ...`` line runs, with the exit code its comment states.
 
 Same rules as tests/test_reference_workflow_doc.py: the inputs are the files in
 examples/reference-advisory/, and the answers are put in advisory-case/answers.json
-after ``optimize new`` (the README says to save them).
+after ``optimize new`` (the page says to save them).
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from pathlib import Path
 from proofhouse.compiler import cli_compiler
 
 REPO = Path(__file__).resolve().parents[1]
-README = REPO / "README.md"
+README = REPO / "docs" / "evidence-trail.md"
 EXAMPLE = REPO / "examples" / "reference-advisory"
 EXIT_COMMENT = re.compile(r"#\s*exit\s+(\d+)")
 
