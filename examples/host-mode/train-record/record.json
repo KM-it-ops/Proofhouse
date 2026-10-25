@@ -1,0 +1,29 @@
+{
+  "agent": "claude",
+  "best_version": 2,
+  "delivered": [
+    "final.md"
+  ],
+  "judge": "codex",
+  "judge_note": "Scored by codex, a different agent from the writer (claude); still advice, not proof.",
+  "judge_score": 7,
+  "kind": "prompt",
+  "proofhouse_version": "0.10.0",
+  "request": "System prompt that labels support tickets, used as the system message when preparing fine-tuning data with proofhouse train data",
+  "rounds": [
+    {
+      "passed": false,
+      "score": 2,
+      "version": 1
+    },
+    {
+      "judge": "codex",
+      "judge_note": "Priority rules do not explain why some feature questions and bugs receive medium or high labels.",
+      "judge_score": 7,
+      "passed": true,
+      "score": 7,
+      "version": 2
+    }
+  ],
+  "schema": "proofhouse.host/v1"
+}

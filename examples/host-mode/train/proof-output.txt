@@ -1,0 +1,77 @@
+network, program launching and all *_API_KEY / *_TOKEN variables are switched off for this whole run
+input: examples/host-mode/train/tickets.jsonl has 21 lines (20 invented tickets plus 1 deliberate duplicate)
+
+== PREPARE THE DATA ==
+
+$ proofhouse train data examples/host-mode/train/tickets.jsonl --out examples/host-mode/train/data --system You label customer support tickets for a software product. Read the ticket and answer with exactly one line in this form: `<category> | <priority>`.
+
+Categories, pick exactly one:
+- billing: charges, refunds, invoices, renewals, plan changes.
+- account: login, passwords, two-factor codes, email changes, teammates, deleting an account.
+- bug: something that should work but does not, including crashes and error messages.
+- feature-request: something the product does not do yet.
+
+Priority, pick exactly one:
+- high: the customer lost money, is locked out, or cannot do their work.
+- medium: a feature is broken or a decision is needed, but work continues.
+- low: a question or a wish with no deadline.
+
+Answer with the one line only. No explanation, no punctuation after the priority, no other words.
+20 examples: 18 to train on, 2 held out to check; written to examples/host-mode/train/data
+[exit 0]
+  PASS: train data exits 0
+
+data.json: {"source": "examples\\host-mode\\train\\tickets.jsonl", "examples": 20, "train": 18, "valid": 2, "train_bytes": 17915, "system_message": true, "warnings": []}
+
+first line of train.jsonl:
+{
+  "messages": [
+    {
+      "role": "system",
+      "content": "You label customer support tickets for a software product. Read the ticket and answer with exactly one line in this form: `<category> | <priority>`.\n\nCategories, pick exactly one:\n- billing: charges, refunds, invoices, renewals, plan changes.\n- account: login, passwords, two-factor codes, email changes, teammates, deleting an account.\n- bug: something that should work but does not, including crashes and error messages.\n- feature-request: something the product does not do yet.\n\nPriority, pick exactly one:\n- high: the customer lost money, is locked out, or cannot do their work.\n- medium: a feature is broken or a decision is needed, but work continues.\n- low: a question or a wish with no deadline.\n\nAnswer with the one line only. No explanation, no punctuation after the priority, no other words."
+    },
+    {
+      "role": "user",
+      "content": "I was charged twice for my March invoice."
+    },
+    {
+      "role": "assistant",
+      "content": "billing | high"
+    }
+  ]
+}
+
+== CHECKS ON THE OUTPUT (done here, independently of Proofhouse) ==
+  PASS: the duplicate line was dropped: 21 lines in, 20 examples
+  PASS: 18 to train on and 2 held out to check
+  PASS: every example is system, user, assistant in that order
+  PASS: the system message is the same in every example
+  PASS: every answer is '<category> | <priority>' from the allowed lists
+  PASS: no example is both trained on and held out
+  PASS: all four categories appear
+
+== BAD DATA IS REFUSED ==
+
+$ proofhouse train data <home>\bad.jsonl --out <home>\bad-out
+error: bad.jsonl example 1: each example needs messages, or an input and an output
+[exit 2]
+  PASS: a ticket with no answer stops the run and writes nothing
+
+$ proofhouse train data <home>\small.jsonl --out <home>\small-out
+4 examples: 4 to train on, 0 held out to check; written to <home>\small-out
+warning: only 4 examples; most services need at least 10
+[exit 0]
+  PASS: too few examples gives a warning
+
+== NO MODEL IS TRAINED OR PAID FOR ==
+
+$ proofhouse train start --service openai --model gpt-4.1-mini --data <repo>\examples\host-mode\train\data
+PHC-RUN-0003: set OPENAI_API_KEY to your OpenAI fine-tuning key
+record: <home>\train-openai-20261025-220631/train.json
+[exit 7]
+  PASS: train start without a key and a spending limit is refused
+refusal record: {"status": "refused", "job_id": null, "trained_model": null, "message": "PHC-RUN-0003: set OPENAI_API_KEY to your OpenAI fine-tuning key"}
+  PASS: the record says refused: no job, no trained model
+data prepared is plain files in examples/host-mode/train/data: ['data.json', 'train.jsonl', 'valid.jsonl']
+
+RESULT: all checks passed

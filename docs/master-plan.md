@@ -146,7 +146,10 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      own kind (video parts structurally only), shared names must appear in every text part, every fact in at
      least one, and avoid-words nowhere; record delivers every part plus a generated README.
    - Examples built by Cursor, Codex and Grok with no key: `examples/host-mode/` has one per kind, plus
-     `compare`, `loop` (a 40-test markdown converter) and `launch` with their records. The compare scores
+     `compare`, `loop` (a 40-test markdown converter) and `launch` with their records. `install`, `deploy`
+     and `train` each have a proof script and its saved output: install and uninstall on a throwaway folder,
+     deploy as a dry run with the network switched off, and training data prepared and checked with no
+     model trained or paid for. The compare scores
      (Claude as judge) and the launch score (Codex, blind: 5/10, weakest part the video script) come from
      an agent that did not write the work; the rest are the writers' own advice.
    - Then, on host mode: limit tests.
