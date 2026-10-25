@@ -1,6 +1,6 @@
 {
-  "agent": "cursor",
-  "best_version": 2,
+  "agent": "cursor+claude",
+  "best_version": 5,
   "delivered": [
     "hook",
     "settings-snippet.json"
@@ -17,8 +17,23 @@
     },
     {
       "passed": true,
-      "score": 9,
+      "score": 5,
       "version": 2
+    },
+    {
+      "passed": true,
+      "score": 6,
+      "version": 3
+    },
+    {
+      "passed": true,
+      "score": 8,
+      "version": 4
+    },
+    {
+      "passed": true,
+      "score": 9,
+      "version": 5
     }
   ],
   "schema": "proofhouse.host/v1"

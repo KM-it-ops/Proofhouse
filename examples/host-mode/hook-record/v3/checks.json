@@ -1,0 +1,10 @@
+[
+  {
+    "check": "hook execution",
+    "ok": true,
+    "detail": "exit code 2 (ran with Proofhouse's own Python; the python you install with may differ)",
+    "exit_code": 2,
+    "stdout": "",
+    "stderr": "warning: Failed to set cwd to temp dir\nblocked: git force-push is not allowed (use --force-with-lease if you must overwrite remote)\r\n"
+  }
+]
