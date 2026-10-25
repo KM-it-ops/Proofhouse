@@ -25,6 +25,8 @@ Scores are advice because the same model writes and judges. If the person has a 
 | **agent** | One `.md` file with the same frontmatter as a skill. |
 | **rule** | One `.md` file with standing instructions (no frontmatter required). |
 | **site** | Folder with `index.html` and linked pages/assets (static, no build). Page checks always run; add `--allow-commands` to also open it in a headless browser. |
+| **app** | Folder with `index.html`, `manifest.webmanifest` (`name`, `start_url`, `display`, `icons`) and `service-worker.js`; the page links the manifest and registers the worker. Use `--allow-commands` to also open it in a headless browser. |
+| **copy** | A single `copy.md` with the page or message text. Checked for presence and leftover filler only. |
 | **mcp** | Folder with `manifest.json` (`name`, `command`, `args`, optional `files`) plus server files. Use `--allow-commands` on check/record to start the server. |
 | **hook** | Folder with `manifest.json` (`event`, `matcher`, `command`, `sample_event`) plus hook script. Use `--allow-commands` on check/record. |
 | **video** | Folder with `script.json` (`title`, `voiceover`, `music`, `shots[{seconds, visual, caption, file}]`, optional `voice_file`, `music_file`) and your shot images or clips, voice and music files. Then `proofhouse render video <folder> [--formats 16x9,9x16,1x1]`. |

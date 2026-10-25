@@ -38,7 +38,7 @@ How it behaves everywhere:
 | Area | State |
 |------|-------|
 | Run any prompt on any provider; compare many models on one job | works |
-| Make prompts, skills, agents, copy | works |
+| Make prompts, skills, agents, copy | works (host mode: examples for prompt, copy, app, rule, agent, skill, hook, site, mcp) |
 | Make rules, MCP servers, hooks (each one tried for real before delivery) | works |
 | Make websites and put them online (Netlify, Vercel, Cloudflare, Surge, or any target added) | works |
 | Make apps for every platform | works; native builds proven on all six platforms ([run](https://github.com/KM-it-ops/Proofhouse/actions/runs/39161715167)) |
