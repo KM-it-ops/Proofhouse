@@ -621,3 +621,91 @@ def test_install_skill_refuses_a_skill_and_a_bundle_together(tmp_path: Path, cap
     code = cli.main(["install-skill", "--skill", "proofhouse-host", "--bundle", str(SKILL_DIR), "--dest", str(tmp_path / "s")])
     assert code != 0
     assert "--skill" in capsys.readouterr().err
+
+
+
+# ---------------------------------------------------------------- app, copy and prompt
+
+
+def pwa(folder: Path, *, worker: bool = True) -> Path:
+    wired = SITE.replace(
+        "</head>",
+        '<link rel="manifest" href="manifest.webmanifest">'
+        "<script>navigator.serviceWorker.register('service-worker.js')</script></head>",
+    )
+    site(folder, wired)
+    (folder / "manifest.webmanifest").write_text(json.dumps({
+        "name": "Bakery", "start_url": "index.html", "display": "standalone",
+        "icons": [{"src": "icon.svg", "sizes": "any", "type": "image/svg+xml"}]}), encoding="utf-8")
+    (folder / "icon.svg").write_text(
+        '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8"><rect width="8" height="8"/></svg>', encoding="utf-8")
+    if worker:
+        (folder / "service-worker.js").write_text("self.addEventListener('fetch', () => {});\n", encoding="utf-8")
+    return folder
+
+
+def test_check_app_passes_a_working_installable_app(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["check", "app", str(pwa(tmp_path / "app"))]) == 0
+    assert "service-worker.js" in capsys.readouterr().out
+
+
+def test_check_app_fails_when_the_service_worker_is_missing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["check", "app", str(pwa(tmp_path / "app", worker=False))]) != 0
+    assert "service-worker.js" in capsys.readouterr().out
+
+
+def test_check_app_needs_an_entry_page(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / "app").mkdir()
+    assert cli.main(["check", "app", str(tmp_path / "app")]) != 0
+    assert "index.html" in capsys.readouterr().err
+
+
+def test_record_app_keeps_every_version_and_delivers_the_best_app(tmp_path: Path) -> None:
+    assert record(tmp_path, "app", pwa(tmp_path / "a1", worker=False), "--score", "9") == 0
+    assert saved(tmp_path)["best_version"] is None
+    assert record(tmp_path, "app", pwa(tmp_path / "a2"), "--score", "7") == 0
+    out = tmp_path / "out"
+    assert (out / "v1" / "app" / "index.html").is_file() and (out / "v2" / "app" / "manifest.webmanifest").is_file()
+    assert (out / "app" / "service-worker.js").is_file()
+    assert saved(tmp_path)["best_version"] == 2
+
+
+def test_record_refuses_an_app_link_that_points_outside_the_folder(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = pwa(tmp_path / "app")
+    secret = tmp_path / "secret.txt"
+    secret.write_text("private", encoding="utf-8")
+    try:
+        (folder / "notes.txt").symlink_to(secret)
+    except OSError:
+        pytest.skip("this machine does not allow symbolic links")
+    assert record(tmp_path, "app", folder) != 0
+    assert "link" in capsys.readouterr().err.lower()
+
+
+@pytest.mark.parametrize("kind", ["prompt", "copy"])
+def test_check_text_kinds_fail_on_empty_text_and_leftover_filler(tmp_path: Path, kind: str) -> None:
+    good, empty, filler = tmp_path / "good.md", tmp_path / "empty.md", tmp_path / "filler.md"
+    good.write_text("Fresh bread, baked at 5 AM.\n", encoding="utf-8")
+    empty.write_text("  \n", encoding="utf-8")
+    filler.write_text("Welcome to [Company Name]. Lorem ipsum dolor.\n", encoding="utf-8")
+    assert cli.main(["check", kind, str(good)]) == 0
+    assert cli.main(["check", kind, str(empty)]) != 0
+    assert cli.main(["check", kind, str(filler)]) != 0
+
+
+def test_a_prompt_may_keep_its_variables(tmp_path: Path) -> None:
+    prompt = tmp_path / "p.md"
+    prompt.write_text("Summarise {{article}} in {{words}} words.\n", encoding="utf-8")
+    assert cli.main(["check", "prompt", str(prompt)]) == 0
+
+
+def test_record_copy_delivers_final_md_and_keeps_versions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "ph"))
+    first, second = tmp_path / "c1.md", tmp_path / "c2.md"
+    first.write_text("Fresh bread. TODO better headline.\n", encoding="utf-8")
+    second.write_text("# Bread by 5 AM\nOrder before midnight.\n", encoding="utf-8")
+    assert record(tmp_path, "copy", first, "--score", "9") == 0
+    assert saved(tmp_path)["best_version"] is None and not (tmp_path / "out" / "final.md").exists()
+    assert record(tmp_path, "copy", second, "--score", "7") == 0
+    assert (tmp_path / "out" / "final.md").read_text(encoding="utf-8") == second.read_text(encoding="utf-8")
+    assert saved(tmp_path)["best_version"] == 2

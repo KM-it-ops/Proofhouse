@@ -11,12 +11,14 @@ from decimal import Decimal
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from . import __version__, hosts, make, make_checks, sitecheck, studio
+from . import __version__, app_platforms, hosts, make, make_checks, sitecheck, studio
 from .optimize.install_skill import check_frontmatter
 
-CHECK_KINDS = ("site", "mcp", "hook", "rule", "skill", "agent")
-RECORD_KINDS = (*CHECK_KINDS, "prompt")
-_PROMPT_KIND = "prompt"
+CHECK_KINDS = ("site", "app", "mcp", "hook", "rule", "skill", "agent", "prompt", "copy")
+RECORD_KINDS = CHECK_KINDS
+_TEXT_KINDS = ("prompt", "copy")
+# Filler that finished writing must not still contain (a prompt may keep {{variables}}).
+_FILLER = re.compile(r"lorem ipsum|\[\s*(?:insert|your|add|company|name)\b[^\]]*\]|\bTBD\b|\bTODO\b", re.IGNORECASE)
 JUDGE_NOTE = (
     "Scores are the agent's own advice because the same model wrote the work and scored it; "
     "they are not proof. If you have a second agent (for example Codex or Gemini CLI), ask it to "
@@ -164,11 +166,10 @@ def run_check(kind: str, path: Path, *, allow_commands: bool, as_json: bool) -> 
 
 
 def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[str, Any]]:
-    if kind == _PROMPT_KIND:
+    if kind in _TEXT_KINDS:
         if not path.is_file():
             raise HostError(str(path))
-        text = path.read_text(encoding="utf-8")
-        return [{"check": "prompt present", "ok": bool(text.strip()), "detail": ""}]
+        return _text_checks(kind, path.read_text(encoding="utf-8"))
     if kind not in CHECK_KINDS:
         raise HostError(f"unknown kind {kind!r}")
     if not path.exists():
@@ -179,6 +180,13 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
         if not (path / "index.html").is_file():
             raise HostError(f"index.html not found in {path}")
         return sitecheck.check_site(path, shots=None, browser=allow_commands)
+    if kind == "app":
+        if not path.is_dir():
+            raise HostError(f"folder not found: {path}")
+        if not (path / "index.html").is_file():
+            raise HostError(f"index.html not found in {path}")
+        pwa = next(entry for entry in app_platforms.read_shipped() if entry["id"] == "pwa")
+        return [*app_platforms.static_checks(path, pwa), *sitecheck.check_site(path, shots=None, browser=allow_commands)]
     if kind == "skill":
         skill_md = path / "SKILL.md"
         if not skill_md.is_file():
@@ -217,6 +225,14 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
             return make_checks.mcp(data, path, allow_commands)
         return make_checks.hook(data, path, allow_commands)
     raise HostError(f"unknown kind {kind!r}")
+
+
+def _text_checks(kind: str, text: str) -> list[dict[str, Any]]:
+    found = _FILLER.search(text)
+    return [
+        {"check": f"{kind} present", "ok": bool(text.strip()), "detail": ""},
+        {"check": f"{kind} has no filler", "ok": found is None, "detail": f"still contains {found.group(0)!r}" if found else ""},
+    ]
 
 
 def _next_version(out: Path) -> int:
@@ -260,16 +276,16 @@ def _copy_support_files(source: Path, dest: Path) -> None:
 
 def _deliver_version(out: Path, kind: str, version: int, text: str, request: str) -> None:
     source = out / f"v{version}"
-    if kind == "site":
-        site_src = source / "site"
+    if kind in ("site", "app"):
+        site_src = source / kind
         if site_src.is_dir():
-            dest = out / "site"
+            dest = out / kind
             if dest.exists():
                 shutil.rmtree(dest)
             shutil.copytree(site_src, dest)
         return
-    if kind == "prompt":
-        make._deliver(out, "prompt", text.rstrip("\n"))
+    if kind in _TEXT_KINDS:
+        make._deliver(out, kind, text.rstrip("\n"))
         return
     if kind == "skill":
         before = {path.name for path in out.iterdir()}
@@ -317,12 +333,12 @@ def _deliver_version(out: Path, kind: str, version: int, text: str, request: str
 def _save_version(out: Path, kind: str, version: int, source: Path, text: str) -> Path:
     version_dir = out / f"v{version}"
     version_dir.mkdir(parents=True, exist_ok=True)
-    if kind == "site":
-        dest = version_dir / "site"
+    if kind in ("site", "app"):
+        dest = version_dir / kind
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(source, dest)
-    elif kind == "prompt":
+    elif kind in _TEXT_KINDS:
         (out / f"v{version}.md").write_text(text, encoding="utf-8")
     elif kind == "skill":
         dest = version_dir / source.name
@@ -342,9 +358,9 @@ def _save_version(out: Path, kind: str, version: int, source: Path, text: str) -
 
 
 def _load_source(kind: str, source: Path) -> str:
-    if kind in ("site", "skill", "mcp", "hook") and source.is_dir():
+    if kind in ("site", "app", "skill", "mcp", "hook") and source.is_dir():
         _scan_folder_paths(source)  # before any copy, so a link never pulls outside files into the record
-    if kind == "site":
+    if kind in ("site", "app"):
         if not source.is_dir():
             raise HostError(str(source))
         index = source / "index.html"
@@ -356,10 +372,10 @@ def _load_source(kind: str, source: Path) -> str:
         if not skill_md.is_file():
             raise HostError(f"SKILL.md not found in {source}")
         return skill_md.read_text(encoding="utf-8")
-    if kind in ("agent", "rule", "prompt"):
+    if kind in ("agent", "rule", *_TEXT_KINDS):
         if not source.is_file():
             raise HostError(str(source))
-        if kind != _PROMPT_KIND and source.suffix.lower() != ".md":
+        if kind not in _TEXT_KINDS and source.suffix.lower() != ".md":
             raise HostError(f"a {kind} file must end in .md: {source.name}")
         return source.read_text(encoding="utf-8")
     if kind in ("mcp", "hook"):
@@ -434,15 +450,15 @@ def run_record(
 
 
 def _check_target(out: Path, kind: str, version: int, source: Path) -> Path:
-    if kind == "site":
-        return out / f"v{version}" / "site"
+    if kind in ("site", "app"):
+        return out / f"v{version}" / kind
     if kind == "skill":
         return _skill_version_dir(out, version, source)
     if kind in ("agent", "rule"):
         return next((out / f"v{version}").glob("*.md"))
     if kind in ("mcp", "hook"):
         return out / f"v{version}" / kind
-    if kind == _PROMPT_KIND:
+    if kind in _TEXT_KINDS:
         return out / f"v{version}.md"
     raise HostError(f"unknown kind {kind!r}")
 
@@ -456,7 +472,7 @@ def _skill_version_dir(out: Path, version: int, source: Path) -> Path:
 
 
 def _version_text(out: Path, kind: str, version: int, request: str) -> str:
-    if kind == _PROMPT_KIND:
+    if kind in _TEXT_KINDS:
         return (out / f"v{version}.md").read_text(encoding="utf-8")
     if kind == "skill":
         return (_skill_version_dir(out, version, Path("skill")) / "SKILL.md").read_text(encoding="utf-8")
