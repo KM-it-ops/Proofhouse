@@ -1,12 +1,12 @@
 {
-  "agent": "cursor",
-  "best_version": 2,
+  "agent": "cursor (reviewed and fixed by claude)",
+  "best_version": 3,
   "delivered": [
     "dependency-upgrade-reviewer.md"
   ],
   "judge_note": "Scores are the agent's own advice because the same model wrote the work and scored it; they are not proof. If you have a second agent (for example Codex or Gemini CLI), ask it to judge a version and record that score instead.",
   "kind": "agent",
-  "proofhouse_version": "0.10.0",
+  "proofhouse_version": "0.9.1",
   "request": "Agent: dependency upgrade reviewer",
   "rounds": [
     {
@@ -18,6 +18,11 @@
       "passed": true,
       "score": 9,
       "version": 2
+    },
+    {
+      "passed": true,
+      "score": 9,
+      "version": 3
     }
   ],
   "schema": "proofhouse.host/v1"

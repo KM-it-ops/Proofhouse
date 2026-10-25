@@ -11,7 +11,7 @@ from datetime import date
 from pathlib import Path
 
 COMMIT_RE = re.compile(
-    r"^(?P<type>\w+)(?P<breaking>!)?(?:\((?P<scope>[^)]+)\))?!?:\s*(?P<subject>.+)$"
+    r"^(?P<type>\w+)(?:\((?P<scope>[^)]+)\))?(?P<breaking>!)?:\s*(?P<subject>.+)$"
 )
 SKIP_TYPES = frozenset({"chore", "docs", "test", "ci", "style", "build"})
 SECTION_ORDER = ("Added", "Changed", "Deprecated", "Removed", "Fixed", "Security")

@@ -65,21 +65,21 @@ ALTER TABLE orders DROP COLUMN total_cents;
 
 ## Column defaults and NOT NULL
 
-Postgres 11+: a **constant** `DEFAULT` on `ADD COLUMN` is usually metadata-only. Still avoid one-shot `NOT NULL` on billions of rows without a backfill plan.
-
-**Risky on a large live table:**
+Postgres 11+: a **constant** `DEFAULT` on `ADD COLUMN` is metadata-only, even with `NOT NULL`. This is fine on a large table:
 
 ```sql
 ALTER TABLE users ADD COLUMN tier text NOT NULL DEFAULT 'free';
 ```
 
-**Safer pattern:**
+**Wrong:** a volatile default (`DEFAULT random()`, `DEFAULT clock_timestamp()`) rewrites the whole table under `ACCESS EXCLUSIVE`. Add the column without a default, set the default for new rows, and backfill old rows in batches.
+
+**Adding `NOT NULL` to an existing column** (a plain `SET NOT NULL` scans the table while holding `ACCESS EXCLUSIVE`):
 
 ```sql
-ALTER TABLE users ADD COLUMN tier text;
-ALTER TABLE users ALTER COLUMN tier SET DEFAULT 'free';
--- batched: UPDATE users SET tier = 'free' WHERE tier IS NULL AND id BETWEEN ...;
-ALTER TABLE users ALTER COLUMN tier SET NOT NULL;
+ALTER TABLE users ADD CONSTRAINT users_tier_not_null CHECK (tier IS NOT NULL) NOT VALID;
+ALTER TABLE users VALIDATE CONSTRAINT users_tier_not_null;  -- scans, but only blocks writes briefly
+ALTER TABLE users ALTER COLUMN tier SET NOT NULL;           -- Postgres 12+ reuses the validated CHECK, no scan
+ALTER TABLE users DROP CONSTRAINT users_tier_not_null;
 ```
 
 ## Indexes and constraints
@@ -95,6 +95,8 @@ CREATE UNIQUE INDEX idx_users_email ON users (email);
 ```sql
 CREATE UNIQUE INDEX CONCURRENTLY IF NOT EXISTS idx_users_email ON users (email);
 ```
+
+If a concurrent build fails or is cancelled it leaves an **invalid** index behind, and `IF NOT EXISTS` will then skip it silently: check `pg_index.indisvalid`, drop the invalid index, and rebuild.
 
 Many runners wrap migrations in a transaction; **`CREATE INDEX CONCURRENTLY` cannot run inside a transaction block**—use a dedicated migration file and runner mode that commits per file.
 

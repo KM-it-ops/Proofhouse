@@ -67,20 +67,22 @@ Skip delegation when there is no diff and no release text, or the change is only
 
 # Worked example
 
-**Package:** `axios` 0.27.2 → 1.6.0  
+(Illustrative: `acme-http` is an invented package, and the quote below is invented too. A real verdict only quotes text the caller supplied.)
+
+**Package:** `acme-http` 2.4.1 → 3.0.0  
 **Verdict:** MERGE_AFTER_CHANGES  
 
 ### Evidence
-- Semver: major; release notes document ESM-only default export changes.
-- Breaking vs codebase: grep found `require('axios')` in `src/api/client.ts` and `scripts/sync.js`; notes require `import axios from 'axios'` or dynamic import.
+- Semver: major; release notes say the default export becomes ESM-only.
+- Breaking vs codebase: grep found `require('acme-http')` in `src/api/client.ts` and `scripts/sync.js`; notes require `import acme from 'acme-http'`.
 - Transitive / license: adds `form-data@4`; license `MIT` on lock line.
 - Scripts / native: none added.
 - Peers: none conflicting in diff.
 - Tests: `tests/api/client.test.ts` imports `./client`; update tests after import migration.
 
 ### Required follow-ups
-1. Migrate `src/api/client.ts` and `scripts/sync.js` to ESM import style per 1.x migration guide.
+1. Migrate `src/api/client.ts` and `scripts/sync.js` to ESM import style per the 3.x migration guide.
 2. Run the API test suite after migration.
 
 ### Changelog citations
-- "Default export is ESM; CommonJS require is no longer supported" — v1.0.0
+- "The package is now ESM-only; CommonJS require() is removed" — 3.0.0

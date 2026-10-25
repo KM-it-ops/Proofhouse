@@ -1,0 +1,7 @@
+[
+  {
+    "check": "agent frontmatter",
+    "ok": true,
+    "detail": "dependency-upgrade-reviewer"
+  }
+]
