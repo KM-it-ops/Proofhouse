@@ -545,3 +545,33 @@ def test_the_host_skill_teaches_the_whole_loop_without_a_key() -> None:
         assert needle in text
     for kind in ("site", "mcp", "hook", "rule", "skill", "agent", "prompt", "video"):
         assert kind in text
+
+
+# ---------------------------------------------------------------- the host skill ships with the package
+
+PACKAGED_HOST_SKILL = Path(__file__).resolve().parents[1] / "src" / "proofhouse" / "optimize" / "data" / "proofhouse-host" / "SKILL.md"
+
+
+def test_the_packaged_host_skill_matches_the_source_skill() -> None:
+    assert PACKAGED_HOST_SKILL.is_file(), "run scripts/build_skill_bundle.py"
+    assert PACKAGED_HOST_SKILL.read_bytes() == (SKILL_DIR / "SKILL.md").read_bytes().replace(b"\r\n", b"\n")
+
+
+def test_install_skill_installs_the_host_skill_from_the_package(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    dest = tmp_path / "skills"
+    assert cli.main(["install-skill", "--skill", "proofhouse-host", "--dest", str(dest)]) == 0
+    assert (dest / "proofhouse-host" / "SKILL.md").is_file()
+    assert "proofhouse-host" in capsys.readouterr().out
+
+
+def test_install_skill_without_a_choice_still_installs_proofhouse(tmp_path: Path) -> None:
+    dest = tmp_path / "skills"
+    assert cli.main(["install-skill", "--dest", str(dest)]) == 0
+    assert (dest / "proofhouse" / "SKILL.md").is_file()
+    assert not (dest / "proofhouse-host").exists()
+
+
+def test_install_skill_refuses_a_skill_and_a_bundle_together(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    code = cli.main(["install-skill", "--skill", "proofhouse-host", "--bundle", str(SKILL_DIR), "--dest", str(tmp_path / "s")])
+    assert code != 0
+    assert "--skill" in capsys.readouterr().err

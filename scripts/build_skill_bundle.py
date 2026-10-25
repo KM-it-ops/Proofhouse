@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Rebuild skills/proofhouse/proofhouse.skill from its source directory.
+"""Rebuild skills/proofhouse/proofhouse.skill from its source directory (and copy the host skill into package data).
 
 The bundle is a committed artifact, so it is packed reproducibly: entries sorted,
 fixed timestamps and attributes, text normalised to LF, and stored uncompressed.
@@ -30,6 +30,9 @@ BUNDLE = SKILL_DIR / "proofhouse.skill"
 # Byte-identical copy shipped as package data so `pip install` carries the skill.
 PACKAGE_BUNDLE = REPO_ROOT / "src" / "proofhouse" / "optimize" / "data" / "proofhouse.skill"
 ROOT_PREFIX = "proofhouse"
+# The host-mode skill is a single file, shipped as a folder in package data for `install-skill --skill proofhouse-host`.
+HOST_SKILL = REPO_ROOT / "skills" / "proofhouse-host" / "SKILL.md"
+PACKAGE_HOST_SKILL = REPO_ROOT / "src" / "proofhouse" / "optimize" / "data" / "proofhouse-host" / "SKILL.md"
 
 # The zip epoch. A real mtime would make the bundle differ on every rebuild.
 FIXED_DATE = (1980, 1, 1, 0, 0, 0)
@@ -81,6 +84,9 @@ def main() -> int:
     for name in names:
         print(f"  {name}")
     print(f"wrote {PACKAGE_BUNDLE}")
+    PACKAGE_HOST_SKILL.parent.mkdir(parents=True, exist_ok=True)
+    PACKAGE_HOST_SKILL.write_bytes(entry_bytes(HOST_SKILL))
+    print(f"wrote {PACKAGE_HOST_SKILL}")
     return 0
 
 

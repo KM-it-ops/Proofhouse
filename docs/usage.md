@@ -13,7 +13,7 @@ proofhouse record site ./my-site --out ./out --request "bakery landing" --agent 
 proofhouse render video ./my-video --formats 16x9,9x16,1x1
 ```
 
-Install the teaching skill with `proofhouse install-skill --bundle skills/proofhouse-host` (or copy `skills/proofhouse-host/` into your agent's skills folder). Scores on `record` are the agent's own advice; a second agent as judge is better when you have one.
+Install the teaching skill with `proofhouse install-skill --skill proofhouse-host` (or copy `skills/proofhouse-host/` into your agent's skills folder). Scores on `record` are the agent's own advice; a second agent as judge is better when you have one.
 
 ## Ways in
 

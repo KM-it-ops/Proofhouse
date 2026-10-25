@@ -5,6 +5,7 @@
 ### Added
 
 - **Host mode** for agents you already use: `proofhouse check`, `proofhouse record` and `proofhouse render video` need no API key and make no network calls of their own (`--allow-commands` runs model-written code, which may); the `proofhouse-host` skill teaches the write-check-record loop.
+- `proofhouse install-skill --skill proofhouse-host` installs that skill from the package itself, no checkout needed (plain `install-skill` still installs `proofhouse`).
 
 ## 0.9.1 - 2026-10-25
 

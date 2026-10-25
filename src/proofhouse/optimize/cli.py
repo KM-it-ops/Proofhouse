@@ -30,7 +30,7 @@ from .case import CaseError
 from .cli_workflow import add_workflow_commands
 from .model_notes import ResolvedNotes, resolve_model_notes
 from .packets import PRESET_KEYS
-from .registry import load_registry
+from .registry import DATA_DIR, load_registry
 
 LOCAL_COMMANDS = frozenset({"case", "optimize", "models", "install-skill", "uninstall-skill", "demo"})
 
@@ -751,6 +751,12 @@ def _ask_agent() -> tuple[str | None, Path | None, str]:
 def _cmd_install_skill(args: argparse.Namespace) -> int:
     dest = Path(args.dest) if args.dest else None
     bundle = Path(args.bundle) if args.bundle else None
+    if args.skill is not None:
+        if bundle is not None:
+            print("error: use --skill or --bundle, not both", file=sys.stderr)
+            return EXIT_USAGE_ERROR
+        if args.skill != install_mod.SKILL_NAME:
+            bundle = DATA_DIR / args.skill
     try:
         research = None
         if getattr(args, "provider", None) and getattr(args, "model", None):
@@ -861,6 +867,15 @@ def _add_install_skill(subparsers: argparse._SubParsersAction) -> None:
             "A skill to install: a zip with every entry under <name>/, or a folder with SKILL.md at its root "
             "(default: the proofhouse.skill bundle shipped inside the package). The name comes from the "
             "SKILL.md frontmatter."
+        ),
+    )
+    p_install.add_argument(
+        "--skill",
+        choices=("proofhouse", "proofhouse-host"),
+        default=None,
+        help=(
+            "Which skill shipped in the package to install: proofhouse (the default) or proofhouse-host, "
+            "which teaches your agent to write, check and record work with no API key."
         ),
     )
     p_install.add_argument(
