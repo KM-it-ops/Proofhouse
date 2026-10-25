@@ -1,0 +1,32 @@
+[
+  {
+    "check": "index.html has a title",
+    "ok": true,
+    "detail": "Maple & Rye Bakery \u2014 Fresh bread & pastry in Hawthorn Villag"
+  },
+  {
+    "check": "index.html declares its language",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "index.html works on phones (viewport)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "index.html images have alt text",
+    "ok": true,
+    "detail": "0 without alt"
+  },
+  {
+    "check": "every internal link and file exists",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "opened in a browser",
+    "ok": null,
+    "detail": "not measured: no Chrome or Chromium found"
+  }
+]
