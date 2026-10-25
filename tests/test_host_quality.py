@@ -114,6 +114,18 @@ def test_site_text_size_and_title(tmp_path: Path) -> None:
     assert rows["headings"]["ok"] is True
 
 
+def test_svg_title_does_not_count_as_page_title(tmp_path: Path) -> None:
+    folder = tmp_path / "site"
+    folder.mkdir()
+    (folder / "index.html").write_text(
+        '<!doctype html><html lang="en"><head><title>Maple Rye Bakery in Hawthorn</title></head>'
+        '<body><h1>Bakery</h1><svg><title>Loaves on a counter, a long picture label for screen readers</title></svg></body></html>',
+        encoding="utf-8",
+    )
+    rows = {r["check"]: r for r in site_readability_rows(folder)}
+    assert rows["title"]["ok"] is True
+
+
 def test_collect_checks_copy_includes_quality(tmp_path: Path) -> None:
     path = tmp_path / "copy.md"
     path.write_text(_copy_words(25), encoding="utf-8")

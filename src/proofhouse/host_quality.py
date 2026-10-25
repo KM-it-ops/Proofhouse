@@ -251,10 +251,11 @@ class _IndexParser(HTMLParser):
         self.h1_count = 0
         self.images_without_alt = 0
         self._in_title = False
+        self._title_done = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         values = {key: value or "" for key, value in attrs}
-        if tag == "title":
+        if tag == "title" and not self._title_done:
             self._in_title = True
         if tag == "h1":
             self.h1_count += 1
@@ -262,8 +263,9 @@ class _IndexParser(HTMLParser):
             self.images_without_alt += 1
 
     def handle_endtag(self, tag: str) -> None:
-        if tag == "title":
+        if tag == "title" and self._in_title:
             self._in_title = False
+            self._title_done = True
 
     def handle_data(self, data: str) -> None:
         if self._in_title:
