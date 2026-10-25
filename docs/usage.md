@@ -89,6 +89,8 @@ A model plans the launch: which parts it needs (site, video, support agent, skil
 
 `--kind copy` makes announcement copy on its own: headline, body, call to action and ready-to-post versions.
 
+In **host mode**, you can also check and record a launch your agent wrote into one folder (no API key): put `launch.json` plus each part at the paths it names, run `proofhouse check launch ./LAUNCH`, then `proofhouse record launch ./LAUNCH --out ./out --request "..." --agent cursor --score 8`. Proofhouse checks every part the same way as that kind on its own, checks shared names and facts across parts, and on record delivers each part under `--out/<part-id>/`, copies `launch.json`, and writes `README.md` with a parts table and which part carried each fact.
+
 `--kind app` makes a shared web app and a separate package for every selected platform. Use repeatable `--platform` (for example `--platform pwa --platform android`); without it, every target in `app_platforms.json` is selected. The catalog ships PWA, Windows, macOS, Linux, iOS and Android targets and can be extended or overridden in `PROOFHOUSE_HOME/app_platforms.json`. Each version keeps static and build results in `checks.json`; platform builds run only with `--allow-commands`, after their setup steps (such as `npm install` and `npx cap add android`). The delivered `README.md` lists files, where the build output is, and how to build by hand. The native builds are proven on all six platforms with a fixed sample app and no model; a build of a model-written app that has not been run is marked "to check" with what is left to confirm. Signed store builds are not covered.
 
 ### Make a website

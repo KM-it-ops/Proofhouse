@@ -14,7 +14,7 @@ from typing import Any
 from . import __version__, app_platforms, hosts, make, make_checks, sitecheck, studio
 from .optimize.install_skill import check_frontmatter
 
-CHECK_KINDS = ("site", "app", "mcp", "hook", "rule", "skill", "agent", "prompt", "copy")
+CHECK_KINDS = ("site", "app", "mcp", "hook", "rule", "skill", "agent", "prompt", "copy", "launch")
 RECORD_KINDS = CHECK_KINDS
 _TEXT_KINDS = ("prompt", "copy")
 # Filler that finished writing must not still contain (a prompt may keep {{variables}}).
@@ -162,10 +162,21 @@ def run_check(kind: str, path: Path, *, allow_commands: bool, as_json: bool) -> 
         for row in checks:
             print(_format_check_line(row))
     commands_required = kind in ("mcp", "hook")
+    if kind == "launch":
+        from .host_launch import launch_commands_required
+
+        commands_required = launch_commands_required(checks, path)
     return _check_rows_pass_exit(checks, commands_required=commands_required)
 
 
 def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[str, Any]]:
+    if kind == "launch":
+        from .host_launch import HostError as LaunchHostError, collect_launch_checks
+
+        try:
+            return collect_launch_checks(path, allow_commands=allow_commands)
+        except LaunchHostError as exc:
+            raise HostError(str(exc)) from exc
     if kind in _TEXT_KINDS:
         if not path.is_file():
             raise HostError(str(path))
@@ -354,11 +365,15 @@ def _save_version(out: Path, kind: str, version: int, source: Path, text: str) -
         if dest.exists():
             shutil.rmtree(dest)
         shutil.copytree(source, dest)
+    elif kind == "launch":
+        from .host_launch import save_launch_version
+
+        return save_launch_version(out, version, source)
     return version_dir
 
 
 def _load_source(kind: str, source: Path) -> str:
-    if kind in ("site", "app", "skill", "mcp", "hook") and source.is_dir():
+    if kind in ("site", "app", "skill", "mcp", "hook", "launch") and source.is_dir():
         _scan_folder_paths(source)  # before any copy, so a link never pulls outside files into the record
     if kind in ("site", "app"):
         if not source.is_dir():
@@ -383,6 +398,13 @@ def _load_source(kind: str, source: Path) -> str:
             raise HostError(str(source))
         _read_manifest(source)
         return ""
+    if kind == "launch":
+        from .host_launch import HostError as LaunchHostError, load_launch_source
+
+        try:
+            return load_launch_source(source)
+        except LaunchHostError as exc:
+            raise HostError(str(exc)) from exc
     raise HostError(f"unknown kind {kind!r}")
 
 
@@ -417,7 +439,12 @@ def run_record(
         _print_error(str(exc))
         return 2
     (out / f"v{version}" / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
-    passed = _version_passed(checks, commands_required=kind in ("mcp", "hook"))
+    commands_required = kind in ("mcp", "hook")
+    if kind == "launch":
+        from .host_launch import launch_commands_required
+
+        commands_required = launch_commands_required(checks, source)
+    passed = _version_passed(checks, commands_required=commands_required)
     record_path = out / "record.json"
     prior = _read_record(out)
     rounds: list[dict[str, Any]] = list(prior.get("rounds") or [])
@@ -439,8 +466,18 @@ def run_record(
     if best_version is not None:
         before = {path.name for path in out.iterdir()}
         best_text = _version_text(out, kind, best_version, request)
-        _deliver_version(out, kind, best_version, best_text, request)
-        delivered = sorted({path.name for path in out.iterdir()} - before)
+        if kind == "launch":
+            from .host_launch import deliver_launch
+
+            version_dir = out / f"v{best_version}"
+            best_checks = json.loads((version_dir / "checks.json").read_text(encoding="utf-8"))
+            best_score = next((row.get("score") for row in rounds if row.get("version") == best_version), score)
+            delivered = deliver_launch(
+                out, version_dir, best_checks, agent=agent, score=best_score, request=request,
+            )
+        else:
+            _deliver_version(out, kind, best_version, best_text, request)
+            delivered = sorted({path.name for path in out.iterdir()} - before)
     payload["delivered"] = delivered
     record_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     not_run = sum(1 for row in checks if row.get("ok") is None)
@@ -460,6 +497,8 @@ def _check_target(out: Path, kind: str, version: int, source: Path) -> Path:
         return out / f"v{version}" / kind
     if kind in _TEXT_KINDS:
         return out / f"v{version}.md"
+    if kind == "launch":
+        return out / f"v{version}"
     raise HostError(f"unknown kind {kind!r}")
 
 
@@ -482,6 +521,8 @@ def _version_text(out: Path, kind: str, version: int, request: str) -> str:
         return next((out / f"v{version}").glob("*.md")).read_text(encoding="utf-8")
     if kind in ("mcp", "hook"):
         return (out / f"v{version}" / kind / "manifest.json").read_text(encoding="utf-8")
+    if kind == "launch":
+        return (out / f"v{version}" / "launch.json").read_text(encoding="utf-8")
     return ""
 
 

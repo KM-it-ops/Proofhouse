@@ -30,6 +30,7 @@ Scores are advice because the same model writes and judges. If the person has a 
 | **mcp** | Folder with `manifest.json` (`name`, `command`, `args`, optional `files`) plus server files. Use `--allow-commands` on check/record to start the server. |
 | **hook** | Folder with `manifest.json` (`event`, `matcher`, `command`, `sample_event`) plus hook script. Use `--allow-commands` on check/record. |
 | **video** | Folder with `script.json` (`title`, `voiceover`, `music`, `shots[{seconds, visual, caption, file}]`, optional `voice_file`, `music_file`) and your shot images or clips, voice and music files. Then `proofhouse render video <folder> [--formats 16x9,9x16,1x1]`. |
+| **launch** | Folder with `launch.json` (`name`, `goal`, `tone`, `shared_names`, `facts`, `avoid`, `parts[{id, kind, path}]`) and every part at its path (kinds as above; video is structure-only until you `render video`). Checks names and facts across parts; `record` delivers each part under `--out/<id>/`, `launch.json`, and a generated `README.md`. |
 
 ## Commands
 
