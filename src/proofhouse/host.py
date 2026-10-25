@@ -11,7 +11,7 @@ from decimal import Decimal
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from . import __version__, make, make_checks, sitecheck, studio
+from . import __version__, hosts, make, make_checks, sitecheck, studio
 from .optimize.install_skill import check_frontmatter
 
 CHECK_KINDS = ("site", "mcp", "hook", "rule", "skill", "agent")
@@ -23,6 +23,9 @@ JUDGE_NOTE = (
     "judge a version and record that score instead."
 )
 _VIDEO_SUFFIX = re.compile(r"\.(mp4|webm|mov|mkv)$", re.IGNORECASE)
+_PICTURE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"})
+_VIDEO_SUFFIXES = frozenset({".mp4", ".webm", ".mov", ".mkv"})
+_SOUND_SUFFIXES = frozenset({".wav", ".mp3", ".m4a", ".aac", ".ogg", ".flac", ".opus"})
 
 
 class HostError(Exception):
@@ -70,11 +73,31 @@ def _scan_folder_paths(folder: Path) -> None:
         if item.is_symlink():
             raise HostError(f"symbolic link not allowed: {item.name}")
         try:
+            if item.is_file() and item.stat().st_nlink > 1:
+                raise HostError(f"hard link not allowed: {item.name} (copy the file instead)")
+        except OSError:
+            continue
+        try:
             resolved = item.resolve()
         except OSError:
             continue
         if not resolved.is_relative_to(root):
             raise HostError(f"path escapes the folder: {item.name}")
+
+
+def _require_suffix(name: str, allowed: frozenset[str], what: str) -> None:
+    if PurePosixPath(name).suffix.lower() not in allowed:
+        raise HostError(f"{what} file type not supported: {name!r} (use {', '.join(sorted(allowed))})")
+
+
+def _check_out_folder(out: Path, source: Path) -> None:
+    out_root, source_root = out.resolve(), source.resolve()
+    if out_root == source_root or out_root.is_relative_to(source_root) or source_root.is_relative_to(out_root):
+        raise HostError("--out must be a separate folder that neither holds nor sits inside the thing you are recording")
+    if out.exists() and not out.is_dir():
+        raise HostError(f"--out is not a folder: {out}")
+    if out.is_dir() and any(out.iterdir()) and not (out / "record.json").is_file():
+        raise HostError(f"--out folder is not empty and holds no Proofhouse record: {out} (pick a new or empty folder)")
 
 
 def _read_manifest(folder: Path) -> dict[str, Any]:
@@ -117,7 +140,7 @@ def _manifest_paths(folder: Path, data: dict[str, Any]) -> list[str]:
 def run_check(kind: str, path: Path, *, allow_commands: bool, as_json: bool) -> int:
     try:
         checks = collect_checks(kind, path, allow_commands=allow_commands)
-    except HostError as exc:
+    except (HostError, hosts.HostError, OSError, ValueError) as exc:
         _print_error(str(exc))
         return 2
     if as_json:
@@ -142,7 +165,7 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
     if kind == "site":
         if not path.is_dir():
             raise HostError(f"folder not found: {path}")
-        return sitecheck.check_site(path, shots=None)
+        return sitecheck.check_site(path, shots=None, browser=allow_commands)
     if kind == "skill":
         skill_md = path / "SKILL.md"
         if not skill_md.is_file():
@@ -191,8 +214,8 @@ def _next_version(out: Path) -> int:
     return highest + 1
 
 
-def _version_passed(checks: list[dict[str, Any]]) -> bool:
-    return bool(checks) and all(row.get("ok") is not False for row in checks)
+def _version_passed(checks: list[dict[str, Any]], *, commands_required: bool) -> bool:
+    return bool(checks) and _check_rows_pass_exit(checks, commands_required=commands_required) == 0
 
 
 def _pick_best(rounds: list[dict[str, Any]]) -> int | None:
@@ -321,6 +344,8 @@ def _load_source(kind: str, source: Path) -> str:
     if kind in ("agent", "rule", "prompt"):
         if not source.is_file():
             raise HostError(str(source))
+        if kind != _PROMPT_KIND and source.suffix.lower() != ".md":
+            raise HostError(f"a {kind} file must end in .md: {source.name}")
         return source.read_text(encoding="utf-8")
     if kind in ("mcp", "hook"):
         if not source.is_dir():
@@ -346,15 +371,22 @@ def run_record(
         return 2
     try:
         text = _load_source(kind, source)
-    except HostError as exc:
+        _check_out_folder(out, source)
+        out.mkdir(parents=True, exist_ok=True)
+    except (HostError, OSError, ValueError) as exc:
         _print_error(str(exc))
         return 2
-    out.mkdir(parents=True, exist_ok=True)
     version = _next_version(out)
-    _save_version(out, kind, version, source, text)
-    checks = collect_checks(kind, _check_target(out, kind, version, source), allow_commands=allow_commands)
+    try:
+        _save_version(out, kind, version, source, text)
+        checks = collect_checks(kind, _check_target(out, kind, version, source), allow_commands=allow_commands)
+    except (HostError, hosts.HostError, OSError, ValueError) as exc:
+        shutil.rmtree(out / f"v{version}", ignore_errors=True)
+        (out / f"v{version}.md").unlink(missing_ok=True)
+        _print_error(str(exc))
+        return 2
     (out / f"v{version}" / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
-    passed = _version_passed(checks)
+    passed = _version_passed(checks, commands_required=kind in ("mcp", "hook"))
     record_path = out / "record.json"
     rounds: list[dict[str, Any]] = []
     if record_path.is_file():
@@ -481,6 +513,11 @@ def run_render_video(
             _print_error(f"shot file not found: {file_name}")
             return 2
         try:
+            _require_suffix(file_name, _PICTURE_SUFFIXES | _VIDEO_SUFFIXES, "shot")
+        except HostError as exc:
+            _print_error(str(exc))
+            return 2
+        try:
             seconds = max(1, min(20, int(round(float(raw.get("seconds", 4))))))
         except (TypeError, ValueError):
             seconds = 4
@@ -496,6 +533,11 @@ def run_render_video(
         if not Path(voice_path).is_file():
             _print_error(f"voice file not found: {voice_name}")
             return 2
+        try:
+            _require_suffix(voice_name, _SOUND_SUFFIXES, "voice")
+        except HostError as exc:
+            _print_error(str(exc))
+            return 2
     music_path: str | None = None
     music_name = data.get("music_file")
     if isinstance(music_name, str) and music_name.strip():
@@ -506,6 +548,11 @@ def run_render_video(
             return 2
         if not Path(music_path).is_file():
             _print_error(f"music file not found: {music_name}")
+            return 2
+        try:
+            _require_suffix(music_name, _SOUND_SUFFIXES, "music")
+        except HostError as exc:
+            _print_error(str(exc))
             return 2
     visual_kind = _visual_kind(Path(shots[0].file or ""))
     production = studio.Production(folder.resolve())
@@ -520,6 +567,9 @@ def run_render_video(
         )
     except studio.StudioError as exc:
         _print_error(str(exc))
+        return 2
+    except OSError as exc:
+        _print_error(f"could not render in {folder}: {exc} (a leftover 'work' folder from an earlier run must be removed)")
         return 2
     if production.stopped != "finished":
         _print_error(production.stopped)

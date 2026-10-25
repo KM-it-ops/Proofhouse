@@ -342,6 +342,123 @@ def test_render_video_refuses_a_script_with_no_shots(tmp_path: Path, capsys: pyt
     assert "no shots" in capsys.readouterr().err
 
 
+@needs_ffmpeg
+@pytest.mark.parametrize("shot", ["playlist.m3u8", "shot.txt", "shot"])
+def test_render_video_only_opens_picture_video_and_sound_files(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str], shot: str,
+) -> None:
+    folder = video_folder(tmp_path)
+    (folder / shot).write_text("#EXTM3U\nhttps://example.com/a.ts\n", encoding="utf-8")
+    script = json.loads((folder / "script.json").read_text(encoding="utf-8"))
+    script["shots"][0]["file"] = shot
+    (folder / "script.json").write_text(json.dumps(script), encoding="utf-8")
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) != 0
+    assert "supported" in capsys.readouterr().err
+    assert not list(folder.glob("video-*.mp4"))
+
+
+@needs_ffmpeg
+def test_render_video_refuses_a_hard_link_to_a_file_outside_the_folder(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = video_folder(tmp_path)
+    outside = tmp_path / "outside.srt"
+    outside.write_text("keep me", encoding="utf-8")
+    try:
+        (folder / "captions.srt").hardlink_to(outside)
+    except OSError:
+        pytest.skip("this machine does not allow hard links")
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) != 0
+    assert "link" in capsys.readouterr().err.lower()
+    assert outside.read_text(encoding="utf-8") == "keep me"
+
+
+# ---------------------------------------------------------------- safety found in review
+
+
+def test_check_site_does_not_open_a_browser_unless_commands_are_allowed(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+    opened: list[list[str]] = []
+
+    def record_launch(command: list[str], timeout: int) -> str:
+        opened.append(command)
+        return "stubbed"
+
+    monkeypatch.setattr(sitecheck, "_open", record_launch)
+    folder = site(tmp_path / "s")
+    assert cli.main(["check", "site", str(folder)]) == 0
+    assert opened == []
+    assert cli.main(["check", "site", str(folder), "--allow-commands"]) == 0
+    assert opened, "with --allow-commands the site is opened in the browser"
+
+
+@pytest.mark.parametrize("kind", ["rule", "agent"])
+def test_record_never_deletes_files_it_did_not_deliver(tmp_path: Path, capsys: pytest.CaptureFixture[str], kind: str) -> None:
+    work = tmp_path / "work"
+    work.mkdir()
+    (work / "README.md").write_text("mine", encoding="utf-8")
+    source = tmp_path / "thing.md"
+    source.write_text(AGENT if kind == "agent" else "Always say please.\n", encoding="utf-8")
+    code = cli.main(["record", kind, str(source), "--out", str(work), "--request", "x", "--agent", "cursor"])
+    assert code != 0
+    assert (work / "README.md").read_text(encoding="utf-8") == "mine"
+    assert "out" in capsys.readouterr().err.lower()
+
+
+def test_record_refuses_an_out_folder_that_holds_or_sits_inside_the_source(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    project = tmp_path / "proj"
+    source = site(project / "site")
+    assert cli.main(["record", "site", str(source), "--out", str(project), "--request", "x", "--agent", "cursor"]) != 0
+    assert (source / "index.html").read_text(encoding="utf-8") == SITE
+    assert cli.main(["record", "site", str(source), "--out", str(source / "rec"), "--request", "x", "--agent", "cursor"]) != 0
+    assert not (source / "rec").exists()
+    assert capsys.readouterr().err
+
+
+def test_record_does_not_call_an_unrun_check_a_pass(tmp_path: Path) -> None:
+    assert record(tmp_path, "mcp", mcp(tmp_path / "m")) == 0
+    out = tmp_path / "out"
+    saved_record = json.loads((out / "record.json").read_text(encoding="utf-8"))
+    assert saved_record["best_version"] is None and saved_record["rounds"][0]["passed"] is False
+    assert not (out / "mcp").exists() and not (out / "INSTALL-MCP.txt").exists()
+
+
+def test_check_and_record_refuse_a_hard_link_to_a_file_outside_the_folder(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    folder = site(tmp_path / "s")
+    outside = tmp_path / "secret.txt"
+    outside.write_text("private", encoding="utf-8")
+    try:
+        (folder / "notes.txt").hardlink_to(outside)
+    except OSError:
+        pytest.skip("this machine does not allow hard links")
+    assert record(tmp_path, "site", folder) != 0
+    assert "link" in capsys.readouterr().err.lower()
+    assert not (tmp_path / "out" / "v1").exists()
+
+
+@pytest.mark.parametrize("kind", ["rule", "agent"])
+def test_record_of_a_file_that_is_not_markdown_is_a_clear_error(tmp_path: Path, capsys: pytest.CaptureFixture[str], kind: str) -> None:
+    source = tmp_path / "thing.txt"
+    source.write_text("Always say please.\n", encoding="utf-8")
+    assert record(tmp_path, kind, source) != 0
+    assert ".md" in capsys.readouterr().err
+    assert not (tmp_path / "out" / "v1").exists()
+
+
+@needs_ffmpeg
+def test_render_video_reports_a_leftover_work_folder_instead_of_crashing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = video_folder(tmp_path)
+    (folder / "work").mkdir()
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 2
+    assert "work" in capsys.readouterr().err
+
+
 # ---------------------------------------------------------------- skill that teaches the loop
 
 SKILL_DIR = Path(__file__).resolve().parents[1] / "skills" / "proofhouse-host"

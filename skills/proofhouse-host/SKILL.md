@@ -24,7 +24,7 @@ Scores are advice because the same model writes and judges. If the person has a 
 | **skill** | Folder with `SKILL.md` (YAML frontmatter: `name`, `description`) and any support files. |
 | **agent** | One `.md` file with the same frontmatter as a skill. |
 | **rule** | One `.md` file with standing instructions (no frontmatter required). |
-| **site** | Folder with `index.html` and linked pages/assets (static, no build). |
+| **site** | Folder with `index.html` and linked pages/assets (static, no build). Page checks always run; add `--allow-commands` to also open it in a headless browser. |
 | **mcp** | Folder with `manifest.json` (`name`, `command`, `args`, optional `files`) plus server files. Use `--allow-commands` on check/record to start the server. |
 | **hook** | Folder with `manifest.json` (`event`, `matcher`, `command`, `sample_event`) plus hook script. Use `--allow-commands` on check/record. |
 | **video** | Folder with `script.json` (`title`, `voiceover`, `music`, `shots[{seconds, visual, caption, file}]`, optional `voice_file`, `music_file`) and your shot images or clips, voice and music files. Then `proofhouse render video <folder> [--formats 16x9,9x16,1x1]`. |
@@ -39,3 +39,10 @@ proofhouse render video ./my-video --formats 1x1 --size-scale 0.25
 ```
 
 Delivered output lands under `--out` (site copy, skill folder, `final.md` for prompts, `INSTALL-MCP.txt` or `settings-snippet.json` for MCP/hook). Video renders write `video-<format>.mp4`, `captions.srt` and `studio.json` in the video folder.
+
+## Limits to know
+
+- `--out` must be a new or empty folder (or one a previous `record` made), and must not hold or sit inside the thing you record.
+- Folders may not contain symbolic or hard links.
+- An MCP or hook is not counted as passed until its check has actually run, which needs `--allow-commands`.
+- Video shots are pictures or clips (png, jpg, webp, gif, bmp, mp4, webm, mov, mkv); voice and music are wav, mp3, m4a, aac, ogg, flac or opus.

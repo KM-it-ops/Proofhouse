@@ -116,7 +116,7 @@ def _open(command: list[str], timeout: int) -> subprocess.CompletedProcess[str] 
     return f"the browser did not finish in {timeout} s, twice"
 
 
-def check_site(folder: Path, shots: Path | None = None, timeout: int = 30) -> list[dict[str, Any]]:
+def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, browser: bool = True) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     pages = sorted(folder.rglob("*.html"))
     broken: list[str] = []
@@ -143,8 +143,11 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30) -> li
             if not target.exists():
                 broken.append(f"{name} -> {ref}")
     checks.append({"check": "every internal link and file exists", "ok": not broken, "detail": "; ".join(broken[:10])})
-    browser = find_browser()
-    if browser is None:
+    if not browser:
+        checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: pass --allow-commands to open the site in a browser"})
+        return checks
+    browser_path = find_browser()
+    if browser_path is None:
         checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: no Chrome or Chromium found"})
         return checks
     url = (folder / "index.html").resolve().as_uri()
@@ -153,7 +156,7 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30) -> li
     if shots is not None:
         shots.mkdir(parents=True, exist_ok=True)
     for label, size in (("desktop", "1440,900"), ("phone", "390,844")):
-        command = [browser, "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", f"--window-size={size}",
+        command = [browser_path, "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", f"--window-size={size}",
                    "--enable-logging=stderr", "--v=0"]
         if shots is not None:
             command.append(f"--screenshot={shots / f'{label}.png'}")
