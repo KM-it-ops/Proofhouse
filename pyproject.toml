@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proofhouse"
-version = "0.9.1"
+version = "0.10.0"
 description = "You say what you want. Any model makes it, runs it, and keeps every version."
 readme = "README.md"
 requires-python = ">=3.11"
