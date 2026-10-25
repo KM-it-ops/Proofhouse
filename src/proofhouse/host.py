@@ -24,6 +24,19 @@ JUDGE_NOTE = (
     "they are not proof. If you have a second agent (for example Codex or Gemini CLI), ask it to "
     "judge a version and record that score instead."
 )
+
+
+def agent_base(name: str) -> str:
+    base, _, _ = name.partition(":")
+    return base.strip().casefold()
+
+
+def judge_note_for_record(agent: str, judge: str | None) -> str:
+    if judge:
+        return (
+            f"Scored by {judge}, a different agent from the writer ({agent}); still advice, not proof."
+        )
+    return JUDGE_NOTE
 _VIDEO_SUFFIX = re.compile(r"\.(mp4|webm|mov|mkv)$", re.IGNORECASE)
 _PICTURE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"})
 _VIDEO_SUFFIXES = frozenset({".mp4", ".webm", ".mov", ".mkv"})
@@ -262,7 +275,21 @@ def _pick_best(rounds: list[dict[str, Any]]) -> int | None:
     eligible = [row for row in rounds if row.get("passed")]
     if not eligible:
         return None
-    return max(eligible, key=lambda row: (row.get("score") if row.get("score") is not None else -1, row["version"]))["version"]
+    # Judged passing rounds outrank self-scored ones; then judge_score, self score, version.
+    any_judged = any(row.get("judge_score") is not None for row in eligible)
+
+    def key(row: dict[str, Any]) -> tuple[Any, ...]:
+        judged = row.get("judge_score") is not None
+        if any_judged:
+            return (
+                judged,
+                row.get("judge_score") if judged else -1,
+                row.get("score") if row.get("score") is not None else -1,
+                row["version"],
+            )
+        return (row.get("score") if row.get("score") is not None else -1, row["version"])
+
+    return max(eligible, key=key)["version"]
 
 
 def _clear_delivery(out: Path, delivered: list[str]) -> None:
@@ -416,6 +443,9 @@ def run_record(
     request: str,
     agent: str,
     score: int | None,
+    judge: str | None,
+    judge_score: int | None,
+    judge_note: str | None,
     allow_commands: bool,
     as_json: bool,
 ) -> int:
@@ -449,9 +479,17 @@ def run_record(
     prior = _read_record(out)
     rounds: list[dict[str, Any]] = list(prior.get("rounds") or [])
     prior_delivered = [str(name) for name in prior.get("delivered") or []]
-    rounds.append({"version": version, "score": score, "passed": passed})
+    round_row: dict[str, Any] = {"version": version, "score": score, "passed": passed}
+    if judge is not None:
+        round_row["judge"] = judge
+        round_row["judge_score"] = judge_score
+        if judge_note:
+            round_row["judge_note"] = judge_note
+    rounds.append(round_row)
     best_version = _pick_best(rounds)
-    payload = {
+    best_round = next((row for row in rounds if row.get("version") == best_version), None) if best_version else None
+    best_judge = best_round.get("judge") if best_round else None
+    payload: dict[str, Any] = {
         "schema": "proofhouse.host/v1",
         "proofhouse_version": __version__,
         "request": request,
@@ -459,8 +497,11 @@ def run_record(
         "kind": kind,
         "rounds": rounds,
         "best_version": best_version,
-        "judge_note": JUDGE_NOTE,
+        "judge_note": judge_note_for_record(agent, best_judge),
     }
+    if best_round and best_round.get("judge_score") is not None:
+        payload["judge"] = best_round.get("judge")
+        payload["judge_score"] = best_round.get("judge_score")
     _clear_delivery(out, prior_delivered)
     delivered: list[str] = []
     if best_version is not None:
@@ -471,9 +512,16 @@ def run_record(
 
             version_dir = out / f"v{best_version}"
             best_checks = json.loads((version_dir / "checks.json").read_text(encoding="utf-8"))
-            best_score = next((row.get("score") for row in rounds if row.get("version") == best_version), score)
+            best_score = best_round.get("score") if best_round else score
             delivered = deliver_launch(
-                out, version_dir, best_checks, agent=agent, score=best_score, request=request,
+                out,
+                version_dir,
+                best_checks,
+                agent=agent,
+                score=best_score,
+                request=request,
+                judge=best_round.get("judge") if best_round else None,
+                judge_score=best_round.get("judge_score") if best_round else None,
             )
         else:
             _deliver_version(out, kind, best_version, best_text, request)

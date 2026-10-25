@@ -14,7 +14,7 @@ You write and score the work with your own model and shell. Proofhouse checks, k
 3. Run `proofhouse record <kind> <path> --out <dir> --request "<goal>" --agent <name> --score <0-10>` for each round. Be honest on the score.
 4. Stop when checks pass and the score is high enough, or when you hit the round limit the person set.
 
-Scores are advice because the same model writes and judges. If the person has a second agent (e.g. Codex or Gemini CLI), ask it to judge a version and record that score instead. Paid image, voice or music services still go through Proofhouse spending limits and need the person's dollar cap.
+Whenever a second agent is installed (Codex, Gemini CLI, Grok CLI, Claude Code, or another), use it as judge: blind-read each candidate, get a 0–10 score, then record with `--judge <name> --judge-score <0-10>` (and optional `--judge-note`). Without a judge, scores are only the writer's advice. Paid image, voice or music services still go through Proofhouse spending limits and need the person's dollar cap.
 
 ## Kinds and folders
 
@@ -39,8 +39,8 @@ proofhouse check site ./my-site
 proofhouse check mcp ./my-mcp --allow-commands
 proofhouse referee start "goal" --check "pytest -q" --folder ./work --out ./run --allow-commands
 proofhouse referee round ./run --summary "what changed" --allow-commands
-proofhouse record site ./my-site --out ./out --request "bakery landing" --agent cursor --score 8
-proofhouse compare "the job" --entry cursor=out-a.md --entry codex=out-b.md --score cursor=8 --score codex=9
+proofhouse record site ./my-site --out ./out --request "bakery landing" --agent cursor --score 8 --judge codex --judge-score 9
+proofhouse compare "the job" --entry cursor=out-a.md --entry codex=out-b.md --score cursor=8 --score codex=9 --judge grok
 proofhouse render video ./my-video --formats 1x1 --size-scale 0.25
 ```
 

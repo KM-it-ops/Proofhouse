@@ -15,6 +15,18 @@ proofhouse render video ./my-video --formats 16x9,9x16,1x1
 
 Install the teaching skill with `proofhouse install-skill --skill proofhouse-host` (or copy `skills/proofhouse-host/` into your agent's skills folder). Scores on `record` are the agent's own advice; a second agent as judge is better when you have one.
 
+### A second agent as judge
+
+When the same agent writes and scores, the score is only its own advice. If you have another coding agent installed (Codex, Gemini CLI, Grok CLI, Claude Code, or another), use it as an independent judge:
+
+1. Save each candidate version without agent names in the paths (blind judging).
+2. Ask the second agent to read the rubric and the files and reply with one number from 0 to 10, for example:
+   - `codex exec --skip-git-repo-check -s read-only -C <tmpdir> --output-last-message score.txt "<rubric + list of files>"`
+   - `grok -p "<rubric + list of files>" --output-format plain`
+3. Record the writer's round with `--score` (optional) and the judge's result with `--judge <name> --judge-score <0-10>` and optionally `--judge-note "one sentence"`. The judge name must differ from `--agent` (labels like `cursor` and `cursor:composer` count as the same agent).
+
+For comparing saved files, add `--judge <name>` to `proofhouse compare` with `--entry` so the side-by-side page says who gave the scores.
+
 ## Ways in
 
 | Entry | Use it when | Status | Network |
@@ -56,7 +68,7 @@ proofhouse compare "Summarise this contract in five bullet points." \
   --score cursor:composer-2.5=8 --score codex=9 --note codex="shorter and clearer"
 ```
 
-Give at least two `--entry LABEL=path` pairs (label is free text, for example an agent name or `provider:model`). Optional `--score` and `--note` use the same label. Proofhouse copies the files, writes `side-by-side.html` and `compare.json`, and prints a small table. Scores are whatever the agents reported, not proof, and Proofhouse spends nothing on this path.
+Give at least two `--entry LABEL=path` pairs (label is free text, for example an agent name or `provider:model`). Optional `--score` and `--note` use the same label; optional `--judge NAME` marks scores as coming from a different agent than the writers. Proofhouse copies the files, writes `side-by-side.html` and `compare.json`, and prints a small table. Scores are advice, not proof, and Proofhouse spends nothing on this path.
 
 ### Make it
 

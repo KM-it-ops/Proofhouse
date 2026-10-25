@@ -30,6 +30,7 @@ def _cmd_compare_files(args: argparse.Namespace) -> int:
             [(label, Path(path)) for label, path in entries],
             scores=scores,
             notes=notes,
+            files_judge=args.judge,
             out_dir=Path(args.out) if args.out else None,
         )
     except (compare.CompareError, OSError, ValueError) as exc:

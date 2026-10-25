@@ -71,6 +71,7 @@ class Comparison:
     entries: list[Entry] = field(default_factory=list)
     best: str | None = None
     judge: dict[str, Any] | None = None
+    files_judge: str | None = None
     spent_usd: Decimal = Decimal(0)
     mode: str = "models"
 
@@ -141,6 +142,7 @@ def compare_from_files(
     *,
     scores: dict[str, int] | None = None,
     notes: dict[str, str] | None = None,
+    files_judge: str | None = None,
     out_dir: Path | None = None,
 ) -> Comparison:
     if not job.strip():
@@ -157,6 +159,11 @@ def compare_from_files(
     unknown = (set(scores) | set(notes)) - set(labels)
     if unknown:
         raise CompareError(f"unknown label {sorted(unknown)[0]!r}; use --entry for every label you score or note")
+    if files_judge:
+        from .host import agent_base
+
+        if any(agent_base(files_judge) == agent_base(label) for label in labels):
+            raise CompareError("judge must differ from every entry label")
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = (out_dir or Path.cwd() / f"compare-{_slug(job)}-{stamp}").resolve()
@@ -177,7 +184,7 @@ def compare_from_files(
             why=notes.get(label) or "",
         )
         built.append(entry)
-    result = Comparison(folder, built, mode="files")
+    result = Comparison(folder, built, mode="files", files_judge=files_judge)
     result.best = _best_from_scores(built)
     _write_files(folder, job, result)
     return result
@@ -291,6 +298,14 @@ def _apply_scores(result: Comparison, text: str | None) -> None:
         result.best = f"{top.provider}:{top.model}"
 
 
+def _files_compare_note(result: Comparison) -> str:
+    if result.files_judge:
+        return f"Scores by {result.files_judge}. Proofhouse did not call any model for this comparison."
+    if any(entry.score is not None for entry in result.entries):
+        return "Scores are the writers' own advice. Proofhouse did not call any model for this comparison."
+    return "Proofhouse did not call any model for this comparison."
+
+
 def _write_files(folder: Path, job: str, result: Comparison) -> None:
     outputs = folder / "outputs"
     outputs.mkdir(exist_ok=True)
@@ -308,14 +323,16 @@ def _write_files(folder: Path, job: str, result: Comparison) -> None:
                 "note": entry.note,
             }
         )
-    record = {
+    record: dict[str, Any] = {
         "proofhouse_version": __version__,
         "mode": "files",
         "job": job,
         "best": result.best,
         "entries": json_entries,
-        "note": "Scores are the agents' own advice, not proof. Proofhouse did not call any model for this comparison.",
+        "note": _files_compare_note(result),
     }
+    if result.files_judge:
+        record["judge"] = result.files_judge
     (folder / "compare.json").write_text(json.dumps(record, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
     (folder / "side-by-side.html").write_text(_page(job, result), encoding="utf-8")
 
@@ -335,11 +352,11 @@ def _write(folder: Path, prompt: str, input_text: str | None, limit: str | None,
 
 def _page(prompt: str, result: Comparison) -> str:
     files_mode = result.mode == "files"
-    banner = (
-        "<p class=banner>Scores are the agents' own advice, not proof. Proofhouse did not call any model for this comparison.</p>"
-        if files_mode
-        else ""
-    )
+    if files_mode:
+        note = _files_compare_note(result)
+        banner = f"<p class=banner>{html.escape(note)}</p>"
+    else:
+        banner = ""
     cards = []
     for e in result.entries:
         if files_mode:

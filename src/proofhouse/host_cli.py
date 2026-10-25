@@ -38,6 +38,12 @@ def _cmd_check(args: argparse.Namespace) -> int:
 
 def _cmd_record(args: argparse.Namespace) -> int:
     score: int | None = _parse_score(args.score) if args.score is not None else None
+    judge_name: str | None = args.judge
+    judge_score: int | None = _parse_score(args.judge_score) if args.judge_score is not None else None
+    if (judge_name is None) != (judge_score is None):
+        return _fail("--judge and --judge-score must be used together")
+    if judge_name is not None and host.agent_base(judge_name) == host.agent_base(args.agent):
+        return _fail("judge must be a different agent from the one that wrote this version")
     code = host.run_record(
         args.kind,
         args.path,
@@ -45,6 +51,9 @@ def _cmd_record(args: argparse.Namespace) -> int:
         request=args.request,
         agent=args.agent,
         score=score,
+        judge=judge_name,
+        judge_score=judge_score,
+        judge_note=args.judge_note,
         allow_commands=args.allow_commands,
         as_json=args.json,
     )
@@ -84,6 +93,9 @@ def add_host_commands(subparsers: argparse._SubParsersAction) -> None:
     p_record.add_argument("--request", required=True, help="What you asked the agent to make.")
     p_record.add_argument("--agent", required=True, help="Name of the agent that wrote this version.")
     p_record.add_argument("--score", default=None, help="Agent's 0-10 score for this version.")
+    p_record.add_argument("--judge", default=None, help="Name of a different agent that scored this version.")
+    p_record.add_argument("--judge-score", default=None, help="That judge's 0-10 score for this version.")
+    p_record.add_argument("--judge-note", default=None, help="One short sentence from the judge.")
     p_record.add_argument("--allow-commands", action="store_true")
     p_record.add_argument("--json", action="store_true")
     p_record.set_defaults(func=_cmd_record)

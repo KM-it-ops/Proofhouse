@@ -420,6 +420,8 @@ def write_launch_readme(
     *,
     agent: str,
     score: int | None,
+    judge: str | None = None,
+    judge_score: int | None = None,
 ) -> None:
     lines = [
         f"# {data.get('name', 'Launch')}",
@@ -451,7 +453,10 @@ def write_launch_readme(
     for fact, parts in _fact_carriers(data, folder).items():
         where = ", ".join(parts) if parts else "none"
         lines.append(f"- {fact}: {where}")
-    lines.extend(["", "## Record", "", f"- Agent: {agent}", f"- Score: {score if score is not None else 'n/a'}", ""])
+    lines.extend(["", "## Record", "", f"- Agent: {agent}", f"- Score: {score if score is not None else 'n/a'}"])
+    if judge is not None:
+        lines.append(f"- Judge: {judge} ({judge_score if judge_score is not None else 'n/a'}/10)")
+    lines.append("")
     readme_path.write_text("\n".join(lines), encoding="utf-8")
 
 
@@ -554,7 +559,17 @@ def _deliver_part(dest: Path, kind: str, source: Path, text: str, request: str) 
         shutil.copy2(source, dest / source.name)
 
 
-def deliver_launch(out: Path, version_dir: Path, checks: list[dict[str, Any]], *, agent: str, score: int | None, request: str) -> list[str]:
+def deliver_launch(
+    out: Path,
+    version_dir: Path,
+    checks: list[dict[str, Any]],
+    *,
+    agent: str,
+    score: int | None,
+    request: str,
+    judge: str | None = None,
+    judge_score: int | None = None,
+) -> list[str]:
     data = _read_launch(version_dir)
     shutil.copy2(version_dir / "launch.json", out / "launch.json")
     delivered: list[str] = ["launch.json"]
@@ -577,6 +592,8 @@ def deliver_launch(out: Path, version_dir: Path, checks: list[dict[str, Any]], *
         dest = out / part_id
         _deliver_part(dest, str(kind), path, text, request)
         delivered.append(part_id)
-    write_launch_readme(out / "README.md", data, version_dir, checks, agent=agent, score=score)
+    write_launch_readme(
+        out / "README.md", data, version_dir, checks, agent=agent, score=score, judge=judge, judge_score=judge_score,
+    )
     delivered.append("README.md")
     return delivered
