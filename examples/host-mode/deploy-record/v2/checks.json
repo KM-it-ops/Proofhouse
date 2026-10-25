@@ -1,0 +1,27 @@
+[
+  {
+    "check": "copy present",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "copy has no filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "length",
+    "ok": true,
+    "detail": "234 words"
+  },
+  {
+    "check": "filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "specifics",
+    "ok": true,
+    "detail": ""
+  }
+]
