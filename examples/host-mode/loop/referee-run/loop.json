@@ -1,0 +1,14 @@
+{
+  "agent": "cursor",
+  "check": "python -m unittest -q",
+  "check_fingerprint": "5a2e5ecdad98778dde56c1b4d383b6c9e7e9d654254b3889932c8fd1fb0b79f1",
+  "command_timeout": 300,
+  "goal": "make every minimd test pass",
+  "mode": "host",
+  "proofhouse_version": "0.10.0",
+  "rounds_limit": 20,
+  "seconds_limit": null,
+  "started_at": "2026-10-25T21:14:49+00:00",
+  "status": "done",
+  "workdir": "examples\\host-mode\\loop\\work"
+}
