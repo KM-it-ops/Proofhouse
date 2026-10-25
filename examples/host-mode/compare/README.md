@@ -43,10 +43,11 @@ uv run --no-sync proofhouse compare "$(cat examples/host-mode/compare/job.txt)" 
   --entry codex=examples/host-mode/compare/outputs/codex.md \
   --entry grok=examples/host-mode/compare/outputs/grok.md \
   --entry cursor=examples/host-mode/compare/outputs/cursor.md \
-  --score codex=7 --score grok=9 --score cursor=8 \
-  --note codex="Never says offline; signal-free wording is still clear and concrete." \
-  --note grok="Says offline upfront with plain high/low language and sharp scenes." \
-  --note cursor="Offline and local data are clear; slack or flood is slightly niche jargon." \
+  --score codex=6 --score grok=8 --score cursor=7 \
+  --note codex="Never says offline; 'far from service' is generic and the beach, boat and fishing scenes are stock." \
+  --note grok="Says offline in the first line, names what is stored (high and low water times and heights) and ends on a vivid scene." \
+  --note cursor="Clear and local-data focused, but 'slack or flood' is niche and the last sentence repeats the first." \
+  --judge claude \
   --out examples/host-mode/compare/result
 ```
 
