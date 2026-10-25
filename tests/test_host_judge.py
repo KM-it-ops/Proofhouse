@@ -10,10 +10,14 @@ import pytest
 
 from proofhouse import cli, host
 
+def _site_blurb() -> str:
+    return " ".join(f"fresh loaf {i}" for i in range(1, 28)) + " Baked at 5 AM daily."
+
+
 SITE = (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'
     '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Corner Bakery</title></head>'
-    '<body><h1>Corner Bakery</h1><a href="menu.html">Menu</a></body></html>'
+    f'<body><h1>Corner Bakery</h1><p>{_site_blurb()}</p><a href="menu.html">Menu</a></body></html>'
 )
 MENU = SITE.replace("Corner Bakery</title>", "Menu</title>").replace('<a href="menu.html">Menu</a>', "<p>Bread</p>")
 

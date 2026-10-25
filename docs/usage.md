@@ -15,6 +15,22 @@ proofhouse render video ./my-video --formats 16x9,9x16,1x1
 
 Install the teaching skill with `proofhouse install-skill --skill proofhouse-host` (or copy `skills/proofhouse-host/` into your agent's skills folder). Scores on `record` are the agent's own advice; a second agent as judge is better when you have one.
 
+### What the quality checks catch
+
+Host mode still checks that files exist, links work and manifests run; these extra rows catch thin or repetitive writing and weak static sites.
+
+| Check | Applies to | Passes when |
+| --- | --- | --- |
+| **length** | copy, prompt, skill/agent body, site text (from HTML) | copy has at least 25 words; prompt at least 40; skill or agent body at least 60 |
+| **filler** | same text targets | fewer than two distinct vague phrases from the built-in list; one hit is a warning in `detail` |
+| **specifics** | copy and site text | at least one digit, money amount, or capitalised name not at the start of a sentence |
+| **parts differ** | launch only | no pair of text parts (15+ words each) shares 3-word shingles with Jaccard overlap 50% or higher |
+| **contrast** | site and app | body or `:root` text/background hex pair has WCAG contrast ratio at least 4.5, or no plain pair is found |
+| **text size** | site and app | body `font-size` in px or rem is at least 16px (1rem = 16px), or no size is set |
+| **headings** | site and app | exactly one `h1` in `index.html` |
+| **image alt** | site and app | every `img` has non-empty `alt` |
+| **title** | site and app | non-empty `<title>` between 10 and 70 characters |
+
 ### A second agent as judge
 
 When the same agent writes and scores, the score is only its own advice. If you have another coding agent installed (Codex, Gemini CLI, Grok CLI, Claude Code, or another), use it as an independent judge:

@@ -16,10 +16,14 @@ import pytest
 
 from proofhouse import cli, studio
 
+def _site_blurb() -> str:
+    return " ".join(f"fresh loaf {i}" for i in range(1, 28)) + " Baked at 5 AM daily."
+
+
 SITE = (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'
     '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Corner Bakery</title></head>'
-    '<body><h1>Corner Bakery</h1><a href="menu.html">Menu</a></body></html>'
+    f'<body><h1>Corner Bakery</h1><p>{_site_blurb()}</p><a href="menu.html">Menu</a></body></html>'
 )
 MENU = SITE.replace("Corner Bakery</title>", "Menu</title>").replace('<a href="menu.html">Menu</a>', "<p>Bread</p>")
 BROKEN = SITE.replace("menu.html", "missing-page.html")
@@ -36,8 +40,27 @@ for line in sys.stdin:
     print(json.dumps({'jsonrpc': '2.0', 'id': request['id'], 'result': result}), flush=True)
 """
 HOOK = "import json, sys\nevent = json.load(sys.stdin)\nprint(event['hook_event_name'], file=sys.stderr)\nsys.exit(2)\n"
-SKILL = "---\nname: refund-helper\ndescription: Use when a customer asks for a refund.\n---\n# Refund helper\nCheck the order first.\n"
-AGENT = "---\nname: refund-agent\ndescription: Handles refund requests.\n---\nYou handle refunds politely.\n"
+def _skill_body(heading: str, extra: str) -> str:
+    return f"# {heading}\n" + " ".join(f"step {i}" for i in range(1, 58)) + f" {extra}\n"
+
+
+SKILL = (
+    "---\nname: refund-helper\ndescription: Use when a customer asks for a refund.\n---\n"
+    + _skill_body("Refund helper", "Check the order first at 5 AM.")
+)
+AGENT = (
+    "---\nname: refund-agent\ndescription: Handles refund requests.\n---\n"
+    + _skill_body("Refund agent", "You handle refunds politely at 5 AM.")
+)
+
+
+def _long_copy() -> str:
+    return " ".join(f"loaf {i}" for i in range(1, 26)) + " Opens at 5 AM.\n"
+
+
+def _long_prompt(core: str) -> str:
+    pad = " ".join(f"rule{i}" for i in range(1, 36))
+    return f"{core} {pad}\n"
 
 
 @pytest.fixture(autouse=True)
@@ -221,10 +244,11 @@ def test_record_prompt_copy_skill_agent_and_rule_use_makes_layout(
 ) -> None:
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "ph"))
     prompt = tmp_path / "prompt.md"
-    prompt.write_text("You are a support agent.\n", encoding="utf-8")
+    prompt.write_text(_long_prompt("You are a support agent."), encoding="utf-8")
     assert record(tmp_path, "prompt", prompt, "--score", "8") == 0
-    assert (tmp_path / "out" / "v1.md").read_text(encoding="utf-8") == "You are a support agent.\n"
-    assert (tmp_path / "out" / "final.md").read_text(encoding="utf-8") == "You are a support agent.\n"
+    prompt_text = prompt.read_text(encoding="utf-8")
+    assert (tmp_path / "out" / "v1.md").read_text(encoding="utf-8") == prompt_text
+    assert (tmp_path / "out" / "final.md").read_text(encoding="utf-8") == prompt_text
 
     skill = tmp_path / "refund-helper"
     skill.mkdir()
@@ -544,7 +568,7 @@ def test_a_delivered_skill_carries_its_support_files(tmp_path: Path) -> None:
 
 def test_record_refuses_to_mix_kinds_in_one_out_folder(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     prompt = tmp_path / "p.md"
-    prompt.write_text("Say hello.\n", encoding="utf-8")
+    prompt.write_text(_long_prompt("Say hello."), encoding="utf-8")
     assert record(tmp_path, "prompt", prompt, "--score", "9") == 0
     skill = tmp_path / "s"
     skill.mkdir()
@@ -685,7 +709,7 @@ def test_record_refuses_an_app_link_that_points_outside_the_folder(tmp_path: Pat
 @pytest.mark.parametrize("kind", ["prompt", "copy"])
 def test_check_text_kinds_fail_on_empty_text_and_leftover_filler(tmp_path: Path, kind: str) -> None:
     good, empty, filler = tmp_path / "good.md", tmp_path / "empty.md", tmp_path / "filler.md"
-    good.write_text("Fresh bread, baked at 5 AM.\n", encoding="utf-8")
+    good.write_text(_long_copy(), encoding="utf-8")
     empty.write_text("  \n", encoding="utf-8")
     filler.write_text("Welcome to [Company Name]. Lorem ipsum dolor.\n", encoding="utf-8")
     assert cli.main(["check", kind, str(good)]) == 0
@@ -695,15 +719,15 @@ def test_check_text_kinds_fail_on_empty_text_and_leftover_filler(tmp_path: Path,
 
 def test_a_prompt_may_keep_its_variables(tmp_path: Path) -> None:
     prompt = tmp_path / "p.md"
-    prompt.write_text("Summarise {{article}} in {{words}} words.\n", encoding="utf-8")
+    prompt.write_text(_long_prompt("Summarise {{article}} in {{words}} words."), encoding="utf-8")
     assert cli.main(["check", "prompt", str(prompt)]) == 0
 
 
 def test_record_copy_delivers_final_md_and_keeps_versions(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "ph"))
     first, second = tmp_path / "c1.md", tmp_path / "c2.md"
-    first.write_text("Fresh bread. TODO better headline.\n", encoding="utf-8")
-    second.write_text("# Bread by 5 AM\nOrder before midnight.\n", encoding="utf-8")
+    first.write_text(_long_copy().replace("\n", " TODO better headline.\n"), encoding="utf-8")
+    second.write_text("# Bread by 5 AM\n" + _long_copy(), encoding="utf-8")
     assert record(tmp_path, "copy", first, "--score", "9") == 0
     assert saved(tmp_path)["best_version"] is None and not (tmp_path / "out" / "final.md").exists()
     assert record(tmp_path, "copy", second, "--score", "7") == 0

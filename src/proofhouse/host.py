@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from . import __version__, app_platforms, hosts, make, make_checks, sitecheck, studio
+from . import host_quality
 from .optimize.install_skill import check_frontmatter
 
 CHECK_KINDS = ("site", "app", "mcp", "hook", "rule", "skill", "agent", "prompt", "copy", "launch")
@@ -203,14 +204,23 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
             raise HostError(f"folder not found: {path}")
         if not (path / "index.html").is_file():
             raise HostError(f"index.html not found in {path}")
-        return sitecheck.check_site(path, shots=None, browser=allow_commands)
+        checks = sitecheck.check_site(path, shots=None, browser=allow_commands)
+        checks.extend(host_quality.site_readability_rows(path))
+        checks.extend(host_quality.text_quality_rows(host_quality.site_text_from_folder(path), "copy"))
+        return checks
     if kind == "app":
         if not path.is_dir():
             raise HostError(f"folder not found: {path}")
         if not (path / "index.html").is_file():
             raise HostError(f"index.html not found in {path}")
         pwa = next(entry for entry in app_platforms.read_shipped() if entry["id"] == "pwa")
-        return [*app_platforms.static_checks(path, pwa), *sitecheck.check_site(path, shots=None, browser=allow_commands)]
+        checks = [
+            *app_platforms.static_checks(path, pwa),
+            *sitecheck.check_site(path, shots=None, browser=allow_commands),
+            *host_quality.site_readability_rows(path),
+            *host_quality.text_quality_rows(host_quality.site_text_from_folder(path), "copy"),
+        ]
+        return checks
     if kind == "skill":
         skill_md = path / "SKILL.md"
         if not skill_md.is_file():
@@ -220,7 +230,9 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
             check_frontmatter(text)
         except Exception as exc:  # noqa: BLE001
             return [{"check": "skill frontmatter", "ok": False, "detail": str(exc)}]
-        return [{"check": "skill frontmatter", "ok": True, "detail": check_frontmatter(text)}]
+        rows = [{"check": "skill frontmatter", "ok": True, "detail": check_frontmatter(text)}]
+        rows.extend(host_quality.text_quality_rows(host_quality.body_after_frontmatter(text), "skill"))
+        return rows
     if kind == "agent":
         if not path.is_file():
             raise HostError(str(path))
@@ -229,7 +241,9 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
             check_frontmatter(text)
         except Exception as exc:  # noqa: BLE001
             return [{"check": "agent frontmatter", "ok": False, "detail": str(exc)}]
-        return [{"check": "agent frontmatter", "ok": True, "detail": check_frontmatter(text)}]
+        rows = [{"check": "agent frontmatter", "ok": True, "detail": check_frontmatter(text)}]
+        rows.extend(host_quality.text_quality_rows(host_quality.body_after_frontmatter(text), "skill"))
+        return rows
     if kind == "rule":
         if not path.is_file():
             raise HostError(str(path))
@@ -253,10 +267,12 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
 
 def _text_checks(kind: str, text: str) -> list[dict[str, Any]]:
     found = _FILLER.search(text)
-    return [
+    rows = [
         {"check": f"{kind} present", "ok": bool(text.strip()), "detail": ""},
         {"check": f"{kind} has no filler", "ok": found is None, "detail": f"still contains {found.group(0)!r}" if found else ""},
     ]
+    rows.extend(host_quality.text_quality_rows(text, kind))
+    return rows
 
 
 def _next_version(out: Path) -> int:

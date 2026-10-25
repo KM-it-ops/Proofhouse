@@ -9,7 +9,7 @@ import shutil
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from . import make_checks
+from . import host_quality, make_checks
 
 _PICTURE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"})
 _VIDEO_SUFFIXES = frozenset({".mp4", ".webm", ".mov", ".mkv"})
@@ -240,6 +240,7 @@ def _consistency_checks(data: dict[str, Any], folder: Path) -> list[dict[str, An
         rows.append({"check": "facts", "ok": True, "detail": ""})
     if isinstance(avoid, list) and avoid and not any(row["check"] == "avoid" and row["ok"] is False for row in rows):
         rows.append({"check": "avoid", "ok": True, "detail": ""})
+    rows.extend(host_quality.parts_differ_rows(part_texts))
     return rows
 
 

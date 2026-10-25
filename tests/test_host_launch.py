@@ -10,15 +10,21 @@ import pytest
 
 from proofhouse import cli
 
+def _site_blurb() -> str:
+    return " ".join(f"roast batch {i}" for i in range(1, 28)) + " Opens at 5 AM for commuters."
+
+
 SITE = (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'
     '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Brew Brand</title></head>'
-    '<body><h1>Brew Brand</h1><a href="menu.html">Menu</a></body></html>'
+    f'<body><h1>Brew Brand</h1><p>{_site_blurb()}</p><a href="menu.html">Menu</a></body></html>'
 )
 MENU = SITE.replace("Brew Brand</title>", "Menu</title>").replace('<a href="menu.html">Menu</a>', "<p>Opens at 5 AM</p>")
 SKILL = (
     "---\nname: brew-helper\ndescription: Use when a customer asks about Brew Brand.\n---\n"
-    "# Brew helper\nBrew Brand serves fresh coffee. Opens at 5 AM.\n"
+    "# Brew helper\n"
+    + " ".join(f"tip {i}" for i in range(1, 58))
+    + " Brew Brand serves fresh coffee. Opens at 5 AM.\n"
 )
 
 
@@ -70,7 +76,12 @@ def write_launch(
             (target / "menu.html").write_text(MENU, encoding="utf-8")
         elif kind == "copy":
             target.parent.mkdir(parents=True, exist_ok=True)
-            target.write_text("# Brew Brand is here\nOpens at 5 AM. Order in one tap.\n", encoding="utf-8")
+            target.write_text(
+                "# Brew Brand is here\n"
+                + " ".join(f"line {i}" for i in range(1, 24))
+                + " Opens at 5 AM. Order in one tap.\n",
+                encoding="utf-8",
+            )
         elif kind == "skill":
             target.mkdir(parents=True, exist_ok=True)
             (target / "SKILL.md").write_text(SKILL, encoding="utf-8")
@@ -100,7 +111,7 @@ def test_check_launch_passes_three_parts(tmp_path: Path, capsys: pytest.CaptureF
 def test_check_launch_fails_when_shared_name_missing_in_one_part(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     launch = write_launch(tmp_path / "LAUNCH")
     copy_path = launch / "announcement" / "copy.md"
-    copy_path.write_text("Generic coffee shop opens early.\n", encoding="utf-8")
+    copy_path.write_text(" ".join(f"generic line {i}" for i in range(30)) + " Opens at 6 AM.\n", encoding="utf-8")
     assert cli.main(["check", "launch", str(launch)]) != 0
     captured = capsys.readouterr()
     out = captured.out + captured.err
