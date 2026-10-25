@@ -396,6 +396,52 @@ def test_check_site_does_not_open_a_browser_unless_commands_are_allowed(
     assert opened, "with --allow-commands the site is opened in the browser"
 
 
+def test_check_site_browser_launch_always_gives_the_browser_a_reason_to_exit(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+    opened: list[list[str]] = []
+
+    def record_launch(command: list[str], timeout: int) -> str:
+        opened.append(command)
+        return "stubbed"
+
+    monkeypatch.setattr(sitecheck, "_open", record_launch)
+    assert cli.main(["check", "site", str(site(tmp_path / "s")), "--allow-commands"]) == 0
+    assert opened
+    for command in opened:  # a headless browser with neither flag never exits on its own
+        assert "--dump-dom" in command or any(part.startswith("--screenshot=") for part in command)
+
+
+def test_browser_output_that_is_not_in_the_console_codepage_does_not_break_the_check(capfd):
+    import sys
+    from proofhouse import sitecheck
+    run = sitecheck._open([sys.executable, "-c", "import sys; sys.stdout.buffer.write(b'caf\\xc3\\xa9 \\xe2\\x80\\x9d \\x9d')"], 30)
+    assert not isinstance(run, str)
+    assert "caf" in run.stdout
+    assert "Traceback" not in capfd.readouterr().err
+
+
+def test_find_browser_finds_edge_at_its_install_folder_when_not_on_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from proofhouse import sitecheck
+
+    edge = tmp_path / "pf86" / "Microsoft" / "Edge" / "Application" / "msedge.exe"
+    edge.parent.mkdir(parents=True)
+    edge.write_text("", encoding="utf-8")
+    monkeypatch.delenv("PROOFHOUSE_BROWSER", raising=False)
+    for name in ("ProgramFiles", "LOCALAPPDATA"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("ProgramFiles(x86)", str(tmp_path / "pf86"))
+    monkeypatch.setattr(sitecheck.shutil, "which", lambda name, *a, **k: None)
+    assert sitecheck.find_browser() == str(edge)
+
+
 @pytest.mark.parametrize("kind", ["rule", "agent"])
 def test_record_never_deletes_files_it_did_not_deliver(tmp_path: Path, capsys: pytest.CaptureFixture[str], kind: str) -> None:
     work = tmp_path / "work"
