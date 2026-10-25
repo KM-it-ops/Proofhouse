@@ -1,0 +1,19 @@
+1
+00:00:00,000 --> 00:00:03,000
+Tidewatch
+
+2
+00:00:03,000 --> 00:00:07,000
+Tide tables in your pocket, no signal required.
+
+3
+00:00:07,000 --> 00:00:11,000
+Works fully offline with bundled tide data for two years
+
+4
+00:00:11,000 --> 00:00:14,000
+$4.99 one-time purchase
+
+5
+00:00:14,000 --> 00:00:17,000
+No accounts and no ads

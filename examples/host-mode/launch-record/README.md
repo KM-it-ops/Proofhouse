@@ -26,4 +26,5 @@
 ## Record
 
 - Agent: cursor
-- Score: 7
+- Score: n/a
+- Judge: codex (5/10)

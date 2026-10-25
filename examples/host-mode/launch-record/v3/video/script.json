@@ -1,0 +1,39 @@
+{
+  "title": "Tidewatch launch",
+  "voiceover": "Meet Tidewatch. Tide tables in your pocket, no signal required. Works fully offline with bundled tide data for two years. A $4.99 one-time purchase. No accounts and no ads.",
+  "music": "soft ambient chord pad, generated locally with FFmpeg; no paid music",
+  "shots": [
+    {
+      "seconds": 3,
+      "visual": "title card, deep sea blue background, white wordmark Tidewatch centered",
+      "caption": "Tidewatch",
+      "file": "shot-01.png"
+    },
+    {
+      "seconds": 4,
+      "visual": "foam gradient, simple wave line art, tagline lower third",
+      "caption": "Tide tables in your pocket, no signal required.",
+      "file": "shot-02.png"
+    },
+    {
+      "seconds": 4,
+      "visual": "phone icon with crossed-out signal bars, sand tone background",
+      "caption": "Works fully offline with bundled tide data for two years",
+      "file": "shot-03.png"
+    },
+    {
+      "seconds": 3,
+      "visual": "price badge on calm water texture",
+      "caption": "$4.99 one-time purchase",
+      "file": "shot-04.png"
+    },
+    {
+      "seconds": 3,
+      "visual": "checklist with X over login and ad icons",
+      "caption": "No accounts and no ads",
+      "file": "shot-05.png"
+    }
+  ],
+  "voice_file": "voice.wav",
+  "music_file": "music.wav"
+}
