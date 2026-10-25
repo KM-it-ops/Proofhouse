@@ -116,6 +116,24 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      `proofhouse generate image|video|speech|music` now reaches media from the command line. Cursor
      and Codex built and fixed it; agy, Codex, Cursor and two Opus security passes checked each round.
 
+5. **Host mode (owner's correction, 2026-10-25): works for anyone, with no API key.** `make` today needs a
+   provider key, so a person who only has an AI app or a monthly plan (Cursor, Codex, Gemini CLI, Grok CLI,
+   Claude Code) cannot use it. In host mode the AI app they already use is the writer and the judge, using its
+   own model, and Proofhouse is the referee, the assembler and the recorder. No key, no setup beyond
+   installing the package and one skill. Planned for 0.10.0.
+   - `proofhouse check <kind> <folder>` runs the same real-world checks `make` runs (site opened like a
+     visitor; MCP server answers `initialize` and `tools/list`; hook run on a sample event; rule installed and
+     removed on every tool; skill and agent files accepted by the installers) and prints pass or fail.
+   - `proofhouse record` saves each version the agent writes, with its checks and the agent's own score, and
+     delivers the best one in exactly the layout `make` uses (`v1/`, `v2/`, `record.json`, `site/`, `mcp/`...).
+   - `proofhouse render video` assembles a finished video from a script and the shots, voice and music the
+     agent supplies (FFmpeg, 16:9, 9:16, 1:1, captions, length and sound checks), with no paid call.
+   - A skill (`skills/proofhouse-host`) teaches the agent the loop: write, check, revise, record.
+   - Honest limit: the same model writing and judging is weaker than a second judge, so scores are advice
+     and the skill suggests a second agent as judge when the person has one. Any paid media service still
+     goes through the spending limit.
+   - Then, on host mode: one real example for every command, built by Cursor, then limit tests.
+
 ## Known limits
 
 - `--allow-commands` is an opt-in, not a sandbox. Made MCP servers, hooks and app builds run
