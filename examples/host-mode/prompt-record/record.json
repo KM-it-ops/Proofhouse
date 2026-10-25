@@ -1,0 +1,24 @@
+{
+  "agent": "cursor",
+  "best_version": 2,
+  "delivered": [
+    "final.md"
+  ],
+  "judge_note": "Scores are the agent's own advice because the same model wrote the work and scored it; they are not proof. If you have a second agent (for example Codex or Gemini CLI), ask it to judge a version and record that score instead.",
+  "kind": "prompt",
+  "proofhouse_version": "0.10.0",
+  "request": "Prompt: ticket-handoff turns a support thread into a handoff note",
+  "rounds": [
+    {
+      "passed": true,
+      "score": 7,
+      "version": 1
+    },
+    {
+      "passed": true,
+      "score": 9,
+      "version": 2
+    }
+  ],
+  "schema": "proofhouse.host/v1"
+}
