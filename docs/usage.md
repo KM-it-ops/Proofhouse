@@ -138,6 +138,18 @@ Each round, the agent sees the goal, the files in its folder, what happened in r
 
 The loop stops when your `--check` command passes, or when the agent says it is done. It also stops when `--rounds` or `--for` runs out, when the next call would cross the one spending limit, or when you press Ctrl-C. With `--watch` and `--every`, a look that finds nothing changed sends nothing and costs nothing. Every round is kept in `rounds.jsonl`, with `loop.json` for the totals. Provider keys are blanked out of command output before it goes anywhere.
 
+### Your agent runs the loop; Proofhouse referees
+
+When Cursor, Codex or another tool already writes and runs the work, Proofhouse does not call a model. It runs your check after each round, keeps the record, and tells you whether to stop.
+
+```bash
+proofhouse referee start "make the tests pass" --check "pytest -q" --folder ./my-app --out ./referee-run --allow-commands
+proofhouse referee round ./referee-run --summary "fixed the failing test" --allow-commands
+proofhouse referee status ./referee-run
+```
+
+`referee round` exits `0` when the check passes, `10` when you should keep going, and `11` when the round or time limit is up without a pass. The check needs `--allow-commands` on `start` and every `round`. The record folder must be new or empty and separate from the work folder. The check runs without any variable whose name looks like a key, token, secret or password, and its whole process tree is stopped on timeout. The record is a plain-file log, not tamper-proof: it refuses a changed check command, but the agent being refereed can still edit the folder, so treat it as a record to read, not a signed proof.
+
 ### Train a model on your data
 
 ```bash

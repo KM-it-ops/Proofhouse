@@ -71,6 +71,9 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "train status": (SPINE, "", "training: reads a training job's status"),
     "compare": (SPINE, "", "compare engine: the same job on many models at once, side by side with cost, time and a judge's scores"),
     "loop": (SPINE, "", "loop engine: an agent acts, checks and repeats on its own, or watches and acts, within one spending limit"),
+    "referee start": (SPINE, "", "host mode: start a referee record while your own agent runs the work loop"),
+    "referee round": (SPINE, "", "host mode: run the check, append a round, and say whether to stop"),
+    "referee status": (SPINE, "", "host mode: read a referee record"),
     "make": (SPINE, "", "make engine: writes, tries, judges and improves a prompt, skill, agent, site, app or copy, a video, or a whole launch, within one spending limit"),
     "check": (SPINE, "", "host mode: tries a site, MCP server, hook, rule, skill or agent the host's own model wrote, with no key (Proofhouse itself makes no network calls)"),
     "record": (SPINE, "", "host mode: keeps each version the host's model wrote with its checks and score, and delivers the best in the make layout"),
@@ -107,3 +110,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "missionrig-generate": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
     "workspace-consume": (SPINE, "", "quarantined behind the PROOFHOUSE_EXPERIMENTAL gate"),
 }
+
+from .cli import _ensure_referee_commands
+
+_ensure_referee_commands()
