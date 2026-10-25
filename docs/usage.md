@@ -2,6 +2,19 @@
 
 Every way to make, run and deliver things. For a short tour, see the [README](../README.md); for the evidence trail, see [the evidence trail](evidence-trail.md). `<model>` stands for a model id from your provider.
 
+## Host mode (no API key)
+
+If you already work in Cursor, Codex, Gemini CLI, Grok CLI or Claude Code, **host mode** lets that agent write and judge with its own model while Proofhouse only checks, records and assembles—no API key and no network on these commands:
+
+```bash
+proofhouse check site ./my-site
+proofhouse check mcp ./server --allow-commands    # starts model-written servers only when you opt in
+proofhouse record site ./my-site --out ./out --request "bakery landing" --agent cursor --score 8
+proofhouse render video ./my-video --formats 16x9,9x16,1x1
+```
+
+Install the teaching skill with `proofhouse install-skill --bundle skills/proofhouse-host` (or copy `skills/proofhouse-host/` into your agent's skills folder). Scores on `record` are the agent's own advice; a second agent as judge is better when you have one.
+
 ## Ways in
 
 | Entry | Use it when | Status | Network |

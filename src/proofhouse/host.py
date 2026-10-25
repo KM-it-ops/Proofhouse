@@ -1,0 +1,530 @@
+"""Host mode: the person's AI app writes and judges; Proofhouse checks, records and assembles."""
+
+from __future__ import annotations
+
+import json
+import re
+import shutil
+import sys
+import tempfile
+from decimal import Decimal
+from pathlib import Path, PurePosixPath
+from typing import Any
+
+from . import __version__, make, make_checks, sitecheck, studio
+from .optimize.install_skill import check_frontmatter
+
+CHECK_KINDS = ("site", "mcp", "hook", "rule", "skill", "agent")
+RECORD_KINDS = (*CHECK_KINDS, "prompt")
+_PROMPT_KIND = "prompt"
+JUDGE_NOTE = (
+    "Scores are the agent's own advice because the same model wrote the work and scored it; "
+    "they are not proof. If you have a second agent (for example Codex or Gemini CLI), ask it to "
+    "judge a version and record that score instead."
+)
+_VIDEO_SUFFIX = re.compile(r"\.(mp4|webm|mov|mkv)$", re.IGNORECASE)
+
+
+class HostError(Exception):
+    """A host-mode command cannot run; the message says why."""
+
+
+def _print_error(message: str) -> None:
+    print(f"error: {message}", file=sys.stderr)
+
+
+def _check_rows_pass_exit(checks: list[dict[str, Any]], *, commands_required: bool) -> int:
+    if any(row.get("ok") is False for row in checks):
+        return 1
+    if commands_required and any(row.get("ok") is None for row in checks):
+        return 1
+    return 0
+
+
+def _format_check_line(row: dict[str, Any]) -> str:
+    name, detail = row.get("check", ""), str(row.get("detail", "")).strip()
+    if row.get("ok") is True:
+        return f"PASS: {name}" + (f" ({detail})" if detail else "")
+    if row.get("ok") is False:
+        return f"FAIL: {name}" + (f": {detail}" if detail else "")
+    return f"{name}: {detail}" if detail else name
+
+
+def _path_inside(folder: Path, name: str) -> Path:
+    if not name or PurePosixPath(name).is_absolute() or ".." in PurePosixPath(name).parts:
+        raise HostError(f"path must stay inside the folder: {name!r}")
+    if not make_checks.safe_name(name):
+        raise HostError(f"unsafe path: {name!r}")
+    path = (folder / name).resolve()
+    root = folder.resolve()
+    if path.is_symlink() or not path.is_relative_to(root):
+        raise HostError(f"path must stay inside the folder: {name!r}")
+    return path
+
+
+def _scan_folder_paths(folder: Path) -> None:
+    root = folder.resolve()
+    if not folder.is_dir():
+        raise HostError(f"folder not found: {folder}")
+    for item in folder.rglob("*"):
+        if item.is_symlink():
+            raise HostError(f"symbolic link not allowed: {item.name}")
+        try:
+            resolved = item.resolve()
+        except OSError:
+            continue
+        if not resolved.is_relative_to(root):
+            raise HostError(f"path escapes the folder: {item.name}")
+
+
+def _read_manifest(folder: Path) -> dict[str, Any]:
+    manifest = folder / "manifest.json"
+    if not manifest.is_file():
+        raise HostError(f"manifest.json not found in {folder}")
+    try:
+        data = json.loads(manifest.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as exc:
+        raise HostError(f"manifest.json in {folder} is not valid JSON") from exc
+    if not isinstance(data, dict):
+        raise HostError(f"manifest.json in {folder} must be a JSON object")
+    return data
+
+
+def _manifest_paths(folder: Path, data: dict[str, Any]) -> list[str]:
+    names: list[str] = []
+    files = data.get("files")
+    if isinstance(files, dict):
+        names.extend(str(key) for key in files)
+    command, args = data.get("command"), data.get("args")
+    if isinstance(command, str) and command.startswith("./"):
+        names.append(command[2:])
+    if isinstance(args, list):
+        for arg in args:
+            if isinstance(arg, str) and not arg.startswith("-") and "://" not in arg:
+                if make_checks._SCRIPT_SUFFIX.fullmatch(PurePosixPath(arg).suffix):
+                    names.append(arg)
+    hook_command = data.get("command")
+    if isinstance(hook_command, str) and " " in hook_command:
+        parts = hook_command.split()
+        if parts[0].startswith("./"):
+            names.append(parts[0][2:])
+        for part in parts[1:]:
+            if not part.startswith("-") and "://" not in part and make_checks._SCRIPT_SUFFIX.fullmatch(PurePosixPath(part).suffix):
+                names.append(part)
+    return names
+
+
+def run_check(kind: str, path: Path, *, allow_commands: bool, as_json: bool) -> int:
+    try:
+        checks = collect_checks(kind, path, allow_commands=allow_commands)
+    except HostError as exc:
+        _print_error(str(exc))
+        return 2
+    if as_json:
+        print(json.dumps(checks, indent=2))
+    else:
+        for row in checks:
+            print(_format_check_line(row))
+    commands_required = kind in ("mcp", "hook")
+    return _check_rows_pass_exit(checks, commands_required=commands_required)
+
+
+def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[str, Any]]:
+    if kind == _PROMPT_KIND:
+        if not path.is_file():
+            raise HostError(str(path))
+        text = path.read_text(encoding="utf-8")
+        return [{"check": "prompt present", "ok": bool(text.strip()), "detail": ""}]
+    if kind not in CHECK_KINDS:
+        raise HostError(f"unknown kind {kind!r}")
+    if not path.exists():
+        raise HostError(str(path))
+    if kind == "site":
+        if not path.is_dir():
+            raise HostError(f"folder not found: {path}")
+        return sitecheck.check_site(path, shots=None)
+    if kind == "skill":
+        skill_md = path / "SKILL.md"
+        if not skill_md.is_file():
+            raise HostError(f"SKILL.md not found in {path}")
+        text = skill_md.read_text(encoding="utf-8")
+        try:
+            check_frontmatter(text)
+        except Exception as exc:  # noqa: BLE001
+            return [{"check": "skill frontmatter", "ok": False, "detail": str(exc)}]
+        return [{"check": "skill frontmatter", "ok": True, "detail": check_frontmatter(text)}]
+    if kind == "agent":
+        if not path.is_file():
+            raise HostError(str(path))
+        text = path.read_text(encoding="utf-8")
+        try:
+            check_frontmatter(text)
+        except Exception as exc:  # noqa: BLE001
+            return [{"check": "agent frontmatter", "ok": False, "detail": str(exc)}]
+        return [{"check": "agent frontmatter", "ok": True, "detail": check_frontmatter(text)}]
+    if kind == "rule":
+        if not path.is_file():
+            raise HostError(str(path))
+        text = path.read_text(encoding="utf-8")
+        with tempfile.TemporaryDirectory(prefix="host-rule-") as temporary:
+            folder = Path(temporary)
+            _, checks = make_checks.rule(text, path.stem, folder)
+        return checks
+    if kind in ("mcp", "hook"):
+        if not path.is_dir():
+            raise HostError(f"folder not found: {path}")
+        _scan_folder_paths(path)
+        data = _read_manifest(path)
+        for name in _manifest_paths(path, data):
+            _path_inside(path, name)
+        if kind == "mcp":
+            return make_checks.mcp(data, path, allow_commands)
+        return make_checks.hook(data, path, allow_commands)
+    raise HostError(f"unknown kind {kind!r}")
+
+
+def _next_version(out: Path) -> int:
+    highest = 0
+    for child in out.iterdir() if out.is_dir() else []:
+        if child.is_dir() and child.name.startswith("v") and child.name[1:].isdigit():
+            highest = max(highest, int(child.name[1:]))
+    return highest + 1
+
+
+def _version_passed(checks: list[dict[str, Any]]) -> bool:
+    return bool(checks) and all(row.get("ok") is not False for row in checks)
+
+
+def _pick_best(rounds: list[dict[str, Any]]) -> int | None:
+    eligible = [row for row in rounds if row.get("passed")]
+    if not eligible:
+        return None
+    return max(eligible, key=lambda row: (row.get("score") if row.get("score") is not None else -1, row["version"]))["version"]
+
+
+def _clear_delivery(out: Path, kind: str) -> None:
+    if kind == "site" and (out / "site").exists():
+        shutil.rmtree(out / "site")
+    elif kind in ("mcp", "hook") and (out / kind).exists():
+        shutil.rmtree(out / kind)
+    elif kind == "prompt":
+        (out / "final.md").unlink(missing_ok=True)
+    elif kind == "rule":
+        for path in out.glob("*.md"):
+            if path.name != "record.json":
+                path.unlink(missing_ok=True)
+        (out / "INSTALL-MCP.txt").unlink(missing_ok=True)
+        (out / "settings-snippet.json").unlink(missing_ok=True)
+    elif kind == "skill":
+        for child in out.iterdir():
+            if child.is_dir() and (child / "SKILL.md").is_file():
+                shutil.rmtree(child)
+    elif kind == "agent":
+        for path in out.glob("*.md"):
+            path.unlink(missing_ok=True)
+        (out / "AGENT-NOT-INSTALLABLE.txt").unlink(missing_ok=True)
+    (out / "INSTALL-MCP.txt").unlink(missing_ok=True)
+    (out / "settings-snippet.json").unlink(missing_ok=True)
+
+
+def _deliver_version(out: Path, kind: str, version: int, text: str, request: str) -> None:
+    source = out / f"v{version}"
+    if kind == "site":
+        site_src = source / "site"
+        if site_src.is_dir():
+            dest = out / "site"
+            if dest.exists():
+                shutil.rmtree(dest)
+            shutil.copytree(site_src, dest)
+        return
+    if kind == "prompt":
+        make._deliver(out, "prompt", text.rstrip("\n"))
+        return
+    if kind in ("skill", "agent"):
+        make._deliver(out, kind, text.rstrip("\n"))
+        return
+    if kind == "rule":
+        for path in source.glob("*.md"):
+            shutil.copy2(path, out / path.name)
+        return
+    if kind in ("mcp", "hook"):
+        kind_src = source / kind
+        if not kind_src.is_dir():
+            return
+        dest = out / kind
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(kind_src, dest)
+        data = _read_manifest(dest)
+        if kind == "mcp":
+            from .hosts import check_name
+
+            try:
+                name = check_name(data["name"])
+            except (KeyError, ValueError):
+                name = make._slug(request)
+            command, args = data.get("command"), data.get("args")
+            if isinstance(command, str) and isinstance(args, list) and all(isinstance(a, str) for a in args):
+                line = make_checks.install_line(name, command, args, dest)
+                if line is not None:
+                    (out / "INSTALL-MCP.txt").write_text(line + "\n", encoding="utf-8")
+        else:
+            event, command, matcher = data.get("event"), data.get("command"), data.get("matcher")
+            if isinstance(event, str) and isinstance(command, str):
+                snippet = make_checks.settings_snippet(event, matcher if isinstance(matcher, str) else None, command, dest)
+                if snippet is not None:
+                    (out / "settings-snippet.json").write_text(json.dumps(snippet, indent=2) + "\n", encoding="utf-8")
+
+
+def _save_version(out: Path, kind: str, version: int, source: Path, text: str) -> Path:
+    version_dir = out / f"v{version}"
+    version_dir.mkdir(parents=True, exist_ok=True)
+    if kind == "site":
+        dest = version_dir / "site"
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(source, dest)
+    elif kind == "prompt":
+        (out / f"v{version}.md").write_text(text, encoding="utf-8")
+    elif kind == "skill":
+        dest = version_dir / source.name
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(source, dest)
+    elif kind == "agent":
+        shutil.copy2(source, version_dir / source.name)
+    elif kind == "rule":
+        shutil.copy2(source, version_dir / source.name)
+    elif kind in ("mcp", "hook"):
+        dest = version_dir / kind
+        if dest.exists():
+            shutil.rmtree(dest)
+        shutil.copytree(source, dest)
+    return version_dir
+
+
+def _load_source(kind: str, source: Path) -> str:
+    if kind in ("site", "skill", "mcp", "hook") and source.is_dir():
+        _scan_folder_paths(source)  # before any copy, so a link never pulls outside files into the record
+    if kind == "site":
+        if not source.is_dir():
+            raise HostError(str(source))
+        index = source / "index.html"
+        if not index.is_file():
+            raise HostError(f"index.html not found in {source}")
+        return ""
+    if kind == "skill":
+        skill_md = source / "SKILL.md"
+        if not skill_md.is_file():
+            raise HostError(f"SKILL.md not found in {source}")
+        return skill_md.read_text(encoding="utf-8")
+    if kind in ("agent", "rule", "prompt"):
+        if not source.is_file():
+            raise HostError(str(source))
+        return source.read_text(encoding="utf-8")
+    if kind in ("mcp", "hook"):
+        if not source.is_dir():
+            raise HostError(str(source))
+        _read_manifest(source)
+        return ""
+    raise HostError(f"unknown kind {kind!r}")
+
+
+def run_record(
+    kind: str,
+    source: Path,
+    *,
+    out: Path,
+    request: str,
+    agent: str,
+    score: int | None,
+    allow_commands: bool,
+    as_json: bool,
+) -> int:
+    if kind not in RECORD_KINDS:
+        _print_error(f"unknown kind {kind!r}")
+        return 2
+    try:
+        text = _load_source(kind, source)
+    except HostError as exc:
+        _print_error(str(exc))
+        return 2
+    out.mkdir(parents=True, exist_ok=True)
+    version = _next_version(out)
+    _save_version(out, kind, version, source, text)
+    checks = collect_checks(kind, _check_target(out, kind, version, source), allow_commands=allow_commands)
+    (out / f"v{version}" / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
+    passed = _version_passed(checks)
+    record_path = out / "record.json"
+    rounds: list[dict[str, Any]] = []
+    if record_path.is_file():
+        try:
+            prior = json.loads(record_path.read_text(encoding="utf-8"))
+            rounds = list(prior.get("rounds") or [])
+        except (OSError, ValueError):
+            rounds = []
+    rounds.append({"version": version, "score": score, "passed": passed})
+    best_version = _pick_best(rounds)
+    payload = {
+        "schema": "proofhouse.host/v1",
+        "proofhouse_version": __version__,
+        "request": request,
+        "agent": agent,
+        "kind": kind,
+        "rounds": rounds,
+        "best_version": best_version,
+        "judge_note": JUDGE_NOTE,
+    }
+    record_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    _clear_delivery(out, kind)
+    if best_version is not None:
+        best_text = _version_text(out, kind, best_version, request)
+        _deliver_version(out, kind, best_version, best_text, request)
+    not_run = sum(1 for row in checks if row.get("ok") is None)
+    if as_json:
+        print(json.dumps({"version": version, "checks_not_run": not_run, "passed": passed, "best_version": best_version}))
+    return 0
+
+
+def _check_target(out: Path, kind: str, version: int, source: Path) -> Path:
+    if kind == "site":
+        return out / f"v{version}" / "site"
+    if kind == "skill":
+        return _skill_version_dir(out, version, source)
+    if kind in ("agent", "rule"):
+        return next((out / f"v{version}").glob("*.md"))
+    if kind in ("mcp", "hook"):
+        return out / f"v{version}" / kind
+    if kind == _PROMPT_KIND:
+        return out / f"v{version}.md"
+    raise HostError(f"unknown kind {kind!r}")
+
+
+def _skill_version_dir(out: Path, version: int, source: Path) -> Path:
+    version_dir = out / f"v{version}"
+    for child in version_dir.iterdir():
+        if child.is_dir() and (child / "SKILL.md").is_file():
+            return child
+    return version_dir / source.name
+
+
+def _version_text(out: Path, kind: str, version: int, request: str) -> str:
+    if kind == _PROMPT_KIND:
+        return (out / f"v{version}.md").read_text(encoding="utf-8")
+    if kind == "skill":
+        return (_skill_version_dir(out, version, Path("skill")) / "SKILL.md").read_text(encoding="utf-8")
+    if kind == "agent":
+        return next((out / f"v{version}").glob("*.md")).read_text(encoding="utf-8")
+    if kind == "rule":
+        return next((out / f"v{version}").glob("*.md")).read_text(encoding="utf-8")
+    if kind in ("mcp", "hook"):
+        return (out / f"v{version}" / kind / "manifest.json").read_text(encoding="utf-8")
+    return ""
+
+
+def _visual_kind(path: Path) -> str:
+    if _VIDEO_SUFFIX.search(path.name):
+        return "video"
+    return "image"
+
+
+def run_render_video(
+    folder: Path,
+    *,
+    formats: tuple[str, ...],
+    size_scale: float,
+) -> int:
+    for tool in ("ffmpeg", "ffprobe"):
+        if shutil.which(tool) is None:
+            _print_error(f"{tool} is not installed; install FFmpeg (https://ffmpeg.org) and try again")
+            return 2
+    script_path = folder / "script.json"
+    if not script_path.is_file():
+        _print_error(f"script.json not found in {folder}")
+        return 2
+    try:
+        data = json.loads(script_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        _print_error(f"script.json in {folder} is not valid JSON")
+        return 2
+    if not isinstance(data, dict):
+        _print_error(f"script.json in {folder} must be a JSON object")
+        return 2
+    raw_shots = data.get("shots")
+    if not isinstance(raw_shots, list) or not raw_shots:
+        _print_error("no shots in script.json")
+        return 2
+    unknown = [name for name in formats if name not in studio.FORMATS]
+    if unknown:
+        _print_error(f"unknown format {', '.join(unknown)}; use {', '.join(studio.FORMATS)}")
+        return 2
+    try:
+        _scan_folder_paths(folder)
+    except HostError as exc:
+        _print_error(str(exc))
+        return 2
+    shots: list[studio.Shot] = []
+    for index, raw in enumerate(raw_shots, start=1):
+        if not isinstance(raw, dict):
+            _print_error(f"shot {index} is not an object")
+            return 2
+        file_name = raw.get("file")
+        if not isinstance(file_name, str) or not file_name.strip():
+            _print_error(f"shot {index} needs a file name")
+            return 2
+        try:
+            media = _path_inside(folder, file_name)
+        except HostError as exc:
+            _print_error(str(exc))
+            return 2
+        if not media.is_file():
+            _print_error(f"shot file not found: {file_name}")
+            return 2
+        try:
+            seconds = max(1, min(20, int(round(float(raw.get("seconds", 4))))))
+        except (TypeError, ValueError):
+            seconds = 4
+        shots.append(studio.Shot(seconds, str(raw.get("visual", "")).strip(), str(raw.get("caption", "")).strip(), str(media)))
+    voice_path: str | None = None
+    voice_name = data.get("voice_file")
+    if isinstance(voice_name, str) and voice_name.strip():
+        try:
+            voice_path = str(_path_inside(folder, voice_name))
+        except HostError as exc:
+            _print_error(str(exc))
+            return 2
+        if not Path(voice_path).is_file():
+            _print_error(f"voice file not found: {voice_name}")
+            return 2
+    music_path: str | None = None
+    music_name = data.get("music_file")
+    if isinstance(music_name, str) and music_name.strip():
+        try:
+            music_path = str(_path_inside(folder, music_name))
+        except HostError as exc:
+            _print_error(str(exc))
+            return 2
+        if not Path(music_path).is_file():
+            _print_error(f"music file not found: {music_name}")
+            return 2
+    visual_kind = _visual_kind(Path(shots[0].file or ""))
+    production = studio.Production(folder.resolve())
+    production.title = str(data.get("title", "")).strip()
+    production.voiceover = str(data.get("voiceover", "")).strip()
+    production.music_brief = str(data.get("music", "")).strip()
+    production.shots = shots
+    try:
+        studio.assemble(
+            folder.resolve(), shots, visual_kind=visual_kind, formats=formats, size_scale=size_scale, captions=True,
+            voice_file=voice_path, music_file=music_path, production=production,
+        )
+    except studio.StudioError as exc:
+        _print_error(str(exc))
+        return 2
+    if production.stopped != "finished":
+        _print_error(production.stopped)
+        return 2
+    production.spent_usd = Decimal(0)
+    production.calls = []
+    studio._write_record(production, production.title or "host video")
+    return 0

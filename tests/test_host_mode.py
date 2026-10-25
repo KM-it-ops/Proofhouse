@@ -35,7 +35,7 @@ for line in sys.stdin:
         continue
     print(json.dumps({'jsonrpc': '2.0', 'id': request['id'], 'result': result}), flush=True)
 """
-HOOK = "import json, sys\nevent = json.load(sys.stdin)\nprint(event['hook_event_name'])\nsys.exit(2)\n"
+HOOK = "import json, sys\nevent = json.load(sys.stdin)\nprint(event['hook_event_name'], file=sys.stderr)\nsys.exit(2)\n"
 SKILL = "---\nname: refund-helper\ndescription: Use when a customer asks for a refund.\n---\n# Refund helper\nCheck the order first.\n"
 AGENT = "---\nname: refund-agent\ndescription: Handles refund requests.\n---\nYou handle refunds politely.\n"
 
@@ -166,6 +166,20 @@ def test_check_refuses_a_link_that_points_outside_the_folder(tmp_path: Path, cap
 
 
 # ---------------------------------------------------------------- record
+
+
+def test_record_refuses_a_link_that_points_outside_the_folder(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = site(tmp_path / "site")
+    secret = tmp_path / "secret.txt"
+    secret.write_text("private", encoding="utf-8")
+    try:
+        (folder / "notes.txt").symlink_to(secret)
+    except OSError:
+        pytest.skip("this machine does not allow symbolic links")
+    code = cli.main(["record", "site", str(folder), "--out", str(tmp_path / "out"), "--request", "x", "--agent", "cursor"])
+    assert code != 0
+    assert "link" in capsys.readouterr().err.lower()
+    assert not (tmp_path / "out" / "v1").exists()
 
 
 def record(tmp_path: Path, kind: str, source: Path, *extra: str) -> int:

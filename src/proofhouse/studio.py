@@ -296,6 +296,34 @@ def produce(
         _write_record(production, brief)
         return production
 
+    production = assemble(
+        out_dir, shots, visual_kind=visual_kind, formats=formats, size_scale=size_scale, captions=captions,
+        voice_file=production.voice_file, music_file=production.music_file, production=production,
+    )
+    production.spent_usd = budget.spent
+    _write_record(production, brief)
+    return production
+
+
+def assemble(
+    out_dir: Path,
+    shots: list[Shot],
+    *,
+    visual_kind: str,
+    formats: tuple[str, ...],
+    size_scale: float = 1.0,
+    captions: bool = True,
+    voice_file: str | None = None,
+    music_file: str | None = None,
+    production: Production | None = None,
+) -> Production:
+    """Cut shots to length, join, mix audio, burn captions, and measure each render."""
+    if production is None:
+        production = Production(out_dir)
+    else:
+        production.folder = out_dir
+    production.voice_file = voice_file
+    production.music_file = music_file
     total = sum(s.seconds for s in shots)
     (out_dir / "captions.srt").write_text(srt(shots), encoding="utf-8")
     work = out_dir / "work"
@@ -306,6 +334,8 @@ def produce(
             size = (int(w * size_scale) // 2 * 2, int(h * size_scale) // 2 * 2)
             clips = []
             for index, shot in enumerate(shots, start=1):
+                if not shot.file:
+                    raise StudioError(f"shot {index} has no file")
                 clip = work / f"{name}-shot-{index:02d}.mp4"
                 _run(shot_command(Path(shot.file), visual_kind, shot.seconds, size, clip), out_dir, production)
                 clips.append(clip)
@@ -334,8 +364,6 @@ def produce(
     except StudioError as exc:
         production.stopped = str(exc)
     shutil.rmtree(work, ignore_errors=True)
-    production.spent_usd = budget.spent
-    _write_record(production, brief)
     return production
 
 

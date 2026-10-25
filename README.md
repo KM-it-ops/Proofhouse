@@ -10,6 +10,8 @@ A prompt, a skill, a website, an app, a video, or a whole launch. Proofhouse wri
 
 It is a local command-line tool, not a hosted service. The `proofhouse` command is the one front door.
 
+**Host mode (no API key):** use `proofhouse check`, `proofhouse record` and `proofhouse render video` when your existing AI app writes and judges; see [docs/usage.md](docs/usage.md#host-mode-no-api-key).
+
 ## Try it in two minutes
 
 ```bash

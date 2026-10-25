@@ -284,6 +284,9 @@ def _cmd_make(args: argparse.Namespace) -> int:
 
 
 def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
+    from .host_cli import add_host_commands
+
+    add_host_commands(subparsers)
     p_make = subparsers.add_parser(
         "make", help="Make anything with any model (prompt, skill, agent, rule, mcp, hook, site, app, copy, video, or a whole launch) within one spending limit."
     )

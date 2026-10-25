@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **Host mode** for agents you already use: `proofhouse check`, `proofhouse record` and `proofhouse render video` run offline with no API key; the `proofhouse-host` skill teaches the write-check-record loop.
+
 ## 0.9.1 - 2026-10-25
 
 First release published to PyPI. The code is the same as 0.9.0; the package page and the docs changed.

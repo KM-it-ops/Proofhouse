@@ -1631,6 +1631,7 @@
     "addons",
     "assay",
     "case",
+    "check",
     "closed-loop",
     "closed-loop-bridged-008",
     "compare",
@@ -1660,6 +1661,8 @@
     "parts",
     "proof",
     "providers",
+    "record",
+    "render",
     "route",
     "run",
     "scan",
@@ -1692,6 +1695,7 @@
   "x-local-only": [
     "addons",
     "case",
+    "check",
     "demo",
     "deploy",
     "eval",
@@ -1703,6 +1707,8 @@
     "optimize",
     "parts",
     "providers",
+    "record",
+    "render",
     "scan",
     "uninstall",
     "uninstall-skill"
