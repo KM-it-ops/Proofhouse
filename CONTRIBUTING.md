@@ -14,6 +14,8 @@ proofhouse eval validate --dataset evals/datasets/prompt_audit_cases.jsonl
 
 Validate every dataset you add under `evals/datasets/`. After changing `model_registry.json` or `proofhouse-framework.json`, run `python scripts/generate_model_surfaces.py` and then `python scripts/build_skill_bundle.py`. After changing CLI help, regenerate the hosted OpenAPI fixture with `PROOFHOUSE_EXPERIMENTAL=1 python scripts/generate_hosted_openapi.py`.
 
+The full command list, what CI runs, the repository map and the experimental parts are in [`docs/development.md`](docs/development.md).
+
 ## Contribution Rules
 
 - Do not add secrets, API keys, or account-specific data.
