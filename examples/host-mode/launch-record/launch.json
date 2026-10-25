@@ -1,0 +1,47 @@
+{
+  "name": "Tidewatch",
+  "goal": "Launch Tidewatch, a pocket tide-table app that works fully offline, to coastal hikers and small-boat skippers who cannot rely on signal at the water.",
+  "tone": "calm, practical, and trustworthy — like a harbor logbook, not a hype deck",
+  "shared_names": [
+    "Tidewatch",
+    "Tide tables in your pocket, no signal required."
+  ],
+  "facts": [
+    "$4.99 one-time purchase",
+    "Works fully offline with bundled tide data for two years",
+    "No accounts and no ads"
+  ],
+  "avoid": [
+    "revolutionary",
+    "seamless",
+    "game-changing",
+    "lorem"
+  ],
+  "parts": [
+    {
+      "id": "site",
+      "kind": "site",
+      "path": "site"
+    },
+    {
+      "id": "announce",
+      "kind": "copy",
+      "path": "announcement/copy.md"
+    },
+    {
+      "id": "support",
+      "kind": "skill",
+      "path": "support-skill"
+    },
+    {
+      "id": "release-notes",
+      "kind": "prompt",
+      "path": "prompt/prompt.md"
+    },
+    {
+      "id": "promo",
+      "kind": "video",
+      "path": "video"
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+{
+  "agent": "cursor",
+  "best_version": 2,
+  "delivered": [
+    "launch.json",
+    "site",
+    "announce",
+    "support",
+    "release-notes",
+    "promo",
+    "README.md"
+  ],
+  "judge_note": "Scores are the agent's own advice because the same model wrote the work and scored it; they are not proof. If you have a second agent (for example Codex or Gemini CLI), ask it to judge a version and record that score instead.",
+  "kind": "launch",
+  "proofhouse_version": "0.10.0",
+  "request": "Multi-part host launch for fictional Tidewatch offline tide app",
+  "rounds": [
+    {
+      "passed": true,
+      "score": 6,
+      "version": 1
+    },
+    {
+      "passed": true,
+      "score": 7,
+      "version": 2
+    }
+  ],
+  "schema": "proofhouse.host/v1"
+}
