@@ -129,9 +129,13 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    - `proofhouse render video` assembles a finished video from a script and the shots, voice and music the
      agent supplies (FFmpeg, 16:9, 9:16, 1:1, captions, length and sound checks), with no paid call.
    - A skill (`skills/proofhouse-host`) teaches the agent the loop: write, check, revise, record.
-   - Honest limit: the same model writing and judging is weaker than a second judge, so scores are advice
-     and the skill suggests a second agent as judge when the person has one. Any paid media service still
-     goes through the spending limit.
+   - Second-agent judge: `record --judge NAME --judge-score N` keeps another agent's score (the judge must
+     differ from the writer) and ranks judged rounds above self-scored ones. Still advice, not proof. Any
+     paid media service still goes through the spending limit.
+   - Quality checks in `check`: word counts, filler and vague-claim scan, a concrete detail, launch parts that
+     repeat each other, and site readability (contrast, text size, one heading, image alt, page title).
+   - `render video` can take a local voice file and a generated music file; the Tidewatch launch video is a
+     real 3-format MP4 set (basic Windows voice, plain generated chord pad: not studio quality).
    - `proofhouse compare "job" --entry LABEL=file ...` puts saved answers from any agents side by side
      (`side-by-side.html` plus `compare.json`), with optional scores and notes, no model call.
    - `proofhouse referee start|round|status` lets the agent run its own improve loop while Proofhouse runs
@@ -142,7 +146,9 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      own kind (video parts structurally only), shared names must appear in every text part, every fact in at
      least one, and avoid-words nowhere; record delivers every part plus a generated README.
    - Examples built by Cursor, Codex and Grok with no key: `examples/host-mode/` has one per kind, plus
-     `compare`, `loop` and `launch` with their records. Scores in them are the agents' own advice.
+     `compare`, `loop` (a 40-test markdown converter) and `launch` with their records. The compare scores
+     (Claude as judge) and the launch score (Codex, blind: 5/10, weakest part the video script) come from
+     an agent that did not write the work; the rest are the writers' own advice.
    - Then, on host mode: limit tests.
 
 ## Known limits
