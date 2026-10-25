@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.9.1 - 2026-10-25
+
+First release published to PyPI. The code is the same as 0.9.0; the package page and the docs changed.
+
+### Changed
+
+- **The README is rewritten for the PyPI page.** It now leads with what Proofhouse makes, how to install it and a first run, and links out for the rest. Links are absolute so they work on PyPI.
+- **Detail moved out of the README into the docs:** every make, run and deliver command is in `docs/usage.md`, the `proofhouse case` evidence walk is in `docs/evidence-trail.md`, and how to check the repository, the experimental parts, the design rules and the repository map are in `docs/development.md`.
+- The honesty lines (not a hosted service, not isolation, worst-case estimates are not your bill, shipped model notes are unverified) are now checked on the page that carries them.
+
+### Fixed
+
+- Two stale claims in the docs: native app builds are proven on all six platforms, and the `execute-openai` description now says it runs on any provider through the spend gate.
+
 ## 0.9.0 - 2026-10-23
 
 ### Added
