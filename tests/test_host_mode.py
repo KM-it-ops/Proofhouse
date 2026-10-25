@@ -459,6 +459,74 @@ def test_render_video_reports_a_leftover_work_folder_instead_of_crashing(tmp_pat
     assert "work" in capsys.readouterr().err
 
 
+# ---------------------------------------------------------------- found by the second review
+
+
+def test_record_again_keeps_files_the_user_added_to_the_out_folder(tmp_path: Path) -> None:
+    agent = tmp_path / "a.md"
+    agent.write_text(AGENT, encoding="utf-8")
+    assert record(tmp_path, "agent", agent) == 0
+    out = tmp_path / "out"
+    (out / "notes.md").write_text("mine", encoding="utf-8")
+    agent.write_text(AGENT + "Be brief.\n", encoding="utf-8")
+    assert record(tmp_path, "agent", agent) == 0
+    assert (out / "notes.md").read_text(encoding="utf-8") == "mine"
+    assert "Be brief." in (out / "refund-agent.md").read_text(encoding="utf-8")
+
+
+def test_record_a_skill_again_keeps_other_skill_folders_in_out(tmp_path: Path) -> None:
+    skill = tmp_path / "s"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(SKILL, encoding="utf-8")
+    assert record(tmp_path, "skill", skill) == 0
+    other = tmp_path / "out" / "other-skill"
+    other.mkdir()
+    (other / "SKILL.md").write_text("keep", encoding="utf-8")
+    assert record(tmp_path, "skill", skill) == 0
+    assert (other / "SKILL.md").read_text(encoding="utf-8") == "keep"
+    assert (tmp_path / "out" / "refund-helper" / "SKILL.md").is_file()
+
+
+def test_a_delivered_skill_carries_its_support_files(tmp_path: Path) -> None:
+    skill = tmp_path / "s"
+    (skill / "scripts").mkdir(parents=True)
+    (skill / "SKILL.md").write_text(SKILL, encoding="utf-8")
+    (skill / "scripts" / "helper.py").write_text("print('hi')\n", encoding="utf-8")
+    assert record(tmp_path, "skill", skill) == 0
+    assert (tmp_path / "out" / "refund-helper" / "scripts" / "helper.py").read_text(encoding="utf-8") == "print('hi')\n"
+
+
+def test_record_refuses_to_mix_kinds_in_one_out_folder(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    prompt = tmp_path / "p.md"
+    prompt.write_text("Say hello.\n", encoding="utf-8")
+    assert record(tmp_path, "prompt", prompt, "--score", "9") == 0
+    skill = tmp_path / "s"
+    skill.mkdir()
+    (skill / "SKILL.md").write_text(SKILL, encoding="utf-8")
+    assert record(tmp_path, "skill", skill) == 2
+    assert "kind" in capsys.readouterr().err
+    assert len(saved(tmp_path)["rounds"]) == 1
+    assert not (tmp_path / "out" / "v2").exists()
+
+
+def test_check_site_needs_an_entry_page(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    empty = tmp_path / "empty"
+    empty.mkdir()
+    assert cli.main(["check", "site", str(empty)]) == 2
+    assert "index.html" in capsys.readouterr().err
+
+
+@needs_ffmpeg
+def test_render_video_refuses_a_mix_of_pictures_and_clips(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = video_folder(tmp_path)
+    (folder / "clip.mp4").write_bytes(b"not really a video")
+    script = json.loads((folder / "script.json").read_text(encoding="utf-8"))
+    script["shots"][1]["file"] = "clip.mp4"
+    (folder / "script.json").write_text(json.dumps(script), encoding="utf-8")
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 2
+    assert "mix" in capsys.readouterr().err
+
+
 # ---------------------------------------------------------------- skill that teaches the loop
 
 SKILL_DIR = Path(__file__).resolve().parents[1] / "skills" / "proofhouse-host"

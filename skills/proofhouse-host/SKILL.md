@@ -5,7 +5,7 @@ description: Use when you write and judge Proofhouse work in Cursor, Codex, Gemi
 
 # Proofhouse host mode
 
-You write and score the work with your own model and shell. Proofhouse checks, keeps every version and assembles the best one. No API key and no network for `proofhouse check`, `proofhouse record` and `proofhouse render video`.
+You write and score the work with your own model and shell. Proofhouse checks, keeps every version and assembles the best one. No API key for `proofhouse check`, `proofhouse record` and `proofhouse render video`, and Proofhouse itself makes no network calls on them. With `--allow-commands` it runs the code you wrote, and that code may use the network, so only pass it for code you trust.
 
 ## Loop
 

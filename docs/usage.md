@@ -4,7 +4,7 @@ Every way to make, run and deliver things. For a short tour, see the [README](..
 
 ## Host mode (no API key)
 
-If you already work in Cursor, Codex, Gemini CLI, Grok CLI or Claude Code, **host mode** lets that agent write and judge with its own model while Proofhouse only checks, records and assembles—no API key and no network on these commands:
+If you already work in Cursor, Codex, Gemini CLI, Grok CLI or Claude Code, **host mode** lets that agent write and judge with its own model while Proofhouse only checks, records and assembles—no API key, and Proofhouse itself makes no network calls on these commands. (With `--allow-commands`, Proofhouse runs the code the model wrote, and that code may use the network.)
 
 ```bash
 proofhouse check site ./my-site

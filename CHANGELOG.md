@@ -4,7 +4,7 @@
 
 ### Added
 
-- **Host mode** for agents you already use: `proofhouse check`, `proofhouse record` and `proofhouse render video` run offline with no API key; the `proofhouse-host` skill teaches the write-check-record loop.
+- **Host mode** for agents you already use: `proofhouse check`, `proofhouse record` and `proofhouse render video` need no API key and make no network calls of their own (`--allow-commands` runs model-written code, which may); the `proofhouse-host` skill teaches the write-check-record loop.
 
 ## 0.9.1 - 2026-10-25
 

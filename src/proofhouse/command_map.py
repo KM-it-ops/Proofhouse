@@ -72,7 +72,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "compare": (SPINE, "", "compare engine: the same job on many models at once, side by side with cost, time and a judge's scores"),
     "loop": (SPINE, "", "loop engine: an agent acts, checks and repeats on its own, or watches and acts, within one spending limit"),
     "make": (SPINE, "", "make engine: writes, tries, judges and improves a prompt, skill, agent, site, app or copy, a video, or a whole launch, within one spending limit"),
-    "check": (SPINE, "", "host mode: tries a site, MCP server, hook, rule, skill or agent the host's own model wrote, with no key and no network"),
+    "check": (SPINE, "", "host mode: tries a site, MCP server, hook, rule, skill or agent the host's own model wrote, with no key (Proofhouse itself makes no network calls)"),
     "record": (SPINE, "", "host mode: keeps each version the host's model wrote with its checks and score, and delivers the best in the make layout"),
     "render video": (SPINE, "", "host mode: assembles a finished video from the host's script, shots, voice and music with FFmpeg, no paid call"),
     "adapters": (SPINE, "", "utility: alias of parts limited to request builders, with its 0.4.1 output"),

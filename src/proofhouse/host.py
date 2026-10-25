@@ -90,7 +90,7 @@ def _require_suffix(name: str, allowed: frozenset[str], what: str) -> None:
         raise HostError(f"{what} file type not supported: {name!r} (use {', '.join(sorted(allowed))})")
 
 
-def _check_out_folder(out: Path, source: Path) -> None:
+def _check_out_folder(out: Path, source: Path, kind: str) -> None:
     out_root, source_root = out.resolve(), source.resolve()
     if out_root == source_root or out_root.is_relative_to(source_root) or source_root.is_relative_to(out_root):
         raise HostError("--out must be a separate folder that neither holds nor sits inside the thing you are recording")
@@ -98,6 +98,17 @@ def _check_out_folder(out: Path, source: Path) -> None:
         raise HostError(f"--out is not a folder: {out}")
     if out.is_dir() and any(out.iterdir()) and not (out / "record.json").is_file():
         raise HostError(f"--out folder is not empty and holds no Proofhouse record: {out} (pick a new or empty folder)")
+    held = _read_record(out).get("kind")
+    if held and held != kind:
+        raise HostError(f"--out already holds a {held} record, not a {kind} one (pick another folder for a different kind)")
+
+
+def _read_record(out: Path) -> dict[str, Any]:
+    try:
+        data = json.loads((out / "record.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return data if isinstance(data, dict) else {}
 
 
 def _read_manifest(folder: Path) -> dict[str, Any]:
@@ -165,6 +176,8 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
     if kind == "site":
         if not path.is_dir():
             raise HostError(f"folder not found: {path}")
+        if not (path / "index.html").is_file():
+            raise HostError(f"index.html not found in {path}")
         return sitecheck.check_site(path, shots=None, browser=allow_commands)
     if kind == "skill":
         skill_md = path / "SKILL.md"
@@ -225,29 +238,24 @@ def _pick_best(rounds: list[dict[str, Any]]) -> int | None:
     return max(eligible, key=lambda row: (row.get("score") if row.get("score") is not None else -1, row["version"]))["version"]
 
 
-def _clear_delivery(out: Path, kind: str) -> None:
-    if kind == "site" and (out / "site").exists():
-        shutil.rmtree(out / "site")
-    elif kind in ("mcp", "hook") and (out / kind).exists():
-        shutil.rmtree(out / kind)
-    elif kind == "prompt":
-        (out / "final.md").unlink(missing_ok=True)
-    elif kind == "rule":
-        for path in out.glob("*.md"):
-            if path.name != "record.json":
-                path.unlink(missing_ok=True)
-        (out / "INSTALL-MCP.txt").unlink(missing_ok=True)
-        (out / "settings-snippet.json").unlink(missing_ok=True)
-    elif kind == "skill":
-        for child in out.iterdir():
-            if child.is_dir() and (child / "SKILL.md").is_file():
-                shutil.rmtree(child)
-    elif kind == "agent":
-        for path in out.glob("*.md"):
-            path.unlink(missing_ok=True)
-        (out / "AGENT-NOT-INSTALLABLE.txt").unlink(missing_ok=True)
-    (out / "INSTALL-MCP.txt").unlink(missing_ok=True)
-    (out / "settings-snippet.json").unlink(missing_ok=True)
+def _clear_delivery(out: Path, delivered: list[str]) -> None:
+    """Remove only what an earlier delivery put in ``out``; anything the person added stays."""
+    for name in delivered:
+        if not name or name in (".", "..") or "/" in name or "\\" in name:
+            continue
+        target = out / name
+        if target.is_dir() and not target.is_symlink():
+            shutil.rmtree(target, ignore_errors=True)
+        else:
+            target.unlink(missing_ok=True)
+
+
+def _copy_support_files(source: Path, dest: Path) -> None:
+    for item in sorted(source.rglob("*")):
+        relative = item.relative_to(source)
+        if item.is_file() and relative.as_posix() != "SKILL.md":
+            (dest / relative).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(item, dest / relative)
 
 
 def _deliver_version(out: Path, kind: str, version: int, text: str, request: str) -> None:
@@ -263,7 +271,14 @@ def _deliver_version(out: Path, kind: str, version: int, text: str, request: str
     if kind == "prompt":
         make._deliver(out, "prompt", text.rstrip("\n"))
         return
-    if kind in ("skill", "agent"):
+    if kind == "skill":
+        before = {path.name for path in out.iterdir()}
+        make._deliver(out, kind, text.rstrip("\n"))
+        for name in sorted({path.name for path in out.iterdir()} - before):
+            if (out / name / "SKILL.md").is_file():
+                _copy_support_files(_skill_version_dir(out, version, Path("skill")), out / name)
+        return
+    if kind == "agent":
         make._deliver(out, kind, text.rstrip("\n"))
         return
     if kind == "rule":
@@ -371,7 +386,7 @@ def run_record(
         return 2
     try:
         text = _load_source(kind, source)
-        _check_out_folder(out, source)
+        _check_out_folder(out, source, kind)
         out.mkdir(parents=True, exist_ok=True)
     except (HostError, OSError, ValueError) as exc:
         _print_error(str(exc))
@@ -388,13 +403,9 @@ def run_record(
     (out / f"v{version}" / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
     passed = _version_passed(checks, commands_required=kind in ("mcp", "hook"))
     record_path = out / "record.json"
-    rounds: list[dict[str, Any]] = []
-    if record_path.is_file():
-        try:
-            prior = json.loads(record_path.read_text(encoding="utf-8"))
-            rounds = list(prior.get("rounds") or [])
-        except (OSError, ValueError):
-            rounds = []
+    prior = _read_record(out)
+    rounds: list[dict[str, Any]] = list(prior.get("rounds") or [])
+    prior_delivered = [str(name) for name in prior.get("delivered") or []]
     rounds.append({"version": version, "score": score, "passed": passed})
     best_version = _pick_best(rounds)
     payload = {
@@ -407,11 +418,15 @@ def run_record(
         "best_version": best_version,
         "judge_note": JUDGE_NOTE,
     }
-    record_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    _clear_delivery(out, kind)
+    _clear_delivery(out, prior_delivered)
+    delivered: list[str] = []
     if best_version is not None:
+        before = {path.name for path in out.iterdir()}
         best_text = _version_text(out, kind, best_version, request)
         _deliver_version(out, kind, best_version, best_text, request)
+        delivered = sorted({path.name for path in out.iterdir()} - before)
+    payload["delivered"] = delivered
+    record_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     not_run = sum(1 for row in checks if row.get("ok") is None)
     if as_json:
         print(json.dumps({"version": version, "checks_not_run": not_run, "passed": passed, "best_version": best_version}))
@@ -554,7 +569,11 @@ def run_render_video(
         except HostError as exc:
             _print_error(str(exc))
             return 2
-    visual_kind = _visual_kind(Path(shots[0].file or ""))
+    kinds = {_visual_kind(Path(shot.file or "")) for shot in shots}
+    if len(kinds) > 1:
+        _print_error("shots mix pictures and video clips; use only pictures or only clips in one video")
+        return 2
+    visual_kind = kinds.pop()
     production = studio.Production(folder.resolve())
     production.title = str(data.get("title", "")).strip()
     production.voiceover = str(data.get("voiceover", "")).strip()
