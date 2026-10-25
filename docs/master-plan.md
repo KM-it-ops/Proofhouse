@@ -97,8 +97,9 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    - **U5, final gate.** Review and fixes done (2026-10-18): a fresh full review of main at f939f95 found
      two wrong behaviours and four safeguards no test checked; all six are fixed or tested. New
      statement: [assurance/2026-10-18-completion-criteria.md](assurance/2026-10-18-completion-criteria.md).
-     Still open: a try by a fresh user (criterion 6), then PyPI on the owner's word (held). The
-     v0.9.0 tag and the GitHub releases for 0.8.0 and 0.9.0 were made on 2026-10-25.
+     Still open: a try by a fresh user (criterion 6). The v0.9.0 tag and the GitHub releases for
+     0.8.0 and 0.9.0 were made on 2026-10-25, and 0.9.1 (the first release with the PyPI README) was
+     tagged, released and published to PyPI the same day: `pip install proofhouse`.
    - **0.9.0 prepared (2026-10-23).** Version set, CHANGELOG closed, package built and checked, not
      published. Tagged `v0.9.0` and released on GitHub 2026-10-25. Statement:
      [assurance/2026-10-23-completion-criteria.md](assurance/2026-10-23-completion-criteria.md).
