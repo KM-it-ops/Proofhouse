@@ -1,0 +1,23 @@
+[
+  {
+    "check": "claude rule install/uninstall",
+    "host": "claude",
+    "ok": true,
+    "detail": "restored exactly",
+    "path": "project\\CLAUDE.md"
+  },
+  {
+    "check": "cursor rule install/uninstall",
+    "host": "cursor",
+    "ok": true,
+    "detail": "restored exactly",
+    "path": "project\\.cursor\\rules\\safe-database-migrations.mdc"
+  },
+  {
+    "check": "codex rule install/uninstall",
+    "host": "codex",
+    "ok": true,
+    "detail": "restored exactly",
+    "path": "project\\AGENTS.md"
+  }
+]
