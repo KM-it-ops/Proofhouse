@@ -1,16 +1,19 @@
 {
   "agent": "claude-code",
-  "best_version": 3,
+  "best_status": "passed",
+  "best_version": 4,
   "delivered": [
     "launch.json",
     "film",
     "voiceover",
     "README.md"
   ],
-  "judge_note": "Scores are the agent's own advice because the same model wrote the work and scored it; they are not proof. If you have a second agent (for example Codex or Gemini CLI), ask it to judge a version and record that score instead.",
+  "judge": "codex",
+  "judge_note": "Scored by codex, a different agent from the writer (claude-code); still advice, not proof.",
+  "judge_score": 7,
   "kind": "launch",
   "proofhouse_version": "0.10.0",
-  "request": "30-second Tidewatch launch film, free local tools only",
+  "request": "48.8-second Tidewatch launch film, free local tools only",
   "rounds": [
     {
       "passed": true,
@@ -26,6 +29,16 @@
       "passed": true,
       "score": 8,
       "version": 3
+    },
+    {
+      "agent": "claude-code",
+      "judge": "codex",
+      "judge_note": "Calm imagery makes the offline benefit clear, but tiny, dim app text weakens the no-account and no-ads message; I could not hear the audio.",
+      "judge_score": 7,
+      "passed": true,
+      "score": null,
+      "status": "passed",
+      "version": 4
     }
   ],
   "schema": "proofhouse.host/v1"

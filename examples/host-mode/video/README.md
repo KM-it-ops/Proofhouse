@@ -6,7 +6,7 @@ It runs seven shots: a generated low-tide shore, the app splash, the tide chart,
 
 ## The premium cut: `final-premium.mp4`
 
-A 48.8 s, 1920x1080 rebuild by [build_premium.py](build_premium.py) from the same clips and app frames. It has a longer script ([lines.txt](lines.txt)) in which each beat says what the app does and why, timed to the app footage; a voice built in connected passages (the old film read seven separate slogans with long gaps); dissolves, slow camera drift, a graded look and captions beside the phone. Every claim in the script is something the prototype shows. Order: `build_voice.py` (writes `voice.wav` and `plan.json`), `build_music.py`, the two `ffmpeg` shrink commands, then `uv run --no-sync python build_premium.py`. `final.mp4` below is the older 30 s film and is unchanged. Nobody has listened to the premium cut yet; the voice change is checked by measurement only.
+A 48.8 s, 1920x1080 rebuild by [build_premium.py](build_premium.py) from the same clips and app frames. It has a longer script ([lines.txt](lines.txt)) in which each beat says what the app does and why, timed to the app footage; a voice built in connected passages (the old film read seven separate slogans with long gaps); dissolves, slow camera drift, a graded look and captions beside the phone. Every claim in the script is something the prototype shows. Order: `build_voice.py` (writes `voice.wav` and `plan.json`), `build_music.py`, the two `ffmpeg` shrink commands, then `uv run --no-sync python build_premium.py`. `final.mp4` below is the older 30 s film and is unchanged. Boss watched and listened to the premium cut and accepted it as is. Version 4 of [../video-record](../video-record) records it, scored 7/10 by Codex, which did not make it, from 16 frames, the script and loudness figures (it cannot hear sound). That record holds the shot clips, audio and scripts, not `final-premium.mp4` itself, to keep the repo small.
 
 ## Who made each asset
 
@@ -36,7 +36,7 @@ uv run --no-sync proofhouse render video . --formats 16x9 --size-scale 0.6667
 mv video-16x9.mp4 final.mp4
 ```
 
-The record of the three rounds is in [../video-record](../video-record) (rounds 1 and 2 are the earlier slide film). `proofhouse record` has no `video` kind, so the film is recorded as a two-part launch (film plus voice-over text). The record holds the script, audio, scripts and MP4, not the seven shot clips.
+The record of the four rounds is in [../video-record](../video-record) (rounds 1 and 2 are the earlier slide film, round 3 the 30 s film, round 4 the 48.8 s film). `proofhouse record` has no `video` kind, so the film is recorded as a two-part launch (film plus voice-over text). Rounds 1 to 3 hold the script, audio, scripts and MP4, not the seven shot clips; round 4 holds the shot clips, not the finished MP4.
 
 ## What the checks measured
 

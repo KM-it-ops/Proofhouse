@@ -1,0 +1,77 @@
+[
+  {
+    "check": "launch.json",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "launch parts",
+    "ok": true,
+    "detail": "2 parts"
+  },
+  {
+    "check": "part film: video title",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part film: video voiceover",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part film: video music",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part film: video structure",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part voiceover: copy present",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part voiceover: copy has no filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part voiceover: length",
+    "ok": true,
+    "detail": "227 words"
+  },
+  {
+    "check": "part voiceover: filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part voiceover: specifics",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "shared names",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "facts",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "avoid",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "parts differ",
+    "ok": true,
+    "detail": ""
+  }
+]

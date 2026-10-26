@@ -1,1 +1,3 @@
-proofhouse install mcp unit-desk --command=python --arg="examples/host-mode/mcp/server.py" --into <host>
+proofhouse install mcp unit-desk --command=python --arg="<this-folder>/mcp/server.py" --into <host>
+
+Replace <this-folder> with the full path of the folder that holds this file, so the path points at the files you got. Keep the double quotes around it; they let a path with spaces work.
