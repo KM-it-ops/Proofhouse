@@ -1,16 +1,16 @@
 {
   "title": "Tidewatch launch film",
-  "voiceover": "Meet Tidewatch. Tide tables in your pocket. No signal required. It works fully offline, with two years of tide data built right in. Just four ninety nine. One time. No accounts to make. No ads to skip. Tidewatch. Know the water.",
-  "music": "soft pad with muted upright bass and brushed shaker, 92 BPM, calm and nautical",
+  "voiceover": "The tide doesn't wait. And out here, there's no signal. Meet Tidewatch. Tide tables in your pocket. No signal required. It works fully offline, with two years of tide data built in. Just four ninety-nine. One time. No accounts to make. No ads to skip. Tidewatch. Know the water.",
+  "music": "soft pad with a muted plucked bass and a brushed shaker, 92 BPM, calm and nautical, lifting for the last line; made without paid music",
   "voice_file": "voice.m4a",
   "music_file": "music.m4a",
   "shots": [
-    {"seconds": 3, "visual": "deep blue night sea, glowing white Tidewatch wordmark, layered waves", "caption": "Meet Tidewatch.", "file": "shot-01.png"},
-    {"seconds": 6, "visual": "tide chart card for Harbor Point with a smooth tide curve", "caption": "Tide tables in your pocket. No signal required.", "file": "shot-02.png"},
-    {"seconds": 6, "visual": "sand background, phone with crossed-out signal bars, OFFLINE badge", "caption": "Works fully offline, with two years of tide data built in", "file": "shot-03.png"},
-    {"seconds": 5, "visual": "round price badge on calm water, $4.99 one time", "caption": "$4.99. One time.", "file": "shot-04.png"},
-    {"seconds": 3, "visual": "checklist with red crosses over account items", "caption": "No accounts to make", "file": "shot-05.png"},
-    {"seconds": 3, "visual": "checklist with red crosses over ad items", "caption": "No ads to skip", "file": "shot-06.png"},
-    {"seconds": 4, "visual": "end card, wordmark, tagline Know the water", "caption": "Tidewatch. Know the water.", "file": "shot-07.png"}
+    {"seconds": 5, "visual": "generated clip: dawn on a rocky shore, tide far out, a small boat tilted on the mud, gulls; slow push-in, grey-blue light, no people", "caption": "The tide doesn't wait. Out here, there's no signal.", "file": "shot-01.mp4"},
+    {"seconds": 3, "visual": "the same shore, softened; a phone in the middle of the frame, the Tidewatch splash draws its wave mark and wordmark, then the station list appears", "caption": "Meet Tidewatch.", "file": "shot-02.mp4"},
+    {"seconds": 5, "visual": "screen recording of the app, phone on the right over the softened shore: a tap on Harbor Point, the tide curve draws, a marker lands on now, the next high water reads 7:48 AM", "caption": "Tide tables in your pocket. No signal required.", "file": "shot-03.mp4"},
+    {"seconds": 5, "visual": "same phone: the status bar flips to No service, a green Offline badge slides in, the Harbor Point data pack card rises", "caption": "Works fully offline, with two years of tide data built in", "file": "shot-04.mp4"},
+    {"seconds": 5, "visual": "the price sheet slides up: Unlock every station, $4.99 one-time purchase, ticks for no account and no ads; the Unlock button is tapped and turns green", "caption": "$4.99 one-time purchase", "file": "shot-05.mp4"},
+    {"seconds": 4, "visual": "generated clip: a skipper's hands tie off a dinghy as shallow water floods back in around the boots, low warm sun, shallow depth of field; no phone", "caption": "No accounts to make. No ads to skip.", "file": "shot-06.mp4"},
+    {"seconds": 3, "visual": "the same dinghy footage softens as the phone returns with the finished Tidewatch splash; the closing line shows as a caption", "caption": "Tidewatch. Know the water.", "file": "shot-07.mp4"}
   ]
 }

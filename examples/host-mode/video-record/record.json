@@ -1,6 +1,6 @@
 {
   "agent": "claude-code",
-  "best_version": 2,
+  "best_version": 3,
   "delivered": [
     "launch.json",
     "film",
@@ -21,6 +21,11 @@
       "passed": true,
       "score": 7,
       "version": 2
+    },
+    {
+      "passed": true,
+      "score": 8,
+      "version": 3
     }
   ],
   "schema": "proofhouse.host/v1"

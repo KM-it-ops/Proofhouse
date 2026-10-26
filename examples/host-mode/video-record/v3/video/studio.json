@@ -1,0 +1,95 @@
+{
+  "schema": "proofhouse.studio/v1",
+  "proofhouse_version": "0.10.0",
+  "brief": "Tidewatch launch film",
+  "title": "Tidewatch launch film",
+  "stopped": "finished",
+  "spent_usd_estimated": "0",
+  "shots": [
+    {
+      "seconds": 5,
+      "visual": "generated clip: dawn on a rocky shore, tide far out, a small boat tilted on the mud, gulls; slow push-in, grey-blue light, no people",
+      "caption": "The tide doesn't wait. Out here, there's no signal.",
+      "file": "shot-01.mp4"
+    },
+    {
+      "seconds": 3,
+      "visual": "the same shore, softened; a phone in the middle of the frame, the Tidewatch splash draws its wave mark and wordmark, then the station list appears",
+      "caption": "Meet Tidewatch.",
+      "file": "shot-02.mp4"
+    },
+    {
+      "seconds": 5,
+      "visual": "screen recording of the app, phone on the right over the softened shore: a tap on Harbor Point, the tide curve draws, a marker lands on now, the next high water reads 7:48 AM",
+      "caption": "Tide tables in your pocket. No signal required.",
+      "file": "shot-03.mp4"
+    },
+    {
+      "seconds": 5,
+      "visual": "same phone: the status bar flips to No service, a green Offline badge slides in, the Harbor Point data pack card rises",
+      "caption": "Works fully offline, with two years of tide data built in",
+      "file": "shot-04.mp4"
+    },
+    {
+      "seconds": 5,
+      "visual": "the price sheet slides up: Unlock every station, $4.99 one-time purchase, ticks for no account and no ads; the Unlock button is tapped and turns green",
+      "caption": "$4.99 one-time purchase",
+      "file": "shot-05.mp4"
+    },
+    {
+      "seconds": 4,
+      "visual": "generated clip: a skipper's hands tie off a dinghy as shallow water floods back in around the boots, low warm sun, shallow depth of field; no phone",
+      "caption": "No accounts to make. No ads to skip.",
+      "file": "shot-06.mp4"
+    },
+    {
+      "seconds": 3,
+      "visual": "the same dinghy footage softens as the phone returns with the finished Tidewatch splash; the closing line shows as a caption",
+      "caption": "Tidewatch. Know the water.",
+      "file": "shot-07.mp4"
+    }
+  ],
+  "voice_file": "voice.m4a",
+  "music_file": "music.m4a",
+  "renders": {
+    "16x9": "video-16x9.mp4"
+  },
+  "checks": [
+    {
+      "render": "16x9",
+      "check": "length",
+      "ok": true,
+      "detail": "30.0s of 30s"
+    },
+    {
+      "render": "16x9",
+      "check": "frame size",
+      "ok": true,
+      "detail": "1280x720"
+    },
+    {
+      "render": "16x9",
+      "check": "sound",
+      "ok": true,
+      "detail": "voice/music present"
+    },
+    {
+      "render": "all",
+      "check": "captions match the script",
+      "ok": true,
+      "detail": "7 captions"
+    }
+  ],
+  "calls": [],
+  "ffmpeg": [
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-01.mp4 -t 5 -vf scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-01.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-02.mp4 -t 3 -vf scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-02.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-03.mp4 -t 5 -vf scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-03.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-04.mp4 -t 5 -vf scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-04.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-05.mp4 -t 5 -vf scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-05.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-06.mp4 -t 4 -vf scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-06.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-07.mp4 -t 3 -vf scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-07.mp4",
+    "ffmpeg -y -loglevel error -f concat -safe 0 -i work\\16x9-list.txt -c copy work\\16x9-joined.mp4",
+    "ffmpeg -y -loglevel error -i work\\16x9-joined.mp4 -i voice.m4a -stream_loop -1 -i music.m4a -filter_complex [0:v]subtitles=captions.srt:force_style='Fontsize=20.2,Outline=1.7,Shadow=1,MarginV=40'[v];[1:a]volume=1.0,apad[voice];[2:a]volume=0.25,apad[music];[voice][music]amix=inputs=2:duration=longest:normalize=0[a] -map [v] -map [a] -c:a aac -b:a 192k -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -t 30 -movflags +faststart video-16x9.mp4"
+  ]
+}

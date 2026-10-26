@@ -15,11 +15,11 @@
 
 ## Facts (which part carried each)
 
-- $4.99 one-time purchase: voiceover
+- $4.99 one-time purchase: film, voiceover
 - Works fully offline: film, voiceover
 - No accounts and no ads: voiceover
 
 ## Record
 
 - Agent: claude-code
-- Score: 7
+- Score: 8 (the agent's own advice; rounds 1 and 2 were the earlier slide film)

@@ -134,8 +134,11 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      paid media service still goes through the spending limit.
    - Quality checks in `check`: word counts, filler and vague-claim scan, a concrete detail, launch parts that
      repeat each other, and site readability (contrast, text size, one heading, image alt, page title).
-   - `render video` can take a local voice file and a generated music file; the Tidewatch launch video is a
-     real 3-format MP4 set (basic Windows voice, plain generated chord pad: not studio quality).
+   - `render video` can take a local voice file and a generated music file. Both Tidewatch videos (the
+     3-format promo and the 30 s film) are built from recorded screen footage of an app prototype, two
+     Gemini-generated clips (free allowance), a local Kokoro voice and numpy-made music. Limits: only two
+     10 s clips at 720p shared by both videos, the app is an HTML prototype, nobody has listened to the
+     audio yet, and the scores are the writer's own.
    - `proofhouse compare "job" --entry LABEL=file ...` puts saved answers from any agents side by side
      (`side-by-side.html` plus `compare.json`), with optional scores and notes, no model call.
    - `proofhouse referee start|round|status` lets the agent run its own improve loop while Proofhouse runs
