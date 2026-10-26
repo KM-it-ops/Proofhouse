@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import sys
@@ -309,6 +310,9 @@ def _clear_delivery(out: Path, delivered: list[str]) -> None:
         if not name or name in (".", "..") or "/" in name or "\\" in name:
             continue
         target = out / name
+        # "C:" or "D:" joins to a drive's current folder, not a child of out; only direct children are removed
+        if Path(os.path.abspath(target)).parent != Path(os.path.abspath(out)):
+            continue
         if target.is_dir() and not target.is_symlink():
             shutil.rmtree(target, ignore_errors=True)
         else:

@@ -7,6 +7,7 @@ None of this may need an API key or the network. The commands under test are
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import socket
 import subprocess
@@ -831,3 +832,29 @@ def test_record_copy_delivers_final_md_and_keeps_versions(tmp_path: Path, monkey
     assert record(tmp_path, "copy", second, "--score", "7") == 0
     assert (tmp_path / "out" / "final.md").read_text(encoding="utf-8") == second.read_text(encoding="utf-8")
     assert saved(tmp_path)["best_version"] == 2
+
+
+@pytest.mark.skipif(os.name != "nt", reason="Windows drive names")
+def test_clear_delivery_ignores_a_drive_name(tmp_path: Path) -> None:
+    out = tmp_path / "out"
+    (out / "v1").mkdir(parents=True)
+    (out / "v1" / "keep.txt").write_text("x", encoding="utf-8")
+    host._clear_delivery(out, [out.drive, "C:", "D:"])
+    assert (out / "v1" / "keep.txt").exists()
+
+
+def test_check_site_browser_that_exits_with_an_error_is_not_a_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+
+    def record_launch(command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=command, returncode=2, stdout="", stderr="unknown option --headless")
+
+    monkeypatch.setattr(sitecheck, "_open", record_launch)
+    rows = {c["check"]: c for c in sitecheck.check_site(site(tmp_path / "s"))}
+    assert "no JavaScript errors in the browser" not in rows
+    assert rows["opened in a browser"]["ok"] is None
+    assert "code 2" in rows["opened in a browser"]["detail"]
