@@ -183,6 +183,10 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
        Codex branches (`5a20791` repeat, `1d1f922` scores).
      - Full suite on the merged branch (bare `uv run --no-sync pytest`, native test included): 2409 passed,
        50 skipped, 1 deselected, 0 failed, 0 errors (7 min 10 s).
+     - Checked by the new coordinator (2026-10-26, read-only): both Codex score files judge the old 30 s
+       `film/final.mp4` (version 3) and the rebuilt 24 s promo, from 12 frames each, so they say nothing about the
+       48.8 s film; the record-paths test diff (`992ccfe`) asserts the `<this-folder>` placeholder and that no
+       machine path appears. Not re-checked: the 2409-passed suite figure, the earlier site/MCP/video proof reports.
      - Not done: the final README table, Stage 3, re-recording and re-scoring the 48.8 s film.
      - Known issues, only logged: the desktop browser check on the example site times out and still prints
        PASS; `mcp-record` has two copies of the old MCP server; Edge width; delegate run-ID collision.
