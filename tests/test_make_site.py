@@ -87,3 +87,15 @@ def test_a_browser_that_hangs_is_reported_not_measured_never_a_crash(tmp_path: P
     assert checks["opened in a browser"]["ok"] is None
     assert "did not finish in 1 s, twice" in checks["opened in a browser"]["detail"]
     assert len(launches) == 4  # desktop and phone, each tried once more after hanging
+
+
+def test_a_check_that_was_not_measured_is_not_counted_as_passed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    rows = [
+        {"check": "a", "ok": True, "detail": ""},
+        {"check": "b", "ok": None, "detail": "not measured"},
+        {"check": "c", "ok": False, "detail": ""},
+    ]
+    monkeypatch.setattr(sitecheck, "check_site", lambda *args, **kwargs: rows)
+    summary, subject = make._try_site(json.dumps({"files": GOOD}), tmp_path / "v1")
+    assert summary == "1 of 3 checks passed"
+    assert "NOT MEASURED: b" in subject

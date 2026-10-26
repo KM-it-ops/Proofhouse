@@ -389,14 +389,14 @@ def _try_site(text: str, version_dir: Path) -> tuple[str, str]:
         names, checks = [], [{"check": "site written", "ok": False, "detail": str(exc)}]
     (version_dir).mkdir(parents=True, exist_ok=True)
     (version_dir / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
-    failed = [c for c in checks if c["ok"] is False]
+    passed = sum(c["ok"] is True for c in checks)
     summary = "\n".join(f"- {'PASS' if c['ok'] else ('NOT MEASURED' if c['ok'] is None else 'FAIL')}: {c['check']} {c['detail']}".rstrip()
                         for c in checks)
     index = ""
     if (version_dir / "site" / "index.html").is_file():
         index = (version_dir / "site" / "index.html").read_text(encoding="utf-8")[:8000]
     subject = f"FILES: {', '.join(names) or 'none'}\n\nindex.html:\n{index}\n\nCHECKS RUN ON THE SITE:\n{summary}"
-    return f"{len(checks) - len(failed)} of {len(checks)} checks passed", subject
+    return f"{passed} of {len(checks)} checks passed", subject
 
 
 def _try_app(
