@@ -211,3 +211,18 @@ def test_files_mode_does_not_load_providers(tmp_path: Path) -> None:
     mods = set(sys.modules)
     compare.compare_from_files("job", [("a", a), ("b", b)], out_dir=tmp_path / "fresh")
     assert "proofhouse.providers" not in set(sys.modules) - mods
+
+
+def test_labels_that_clean_to_the_same_name_keep_separate_files(tmp_path: Path) -> None:
+    labels = ["a:b", "a/b", "Cursor", "cursor"]
+    entries = []
+    for n, label in enumerate(labels):
+        path = tmp_path / f"in{n}.md"
+        _write(path, f"answer {n}")
+        entries.append((label, path))
+    compare.compare_from_files("job", entries, out_dir=tmp_path / "c")
+    record = json.loads((tmp_path / "c" / "compare.json").read_text(encoding="utf-8"))
+    names = [e["file"] for e in record["entries"]]
+    assert len({name.lower() for name in names}) == 4
+    for n, name in enumerate(names):
+        assert (tmp_path / "c" / "outputs" / name).read_text(encoding="utf-8") == f"answer {n}\n"

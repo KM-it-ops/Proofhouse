@@ -310,8 +310,15 @@ def _write_files(folder: Path, job: str, result: Comparison) -> None:
     outputs = folder / "outputs"
     outputs.mkdir(exist_ok=True)
     json_entries: list[dict[str, Any]] = []
+    taken: set[str] = set()
     for entry in result.entries:
         name = entry.file_name or f"{_output_name(entry.label)}.md"
+        # Labels such as "a:b" and "a/b" clean to one name, and Windows ignores case; never overwrite.
+        stem, n = name[: -len(".md")] if name.endswith(".md") else name, 2
+        while name.lower() in taken:
+            name, n = f"{stem}-{n}.md", n + 1
+        taken.add(name.lower())
+        entry.file_name = name
         (outputs / name).write_text((entry.output or "") + "\n", encoding="utf-8")
         json_entries.append(
             {
