@@ -291,18 +291,13 @@ def _pick_best(rounds: list[dict[str, Any]]) -> int | None:
     eligible = [row for row in rounds if row.get("passed")]
     if not eligible:
         return None
-    # Judged passing rounds outrank self-scored ones; then judge_score, self score, version.
+    # Judged passing rounds outrank self-scored ones; then judge_score, then the later version.
     any_judged = any(row.get("judge_score") is not None for row in eligible)
 
     def key(row: dict[str, Any]) -> tuple[Any, ...]:
         judged = row.get("judge_score") is not None
         if any_judged:
-            return (
-                judged,
-                row.get("judge_score") if judged else -1,
-                row.get("score") if row.get("score") is not None else -1,
-                row["version"],
-            )
+            return (judged, row.get("judge_score") if judged else -1, row["version"])
         return (row.get("score") if row.get("score") is not None else -1, row["version"])
 
     return max(eligible, key=key)["version"]
