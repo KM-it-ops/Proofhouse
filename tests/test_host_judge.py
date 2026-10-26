@@ -115,6 +115,12 @@ def test_best_passing_version_prefers_judge_score_over_self_score(tmp_path: Path
     assert data["best_version"] == 3
 
 
+def test_equal_judge_scores_go_to_the_later_version_not_the_higher_self_score(tmp_path: Path) -> None:
+    assert record(tmp_path, site(tmp_path / "s1"), "--score", "9", "--judge", "codex", "--judge-score", "7") == 0
+    assert record(tmp_path, site(tmp_path / "s2"), "--score", "7", "--judge", "codex", "--judge-score", "7") == 0
+    assert saved(tmp_path)["best_version"] == 2
+
+
 def test_judged_round_beats_higher_self_score_without_judge(tmp_path: Path) -> None:
     assert record(tmp_path, site(tmp_path / "s1"), "--score", "10") == 0
     assert record(tmp_path, site(tmp_path / "s2"), "--score", "3", "--judge", "codex", "--judge-score", "5") == 0
