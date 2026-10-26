@@ -251,3 +251,27 @@ def test_record_launch_refuses_out_inside_launch(tmp_path: Path, capsys: pytest.
         "--request", "x", "--agent", "cursor",
     ]) != 0
     assert "separate" in capsys.readouterr().err.lower()
+
+
+def test_record_launch_part_id_cannot_reach_outside_the_out_folder(tmp_path: Path) -> None:
+    victim = tmp_path / "victim"
+    victim.mkdir()
+    (victim / "keep.txt").write_text("x", encoding="utf-8")
+    launch = write_launch(tmp_path / "LAUNCH", parts=[
+        {"id": "../victim", "kind": "site", "path": "site"},
+        {"id": "announce", "kind": "copy", "path": "announcement/copy.md"},
+        {"id": "helper", "kind": "skill", "path": "brew-helper"},
+    ])
+    cli.main(["record", "launch", str(launch), "--out", str(tmp_path / "out"),
+              "--request", "x", "--agent", "cursor", "--score", "6"])
+    assert (victim / "keep.txt").exists()
+
+
+def test_check_launch_fails_on_unsafe_part_id(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    launch = write_launch(tmp_path / "LAUNCH", parts=[
+        {"id": "../victim", "kind": "site", "path": "site"},
+        {"id": "announce", "kind": "copy", "path": "announcement/copy.md"},
+        {"id": "helper", "kind": "skill", "path": "brew-helper"},
+    ])
+    assert cli.main(["check", "launch", str(launch)]) == 1
+    assert "../victim" in capsys.readouterr().out

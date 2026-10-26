@@ -97,6 +97,9 @@ def _validate_launch_json(folder: Path, data: dict[str, Any]) -> list[dict[str, 
             rows.append({"check": "part ids", "ok": False, "detail": f"duplicate id {part_id!r}"})
             continue
         seen.add(part_id)
+        if not _safe_part_id(part_id):
+            rows.append({"check": f"part {part_id}", "ok": False, "detail": "id must be one plain folder name"})
+            continue
         if kind not in LAUNCH_PART_KINDS:
             rows.append({"check": f"part {part_id}", "ok": False, "detail": f"unknown kind {kind!r}"})
             continue
@@ -114,6 +117,11 @@ def _validate_launch_json(folder: Path, data: dict[str, Any]) -> list[dict[str, 
         elif not resolved.is_file():
             rows.append({"check": f"part {part_id}", "ok": False, "detail": f"file not found: {path_name}"})
     return rows
+
+
+def _safe_part_id(part_id: str) -> bool:
+    """A part id becomes a folder name in --out, so it must be one plain name that stays inside."""
+    return "/" not in part_id and make_checks.safe_name(part_id)
 
 
 def _part_path(folder: Path, raw: dict[str, Any]) -> Path:
@@ -586,7 +594,7 @@ def deliver_launch(
             continue
         part_id = raw.get("id")
         kind = raw.get("kind")
-        if not isinstance(part_id, str) or kind not in LAUNCH_PART_KINDS:
+        if not isinstance(part_id, str) or not _safe_part_id(part_id) or kind not in LAUNCH_PART_KINDS:
             continue
         path = _part_path(version_dir, raw)
         text = ""
