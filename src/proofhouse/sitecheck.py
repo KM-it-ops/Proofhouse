@@ -177,6 +177,9 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, brows
         if isinstance(run, str):
             stuck.append(f"{label}: {run}")
             continue
+        if run.returncode != 0:  # a browser that exited with an error never showed the page
+            stuck.append(f"{label}: the browser exited with code {run.returncode}")
+            continue
         errors += [line for line in run.stderr.splitlines() if "Uncaught" in line or "SyntaxError" in line]
     if len(stuck) == 2:
         checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: " + "; ".join(stuck)})
