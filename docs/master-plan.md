@@ -155,7 +155,7 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      model trained or paid for. The compare scores
      (Claude as judge) and the launch score (Codex, blind: 5/10, weakest part the video script) come from
      an agent that did not write the work; the rest are the writers' own advice.
-   - Stage 2 status (updated 2026-10-26, on `feat/host-mode` at c58b62f, nothing pushed). Eleven one-goal sessions
+   - Stage 2 status (updated 2026-10-26, on `feat/host-mode` pushed, open as PR #85). Eleven one-goal sessions
      ran; their work sat on separate branches (the five fix branches are now merged, see below):
      - Proved by hand: install, deploy and train examples pass 4 of 5 claims; the README now says what each
        check does not prove (`caababc`). The example site, the call-MCP server and both videos work
@@ -216,7 +216,7 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
        exits 1 when the version failed its checks, `0e09c4e` empty facts, avoid words and text-less shared
        names are not a pass, `bd8ba27` compare labels that clean to one name get their own file). Full suite
        after all seven: 2425 passed, 50 skipped, 1 deselected.
-     - Not done: pushing the branch, Stage 3, re-recording and re-scoring the 48.8 s film.
+     - Not done: merging PR #85, Stage 3, re-recording and re-scoring the 48.8 s film.
      - Known issues, only logged: the desktop browser check on the example site can time out (it now reports
        "not measured", not PASS); `mcp-record` has two copies of the old MCP server; Edge width; delegate
        run-ID collision.
