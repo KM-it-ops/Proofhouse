@@ -189,7 +189,7 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
        machine path appears. Not re-checked: the 2409-passed suite figure, the earlier site/MCP/video proof reports.
      - Final examples table written (`examples/host-mode/README.md`, 16 rows, from the records and READMEs; the
        launch record's `site` part shows `failed` only because its browser check was not measured; the label
-       is fixed in `host_launch.py` (now "not measured"), and the committed README was corrected by hand, not re-recorded).
+       is fixed in `host_launch.py` (now "not measured"), and the committed README was corrected by hand, not re-recorded; a later `check launch examples/host-mode/launch --allow-commands` passed all 36 checks, browser included, and is not saved in the record).
      - Not done: Stage 3, re-recording and re-scoring the 48.8 s film.
      - Known issues, only logged: the desktop browser check on the example site times out and still prints
        PASS; `mcp-record` has two copies of the old MCP server; Edge width; delegate run-ID collision.
