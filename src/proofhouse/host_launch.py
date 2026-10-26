@@ -241,12 +241,17 @@ def _consistency_checks(data: dict[str, Any], folder: Path) -> list[dict[str, An
                     })
                     break
 
-    if not any(row["check"] == "shared name" and row["ok"] is False for row in rows):
-        if isinstance(shared, list) and any(isinstance(n, str) and n.strip() for n in shared):
+    def _real(items: Any) -> bool:  # an empty list or only blank entries means nothing was compared
+        return isinstance(items, list) and any(isinstance(item, str) and item.strip() for item in items)
+
+    if not any(row["check"] == "shared name" and row["ok"] is False for row in rows) and _real(shared):
+        if any(text.strip() for text in part_texts.values()):
             rows.append({"check": "shared names", "ok": True, "detail": ""})
-    if isinstance(facts, list) and facts and not any(row["check"] == "fact" and row["ok"] is False for row in rows):
+        else:
+            rows.append({"check": "shared names", "ok": None, "detail": "not measured: no part had text to compare"})
+    if _real(facts) and not any(row["check"] == "fact" and row["ok"] is False for row in rows):
         rows.append({"check": "facts", "ok": True, "detail": ""})
-    if isinstance(avoid, list) and avoid and not any(row["check"] == "avoid" and row["ok"] is False for row in rows):
+    if _real(avoid) and not any(row["check"] == "avoid" and row["ok"] is False for row in rows):
         rows.append({"check": "avoid", "ok": True, "detail": ""})
     rows.extend(host_quality.parts_differ_rows(part_texts))
     return rows

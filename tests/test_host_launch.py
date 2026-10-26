@@ -275,3 +275,25 @@ def test_check_launch_fails_on_unsafe_part_id(tmp_path: Path, capsys: pytest.Cap
     ])
     assert cli.main(["check", "launch", str(launch)]) == 1
     assert "../victim" in capsys.readouterr().out
+
+
+def test_launch_empty_facts_and_avoid_words_are_not_a_pass(tmp_path: Path) -> None:
+    from proofhouse import host_launch
+
+    launch = write_launch(tmp_path / "LAUNCH", facts=["", "  "], avoid=[""])
+    data = json.loads((launch / "launch.json").read_text(encoding="utf-8"))
+    rows = host_launch._consistency_checks(data, launch)
+    assert not any(row["check"] in ("facts", "avoid") and row["ok"] is True for row in rows)
+
+
+def test_launch_shared_names_are_not_a_pass_when_no_part_had_text(tmp_path: Path) -> None:
+    from proofhouse import host_launch
+
+    launch = write_launch(tmp_path / "LAUNCH")
+    for page in (launch / "site").glob("*.html"):
+        page.write_text("", encoding="utf-8")
+    (launch / "announcement" / "copy.md").write_text("", encoding="utf-8")
+    (launch / "brew-helper" / "SKILL.md").write_text("", encoding="utf-8")
+    data = json.loads((launch / "launch.json").read_text(encoding="utf-8"))
+    rows = host_launch._consistency_checks(data, launch)
+    assert not any(row["check"] == "shared names" and row["ok"] is True for row in rows)
