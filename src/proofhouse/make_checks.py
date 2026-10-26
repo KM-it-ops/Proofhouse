@@ -30,6 +30,10 @@ _SAFE_COMMAND = re.compile(r"(\./)?[A-Za-z0-9_+][A-Za-z0-9_.+-]*")
 _SCRIPT_SUFFIX = re.compile(r"\.[A-Za-z][A-Za-z0-9]*")
 _BARE = re.compile(r"[A-Za-z0-9_./:=+-]+")
 NOT_ALLOWED = "not checked: add --allow-commands to start it (it runs model-written code with your rights)"
+# Written install text never holds this machine's folder layout; the reader fills the placeholder in.
+HERE = "<this-folder>"
+_HERE_NOTE = (f"Replace {HERE} with the full path of the folder that holds this file, so the path points at the files "
+              "you got. Keep the double quotes around it; they let a path with spaces work.")
 
 
 def parse_json(text: str) -> dict[str, Any]:
@@ -409,9 +413,18 @@ def _local(part: str, folder: Path) -> str:
     return str(resolved) if resolved.is_relative_to(folder.resolve()) else part
 
 
+def _portable(part: str, folder: Path) -> str:
+    """A file inside the made folder, written from the folder that holds it (HERE) instead of this machine's path."""
+    resolved = Path(_local(part, folder))
+    base = folder.resolve()
+    if not resolved.is_absolute() or not resolved.is_relative_to(base):
+        return part
+    return f"{HERE}/{folder.name}/{resolved.relative_to(base).as_posix()}"
+
+
 def _quoted(part: str, folder: Path) -> str | None:
     """A part as it is pasted into bash, PowerShell or cmd: bare when no shell treats it specially, else in double quotes."""
-    value = _local(part, folder)
+    value = _portable(part, folder)
     if any(char in value for char in '"$`%!\r\n'):
         return None
     return value if _BARE.fullmatch(value) else f'"{value}"'
@@ -438,3 +451,14 @@ def settings_snippet(event: str, matcher: str | None, command: str, folder: Path
     if matcher:
         entry["matcher"] = matcher
     return {"hooks": {event: [entry]}}
+
+
+def install_text(line: str) -> str:
+    """What INSTALL-MCP.txt holds: the install line, and how to fill in the placeholder when it has one."""
+    return line + "\n" + (f"\n{_HERE_NOTE}\n" if HERE in line else "")
+
+
+def snippet_note(snippet: dict[str, Any]) -> str | None:
+    """What sits beside settings-snippet.json (JSON cannot carry a note) when its commands have the placeholder."""
+    return None if HERE not in json.dumps(snippet) else (
+        f"settings-snippet.json goes into your Claude Code settings file under \"hooks\".\n\n{_HERE_NOTE}\n")

@@ -526,7 +526,7 @@ def _deliver_part(dest: Path, kind: str, source: Path, text: str, request: str) 
             if isinstance(command, str) and isinstance(args, list) and all(isinstance(a, str) for a in args):
                 line = make_checks.install_line(name, command, args, dest)
                 if line is not None:
-                    (dest.parent / f"{dest.name}-INSTALL-MCP.txt").write_text(line + "\n", encoding="utf-8")
+                    (dest.parent / f"{dest.name}-INSTALL-MCP.txt").write_text(make_checks.install_text(line), encoding="utf-8")
         elif kind == "hook":
             data = _read_manifest(dest)
             event, command, matcher = data.get("event"), data.get("command"), data.get("matcher")
@@ -538,6 +538,9 @@ def _deliver_part(dest: Path, kind: str, source: Path, text: str, request: str) 
                     (dest.parent / f"{dest.name}-settings-snippet.json").write_text(
                         json.dumps(snippet, indent=2) + "\n", encoding="utf-8",
                     )
+                    note = make_checks.snippet_note(snippet)
+                    if note:
+                        (dest.parent / f"{dest.name}-INSTALL-HOOK.txt").write_text(note, encoding="utf-8")
         return
     if kind == "skill":
         dest.mkdir(parents=True, exist_ok=True)

@@ -563,7 +563,7 @@ def _deliver_new_kind(folder: Path, kind: str, text: str, request: str, version:
             return
         line = make_checks.install_line(name, command, args, folder / kind)
         if line is not None:
-            (folder / "INSTALL-MCP.txt").write_text(line + "\n", encoding="utf-8")
+            (folder / "INSTALL-MCP.txt").write_text(make_checks.install_text(line), encoding="utf-8")
     else:
         event, command, matcher = data.get("event"), data.get("command"), data.get("matcher")
         if not isinstance(event, str) or not isinstance(command, str):
@@ -571,6 +571,9 @@ def _deliver_new_kind(folder: Path, kind: str, text: str, request: str, version:
         snippet = make_checks.settings_snippet(event, matcher if isinstance(matcher, str) else None, command, folder / kind)
         if snippet is not None:
             (folder / "settings-snippet.json").write_text(json.dumps(snippet, indent=2) + "\n", encoding="utf-8")
+            note = make_checks.snippet_note(snippet)
+            if note:
+                (folder / "INSTALL-HOOK.txt").write_text(note, encoding="utf-8")
 
 
 def _deliver(folder: Path, kind: str, text: str) -> None:

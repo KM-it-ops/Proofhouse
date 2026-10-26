@@ -375,13 +375,16 @@ def _deliver_version(out: Path, kind: str, version: int, text: str, request: str
             if isinstance(command, str) and isinstance(args, list) and all(isinstance(a, str) for a in args):
                 line = make_checks.install_line(name, command, args, dest)
                 if line is not None:
-                    (out / "INSTALL-MCP.txt").write_text(line + "\n", encoding="utf-8")
+                    (out / "INSTALL-MCP.txt").write_text(make_checks.install_text(line), encoding="utf-8")
         else:
             event, command, matcher = data.get("event"), data.get("command"), data.get("matcher")
             if isinstance(event, str) and isinstance(command, str):
                 snippet = make_checks.settings_snippet(event, matcher if isinstance(matcher, str) else None, command, dest)
                 if snippet is not None:
                     (out / "settings-snippet.json").write_text(json.dumps(snippet, indent=2) + "\n", encoding="utf-8")
+                    note = make_checks.snippet_note(snippet)
+                    if note:
+                        (out / "INSTALL-HOOK.txt").write_text(note, encoding="utf-8")
 
 
 def _save_version(out: Path, kind: str, version: int, source: Path, text: str) -> Path:
