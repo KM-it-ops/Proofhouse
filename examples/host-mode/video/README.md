@@ -4,6 +4,10 @@ A finished 30-second film, [final.mp4](final.mp4) (1280x720, H.264 plus AAC, abo
 
 It runs seven shots: a generated low-tide shore, the app splash, the tide chart, the offline badge, the $4.99 price sheet, a generated shot of a skipper tying off a dinghy as the water floods back, and an end card. A woman's synthetic voice reads the lines over a soft pad, bass and shaker loop. Captions are burned in.
 
+## The premium cut: `final-premium.mp4`
+
+A 48.8 s, 1920x1080 rebuild by [build_premium.py](build_premium.py) from the same clips and app frames. It has a longer script ([lines.txt](lines.txt)) in which each beat says what the app does and why, timed to the app footage; a voice built in connected passages (the old film read seven separate slogans with long gaps); dissolves, slow camera drift, a graded look and captions beside the phone. Every claim in the script is something the prototype shows. Order: `build_voice.py` (writes `voice.wav` and `plan.json`), `build_music.py`, the two `ffmpeg` shrink commands, then `uv run --no-sync python build_premium.py`. `final.mp4` below is the older 30 s film and is unchanged. Nobody has listened to the premium cut yet; the voice change is checked by measurement only.
+
 ## Who made each asset
 
 | Asset | Made by |

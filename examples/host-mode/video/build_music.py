@@ -1,10 +1,12 @@
-"""Build music.wav for the film: a 30 second 92 BPM pad with a plucked bass, a brushed shaker and bell notes, numpy only.
+"""Build music.wav for the film: a 92 BPM pad with a plucked bass, a brushed shaker and bell notes, numpy only.
 
 Run: uv run --no-sync --with numpy python build_music.py
-Chords change every two bars (Am, F, C, G, Am, F); the last 4 seconds lift. No samples, no paid music.
+The length is the film's length: plan.json (written by build_voice.py) if it is there, otherwise 30 s.
+Chords change every two bars and go round (Am, F, C, G, Am, F, ...); the last 4 seconds lift. No samples, no paid music.
 """
 from __future__ import annotations
 
+import json
 import wave
 from pathlib import Path
 
@@ -12,11 +14,13 @@ import numpy as np
 
 HERE = Path(__file__).resolve().parent
 RATE = 44100
-TOTAL = 30.0
+PLAN = HERE / "plan.json"
+TOTAL = float(json.loads(PLAN.read_text(encoding="utf-8"))["total"]) if PLAN.is_file() else 30.0
 N = int(TOTAL * RATE)
 T = np.arange(N) / RATE
 BEAT = 60.0 / 92.0
 BLOCK = 8 * BEAT  # two bars of four beats
+BLOCKS = int(TOTAL / BLOCK) + 1
 
 CHORDS = [  # MIDI notes: bass root, then the pad voicing
     (45, [57, 60, 64, 67]),  # Am7
@@ -32,7 +36,8 @@ RNG = np.random.default_rng(7)
 
 def pad() -> np.ndarray:
     out = np.zeros(N)
-    for block, (_, notes) in enumerate(CHORDS):
+    for block in range(BLOCKS):
+        notes = CHORDS[block % len(CHORDS)][1]
         t0, t1 = block * BLOCK, block * BLOCK + BLOCK
         env = np.clip((T - (t0 - 1.5)) / 2.5, 0, 1) * np.clip(((t1 + 1.5) - T) / 2.5, 0, 1)
         env = env**1.5
@@ -46,7 +51,8 @@ def pad() -> np.ndarray:
 
 def bass() -> np.ndarray:
     out = np.zeros(N)
-    for block, (root, _) in enumerate(CHORDS):
+    for block in range(BLOCKS):
+        root = CHORDS[block % len(CHORDS)][0]
         for beat in (0, 2, 4, 5.5, 6):  # a gentle walking pattern inside each two-bar block
             start = block * BLOCK + beat * BEAT
             i = int(start * RATE)
@@ -91,7 +97,7 @@ def bells() -> np.ndarray:
 
 def main() -> None:
     mix = 0.30 * pad() + 0.22 * bass() + 0.05 * shaker() + 0.10 * bells()
-    mix *= 1.0 + 0.5 * np.clip((T - 26.0) / 1.5, 0, 1) * np.clip((TOTAL - T) / 1.5, 0, 1)
+    mix *= 1.0 + 0.5 * np.clip((T - (TOTAL - 4.0)) / 1.5, 0, 1) * np.clip((TOTAL - T) / 1.5, 0, 1)
     mix *= np.clip(T / 1.2, 0, 1) * np.clip((TOTAL - T) / 2.0, 0, 1)
     left = mix + 0.08 * np.roll(mix, int(0.011 * RATE))
     right = mix + 0.08 * np.roll(mix, int(0.017 * RATE))
