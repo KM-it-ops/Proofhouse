@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import socket
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -37,6 +38,17 @@ def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROOFHOUSE_BROWSER", str(Path("no-such-browser")))
     for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY"):
         monkeypatch.delenv(name, raising=False)
+
+
+@pytest.fixture
+def browser_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stand-in browser that opens every page cleanly, so a site part's browser check really runs."""
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+    monkeypatch.setattr(sitecheck, "_open", lambda command, timeout: subprocess.CompletedProcess(command, 0, "", ""))
 
 
 def write_launch(
@@ -101,9 +113,9 @@ def write_launch(
     return folder
 
 
-def test_check_launch_passes_three_parts(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_check_launch_passes_three_parts(tmp_path: Path, browser_ok: None, capsys: pytest.CaptureFixture[str]) -> None:
     launch = write_launch(tmp_path / "LAUNCH")
-    assert cli.main(["check", "launch", str(launch), "--json"]) == 0
+    assert cli.main(["check", "launch", str(launch), "--json", "--allow-commands"]) == 0
     rows = json.loads(capsys.readouterr().out)
     assert rows and all(row.get("ok") is not False for row in rows)
 
@@ -172,12 +184,12 @@ def test_check_launch_fails_on_duplicate_part_ids(tmp_path: Path, capsys: pytest
     assert "duplicate" in capsys.readouterr().out.lower()
 
 
-def test_check_launch_video_structural_pass_and_fail(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_check_launch_video_structural_pass_and_fail(tmp_path: Path, browser_ok: None, capsys: pytest.CaptureFixture[str]) -> None:
     launch = write_launch(tmp_path / "good", parts=[
         {"id": "site", "kind": "site", "path": "site"},
         {"id": "clip", "kind": "video", "path": "promo"},
     ])
-    assert cli.main(["check", "launch", str(launch)]) == 0
+    assert cli.main(["check", "launch", str(launch), "--allow-commands"]) == 0
     bad = write_launch(tmp_path / "bad", parts=[
         {"id": "site", "kind": "site", "path": "site"},
         {"id": "clip", "kind": "video", "path": "promo"},
@@ -187,13 +199,13 @@ def test_check_launch_video_structural_pass_and_fail(tmp_path: Path, capsys: pyt
     assert "shot-01.png" in capsys.readouterr().out
 
 
-def test_record_launch_delivers_parts_readme_and_best_score(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_record_launch_delivers_parts_readme_and_best_score(tmp_path: Path, browser_ok: None, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "ph"))
     launch = write_launch(tmp_path / "LAUNCH")
     out = tmp_path / "deliver"
     assert cli.main([
         "record", "launch", str(launch), "--out", str(out), "--request", "launch brew",
-        "--agent", "cursor", "--score", "6",
+        "--agent", "cursor", "--score", "6", "--allow-commands",
     ]) == 0
     assert (out / "site" / "index.html").is_file()
     assert (out / "announce" / "final.md").is_file()
@@ -206,7 +218,7 @@ def test_record_launch_delivers_parts_readme_and_best_score(tmp_path: Path, monk
     launch2 = write_launch(tmp_path / "LAUNCH2")
     assert cli.main([
         "record", "launch", str(launch2), "--out", str(out), "--request", "launch brew",
-        "--agent", "cursor", "--score", "9",
+        "--agent", "cursor", "--score", "9", "--allow-commands",
     ]) == 0
     record = json.loads((out / "record.json").read_text(encoding="utf-8"))
     assert record["best_version"] == 2

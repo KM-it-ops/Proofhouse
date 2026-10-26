@@ -33,6 +33,8 @@ def _cmd_check(args: argparse.Namespace) -> int:
         return EXIT_OK
     if code == 2:
         return EXIT_USAGE
+    if code == host.NOT_MEASURED_EXIT:
+        return host.NOT_MEASURED_EXIT
     return 1
 
 
@@ -61,6 +63,8 @@ def _cmd_record(args: argparse.Namespace) -> int:
         return EXIT_OK
     if code == 2:
         return EXIT_USAGE
+    if code == host.NOT_MEASURED_EXIT:
+        return host.NOT_MEASURED_EXIT
     return 1
 
 

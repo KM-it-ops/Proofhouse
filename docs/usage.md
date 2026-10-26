@@ -7,13 +7,15 @@ Every way to make, run and deliver things. For a short tour, see the [README](..
 If you already work in Cursor, Codex, Gemini CLI, Grok CLI or Claude Code, **host mode** lets that agent write and judge with its own model while Proofhouse only checks, records and assembles—no API key, and Proofhouse itself makes no network calls on these commands. (With `--allow-commands`, Proofhouse runs the code the model wrote, and that code may use the network.)
 
 ```bash
-proofhouse check site ./my-site
+proofhouse check site ./my-site --allow-commands    # opens the site in your browser
 proofhouse check mcp ./server --allow-commands    # starts model-written servers only when you opt in
 proofhouse record site ./my-site --out ./out --request "bakery landing" --agent cursor --score 8
 proofhouse render video ./my-video --formats 16x9,9x16,1x1
 ```
 
 Install the teaching skill with `proofhouse install-skill --skill proofhouse-host` (or copy `skills/proofhouse-host/` into your agent's skills folder). Scores on `record` are the agent's own advice; a second agent as judge is better when you have one.
+
+A check that did not run (no `--allow-commands`, no browser, a browser that got stuck) shows as `NOT MEASURED` and never counts as passed. `check` and `record` exit 0 when every check ran and passed, 1 when something failed, and 3 when nothing failed but something was not measured; `record` saves that version as "not measured" and delivers it only while no version has passed.
 
 ### What the quality checks catch
 
