@@ -282,6 +282,20 @@ def test_record_mcp_and_hook_deliver_install_help(tmp_path: Path) -> None:
     assert snippet["hooks"]["PreToolUse"][0]["matcher"] == "Bash"
 
 
+def test_record_install_help_holds_no_machine_path(tmp_path: Path) -> None:
+    assert record(tmp_path, "mcp", mcp(tmp_path / "m"), "--allow-commands") == 0
+    hook_out = tmp_path / "hook-out"
+    assert cli.main(["record", "hook", str(hook(tmp_path / "h")), "--out", str(hook_out), "--request", "x",
+                     "--agent", "cursor", "--allow-commands"]) == 0
+    written = [tmp_path / "out" / "INSTALL-MCP.txt", hook_out / "settings-snippet.json", hook_out / "INSTALL-HOOK.txt"]
+    for path in written:
+        text = path.read_text(encoding="utf-8")
+        assert str(tmp_path) not in text and tmp_path.as_posix() not in text, path.name
+        assert "<this-folder>" in text, path.name
+    assert "<this-folder>/mcp/server.py" in written[0].read_text(encoding="utf-8")
+    assert "<this-folder>/hook/hook.py" in written[1].read_text(encoding="utf-8")
+
+
 def test_record_says_so_when_a_check_was_not_run(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     record(tmp_path, "mcp", mcp(tmp_path / "m"), "--json")
     summary = json.loads(capsys.readouterr().out)

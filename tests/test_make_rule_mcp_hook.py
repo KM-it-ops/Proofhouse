@@ -73,7 +73,9 @@ def test_mcp_process_lists_tools_without_parent_secret(tmp_path: Path, monkeypat
     assert (folder / "mcp" / "server.py").is_file()
     install = (folder / "INSTALL-MCP.txt").read_text(encoding="utf-8")
     assert "proofhouse install mcp tiny-server --command=python" in install
-    assert str(folder / "mcp" / "server.py") in install
+    assert '--arg="<this-folder>/mcp/server.py"' in install
+    assert "Replace <this-folder>" in install
+    assert str(tmp_path) not in install and tmp_path.as_posix() not in install
 
 
 @pytest.mark.parametrize("command,server,expected", [
@@ -100,6 +102,9 @@ def test_hook_runs_known_event_without_parent_secret(tmp_path: Path, monkeypatch
     assert result["ok"] is True and result["exit_code"] == 2 and result["stdout"].strip() == "PreToolUse"
     snippet = json.loads((folder / "settings-snippet.json").read_text(encoding="utf-8"))
     assert snippet["hooks"]["PreToolUse"][0]["matcher"] == "Bash"
+    assert snippet["hooks"]["PreToolUse"][0]["hooks"][0]["command"] == 'python "<this-folder>/hook/hook.py"'
+    assert str(tmp_path) not in json.dumps(snippet) and tmp_path.as_posix() not in json.dumps(snippet)
+    assert "Replace <this-folder>" in (folder / "INSTALL-HOOK.txt").read_text(encoding="utf-8")
     assert "PASS: hook execution" in model.judged[0]
 
 
