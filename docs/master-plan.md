@@ -187,7 +187,9 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
        `film/final.mp4` (version 3) and the rebuilt 24 s promo, from 12 frames each, so they say nothing about the
        48.8 s film; the record-paths test diff (`992ccfe`) asserts the `<this-folder>` placeholder and that no
        machine path appears. Not re-checked: the 2409-passed suite figure, the earlier site/MCP/video proof reports.
-     - Not done: the final README table, Stage 3, re-recording and re-scoring the 48.8 s film.
+     - Final examples table written (`examples/host-mode/README.md`, 16 rows, from the records and READMEs; the
+       launch record's `site` part shows `failed` and is not investigated).
+     - Not done: Stage 3, re-recording and re-scoring the 48.8 s film.
      - Known issues, only logged: the desktop browser check on the example site times out and still prints
        PASS; `mcp-record` has two copies of the old MCP server; Edge width; delegate run-ID collision.
    - Then, on host mode: limit tests.
