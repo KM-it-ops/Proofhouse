@@ -1,0 +1,24 @@
+{
+  "agent": "codex",
+  "best_version": 1,
+  "delivered": [
+    "final.md"
+  ],
+  "judge": "claude (sonnet 5.5, not the writer)",
+  "judge_note": "Scored by claude (sonnet 5.5, not the writer), a different agent from the writer (codex); still advice, not proof.",
+  "judge_score": 8,
+  "kind": "prompt",
+  "proofhouse_version": "0.10.0",
+  "request": "Prompt: ticket-handoff turns a support thread into a handoff note",
+  "rounds": [
+    {
+      "judge": "claude (sonnet 5.5, not the writer)",
+      "judge_note": "Complete format, limits, missing-detail and privacy rules with a worked example; it never says to keep ticket IDs or error codes the next agent needs.",
+      "judge_score": 8,
+      "passed": true,
+      "score": null,
+      "version": 1
+    }
+  ],
+  "schema": "proofhouse.host/v1"
+}
