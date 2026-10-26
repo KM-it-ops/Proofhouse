@@ -158,7 +158,19 @@ def shot_command(source: Path, kind: str, seconds: int, size: tuple[int, int], o
             "-c:v", "libx264", "-preset", "veryfast", "-an", str(out)]
 
 
-def final_command(joined: Path, voice: Path | None, music: Path | None, total: int, captions: bool, out: Path) -> list[str]:
+def caption_style(size: tuple[int, int]) -> str:
+    """Caption style sized from the short side of the frame, so tall formats do not get oversized text.
+
+    Captions are laid out on a 288-line grid that is stretched to the frame height, so sizes are given on that grid.
+    """
+    w, h = size
+    grid = 288 / h
+    short = min(w, h)
+    return f"Fontsize={round(short * 0.07 * grid, 1)},Outline={max(1.5, round(short * 0.006 * grid, 1))},Shadow=1,MarginV=40"
+
+
+def final_command(joined: Path, voice: Path | None, music: Path | None, total: int, captions: bool, out: Path,
+                  size: tuple[int, int] = (1920, 1080)) -> list[str]:
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(joined)]
     inputs = []
     if voice:
@@ -169,7 +181,7 @@ def final_command(joined: Path, voice: Path | None, music: Path | None, total: i
         inputs.append("music")
     graph = []
     if captions:
-        graph.append("[0:v]subtitles=captions.srt:force_style='Fontsize=22,Outline=2,Shadow=1,MarginV=40'[v]")
+        graph.append(f"[0:v]subtitles=captions.srt:force_style='{caption_style(size)}'[v]")
     labels = []
     for index, name in enumerate(inputs, start=1):
         level = "1.0" if name == "voice" else ("0.25" if voice else "0.8")
@@ -346,7 +358,7 @@ def assemble(
             final = out_dir / f"video-{name}.mp4"
             has_captions = captions and any(s.caption for s in shots)
             _run(final_command(joined, Path(production.voice_file) if production.voice_file else None,
-                               Path(production.music_file) if production.music_file else None, total, has_captions, final),
+                               Path(production.music_file) if production.music_file else None, total, has_captions, final, size),
                  out_dir, production)
             production.renders[name] = str(final)
             measured = probe(final)

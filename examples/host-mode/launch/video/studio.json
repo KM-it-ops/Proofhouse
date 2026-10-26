@@ -7,49 +7,55 @@
   "spent_usd_estimated": "0",
   "shots": [
     {
+      "seconds": 4,
+      "visual": "generated clip: dawn on a rocky shore, tide far out, a small boat on the mud, gulls, no people; slow push-in, grey-blue light",
+      "caption": "Low tide. No bars.",
+      "file": "shot-01.mp4"
+    },
+    {
       "seconds": 3,
-      "visual": "title card, deep sea blue background, white wordmark Tidewatch centered",
+      "visual": "a phone held at arm's length over the same shore, blurred behind it; the Tidewatch splash draws its wave mark and wordmark on the screen",
       "caption": "Tidewatch",
-      "file": "examples\\host-mode\\launch\\video\\shot-01.png"
+      "file": "shot-02.mp4"
+    },
+    {
+      "seconds": 5,
+      "visual": "screen recording of the app: station list, a tap on Harbor Point, the tide curve draws, a marker lands on now, the next high water reads 7:48 AM",
+      "caption": "Harbor Point: next high water 7:48 AM",
+      "file": "shot-03.mp4"
     },
     {
       "seconds": 4,
-      "visual": "foam gradient, simple wave line art, tagline lower third",
-      "caption": "Tide tables in your pocket, no signal required.",
-      "file": "examples\\host-mode\\launch\\video\\shot-02.png"
-    },
-    {
-      "seconds": 4,
-      "visual": "phone icon with crossed-out signal bars, sand tone background",
+      "visual": "same phone, status bar flips to No service, a green Offline badge slides in, then the Harbor Point data pack card rises",
       "caption": "Works fully offline with bundled tide data for two years",
-      "file": "examples\\host-mode\\launch\\video\\shot-03.png"
+      "file": "shot-04.mp4"
     },
     {
-      "seconds": 3,
-      "visual": "price badge on calm water texture",
+      "seconds": 4,
+      "visual": "app price sheet slides up: Unlock every station, $4.99 one-time purchase, ticks for no account and no ads; a tap turns the button green",
       "caption": "$4.99 one-time purchase",
-      "file": "examples\\host-mode\\launch\\video\\shot-04.png"
+      "file": "shot-05.mp4"
     },
     {
-      "seconds": 3,
-      "visual": "checklist with X over login and ad icons",
-      "caption": "No accounts and no ads",
-      "file": "examples\\host-mode\\launch\\video\\shot-05.png"
+      "seconds": 4,
+      "visual": "generated clip: the skipper's hands tie off a dinghy as the water floods back in, sun on the sandbar; the wordmark and tagline settle over it",
+      "caption": "Tidewatch. Tide tables in your pocket, no signal required. No accounts and no ads.",
+      "file": "shot-06.mp4"
     }
   ],
-  "voice_file": "examples\\host-mode\\launch\\video\\voice.wav",
-  "music_file": "examples\\host-mode\\launch\\video\\music.wav",
+  "voice_file": "voice.wav",
+  "music_file": "music.wav",
   "renders": {
-    "16x9": "examples\\host-mode\\launch\\video\\video-16x9.mp4",
-    "9x16": "examples\\host-mode\\launch\\video\\video-9x16.mp4",
-    "1x1": "examples\\host-mode\\launch\\video\\video-1x1.mp4"
+    "16x9": "video-16x9.mp4",
+    "1x1": "video-1x1.mp4",
+    "9x16": "video-9x16.mp4"
   },
   "checks": [
     {
       "render": "16x9",
       "check": "length",
       "ok": true,
-      "detail": "17.0s of 17s"
+      "detail": "24.0s of 24s"
     },
     {
       "render": "16x9",
@@ -64,28 +70,10 @@
       "detail": "voice/music present"
     },
     {
-      "render": "9x16",
-      "check": "length",
-      "ok": true,
-      "detail": "17.0s of 17s"
-    },
-    {
-      "render": "9x16",
-      "check": "frame size",
-      "ok": true,
-      "detail": "1080x1920"
-    },
-    {
-      "render": "9x16",
-      "check": "sound",
-      "ok": true,
-      "detail": "voice/music present"
-    },
-    {
       "render": "1x1",
       "check": "length",
       "ok": true,
-      "detail": "17.0s of 17s"
+      "detail": "24.0s of 24s"
     },
     {
       "render": "1x1",
@@ -100,34 +88,55 @@
       "detail": "voice/music present"
     },
     {
+      "render": "9x16",
+      "check": "length",
+      "ok": true,
+      "detail": "24.0s of 24s"
+    },
+    {
+      "render": "9x16",
+      "check": "frame size",
+      "ok": true,
+      "detail": "1080x1920"
+    },
+    {
+      "render": "9x16",
+      "check": "sound",
+      "ok": true,
+      "detail": "voice/music present"
+    },
+    {
       "render": "all",
       "check": "captions match the script",
       "ok": true,
-      "detail": "5 captions"
+      "detail": "6 captions"
     }
   ],
   "calls": [],
   "ffmpeg": [
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-01.png -vf scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=90:s=1920x1080:fps=30,format=yuv420p -frames:v 90 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\16x9-shot-01.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-02.png -vf scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=120:s=1920x1080:fps=30,format=yuv420p -frames:v 120 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\16x9-shot-02.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-03.png -vf scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=120:s=1920x1080:fps=30,format=yuv420p -frames:v 120 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\16x9-shot-03.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-04.png -vf scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=90:s=1920x1080:fps=30,format=yuv420p -frames:v 90 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\16x9-shot-04.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-05.png -vf scale=3840:2160:force_original_aspect_ratio=increase,crop=3840:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=90:s=1920x1080:fps=30,format=yuv420p -frames:v 90 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\16x9-shot-05.mp4",
-    "ffmpeg -y -loglevel error -f concat -safe 0 -i examples\\host-mode\\launch\\video\\work\\16x9-list.txt -c copy examples\\host-mode\\launch\\video\\work\\16x9-joined.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\work\\16x9-joined.mp4 -i examples\\host-mode\\launch\\video\\voice.wav -stream_loop -1 -i examples\\host-mode\\launch\\video\\music.wav -filter_complex [0:v]subtitles=captions.srt:force_style='Fontsize=22,Outline=2,Shadow=1,MarginV=40'[v];[1:a]volume=1.0,apad[voice];[2:a]volume=0.25,apad[music];[voice][music]amix=inputs=2:duration=longest:normalize=0[a] -map [v] -map [a] -c:a aac -b:a 192k -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -t 17 -movflags +faststart examples\\host-mode\\launch\\video\\video-16x9.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-01.png -vf scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=90:s=1080x1920:fps=30,format=yuv420p -frames:v 90 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\9x16-shot-01.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-02.png -vf scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=120:s=1080x1920:fps=30,format=yuv420p -frames:v 120 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\9x16-shot-02.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-03.png -vf scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=120:s=1080x1920:fps=30,format=yuv420p -frames:v 120 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\9x16-shot-03.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-04.png -vf scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=90:s=1080x1920:fps=30,format=yuv420p -frames:v 90 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\9x16-shot-04.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-05.png -vf scale=2160:3840:force_original_aspect_ratio=increase,crop=2160:3840,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=90:s=1080x1920:fps=30,format=yuv420p -frames:v 90 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\9x16-shot-05.mp4",
-    "ffmpeg -y -loglevel error -f concat -safe 0 -i examples\\host-mode\\launch\\video\\work\\9x16-list.txt -c copy examples\\host-mode\\launch\\video\\work\\9x16-joined.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\work\\9x16-joined.mp4 -i examples\\host-mode\\launch\\video\\voice.wav -stream_loop -1 -i examples\\host-mode\\launch\\video\\music.wav -filter_complex [0:v]subtitles=captions.srt:force_style='Fontsize=22,Outline=2,Shadow=1,MarginV=40'[v];[1:a]volume=1.0,apad[voice];[2:a]volume=0.25,apad[music];[voice][music]amix=inputs=2:duration=longest:normalize=0[a] -map [v] -map [a] -c:a aac -b:a 192k -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -t 17 -movflags +faststart examples\\host-mode\\launch\\video\\video-9x16.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-01.png -vf scale=2160:2160:force_original_aspect_ratio=increase,crop=2160:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=90:s=1080x1080:fps=30,format=yuv420p -frames:v 90 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\1x1-shot-01.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-02.png -vf scale=2160:2160:force_original_aspect_ratio=increase,crop=2160:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=120:s=1080x1080:fps=30,format=yuv420p -frames:v 120 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\1x1-shot-02.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-03.png -vf scale=2160:2160:force_original_aspect_ratio=increase,crop=2160:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=120:s=1080x1080:fps=30,format=yuv420p -frames:v 120 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\1x1-shot-03.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-04.png -vf scale=2160:2160:force_original_aspect_ratio=increase,crop=2160:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=90:s=1080x1080:fps=30,format=yuv420p -frames:v 90 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\1x1-shot-04.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\shot-05.png -vf scale=2160:2160:force_original_aspect_ratio=increase,crop=2160:2160,zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=90:s=1080x1080:fps=30,format=yuv420p -frames:v 90 -c:v libx264 -preset veryfast -an examples\\host-mode\\launch\\video\\work\\1x1-shot-05.mp4",
-    "ffmpeg -y -loglevel error -f concat -safe 0 -i examples\\host-mode\\launch\\video\\work\\1x1-list.txt -c copy examples\\host-mode\\launch\\video\\work\\1x1-joined.mp4",
-    "ffmpeg -y -loglevel error -i examples\\host-mode\\launch\\video\\work\\1x1-joined.mp4 -i examples\\host-mode\\launch\\video\\voice.wav -stream_loop -1 -i examples\\host-mode\\launch\\video\\music.wav -filter_complex [0:v]subtitles=captions.srt:force_style='Fontsize=22,Outline=2,Shadow=1,MarginV=40'[v];[1:a]volume=1.0,apad[voice];[2:a]volume=0.25,apad[music];[voice][music]amix=inputs=2:duration=longest:normalize=0[a] -map [v] -map [a] -c:a aac -b:a 192k -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -t 17 -movflags +faststart examples\\host-mode\\launch\\video\\video-1x1.mp4"
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-01.mp4 -t 4 -vf scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-01.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-02.mp4 -t 3 -vf scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-02.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-03.mp4 -t 5 -vf scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-03.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-04.mp4 -t 4 -vf scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-04.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-05.mp4 -t 4 -vf scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-05.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-06.mp4 -t 4 -vf scale=1920:1080:force_original_aspect_ratio=increase,crop=1920:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\16x9-shot-06.mp4",
+    "ffmpeg -y -loglevel error -f concat -safe 0 -i work\\16x9-list.txt -c copy work\\16x9-joined.mp4",
+    "ffmpeg -y -loglevel error -i work\\16x9-joined.mp4 -i voice.wav -stream_loop -1 -i music.wav -filter_complex [0:v]subtitles=captions.srt:force_style='Fontsize=20.2,Outline=1.7,Shadow=1,MarginV=40'[v];[1:a]volume=1.0,apad[voice];[2:a]volume=0.25,apad[music];[voice][music]amix=inputs=2:duration=longest:normalize=0[a] -map [v] -map [a] -c:a aac -b:a 192k -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -t 24 -movflags +faststart video-16x9.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-01.mp4 -t 4 -vf scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\1x1-shot-01.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-02.mp4 -t 3 -vf scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\1x1-shot-02.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-03.mp4 -t 5 -vf scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\1x1-shot-03.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-04.mp4 -t 4 -vf scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\1x1-shot-04.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-05.mp4 -t 4 -vf scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\1x1-shot-05.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-06.mp4 -t 4 -vf scale=1080:1080:force_original_aspect_ratio=increase,crop=1080:1080,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\1x1-shot-06.mp4",
+    "ffmpeg -y -loglevel error -f concat -safe 0 -i work\\1x1-list.txt -c copy work\\1x1-joined.mp4",
+    "ffmpeg -y -loglevel error -i work\\1x1-joined.mp4 -i voice.wav -stream_loop -1 -i music.wav -filter_complex [0:v]subtitles=captions.srt:force_style='Fontsize=20.2,Outline=1.7,Shadow=1,MarginV=40'[v];[1:a]volume=1.0,apad[voice];[2:a]volume=0.25,apad[music];[voice][music]amix=inputs=2:duration=longest:normalize=0[a] -map [v] -map [a] -c:a aac -b:a 192k -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -t 24 -movflags +faststart video-1x1.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-01.mp4 -t 4 -vf scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\9x16-shot-01.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-02.mp4 -t 3 -vf scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\9x16-shot-02.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-03.mp4 -t 5 -vf scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\9x16-shot-03.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-04.mp4 -t 4 -vf scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\9x16-shot-04.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-05.mp4 -t 4 -vf scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\9x16-shot-05.mp4",
+    "ffmpeg -y -loglevel error -stream_loop -1 -i shot-06.mp4 -t 4 -vf scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,fps=30,format=yuv420p -c:v libx264 -preset veryfast -an work\\9x16-shot-06.mp4",
+    "ffmpeg -y -loglevel error -f concat -safe 0 -i work\\9x16-list.txt -c copy work\\9x16-joined.mp4",
+    "ffmpeg -y -loglevel error -i work\\9x16-joined.mp4 -i voice.wav -stream_loop -1 -i music.wav -filter_complex [0:v]subtitles=captions.srt:force_style='Fontsize=11.3,Outline=1.5,Shadow=1,MarginV=40'[v];[1:a]volume=1.0,apad[voice];[2:a]volume=0.25,apad[music];[voice][music]amix=inputs=2:duration=longest:normalize=0[a] -map [v] -map [a] -c:a aac -b:a 192k -c:v libx264 -preset veryfast -crf 20 -pix_fmt yuv420p -t 24 -movflags +faststart video-9x16.mp4"
   ]
 }
