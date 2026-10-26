@@ -155,10 +155,10 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      model trained or paid for. The compare scores
      (Claude as judge) and the launch score (Codex, blind: 5/10, weakest part the video script) come from
      an agent that did not write the work; the rest are the writers' own advice.
-   - Stage 2 status (2026-10-25, on `feat/host-mode` at c6163dc, nothing pushed). Eleven one-goal sessions
+   - Stage 2 status (updated 2026-10-26, on `feat/host-mode` at c58b62f, nothing pushed). Eleven one-goal sessions
      ran; their work sat on separate branches (the five fix branches are now merged, see below):
-     - Proved by hand: install, deploy and train examples pass 4 of 5 claims (the README wording does not
-       yet say what each check does not prove). The example site, the call-MCP server and both videos work
+     - Proved by hand: install, deploy and train examples pass 4 of 5 claims; the README now says what each
+       check does not prove (`caababc`). The example site, the call-MCP server and both videos work
        for real (videos play to the end, sound is present).
      - Fixes on their own branches: record keeps each version's agent (`8953149`); the example MCP server
        answers garbage input with -32700 (`0ace81b`); a test for `caption_style` (`cd56c24`); a fix for
@@ -181,8 +181,18 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
        `0ace81b`, `8953149`, `992ccfe` + `1d98d93`, plus `db942a4` (`pythonpath = ["src", "."]`, so
        `tests/test_native_build_sample.py` collects under bare `pytest`; its 5 tests pass). Not merged: the two
        Codex branches (`5a20791` repeat, `1d1f922` scores).
-     - Full suite on the merged branch (bare `uv run --no-sync pytest`, native test included): 2409 passed,
-       50 skipped, 1 deselected, 0 failed, 0 errors (7 min 10 s).
+     - Full suite on c58b62f (bare `uv run pytest -q -p no:cacheprovider`, native test included): 2416 passed,
+       50 skipped, 1 deselected, 0 failed, 0 errors.
+     - "Not measured" counted as passed: fixed in the browser check (`f92bb83`, `sitecheck.py`) and the site
+       total (`c58b62f`, `make.py`). A sweep of `src/proofhouse` found no other place. Still by design: a site
+       checked without `--allow-commands` is saved as `"passed": true` and the count of checks that did not run
+       is printed with `--json` only, never saved (`host.py` `_check_rows_pass_exit`); Boss to decide.
+     - Limits audit (read only): the spend gate, most `--allow-commands` refusals and the install/deploy
+       refusals have tests that fail if the limit is removed. No such test for: the referee's per-check time
+       stop and its round/time settings; most secret-looking names (only `TOKEN` is proved removed, and the
+       build list in `app_platforms.py` lacks `DATABASE_URL` and `CONNECTION_STRING`); render video failing on
+       length, sound or frame size; `check hook` refusing without the flag; train's 1-50 epochs and same-host
+       address rule. Boss picks which get tests.
      - Checked by the new coordinator (2026-10-26, read-only): both Codex score files judge the old 30 s
        `film/final.mp4` (version 3) and the rebuilt 24 s promo, from 12 frames each, so they say nothing about the
        48.8 s film; the record-paths test diff (`992ccfe`) asserts the `<this-folder>` placeholder and that no
@@ -190,10 +200,12 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      - Final examples table written (`examples/host-mode/README.md`, 16 rows, from the records and READMEs; the
        launch record's `site` part shows `failed` only because its browser check was not measured; the label
        is fixed in `host_launch.py` (now "not measured"), and the committed README was corrected by hand, not re-recorded; a later `check launch examples/host-mode/launch --allow-commands` passed all 36 checks, browser included, and is not saved in the record).
-     - Not done: Stage 3, re-recording and re-scoring the 48.8 s film.
-     - Known issues, only logged: the desktop browser check on the example site times out and still prints
-       PASS; `mcp-record` has two copies of the old MCP server; Edge width; delegate run-ID collision.
-   - Then, on host mode: limit tests.
+     - Not done: the final independent review of the branch, pushing it, Stage 3, re-recording and
+       re-scoring the 48.8 s film.
+     - Known issues, only logged: the desktop browser check on the example site can time out (it now reports
+       "not measured", not PASS); `mcp-record` has two copies of the old MCP server; Edge width; delegate
+       run-ID collision.
+   - Then, on host mode: limit tests for the limits Boss picks from the audit above.
 
 ## Known limits
 
