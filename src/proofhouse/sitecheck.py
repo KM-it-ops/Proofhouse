@@ -181,8 +181,18 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, brows
     if len(stuck) == 2:
         checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: " + "; ".join(stuck)})
         return checks
-    detail = "; ".join(errors[:3])[:300] + (f" (not measured on {'; '.join(stuck)})" if stuck else "")
-    checks.append({"check": "no JavaScript errors in the browser", "ok": not errors, "detail": detail.strip()})
+    if errors:
+        detail = "; ".join(errors[:3])[:300]
+        if stuck:
+            detail = (detail + f" (not measured on {'; '.join(stuck)})").strip()
+        js_ok = False
+    elif stuck:
+        detail = "not measured: " + "; ".join(stuck)
+        js_ok = None
+    else:
+        detail = ""
+        js_ok = True
+    checks.append({"check": "no JavaScript errors in the browser", "ok": js_ok, "detail": detail.strip()})
     if shots is not None:
         made = all((shots / f"{label}.png").is_file() for label in ("desktop", "phone"))
         checks.append({"check": "screenshots at desktop and phone width", "ok": made, "detail": str(shots)})

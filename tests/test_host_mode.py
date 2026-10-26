@@ -485,6 +485,60 @@ def test_check_site_browser_launch_always_gives_the_browser_a_reason_to_exit(
         assert "--dump-dom" in command or any(part.startswith("--screenshot=") for part in command)
 
 
+def test_check_site_one_size_stuck_is_not_measured(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+
+    def record_launch(command: list[str], timeout: int) -> subprocess.CompletedProcess[str] | str:
+        if any(part == "--window-size=1440,900" for part in command):
+            return "the browser did not finish in 30 s, twice"
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(sitecheck, "_open", record_launch)
+    row = next(c for c in sitecheck.check_site(site(tmp_path / "s")) if c["check"] == "no JavaScript errors in the browser")
+    assert row["ok"] is None
+    assert row["ok"] is not True
+    assert row["ok"] is not False
+    assert "desktop" in row["detail"].lower()
+
+
+def test_check_site_one_size_stuck_other_errors_fails(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+
+    def record_launch(command: list[str], timeout: int) -> subprocess.CompletedProcess[str] | str:
+        if any(part == "--window-size=1440,900" for part in command):
+            return "the browser did not finish in 30 s, twice"
+        return subprocess.CompletedProcess(
+            args=command, returncode=0, stdout="", stderr="[error] Uncaught Error: boom",
+        )
+
+    monkeypatch.setattr(sitecheck, "_open", record_launch)
+    row = next(c for c in sitecheck.check_site(site(tmp_path / "s")) if c["check"] == "no JavaScript errors in the browser")
+    assert row["ok"] is False
+
+
+def test_check_site_both_sizes_clean_passes(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+
+    def record_launch(command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(sitecheck, "_open", record_launch)
+    row = next(c for c in sitecheck.check_site(site(tmp_path / "s")) if c["check"] == "no JavaScript errors in the browser")
+    assert row["ok"] is True
+
+
 def test_browser_output_that_is_not_in_the_console_codepage_does_not_break_the_check(capfd):
     import sys
     from proofhouse import sitecheck
