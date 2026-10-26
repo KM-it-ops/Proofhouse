@@ -171,7 +171,7 @@ def compare_from_files(
 
     built: list[Entry] = []
     for label, path in entries:
-        data, text = _read_entry_file(path.resolve())
+        data, text = _read_entry_file(path.absolute())  # resolve() would follow a link past the check
         entry = Entry(
             label=label,
             status="success",
