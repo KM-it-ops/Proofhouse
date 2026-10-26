@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from proofhouse import cli, studio
+from proofhouse import cli, host, studio
 
 def _site_blurb() -> str:
     return " ".join(f"fresh loaf {i}" for i in range(1, 28)) + " Baked at 5 AM daily."
@@ -225,6 +225,36 @@ def test_record_keeps_every_version_and_delivers_the_best_site(tmp_path: Path) -
     assert data["schema"] == "proofhouse.host/v1" and data["best_version"] == 2 and data["agent"] == "cursor"
     assert [r["version"] for r in data["rounds"]] == [1, 2] and [r["score"] for r in data["rounds"]] == [6, 8]
     assert "advice" in str(data["judge_note"])
+
+
+def test_each_version_keeps_the_agent_that_wrote_it(tmp_path: Path) -> None:
+    out = str(tmp_path / "out")
+    base = ["record", "site", "--out", out, "--request", "a useful thing"]
+    assert cli.main([*base[:2], str(site(tmp_path / "s1")), *base[2:], "--agent", "cursor", "--score", "9"]) == 0
+    assert cli.main([*base[:2], str(site(tmp_path / "s2")), *base[2:], "--agent", "codex", "--score", "6"]) == 0
+    data = saved(tmp_path)
+    assert [r["agent"] for r in data["rounds"]] == ["cursor", "codex"]
+    assert data["best_version"] == 1 and data["agent"] == "cursor"
+    # A later call that names no agent must not erase or replace what is already recorded.
+    assert host.run_record("site", site(tmp_path / "s3"), out=tmp_path / "out", request="a useful thing", agent=None,
+                           score=10, judge=None, judge_score=None, judge_note=None, allow_commands=False, as_json=False) == 0
+    data = saved(tmp_path)
+    assert [r.get("agent") for r in data["rounds"]] == ["cursor", "codex", None]
+    assert data["best_version"] == 3 and data["agent"] == "cursor"
+
+
+def test_an_old_record_without_per_version_agents_keeps_its_agent(tmp_path: Path) -> None:
+    assert record(tmp_path, "site", site(tmp_path / "s1"), "--score", "6") == 0
+    path = tmp_path / "out" / "record.json"
+    old = saved(tmp_path)
+    for row in old["rounds"]:
+        del row["agent"]  # records written before each version carried its own agent
+    old["agent"] = "windsurf"
+    path.write_text(json.dumps(old), encoding="utf-8")
+    assert host.run_record("site", site(tmp_path / "s2"), out=tmp_path / "out", request="a useful thing", agent=None,
+                           score=5, judge=None, judge_score=None, judge_note=None, allow_commands=False, as_json=False) == 0
+    data = saved(tmp_path)
+    assert "agent" not in data["rounds"][0] and data["best_version"] == 1 and data["agent"] == "windsurf"
 
 
 def test_a_version_that_fails_its_checks_never_beats_one_that_passes(tmp_path: Path) -> None:

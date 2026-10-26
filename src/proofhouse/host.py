@@ -452,7 +452,7 @@ def run_record(
     *,
     out: Path,
     request: str,
-    agent: str,
+    agent: str | None,
     score: int | None,
     judge: str | None,
     judge_score: int | None,
@@ -491,6 +491,8 @@ def run_record(
     rounds: list[dict[str, Any]] = list(prior.get("rounds") or [])
     prior_delivered = [str(name) for name in prior.get("delivered") or []]
     round_row: dict[str, Any] = {"version": version, "score": score, "passed": passed}
+    if agent:
+        round_row["agent"] = agent
     if judge is not None:
         round_row["judge"] = judge
         round_row["judge_score"] = judge_score
@@ -500,15 +502,18 @@ def run_record(
     best_version = _pick_best(rounds)
     best_round = next((row for row in rounds if row.get("version") == best_version), None) if best_version else None
     best_judge = best_round.get("judge") if best_round else None
+    # The agent is the one that wrote the delivered version. A round recorded before versions carried
+    # their own agent (or one recorded with none) falls back to the agent the record already named.
+    record_agent = (best_round or {}).get("agent") or prior.get("agent") or agent
     payload: dict[str, Any] = {
         "schema": "proofhouse.host/v1",
         "proofhouse_version": __version__,
         "request": request,
-        "agent": agent,
+        "agent": record_agent,
         "kind": kind,
         "rounds": rounds,
         "best_version": best_version,
-        "judge_note": judge_note_for_record(agent, best_judge),
+        "judge_note": judge_note_for_record(record_agent or "the writer", best_judge),
     }
     if best_round and best_round.get("judge_score") is not None:
         payload["judge"] = best_round.get("judge")
@@ -528,7 +533,7 @@ def run_record(
                 out,
                 version_dir,
                 best_checks,
-                agent=agent,
+                agent=record_agent or "",
                 score=best_score,
                 request=request,
                 judge=best_round.get("judge") if best_round else None,
