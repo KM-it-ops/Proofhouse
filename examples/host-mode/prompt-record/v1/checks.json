@@ -1,0 +1,12 @@
+[
+  {
+    "check": "prompt present",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "prompt has no filler",
+    "ok": true,
+    "detail": ""
+  }
+]

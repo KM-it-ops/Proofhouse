@@ -1,0 +1,1 @@
+Tidewatch keeps tide tables on your phone, so you can check them without a signal. Before you head to the beach, launch a boat, or cast a line, open the app to see when the water will rise and fall. The times are there even when you’re far from service.

@@ -1,0 +1,72 @@
+[
+  {
+    "check": "pwa file index.html",
+    "ok": true,
+    "detail": "examples\\host-mode\\app-record\\v2\\app\\index.html"
+  },
+  {
+    "check": "pwa file manifest.webmanifest",
+    "ok": true,
+    "detail": "examples\\host-mode\\app-record\\v2\\app\\manifest.webmanifest"
+  },
+  {
+    "check": "pwa file service-worker.js",
+    "ok": true,
+    "detail": "examples\\host-mode\\app-record\\v2\\app\\service-worker.js"
+  },
+  {
+    "check": "pwa JSON manifest.webmanifest",
+    "ok": true,
+    "detail": "valid JSON and required keys"
+  },
+  {
+    "check": "pwa manifest linked",
+    "ok": true,
+    "detail": "manifest.webmanifest"
+  },
+  {
+    "check": "pwa manifest icon",
+    "ok": true,
+    "detail": "at least one icon with src"
+  },
+  {
+    "check": "pwa service worker exists",
+    "ok": true,
+    "detail": "service-worker.js"
+  },
+  {
+    "check": "pwa service worker registered",
+    "ok": true,
+    "detail": "service-worker.js"
+  },
+  {
+    "check": "index.html has a title",
+    "ok": true,
+    "detail": "Split the Bill"
+  },
+  {
+    "check": "index.html declares its language",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "index.html works on phones (viewport)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "index.html images have alt text",
+    "ok": true,
+    "detail": "0 without alt"
+  },
+  {
+    "check": "every internal link and file exists",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "no JavaScript errors in the browser",
+    "ok": true,
+    "detail": ""
+  }
+]

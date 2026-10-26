@@ -1,0 +1,45 @@
+{
+  "title": "Tidewatch launch",
+  "voiceover": "Low tide. A sandbar. No signal. Meet Tidewatch. Tide tables in your pocket, no signal required. Works fully offline with bundled tide data for two years. A $4.99 one-time purchase. No accounts and no ads.",
+  "music": "slow warm pad with a soft pulse, low under the voice and lifting for the last line; made without paid music",
+  "shots": [
+    {
+      "seconds": 4,
+      "visual": "generated clip: dawn on a rocky shore, tide far out, a small boat on the mud, gulls, no people; slow push-in, grey-blue light",
+      "caption": "Low tide. No bars.",
+      "file": "shot-01.mp4"
+    },
+    {
+      "seconds": 3,
+      "visual": "a phone held at arm's length over the same shore, blurred behind it; the Tidewatch splash draws its wave mark and wordmark on the screen",
+      "caption": "Tidewatch",
+      "file": "shot-02.mp4"
+    },
+    {
+      "seconds": 5,
+      "visual": "screen recording of the app: station list, a tap on Harbor Point, the tide curve draws, a marker lands on now, the next high water reads 7:48 AM",
+      "caption": "Harbor Point: next high water 7:48 AM",
+      "file": "shot-03.mp4"
+    },
+    {
+      "seconds": 4,
+      "visual": "same phone, status bar flips to No service, a green Offline badge slides in, then the Harbor Point data pack card rises",
+      "caption": "Works fully offline with bundled tide data for two years",
+      "file": "shot-04.mp4"
+    },
+    {
+      "seconds": 4,
+      "visual": "app price sheet slides up: Unlock every station, $4.99 one-time purchase, ticks for no account and no ads, with the Unlock button below",
+      "caption": "$4.99 one-time purchase",
+      "file": "shot-05.mp4"
+    },
+    {
+      "seconds": 4,
+      "visual": "generated clip: the skipper's hands tie off a dinghy as the water floods back in, sun on the sandbar; the closing line shows as a caption over it",
+      "caption": "Tidewatch. Tide tables in your pocket, no signal required. No accounts and no ads.",
+      "file": "shot-06.mp4"
+    }
+  ],
+  "voice_file": "voice.wav",
+  "music_file": "music.wav"
+}

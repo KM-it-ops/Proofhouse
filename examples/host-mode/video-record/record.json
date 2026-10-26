@@ -1,0 +1,32 @@
+{
+  "agent": "claude-code",
+  "best_version": 3,
+  "delivered": [
+    "launch.json",
+    "film",
+    "voiceover",
+    "README.md"
+  ],
+  "judge_note": "Scores are the agent's own advice because the same model wrote the work and scored it; they are not proof. If you have a second agent (for example Codex or Gemini CLI), ask it to judge a version and record that score instead.",
+  "kind": "launch",
+  "proofhouse_version": "0.10.0",
+  "request": "30-second Tidewatch launch film, free local tools only",
+  "rounds": [
+    {
+      "passed": true,
+      "score": 6,
+      "version": 1
+    },
+    {
+      "passed": true,
+      "score": 7,
+      "version": 2
+    },
+    {
+      "passed": true,
+      "score": 8,
+      "version": 3
+    }
+  ],
+  "schema": "proofhouse.host/v1"
+}

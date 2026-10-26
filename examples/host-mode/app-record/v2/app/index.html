@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1a5f4a">
+  <title>Split the Bill</title>
+  <meta name="description" content="Split a restaurant bill with tip—every cent accounted for, works offline on your phone.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <a class="skip-link" href="#bill-form">Skip to calculator</a>
+  <header class="app-header">
+    <img class="app-icon" src="icon.svg" width="48" height="48" alt="Split the Bill app icon">
+    <div>
+      <h1>Split the Bill</h1>
+      <p class="tagline">Tip and total, split fairly—down to the last cent.</p>
+    </div>
+  </header>
+
+  <main class="app-main">
+    <form id="bill-form" class="bill-form" novalidate>
+      <div class="field">
+        <label for="bill-total">Bill total ($)</label>
+        <input id="bill-total" name="bill-total" type="number" inputmode="decimal" min="0" step="0.01" placeholder="0.00" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="tip-percent">Tip (%)</label>
+        <input id="tip-percent" name="tip-percent" type="number" inputmode="decimal" min="0" step="1" placeholder="18" value="18" autocomplete="off">
+      </div>
+      <div class="field">
+        <label for="people-count">People</label>
+        <input id="people-count" name="people-count" type="number" inputmode="numeric" min="1" step="1" placeholder="2" value="2" autocomplete="off">
+      </div>
+      <p id="form-error" class="form-error" role="alert" hidden></p>
+    </form>
+
+    <section id="results" class="results" aria-live="polite" hidden>
+      <dl class="totals">
+        <div class="totals-row">
+          <dt>Tip</dt>
+          <dd id="out-tip">0.00</dd>
+        </div>
+        <div class="totals-row totals-row--emph">
+          <dt>Total with tip</dt>
+          <dd id="out-total">0.00</dd>
+        </div>
+      </dl>
+      <h2 class="shares-heading">Each person pays</h2>
+      <ol id="shares-list" class="shares-list"></ol>
+      <p class="fine-print">Extra cents go to the first people in the list so the shares always add up exactly.</p>
+    </section>
+  </main>
+
+  <script src="logic.js"></script>
+  <script src="app.js"></script>
+  <script>
+    if ("serviceWorker" in navigator) {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("service-worker.js").catch(function () {
+          /* file:// and some dev servers cannot install a worker */
+        });
+      });
+    }
+  </script>
+</body>
+</html>

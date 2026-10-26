@@ -1,0 +1,34 @@
+{
+  "best": "grok",
+  "entries": [
+    {
+      "bytes": 255,
+      "file": "codex.md",
+      "label": "codex",
+      "note": "Never says offline; 'far from service' is generic and the beach, boat and fishing scenes are stock.",
+      "score": 6,
+      "sha256": "47aaa3e3423547d67ad6d64e38373e8d7c771fcc649a032e2b2209fe0a0eeb57"
+    },
+    {
+      "bytes": 229,
+      "file": "grok.md",
+      "label": "grok",
+      "note": "Says offline in the first line, names what is stored (high and low water times and heights) and ends on a vivid scene.",
+      "score": 8,
+      "sha256": "319c4e172d65654e733ceda6c987b43b69ef89d618b3658262599059b7f247f0"
+    },
+    {
+      "bytes": 264,
+      "file": "cursor.md",
+      "label": "cursor",
+      "note": "Clear and local-data focused, but 'slack or flood' is niche and the last sentence repeats the first.",
+      "score": 7,
+      "sha256": "d1e441c7e6381562518b0a28dd399a8de15054be6d5e2aee50b270baa32a0d30"
+    }
+  ],
+  "job": "Write the opening paragraph (45 to 60 words) of a landing page for Tidewatch, a pocket tide-table app that works fully offline. Plain words, concrete, no filler such as revolutionary, seamless or game-changing. Reply with only the paragraph.",
+  "judge": "claude",
+  "mode": "files",
+  "note": "Scores by claude. Proofhouse did not call any model for this comparison.",
+  "proofhouse_version": "0.10.0"
+}

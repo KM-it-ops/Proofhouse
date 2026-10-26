@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "proofhouse"
-version = "0.9.1"
+version = "0.10.0"
 description = "You say what you want. Any model makes it, runs it, and keeps every version."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -41,7 +41,7 @@ proofhouse = "proofhouse.cli:main"
 proofhouse-compiler = "proofhouse.cli:main"
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+pythonpath = ["src", "."]
 testpaths = ["tests"]
 markers = ["live: real or optional live-path tests; not collected by default"]
 addopts = "-m \"not live\""
@@ -52,4 +52,4 @@ where = ["src"]
 [tool.setuptools.package-data]
 "proofhouse" = ["data/*.json"]
 "proofhouse.compiler" = ["schemas/*.json"]
-"proofhouse.optimize" = ["data/*", "data/reference-advisory/*"]
+"proofhouse.optimize" = ["data/*", "data/reference-advisory/*", "data/proofhouse-host/*"]

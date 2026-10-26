@@ -1,0 +1,21 @@
+{"input": "I was charged twice for my March invoice.", "output": "billing | high"}
+{"input": "How do I change the email on my account?", "output": "account | low"}
+{"input": "The export button does nothing when I click it.", "output": "bug | medium"}
+{"input": "Please add dark mode to the dashboard.", "output": "feature-request | low"}
+{"input": "My card was declined but the money left my bank.", "output": "billing | high"}
+{"input": "I cannot log in, the reset email never arrives.", "output": "account | high"}
+{"input": "The app crashes every time I open the reports tab.", "output": "bug | high"}
+{"input": "Can you support CSV import for contacts?", "output": "feature-request | low"}
+{"input": "Where can I download last year's invoices?", "output": "billing | low"}
+{"input": "Please delete my account and all my data.", "output": "account | medium"}
+{"input": "Search returns results from the wrong workspace.", "output": "bug | high"}
+{"input": "It would help to have a weekly summary email.", "output": "feature-request | low"}
+{"input": "I want a refund for the annual plan I bought yesterday.", "output": "billing | high"}
+{"input": "Two-factor codes keep getting rejected.", "output": "account | high"}
+{"input": "The mobile layout cuts off the Save button.", "output": "bug | medium"}
+{"input": "Is there an API for exporting my data?", "output": "feature-request | medium"}
+{"input": "My plan renewed but I wanted to cancel.", "output": "billing | high"}
+{"input": "How do I add a teammate to my workspace?", "output": "account | low"}
+{"input": "Uploads over 10 MB fail with a vague error.", "output": "bug | medium"}
+{"input": "Could you add keyboard shortcuts for navigation?", "output": "feature-request | low"}
+{"input": "I was charged twice for my March invoice.", "output": "billing | high"}

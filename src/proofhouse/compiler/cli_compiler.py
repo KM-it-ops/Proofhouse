@@ -35,6 +35,7 @@ from .execution import LiveOpenAIRequest, LiveRunRequest, execute_on_provider, e
 from ..hosts_cli import add_host_commands
 from ..live_cli import add_live_commands
 from ..loop_cli import add_loop_commands
+from ..referee_cli import add_referee_commands
 from ..compare_cli import add_compare_commands
 from ..train_cli import add_train_commands
 from ..addons_cli import add_addon_commands
@@ -895,6 +896,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_local_commands(subparsers)
     add_live_commands(subparsers)
     add_loop_commands(subparsers)
+    add_referee_commands(subparsers)
     add_compare_commands(subparsers)
     add_train_commands(subparsers)
     add_addon_commands(subparsers)

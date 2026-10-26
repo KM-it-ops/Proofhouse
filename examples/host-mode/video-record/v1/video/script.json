@@ -1,0 +1,16 @@
+{
+  "title": "Tidewatch launch film",
+  "voiceover": "Meet Tidewatch. Tide tables in your pocket. No signal required. It works fully offline, with two years of tide data built right in. Just four ninety nine. One time. No accounts to make. No ads to skip. Tidewatch. Know the water.",
+  "music": "soft pad with muted upright bass and brushed shaker, 92 BPM, calm and nautical",
+  "voice_file": "voice.m4a",
+  "music_file": "music.m4a",
+  "shots": [
+    {"seconds": 3, "visual": "deep blue night sea, glowing white Tidewatch wordmark, layered waves", "caption": "Tidewatch", "file": "shot-01.png"},
+    {"seconds": 6, "visual": "tide chart card for Harbor Point with a smooth tide curve", "caption": "Tide tables in your pocket. No signal required.", "file": "shot-02.png"},
+    {"seconds": 6, "visual": "sand background, phone with crossed-out signal bars, OFFLINE badge", "caption": "Works fully offline, with two years of tide data built in", "file": "shot-03.png"},
+    {"seconds": 5, "visual": "round price badge on calm water, $4.99 one time", "caption": "$4.99. One time.", "file": "shot-04.png"},
+    {"seconds": 3, "visual": "checklist with red crosses over account items", "caption": "No accounts to make", "file": "shot-05.png"},
+    {"seconds": 3, "visual": "checklist with red crosses over ad items", "caption": "No ads to skip", "file": "shot-06.png"},
+    {"seconds": 4, "visual": "end card, wordmark, tagline Know the water", "caption": "Tidewatch. Know the water.", "file": "shot-07.png"}
+  ]
+}

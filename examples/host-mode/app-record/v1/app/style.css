@@ -1,0 +1,210 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f4f7f5;
+  --surface: #ffffff;
+  --text: #14231c;
+  --muted: #4a5f55;
+  --accent: #1a5f4a;
+  --accent-soft: #d8ebe3;
+  --error: #9b1c1c;
+  --border: #c5d4cc;
+  --shadow: 0 2px 12px rgba(20, 35, 28, 0.08);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  line-height: 1.45;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1613;
+    --surface: #1a2420;
+    --text: #e8f0ec;
+    --muted: #9fb5a9;
+    --accent: #3dbf8f;
+    --accent-soft: #1e3a30;
+    --error: #f87171;
+    --border: #2d4038;
+    --shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.app-header {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.25rem 1rem 0.5rem;
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+.app-icon {
+  flex-shrink: 0;
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.tagline {
+  margin: 0.25rem 0 0;
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+
+.app-main {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem 2rem;
+}
+
+.bill-form {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem;
+  box-shadow: var(--shadow);
+}
+
+.field {
+  margin-bottom: 1rem;
+}
+
+.field label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  font-size: 1rem;
+}
+
+.field input {
+  width: 100%;
+  min-height: 3rem;
+  padding: 0.65rem 0.85rem;
+  font-size: 1.125rem;
+  border: 2px solid var(--border);
+  border-radius: 12px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.field input:focus {
+  outline: 3px solid var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.form-error {
+  margin: 0;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--error) 12%, transparent);
+  color: var(--error);
+  font-weight: 500;
+}
+
+.results {
+  margin-top: 1.25rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 1rem 1rem 1.25rem;
+  box-shadow: var(--shadow);
+}
+
+.totals {
+  margin: 0;
+}
+
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.35rem 0;
+  font-size: 1.05rem;
+}
+
+.totals-row dt {
+  margin: 0;
+  color: var(--muted);
+}
+
+.totals-row dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.totals-row--emph {
+  font-size: 1.2rem;
+  border-top: 1px solid var(--border);
+  margin-top: 0.35rem;
+  padding-top: 0.65rem;
+}
+
+.totals-row--emph dt {
+  color: var(--text);
+  font-weight: 600;
+}
+
+.shares-heading {
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.1rem;
+}
+
+.shares-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.share-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0.5rem 0.75rem;
+  margin-bottom: 0.35rem;
+  border-radius: 12px;
+  background: var(--accent-soft);
+}
+
+.share-label {
+  font-weight: 600;
+}
+
+.share-amount {
+  font-size: 1.15rem;
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+.fine-print {
+  margin: 1rem 0 0;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+@media (max-width: 360px) {
+  .app-header h1 {
+    font-size: 1.35rem;
+  }
+
+  .field input {
+    font-size: 1rem;
+  }
+}

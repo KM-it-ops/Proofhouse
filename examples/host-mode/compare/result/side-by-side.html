@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Side by side</title>
+<style>
+:root { --bg:#fff; --fg:#1b1b1f; --muted:#5d5d66; --line:#d9d9e0; --best:#1a7f37; }
+@media (prefers-color-scheme: dark) { :root { --bg:#141417; --fg:#ececf1; --muted:#a0a0ab; --line:#33333b; --best:#3fb950; } }
+body { margin:0; padding:16px; background:var(--bg); color:var(--fg); font:15px/1.5 system-ui, sans-serif; }
+.job { color:var(--muted); white-space:pre-wrap; margin-bottom:16px; }
+.banner { color:var(--muted); margin:0 0 16px; font-size:14px; }
+.grid { display:grid; gap:12px; grid-template-columns:repeat(auto-fit, minmax(300px, 1fr)); }
+.card { border:1px solid var(--line); border-radius:8px; padding:12px; min-width:0; }
+.card.best { border:2px solid var(--best); }
+h2 { font-size:15px; margin:0 0 4px; overflow-wrap:anywhere; }
+.facts, .score { color:var(--muted); margin:0 0 8px; font-size:13px; }
+pre { white-space:pre-wrap; overflow-wrap:anywhere; margin:0; font:13px/1.45 ui-monospace, monospace; }
+</style></head><body>
+<h1>Side by side</h1><p class=banner>Scores by claude. Proofhouse did not call any model for this comparison.</p><p class=job>Write the opening paragraph (45 to 60 words) of a landing page for Tidewatch, a pocket tide-table app that works fully offline. Plain words, concrete, no filler such as revolutionary, seamless or game-changing. Reply with only the paragraph.</p>
+<div class=grid><section class='card'><h2>codex</h2><p class=facts>255 bytes</p><p class=score>6/10 — Never says offline; &#x27;far from service&#x27; is generic and the beach, boat and fishing scenes are stock.</p><pre>Tidewatch keeps tide tables on your phone, so you can check them without a signal. Before you head to the beach, launch a boat, or cast a line, open the app to see when the water will rise and fall. The times are there even when you’re far from service.</pre></section><section class='card best'><h2>grok</h2><p class=facts>229 bytes</p><p class=score>8/10 — Says offline in the first line, names what is stored (high and low water times and heights) and ends on a vivid scene.</p><pre>Tidewatch is a pocket tide table that works fully offline. High and low water times and heights stay on your phone, so you can read the next tide at the boat ramp, on the rocks, or a mile down the beach when your signal is gone.
+</pre></section><section class='card'><h2>cursor</h2><p class=facts>264 bytes</p><p class=score>7/10 — Clear and local-data focused, but &#x27;slack or flood&#x27; is niche and the last sentence repeats the first.</p><pre>Tidewatch stores tide highs, lows, and heights on your phone before you leave home. Check the next slack or flood at the ramp, on the jetty, or along the shore with no signal needed. The tables load from local data, so they stay available offline wherever you go.
+</pre></section></div>
+</body></html>

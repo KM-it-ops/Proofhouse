@@ -1,0 +1,182 @@
+[
+  {
+    "check": "launch.json",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "launch parts",
+    "ok": true,
+    "detail": "5 parts"
+  },
+  {
+    "check": "part site: index.html has a title",
+    "ok": true,
+    "detail": "Tidewatch \u2014 offline tide tables for hikers and skippers"
+  },
+  {
+    "check": "part site: index.html declares its language",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part site: index.html works on phones (viewport)",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part site: index.html images have alt text",
+    "ok": true,
+    "detail": "0 without alt"
+  },
+  {
+    "check": "part site: every internal link and file exists",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part site: opened in a browser",
+    "ok": null,
+    "detail": "not measured: pass --allow-commands to open the site in a browser"
+  },
+  {
+    "check": "part site: contrast",
+    "ok": true,
+    "detail": "no plain colour pair found"
+  },
+  {
+    "check": "part site: text size",
+    "ok": true,
+    "detail": "17px"
+  },
+  {
+    "check": "part site: headings",
+    "ok": true,
+    "detail": "1 h1"
+  },
+  {
+    "check": "part site: image alt",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part site: title",
+    "ok": true,
+    "detail": "Tidewatch \u2014 offline tide tables for hikers and skippers"
+  },
+  {
+    "check": "part site: length",
+    "ok": true,
+    "detail": "326 words"
+  },
+  {
+    "check": "part site: filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part site: specifics",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part announce: copy present",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part announce: copy has no filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part announce: length",
+    "ok": true,
+    "detail": "204 words"
+  },
+  {
+    "check": "part announce: filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part announce: specifics",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part support: skill frontmatter",
+    "ok": true,
+    "detail": "tidewatch-support"
+  },
+  {
+    "check": "part support: length",
+    "ok": true,
+    "detail": "326 words"
+  },
+  {
+    "check": "part support: filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part release-notes: prompt present",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part release-notes: prompt has no filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part release-notes: length",
+    "ok": true,
+    "detail": "234 words"
+  },
+  {
+    "check": "part release-notes: filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part promo: video title",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part promo: video voiceover",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part promo: video music",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "part promo: video structure",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "shared names",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "facts",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "avoid",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "parts differ",
+    "ok": true,
+    "detail": ""
+  }
+]

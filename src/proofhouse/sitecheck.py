@@ -101,14 +101,27 @@ def find_browser() -> str | None:
     chosen = os.environ.get("PROOFHOUSE_BROWSER")
     if chosen:
         return chosen if Path(chosen).is_file() else None
-    return next((found for name in _BROWSERS if (found := shutil.which(name))), None)
+    on_path = next((found for name in _BROWSERS if (found := shutil.which(name))), None)
+    return on_path or next((str(path) for path in _install_folders() if path.is_file()), None)
+
+
+def _install_folders() -> list[Path]:
+    """Where Chrome and Edge install themselves when they are not on PATH."""
+    found = [Path(os.environ[var]) / vendor / app / "Application" / exe
+             for var in ("ProgramFiles", "ProgramFiles(x86)", "LOCALAPPDATA") if var in os.environ
+             for vendor, app, exe in (("Microsoft", "Edge", "msedge.exe"), ("Google", "Chrome", "chrome.exe"))]
+    found += [Path("/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"),
+              Path("/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge"),
+              Path("/Applications/Chromium.app/Contents/MacOS/Chromium")]
+    return found
 
 
 def _open(command: list[str], timeout: int) -> subprocess.CompletedProcess[str] | str:
     """Run the headless browser; a launch that hangs is tried once more, then reported (never raised)."""
     for _ in range(2):
         try:
-            return subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False)
+            return subprocess.run(command, capture_output=True, text=True, encoding="utf-8", errors="replace",
+                                  timeout=timeout, check=False)
         except subprocess.TimeoutExpired:
             continue
         except OSError as exc:
@@ -116,7 +129,7 @@ def _open(command: list[str], timeout: int) -> subprocess.CompletedProcess[str] 
     return f"the browser did not finish in {timeout} s, twice"
 
 
-def check_site(folder: Path, shots: Path | None = None, timeout: int = 30) -> list[dict[str, Any]]:
+def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, browser: bool = True) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     pages = sorted(folder.rglob("*.html"))
     broken: list[str] = []
@@ -143,8 +156,11 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30) -> li
             if not target.exists():
                 broken.append(f"{name} -> {ref}")
     checks.append({"check": "every internal link and file exists", "ok": not broken, "detail": "; ".join(broken[:10])})
-    browser = find_browser()
-    if browser is None:
+    if not browser:
+        checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: pass --allow-commands to open the site in a browser"})
+        return checks
+    browser_path = find_browser()
+    if browser_path is None:
         checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: no Chrome or Chromium found"})
         return checks
     url = (folder / "index.html").resolve().as_uri()
@@ -153,20 +169,33 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30) -> li
     if shots is not None:
         shots.mkdir(parents=True, exist_ok=True)
     for label, size in (("desktop", "1440,900"), ("phone", "390,844")):
-        command = [browser, "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", f"--window-size={size}",
+        command = [browser_path, "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", f"--window-size={size}",
                    "--enable-logging=stderr", "--v=0"]
-        if shots is not None:
-            command.append(f"--screenshot={shots / f'{label}.png'}")
+        # headless Chrome and Edge only exit after a screenshot or a DOM dump; without one they wait forever
+        command.append(f"--screenshot={shots / f'{label}.png'}" if shots is not None else "--dump-dom")
         run = _open(command + [url], timeout)
         if isinstance(run, str):
             stuck.append(f"{label}: {run}")
+            continue
+        if run.returncode != 0:  # a browser that exited with an error never showed the page
+            stuck.append(f"{label}: the browser exited with code {run.returncode}")
             continue
         errors += [line for line in run.stderr.splitlines() if "Uncaught" in line or "SyntaxError" in line]
     if len(stuck) == 2:
         checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: " + "; ".join(stuck)})
         return checks
-    detail = "; ".join(errors[:3])[:300] + (f" (not measured on {'; '.join(stuck)})" if stuck else "")
-    checks.append({"check": "no JavaScript errors in the browser", "ok": not errors, "detail": detail.strip()})
+    if errors:
+        detail = "; ".join(errors[:3])[:300]
+        if stuck:
+            detail = (detail + f" (not measured on {'; '.join(stuck)})").strip()
+        js_ok = False
+    elif stuck:
+        detail = "not measured: " + "; ".join(stuck)
+        js_ok = None
+    else:
+        detail = ""
+        js_ok = True
+    checks.append({"check": "no JavaScript errors in the browser", "ok": js_ok, "detail": detail.strip()})
     if shots is not None:
         made = all((shots / f"{label}.png").is_file() for label in ("desktop", "phone"))
         checks.append({"check": "screenshots at desktop and phone width", "ok": made, "detail": str(shots)})

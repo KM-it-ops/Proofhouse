@@ -1,0 +1,34 @@
+{
+  "agent": "cursor (reviewed and fixed by claude)",
+  "best_version": 4,
+  "delivered": [
+    "safe-database-migrations.md"
+  ],
+  "judge_note": "Scores are the agent's own advice because the same model wrote the work and scored it; they are not proof. If you have a second agent (for example Codex or Gemini CLI), ask it to judge a version and record that score instead.",
+  "kind": "rule",
+  "proofhouse_version": "0.9.1",
+  "request": "Rule: safe Postgres database migrations",
+  "rounds": [
+    {
+      "passed": true,
+      "score": 7,
+      "version": 1
+    },
+    {
+      "passed": true,
+      "score": 9,
+      "version": 2
+    },
+    {
+      "passed": true,
+      "score": 9,
+      "version": 3
+    },
+    {
+      "passed": true,
+      "score": 9,
+      "version": 4
+    }
+  ],
+  "schema": "proofhouse.host/v1"
+}

@@ -1,0 +1,12 @@
+[
+  {
+    "check": "copy present",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "copy has no filler",
+    "ok": true,
+    "detail": ""
+  }
+]

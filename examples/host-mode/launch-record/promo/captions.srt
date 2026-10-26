@@ -1,0 +1,23 @@
+1
+00:00:00,000 --> 00:00:04,000
+Low tide. No bars.
+
+2
+00:00:04,000 --> 00:00:07,000
+Tidewatch
+
+3
+00:00:07,000 --> 00:00:12,000
+Harbor Point: next high water 7:48 AM
+
+4
+00:00:12,000 --> 00:00:16,000
+Works fully offline with bundled tide data for two years
+
+5
+00:00:16,000 --> 00:00:20,000
+$4.99 one-time purchase
+
+6
+00:00:20,000 --> 00:00:24,000
+Tidewatch. Tide tables in your pocket, no signal required. No accounts and no ads.

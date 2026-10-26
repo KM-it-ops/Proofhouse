@@ -1,0 +1,39 @@
+network and program launching are switched off for this whole run
+
+$ proofhouse deploy --list
+netlify      Netlify            netlify deploy --dir {folder} --prod
+vercel       Vercel             vercel deploy {folder} --prod --yes
+cloudflare   Cloudflare Pages   wrangler pages deploy {folder} --project-name {name}
+surge        Surge              surge {folder} {name}.surge.sh
+[exit 0]
+
+$ proofhouse deploy <repo>/examples/host-mode/site --to netlify --dry-run --name tidewatch
+netlify deploy --dir <repo>/examples/host-mode/site --prod
+[exit 0]
+
+$ proofhouse deploy <repo>/examples/host-mode/site --to vercel --dry-run --name tidewatch
+vercel deploy <repo>/examples/host-mode/site --prod --yes
+[exit 0]
+
+$ proofhouse deploy <repo>/examples/host-mode/site --to cloudflare --dry-run --name tidewatch
+wrangler pages deploy <repo>/examples/host-mode/site --project-name tidewatch
+[exit 0]
+
+$ proofhouse deploy <repo>/examples/host-mode/site --to surge --dry-run --name tidewatch
+surge <repo>/examples/host-mode/site tidewatch.surge.sh
+[exit 0]
+
+$ proofhouse deploy <repo>/examples/host-mode/site --to netlify --dry-run --json
+{"command": ["netlify", "deploy", "--dir", "<repo>/examples/host-mode/site", "--prod"], "folder": "<repo>/examples/host-mode/site", "status": "dry run", "target": "netlify", "url": null}
+[exit 0]
+
+$ proofhouse deploy <repo>/examples/host-mode/site --to nowhere --dry-run
+error: no deploy target named 'nowhere'; known: cloudflare, netlify, surge, vercel
+[exit 2]
+
+$ proofhouse deploy <home>\not-a-site --to netlify --dry-run
+error: <home>\not-a-site has no index.html to deploy
+[exit 2]
+
+files the dry runs wrote into the Proofhouse home: none
+no deploy log was written: True

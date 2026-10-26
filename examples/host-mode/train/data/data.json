@@ -1,0 +1,9 @@
+{
+  "source": "examples\\host-mode\\train\\tickets.jsonl",
+  "examples": 20,
+  "train": 18,
+  "valid": 2,
+  "train_bytes": 17915,
+  "system_message": true,
+  "warnings": []
+}

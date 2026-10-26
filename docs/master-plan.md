@@ -38,7 +38,7 @@ How it behaves everywhere:
 | Area | State |
 |------|-------|
 | Run any prompt on any provider; compare many models on one job | works |
-| Make prompts, skills, agents, copy | works |
+| Make prompts, skills, agents, copy | works (host mode: examples for prompt, copy, app, rule, agent, skill, hook, site, mcp) |
 | Make rules, MCP servers, hooks (each one tried for real before delivery) | works |
 | Make websites and put them online (Netlify, Vercel, Cloudflare, Surge, or any target added) | works |
 | Make apps for every platform | works; native builds proven on all six platforms ([run](https://github.com/KM-it-ops/Proofhouse/actions/runs/39161715167)) |
@@ -115,6 +115,112 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      host, and the key never leaves that host; learned file paths stay inside the home folder.
      `proofhouse generate image|video|speech|music` now reaches media from the command line. Cursor
      and Codex built and fixed it; agy, Codex, Cursor and two Opus security passes checked each round.
+
+5. **Host mode (owner's correction, 2026-10-25): works for anyone, with no API key.** `make` today needs a
+   provider key, so a person who only has an AI app or a monthly plan (Cursor, Codex, Gemini CLI, Grok CLI,
+   Claude Code) cannot use it. In host mode the AI app they already use is the writer and the judge, using its
+   own model, and Proofhouse is the referee, the assembler and the recorder. No key, no setup beyond
+   installing the package and one skill. Planned for 0.10.0.
+   - `proofhouse check <kind> <folder>` runs the same real-world checks `make` runs (site opened like a
+     visitor; MCP server answers `initialize` and `tools/list`; hook run on a sample event; rule installed and
+     removed on every tool; skill and agent files accepted by the installers) and prints pass or fail.
+   - `proofhouse record` saves each version the agent writes, with its checks and the agent's own score, and
+     delivers the best one in exactly the layout `make` uses (`v1/`, `v2/`, `record.json`, `site/`, `mcp/`...).
+   - `proofhouse render video` assembles a finished video from a script and the shots, voice and music the
+     agent supplies (FFmpeg, 16:9, 9:16, 1:1, captions, length and sound checks), with no paid call.
+   - A skill (`skills/proofhouse-host`) teaches the agent the loop: write, check, revise, record.
+   - Second-agent judge: `record --judge NAME --judge-score N` keeps another agent's score (the judge must
+     differ from the writer) and ranks judged rounds above self-scored ones. Still advice, not proof. Any
+     paid media service still goes through the spending limit.
+   - Quality checks in `check`: word counts, filler and vague-claim scan, a concrete detail, launch parts that
+     repeat each other, and site readability (contrast, text size, one heading, image alt, page title).
+   - `render video` can take a local voice file and a generated music file. Both Tidewatch videos (the
+     3-format promo and the 30 s film) are built from recorded screen footage of an app prototype, two
+     Gemini-generated clips (free allowance), a local Kokoro voice and numpy-made music. Limits: only two
+     10 s clips at 720p shared by both videos, the app is an HTML prototype, nobody has listened to the
+     audio yet, and the scores are the writer's own.
+   - `proofhouse compare "job" --entry LABEL=file ...` puts saved answers from any agents side by side
+     (`side-by-side.html` plus `compare.json`), with optional scores and notes, no model call.
+   - `proofhouse referee start|round|status` lets the agent run its own improve loop while Proofhouse runs
+     the agent's check after each round, enforces the round and time limits, and keeps `loop.json` and
+     `rounds.jsonl`. The check runs with secret-named variables removed. The record is a plain log, not
+     tamper-proof, and two rounds at once are not locked.
+   - `proofhouse check|record launch` covers a multi-part launch from one goal: each part is checked as its
+     own kind (video parts structurally only), shared names must appear in every text part, every fact in at
+     least one, and avoid-words nowhere; record delivers every part plus a generated README.
+   - Examples built by Cursor, Codex and Grok with no key: `examples/host-mode/` has one per kind, plus
+     `compare`, `loop` (a 40-test markdown converter) and `launch` with their records. `install`, `deploy`
+     and `train` each have a proof script and its saved output: install and uninstall on a throwaway folder,
+     deploy as a dry run with the network switched off, and training data prepared and checked with no
+     model trained or paid for. The compare scores
+     (Claude as judge) and the launch score (Codex, blind: 5/10, weakest part the video script) come from
+     an agent that did not write the work; the rest are the writers' own advice.
+   - Stage 2 status (updated 2026-10-26, on `feat/host-mode` pushed, open as PR #85). Eleven one-goal sessions
+     ran; their work sat on separate branches (the five fix branches are now merged, see below):
+     - Proved by hand: install, deploy and train examples pass 4 of 5 claims; the README now says what each
+       check does not prove (`caababc`). The example site, the call-MCP server and both videos work
+       for real (videos play to the end, sound is present).
+     - Fixes on their own branches: record keeps each version's agent (`8953149`); the example MCP server
+       answers garbage input with -32700 (`0ace81b`); a test for `caption_style` (`cd56c24`); a fix for
+       absolute paths in record output (`992ccfe` test, `1d98d93` fix; full suite 2385 passed, 51 skipped; the install
+       help now uses a `<this-folder>` placeholder plus a new `INSTALL-HOOK.txt`; committed examples not regenerated).
+     - Other-agent repeat: Codex redid the `prompt` example, check and record pass (`5a20791`).
+     - Independent Codex score: promo 6/10, film 6/10 (the film's own score was 8). Codex saw frames and
+       text only, so voice, music and motion are still unjudged. A person must listen.
+     - `_pick_best` fix approved and built: judged ties go to the later version (`a7d8d40` on
+       `claude/stage2-pick-best-tie`; 79 passed, 4 skipped, all 14 records unchanged).
+     - `tests/test_native_build_sample.py` failed only under bare `pytest`; fixed by `pythonpath = ["src", "."]`
+       in `pyproject.toml`.
+     - Full suite on c6163dc (before any fix branch): 2385 passed, 50 skipped (all Windows limits), 0 failed,
+       0 errors; `tests/test_native_build_sample.py` left out (needs the one-line `pyproject.toml` fix).
+     - Film replaced (2026-10-26, `e494cfc`, local, not pushed): `video/final-premium.mp4` is a 48.8 s,
+       1920x1080 film with a new script and a new local voice (no paid calls); the old 30 s `final.mp4` is kept.
+       `video-record` and the Codex 6/10 score still describe the old 30 s film. Boss watched and listened to the
+       new film and accepted it as is (voice, pacing, music, visuals frozen). The 24 s launch promo is on hold.
+     - Merged locally into `feat/host-mode` (2026-10-26, nothing pushed, no conflicts): `a7d8d40`, `cd56c24`,
+       `0ace81b`, `8953149`, `992ccfe` + `1d98d93`, plus `db942a4` (`pythonpath = ["src", "."]`, so
+       `tests/test_native_build_sample.py` collects under bare `pytest`; its 5 tests pass). Not merged: the two
+       Codex branches (`5a20791` repeat, `1d1f922` scores).
+     - Full suite on c58b62f (bare `uv run pytest -q -p no:cacheprovider`, native test included): 2416 passed,
+       50 skipped, 1 deselected, 0 failed, 0 errors.
+     - "Not measured" counted as passed: fixed in the browser check (`f92bb83`, `sitecheck.py`) and the site
+       total (`c58b62f`, `make.py`). A sweep of `src/proofhouse` found no other place. Still by design: a site
+       checked without `--allow-commands` is saved as `"passed": true` and the count of checks that did not run
+       is printed with `--json` only, never saved (`host.py` `_check_rows_pass_exit`); Boss to decide.
+     - Limits audit (read only): the spend gate, most `--allow-commands` refusals and the install/deploy
+       refusals have tests that fail if the limit is removed. No such test for: the referee's per-check time
+       stop and its round/time settings; most secret-looking names (only `TOKEN` is proved removed, and the
+       build list in `app_platforms.py` lacks `DATABASE_URL` and `CONNECTION_STRING`); render video failing on
+       length, sound or frame size; `check hook` refusing without the flag; train's 1-50 epochs and same-host
+       address rule. Boss picks which get tests.
+     - Checked by the new coordinator (2026-10-26, read-only): both Codex score files judge the old 30 s
+       `film/final.mp4` (version 3) and the rebuilt 24 s promo, from 12 frames each, so they say nothing about the
+       48.8 s film; the record-paths test diff (`992ccfe`) asserts the `<this-folder>` placeholder and that no
+       machine path appears. Not re-checked: the 2409-passed suite figure, the earlier site/MCP/video proof reports.
+     - Final examples table written (`examples/host-mode/README.md`, 16 rows, from the records and READMEs; the
+       launch record's `site` part shows `failed` only because its browser check was not measured; the label
+       is fixed in `host_launch.py` (now "not measured"), and the committed README was corrected by hand, not re-recorded; a later `check launch examples/host-mode/launch --allow-commands` passed all 36 checks, browser included, and is not saved in the record).
+     - Final independent review (Opus, 2026-10-26, code diff vs main, read only): 7 findings, 4 proved by
+       failing tests. High: `record launch` deletes and overwrites folders outside `--out` through an
+       unchecked part `id` ("../x", absolute path, drive name; `host_launch.py` `_deliver_part`). Medium: a
+       drive name such as "C:" in a record's `delivered` list wipes the saved versions (`host.py`
+       `_clear_delivery`); the referee's cleaned environment is a deny list, so names like `GH_PAT` and
+       `POSTGRES_URL` reach the check and are not redacted (builds use an allow list); the browser
+       "no JavaScript errors" check passes when the browser never loaded the page (`sitecheck.py`); `record`
+       prints nothing and returns 0 when the recorded version failed. Low: empty `facts` and empty shared
+       names count as passed in launch checks; `compare` labels "a:b" and "a/b" save to the same file.
+       The four proved findings are fixed, each with its failing test (`c0e5ec7` launch part ids, `394318c`
+       referee allow list, `1efb23f` browser that exits with an error is "not measured", `e8535a7` only
+       direct children of `--out` are cleared). Full suite after the fixes: 2421 passed, 50 skipped,
+       1 deselected. The other three are fixed too, each with its failing test (`c8c907e` `record` says so and
+       exits 1 when the version failed its checks, `0e09c4e` empty facts, avoid words and text-less shared
+       names are not a pass, `bd8ba27` compare labels that clean to one name get their own file). Full suite
+       after all seven: 2425 passed, 50 skipped, 1 deselected.
+     - Not done: merging PR #85, Stage 3, re-recording and re-scoring the 48.8 s film.
+     - Known issues, only logged: the desktop browser check on the example site can time out (it now reports
+       "not measured", not PASS); `mcp-record` has two copies of the old MCP server; Edge width; delegate
+       run-ID collision.
+   - Then, on host mode: limit tests for the limits Boss picks from the audit above.
 
 ## Known limits
 

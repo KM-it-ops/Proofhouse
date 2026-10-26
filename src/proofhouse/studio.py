@@ -158,7 +158,19 @@ def shot_command(source: Path, kind: str, seconds: int, size: tuple[int, int], o
             "-c:v", "libx264", "-preset", "veryfast", "-an", str(out)]
 
 
-def final_command(joined: Path, voice: Path | None, music: Path | None, total: int, captions: bool, out: Path) -> list[str]:
+def caption_style(size: tuple[int, int]) -> str:
+    """Caption style sized from the short side of the frame, so tall formats do not get oversized text.
+
+    Captions are laid out on a 288-line grid that is stretched to the frame height, so sizes are given on that grid.
+    """
+    w, h = size
+    grid = 288 / h
+    short = min(w, h)
+    return f"Fontsize={round(short * 0.07 * grid, 1)},Outline={max(1.5, round(short * 0.006 * grid, 1))},Shadow=1,MarginV=40"
+
+
+def final_command(joined: Path, voice: Path | None, music: Path | None, total: int, captions: bool, out: Path,
+                  size: tuple[int, int] = (1920, 1080)) -> list[str]:
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(joined)]
     inputs = []
     if voice:
@@ -169,7 +181,7 @@ def final_command(joined: Path, voice: Path | None, music: Path | None, total: i
         inputs.append("music")
     graph = []
     if captions:
-        graph.append("[0:v]subtitles=captions.srt:force_style='Fontsize=22,Outline=2,Shadow=1,MarginV=40'[v]")
+        graph.append(f"[0:v]subtitles=captions.srt:force_style='{caption_style(size)}'[v]")
     labels = []
     for index, name in enumerate(inputs, start=1):
         level = "1.0" if name == "voice" else ("0.25" if voice else "0.8")
@@ -296,6 +308,34 @@ def produce(
         _write_record(production, brief)
         return production
 
+    production = assemble(
+        out_dir, shots, visual_kind=visual_kind, formats=formats, size_scale=size_scale, captions=captions,
+        voice_file=production.voice_file, music_file=production.music_file, production=production,
+    )
+    production.spent_usd = budget.spent
+    _write_record(production, brief)
+    return production
+
+
+def assemble(
+    out_dir: Path,
+    shots: list[Shot],
+    *,
+    visual_kind: str,
+    formats: tuple[str, ...],
+    size_scale: float = 1.0,
+    captions: bool = True,
+    voice_file: str | None = None,
+    music_file: str | None = None,
+    production: Production | None = None,
+) -> Production:
+    """Cut shots to length, join, mix audio, burn captions, and measure each render."""
+    if production is None:
+        production = Production(out_dir)
+    else:
+        production.folder = out_dir
+    production.voice_file = voice_file
+    production.music_file = music_file
     total = sum(s.seconds for s in shots)
     (out_dir / "captions.srt").write_text(srt(shots), encoding="utf-8")
     work = out_dir / "work"
@@ -306,6 +346,8 @@ def produce(
             size = (int(w * size_scale) // 2 * 2, int(h * size_scale) // 2 * 2)
             clips = []
             for index, shot in enumerate(shots, start=1):
+                if not shot.file:
+                    raise StudioError(f"shot {index} has no file")
                 clip = work / f"{name}-shot-{index:02d}.mp4"
                 _run(shot_command(Path(shot.file), visual_kind, shot.seconds, size, clip), out_dir, production)
                 clips.append(clip)
@@ -316,7 +358,7 @@ def produce(
             final = out_dir / f"video-{name}.mp4"
             has_captions = captions and any(s.caption for s in shots)
             _run(final_command(joined, Path(production.voice_file) if production.voice_file else None,
-                               Path(production.music_file) if production.music_file else None, total, has_captions, final),
+                               Path(production.music_file) if production.music_file else None, total, has_captions, final, size),
                  out_dir, production)
             production.renders[name] = str(final)
             measured = probe(final)
@@ -334,8 +376,6 @@ def produce(
     except StudioError as exc:
         production.stopped = str(exc)
     shutil.rmtree(work, ignore_errors=True)
-    production.spent_usd = budget.spent
-    _write_record(production, brief)
     return production
 
 

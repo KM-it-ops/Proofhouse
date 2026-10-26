@@ -2,6 +2,47 @@
 
 Every way to make, run and deliver things. For a short tour, see the [README](../README.md); for the evidence trail, see [the evidence trail](evidence-trail.md). `<model>` stands for a model id from your provider.
 
+## Host mode (no API key)
+
+If you already work in Cursor, Codex, Gemini CLI, Grok CLI or Claude Code, **host mode** lets that agent write and judge with its own model while Proofhouse only checks, records and assembles—no API key, and Proofhouse itself makes no network calls on these commands. (With `--allow-commands`, Proofhouse runs the code the model wrote, and that code may use the network.)
+
+```bash
+proofhouse check site ./my-site
+proofhouse check mcp ./server --allow-commands    # starts model-written servers only when you opt in
+proofhouse record site ./my-site --out ./out --request "bakery landing" --agent cursor --score 8
+proofhouse render video ./my-video --formats 16x9,9x16,1x1
+```
+
+Install the teaching skill with `proofhouse install-skill --skill proofhouse-host` (or copy `skills/proofhouse-host/` into your agent's skills folder). Scores on `record` are the agent's own advice; a second agent as judge is better when you have one.
+
+### What the quality checks catch
+
+Host mode still checks that files exist, links work and manifests run; these extra rows catch thin or repetitive writing and weak static sites.
+
+| Check | Applies to | Passes when |
+| --- | --- | --- |
+| **length** | copy, prompt, skill/agent body, site text (from HTML) | copy has at least 25 words; prompt at least 40; skill or agent body at least 60 |
+| **filler** | same text targets | fewer than two distinct vague phrases from the built-in list; one hit is a warning in `detail` |
+| **specifics** | copy and site text | at least one digit, money amount, or capitalised name not at the start of a sentence |
+| **parts differ** | launch only | no pair of text parts (15+ words each) shares 3-word shingles with Jaccard overlap 50% or higher |
+| **contrast** | site and app | body or `:root` text/background hex pair has WCAG contrast ratio at least 4.5, or no plain pair is found |
+| **text size** | site and app | body `font-size` in px or rem is at least 16px (1rem = 16px), or no size is set |
+| **headings** | site and app | exactly one `h1` in `index.html` |
+| **image alt** | site and app | every `img` has non-empty `alt` |
+| **title** | site and app | non-empty `<title>` between 10 and 70 characters |
+
+### A second agent as judge
+
+When the same agent writes and scores, the score is only its own advice. If you have another coding agent installed (Codex, Gemini CLI, Grok CLI, Claude Code, or another), use it as an independent judge:
+
+1. Save each candidate version without agent names in the paths (blind judging).
+2. Ask the second agent to read the rubric and the files and reply with one number from 0 to 10, for example:
+   - `codex exec --skip-git-repo-check -s read-only -C <tmpdir> --output-last-message score.txt "<rubric + list of files>"`
+   - `grok -p "<rubric + list of files>" --output-format plain`
+3. Record the writer's round with `--score` (optional) and the judge's result with `--judge <name> --judge-score <0-10>` and optionally `--judge-note "one sentence"`. The judge name must differ from `--agent` (labels like `cursor` and `cursor:composer` count as the same agent).
+
+For comparing saved files, add `--judge <name>` to `proofhouse compare` with `--entry` so the side-by-side page says who gave the scores.
+
 ## Ways in
 
 | Entry | Use it when | Status | Network |
@@ -35,6 +76,16 @@ proofhouse compare "Summarise this contract in five bullet points." --input-file
 
 Every model runs the same job at the same time. You get a table (score, cost, time, why) and a side-by-side page, `side-by-side.html`, with every output in full. With `--judge`, one more model scores the outputs without seeing which model wrote which, and the best is named; that score is advice, not proof. One spending limit covers every call, the judge's included. Each call gets an equal share of it, so the total never passes it.
 
+If your coding agent already ran the job and saved each answer to a file, you can compare without calling any model:
+
+```bash
+proofhouse compare "Summarise this contract in five bullet points." \
+  --entry cursor:composer-2.5=outputs/cursor.md --entry codex=outputs/codex.md \
+  --score cursor:composer-2.5=8 --score codex=9 --note codex="shorter and clearer"
+```
+
+Give at least two `--entry LABEL=path` pairs (label is free text, for example an agent name or `provider:model`). Optional `--score` and `--note` use the same label; optional `--judge NAME` marks scores as coming from a different agent than the writers. Proofhouse copies the files, writes `side-by-side.html` and `compare.json`, and prints a small table. Scores are advice, not proof, and Proofhouse spends nothing on this path.
+
 ### Make it
 
 ```bash
@@ -65,6 +116,8 @@ proofhouse make "launch Brew, a one-tap coffee ordering app, to busy commuters" 
 A model plans the launch: which parts it needs (site, video, support agent, skill, prompt, announcement copy) and a full brief for each, with the same names, facts and tone throughout. Then each part is made by its own engine, the same one its own command uses, and judged and improved the same way. `--parts site,copy,video` picks the parts yourself. One spending limit covers the plan and every part; a part that would not fit is skipped and says so. Each part gets its own numbered folder, and `README.md` and `launch.json` sum it all up. The video part needs the video options above and FFmpeg.
 
 `--kind copy` makes announcement copy on its own: headline, body, call to action and ready-to-post versions.
+
+In **host mode**, you can also check and record a launch your agent wrote into one folder (no API key): put `launch.json` plus each part at the paths it names, run `proofhouse check launch ./LAUNCH`, then `proofhouse record launch ./LAUNCH --out ./out --request "..." --agent cursor --score 8`. Proofhouse checks every part the same way as that kind on its own, checks shared names and facts across parts, and on record delivers each part under `--out/<part-id>/`, copies `launch.json`, and writes `README.md` with a parts table and which part carried each fact.
 
 `--kind app` makes a shared web app and a separate package for every selected platform. Use repeatable `--platform` (for example `--platform pwa --platform android`); without it, every target in `app_platforms.json` is selected. The catalog ships PWA, Windows, macOS, Linux, iOS and Android targets and can be extended or overridden in `PROOFHOUSE_HOME/app_platforms.json`. Each version keeps static and build results in `checks.json`; platform builds run only with `--allow-commands`, after their setup steps (such as `npm install` and `npx cap add android`). The delivered `README.md` lists files, where the build output is, and how to build by hand. The native builds are proven on all six platforms with a fixed sample app and no model; a build of a model-written app that has not been run is marked "to check" with what is left to confirm. Signed store builds are not covered.
 
@@ -114,6 +167,18 @@ proofhouse loop "when the build breaks, find out why and write it up in BUILD-NO
 Each round, the agent sees the goal, the files in its folder, what happened in recent rounds, and the output of your check and watch commands. It reads files, writes files, and (only with `--allow-commands`) runs commands in that folder. It cannot touch anything outside the folder.
 
 The loop stops when your `--check` command passes, or when the agent says it is done. It also stops when `--rounds` or `--for` runs out, when the next call would cross the one spending limit, or when you press Ctrl-C. With `--watch` and `--every`, a look that finds nothing changed sends nothing and costs nothing. Every round is kept in `rounds.jsonl`, with `loop.json` for the totals. Provider keys are blanked out of command output before it goes anywhere.
+
+### Your agent runs the loop; Proofhouse referees
+
+When Cursor, Codex or another tool already writes and runs the work, Proofhouse does not call a model. It runs your check after each round, keeps the record, and tells you whether to stop.
+
+```bash
+proofhouse referee start "make the tests pass" --check "pytest -q" --folder ./my-app --out ./referee-run --allow-commands
+proofhouse referee round ./referee-run --summary "fixed the failing test" --allow-commands
+proofhouse referee status ./referee-run
+```
+
+`referee round` exits `0` when the check passes, `10` when you should keep going, and `11` when the round or time limit is up without a pass. The check needs `--allow-commands` on `start` and every `round`. The record folder must be new or empty and separate from the work folder. The check sees only a short list of basic system variables (such as PATH, TEMP and HOME), never one whose name looks like a key, token, secret or password, and its whole process tree is stopped on timeout. The record is a plain-file log, not tamper-proof: it refuses a changed check command, but the agent being refereed can still edit the folder, so treat it as a record to read, not a signed proof.
 
 ### Train a model on your data
 

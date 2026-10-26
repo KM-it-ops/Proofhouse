@@ -1,0 +1,40 @@
+{
+  "agent": "cursor",
+  "best_version": 3,
+  "delivered": [
+    "launch.json",
+    "site",
+    "announce",
+    "support",
+    "release-notes",
+    "promo",
+    "README.md"
+  ],
+  "judge": "codex",
+  "judge_note": "Scored by codex, a different agent from the writer (cursor); still advice, not proof.",
+  "judge_score": 5,
+  "kind": "launch",
+  "proofhouse_version": "0.10.0",
+  "request": "Multi-part host launch for fictional Tidewatch offline tide app",
+  "rounds": [
+    {
+      "passed": true,
+      "score": 6,
+      "version": 1
+    },
+    {
+      "passed": true,
+      "score": 7,
+      "version": 2
+    },
+    {
+      "judge": "codex",
+      "judge_note": "Blind read of the five text parts; weakest is the video script, which repeats claims over title cards without showing the app in use.",
+      "judge_score": 5,
+      "passed": true,
+      "score": null,
+      "version": 3
+    }
+  ],
+  "schema": "proofhouse.host/v1"
+}

@@ -389,14 +389,14 @@ def _try_site(text: str, version_dir: Path) -> tuple[str, str]:
         names, checks = [], [{"check": "site written", "ok": False, "detail": str(exc)}]
     (version_dir).mkdir(parents=True, exist_ok=True)
     (version_dir / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
-    failed = [c for c in checks if c["ok"] is False]
+    passed = sum(c["ok"] is True for c in checks)
     summary = "\n".join(f"- {'PASS' if c['ok'] else ('NOT MEASURED' if c['ok'] is None else 'FAIL')}: {c['check']} {c['detail']}".rstrip()
                         for c in checks)
     index = ""
     if (version_dir / "site" / "index.html").is_file():
         index = (version_dir / "site" / "index.html").read_text(encoding="utf-8")[:8000]
     subject = f"FILES: {', '.join(names) or 'none'}\n\nindex.html:\n{index}\n\nCHECKS RUN ON THE SITE:\n{summary}"
-    return f"{len(checks) - len(failed)} of {len(checks)} checks passed", subject
+    return f"{passed} of {len(checks)} checks passed", subject
 
 
 def _try_app(
@@ -563,7 +563,7 @@ def _deliver_new_kind(folder: Path, kind: str, text: str, request: str, version:
             return
         line = make_checks.install_line(name, command, args, folder / kind)
         if line is not None:
-            (folder / "INSTALL-MCP.txt").write_text(line + "\n", encoding="utf-8")
+            (folder / "INSTALL-MCP.txt").write_text(make_checks.install_text(line), encoding="utf-8")
     else:
         event, command, matcher = data.get("event"), data.get("command"), data.get("matcher")
         if not isinstance(event, str) or not isinstance(command, str):
@@ -571,6 +571,9 @@ def _deliver_new_kind(folder: Path, kind: str, text: str, request: str, version:
         snippet = make_checks.settings_snippet(event, matcher if isinstance(matcher, str) else None, command, folder / kind)
         if snippet is not None:
             (folder / "settings-snippet.json").write_text(json.dumps(snippet, indent=2) + "\n", encoding="utf-8")
+            note = make_checks.snippet_note(snippet)
+            if note:
+                (folder / "INSTALL-HOOK.txt").write_text(note, encoding="utf-8")
 
 
 def _deliver(folder: Path, kind: str, text: str) -> None:

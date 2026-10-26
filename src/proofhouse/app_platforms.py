@@ -124,6 +124,11 @@ def _validate_entry(entry: dict[str, Any], where: str) -> None:
         raise ValueError(f"{where}: {entry['id']} has invalid host_os")
 
 
+def read_shipped() -> list[dict[str, Any]]:
+    """Only the platforms that ship with Proofhouse, so a person's own list cannot change what a check means."""
+    return _read(SHIPPED)
+
+
 def all_platforms() -> dict[str, dict[str, Any]]:
     """Shipped platforms, then yours, then other add-on packs. A learned platform is used only when the id is still free."""
     from . import learn_catalog

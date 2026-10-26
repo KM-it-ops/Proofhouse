@@ -1,0 +1,6 @@
+{
+  "name": "unit-desk",
+  "command": "python",
+  "args": ["server.py"],
+  "files": ["server.py", "README.md"]
+}

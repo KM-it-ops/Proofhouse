@@ -1,0 +1,88 @@
+throwaway target: <target>  (2 files before)
+  before  649d2fb5f49e  project/.mcp.json
+  before  bc9489debfb1  project/CLAUDE.md
+
+== INSTALL ==
+
+$ proofhouse hosts list
+claude     Claude Code    agent (user+project), rule (user+project), mcp (project)
+cursor     Cursor         rule (project), mcp (user+project)
+codex      Codex          rule (user+project), mcp (user)
+grok-bot   Grok Bot       -
+           xAI's cloud teammate (available since 2026-08-11). It works on its own cloud computer and keeps no settings on your machine; connect tools to it as connectors in Grok.
+
+Add any other tool in <target>\ph-home\hosts.json (same shape as the shipped list).
+[exit 0]
+
+$ proofhouse install agent release-notes-writer.md --into claude --project <target>
+installed agent release-notes-writer into Claude Code: <target>\project\.claude\agents\release-notes-writer.md
+[exit 0]
+
+$ proofhouse install rule safe-database-migrations.md --into claude --project <target>
+installed rule safe-database-migrations into Claude Code: <target>\project\CLAUDE.md
+[exit 0]
+
+$ proofhouse install rule safe-database-migrations.md --into cursor --project <target>
+installed rule safe-database-migrations into Cursor: <target>\project\.cursor\rules\safe-database-migrations.mdc
+[exit 0]
+
+$ proofhouse install mcp unit-desk --into claude --project <target> --command python --arg tools/unit-desk/server.py
+installed mcp unit-desk into Claude Code: <target>\project\.mcp.json
+[exit 0]
+
+$ proofhouse install agent release-notes-writer.md --into claude --project <target>
+<target>\project\.claude\agents\release-notes-writer.md already holds this agent; nothing changed
+[exit 0]
+  PASS: installing the same agent twice changes nothing
+  PASS: .claude/agents/release-notes-writer.md exists
+  PASS: .cursor/rules/safe-database-migrations.mdc exists
+  PASS: CLAUDE.md holds the rule block and still holds the user's own lines
+  PASS: the MCP entry was added next to the user's own server
+
+== DOES THE INSTALLED THING WORK? ==
+  server tools: ['convert_units', 'days_between']; days_between 2026-10-25 -> 2026-11-15 = {"content": [{"type": "text", "text": "{\"days\": 21, \"start\": \"2026-10-25\", \"end\": \"2026-11-15\"}"}], "isError":
+  PASS: the MCP server started from the installed config answers tools/list and tools/call
+  PASS: the installed agent has the frontmatter Claude Code reads
+
+what install added or changed:
+  new      ph-home/install-backups/claude-mcp-unit-desk-20261025-214601-660847.json
+  new      ph-home/install-backups/claude-rule-safe-database-migrations-20261025-214557-359591.md
+  new      ph-home/installs/claude-agent-release-notes-writer-f66a94d0d4d4.json
+  new      ph-home/installs/claude-mcp-unit-desk-ead89c19f986.json
+  new      ph-home/installs/claude-rule-safe-database-migrations-24b58f2b2f88.json
+  new      ph-home/installs/cursor-rule-safe-database-migrations-76bb969d40d1.json
+  new      project/.claude/agents/release-notes-writer.md
+  new      project/.cursor/rules/safe-database-migrations.mdc
+  changed  project/.mcp.json
+  changed  project/CLAUDE.md
+
+== UNINSTALL ==
+
+$ proofhouse uninstall agent release-notes-writer --from claude --project <target>
+error: <target>\project\.claude\agents\release-notes-writer.md changed since Proofhouse wrote it; use --force to remove it anyway
+[exit 2]
+  PASS: an agent edited since install is not removed without --force
+
+$ proofhouse uninstall agent release-notes-writer --from claude --project <target> --force
+removed agent release-notes-writer from Claude Code: <target>\project\.claude\agents\release-notes-writer.md
+[exit 0]
+
+$ proofhouse uninstall rule safe-database-migrations --from claude --project <target>
+removed rule safe-database-migrations from Claude Code: <target>\project\CLAUDE.md
+[exit 0]
+
+$ proofhouse uninstall rule safe-database-migrations --from cursor --project <target>
+removed rule safe-database-migrations from Cursor: <target>\project\.cursor\rules\safe-database-migrations.mdc
+[exit 0]
+
+$ proofhouse uninstall mcp unit-desk --from claude --project <target>
+removed mcp unit-desk from Claude Code: <target>\project\.mcp.json
+[exit 0]
+  PASS: no install records are left
+  PASS: every file is byte-for-byte what it was before the install: nothing added, nothing left
+  empty folders left behind (no files inside): ['project/.claude', 'project/.cursor']
+  backup copies kept in the Proofhouse home: 2
+
+throwaway target removed: True
+
+RESULT: all checks passed

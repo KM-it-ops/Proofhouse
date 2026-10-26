@@ -263,6 +263,13 @@
               "schema": {
                 "additionalProperties": false,
                 "properties": {
+                  "entry": {
+                    "description": "A saved output file; repeat for each agent or model, for example --entry cursor:composer-2.5=out.md.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "input": {
                     "description": "Input text; the job then becomes the system message.",
                     "type": "string"
@@ -272,7 +279,7 @@
                     "type": "string"
                   },
                   "job": {
-                    "description": "The prompt to run on every model.",
+                    "description": "The prompt to run on every model, or the job title when using --entry.",
                     "type": "string"
                   },
                   "json": {
@@ -290,6 +297,13 @@
                   "max-output-tokens": {
                     "type": "integer"
                   },
+                  "note": {
+                    "description": "Optional note for this output.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "on": {
                     "description": "A model to run it on; repeat for each, for example --on groq:llama-3.3-70b-versatile --on ollama:llama3.",
                     "items": {
@@ -300,11 +314,17 @@
                   "out": {
                     "description": "Folder for the results (default: compare-<job>-<time> here).",
                     "type": "string"
+                  },
+                  "score": {
+                    "description": "Optional score the agent gave this output.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   }
                 },
                 "required": [
-                  "job",
-                  "on"
+                  "job"
                 ],
                 "type": "object"
               }
@@ -1631,6 +1651,7 @@
     "addons",
     "assay",
     "case",
+    "check",
     "closed-loop",
     "closed-loop-bridged-008",
     "compare",
@@ -1660,6 +1681,9 @@
     "parts",
     "proof",
     "providers",
+    "record",
+    "referee",
+    "render",
     "route",
     "run",
     "scan",
@@ -1692,6 +1716,7 @@
   "x-local-only": [
     "addons",
     "case",
+    "check",
     "demo",
     "deploy",
     "eval",
@@ -1703,6 +1728,9 @@
     "optimize",
     "parts",
     "providers",
+    "record",
+    "referee",
+    "render",
     "scan",
     "uninstall",
     "uninstall-skill"
