@@ -178,7 +178,7 @@ proofhouse referee round ./referee-run --summary "fixed the failing test" --allo
 proofhouse referee status ./referee-run
 ```
 
-`referee round` exits `0` when the check passes, `10` when you should keep going, and `11` when the round or time limit is up without a pass. The check needs `--allow-commands` on `start` and every `round`. The record folder must be new or empty and separate from the work folder. The check runs without any variable whose name looks like a key, token, secret or password, and its whole process tree is stopped on timeout. The record is a plain-file log, not tamper-proof: it refuses a changed check command, but the agent being refereed can still edit the folder, so treat it as a record to read, not a signed proof.
+`referee round` exits `0` when the check passes, `10` when you should keep going, and `11` when the round or time limit is up without a pass. The check needs `--allow-commands` on `start` and every `round`. The record folder must be new or empty and separate from the work folder. The check sees only a short list of basic system variables (such as PATH, TEMP and HOME), never one whose name looks like a key, token, secret or password, and its whole process tree is stopped on timeout. The record is a plain-file log, not tamper-proof: it refuses a changed check command, but the agent being refereed can still edit the folder, so treat it as a record to read, not a signed proof.
 
 ### Train a model on your data
 
