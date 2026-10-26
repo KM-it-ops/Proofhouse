@@ -122,6 +122,33 @@ def test_a_paid_video_needs_one_limit_and_ffmpeg_formats_are_checked(tmp_path: P
                        max_cost_usd="1", out_dir=tmp_path / "b")
 
 
+def test_caption_size_follows_the_short_side_of_each_format_on_the_288_line_grid() -> None:
+    assert studio.caption_style(studio.FORMATS["16x9"]) == "Fontsize=20.2,Outline=1.7,Shadow=1,MarginV=40"
+    assert studio.caption_style(studio.FORMATS["1x1"]) == "Fontsize=20.2,Outline=1.7,Shadow=1,MarginV=40"
+    # tall frame: same short side, but the 288-line grid is stretched over 1920 lines, so the text is smaller on the grid
+    assert studio.caption_style(studio.FORMATS["9x16"]) == "Fontsize=11.3,Outline=1.5,Shadow=1,MarginV=40"
+
+
+def test_caption_size_depends_on_the_frame_and_the_outline_never_goes_below_its_floor() -> None:
+    def fields(size: tuple[int, int]) -> dict[str, str]:
+        return dict(part.split("=") for part in studio.caption_style(size).split(","))
+
+    tall, wide, small = fields((1080, 1920)), fields((1920, 1080)), fields((192, 108))
+    assert float(tall["Fontsize"]) < float(wide["Fontsize"])
+    assert small["Fontsize"] == wide["Fontsize"]  # a scaled render keeps the same text size on the grid
+    assert float(tall["Outline"]) == 1.5
+
+
+def test_the_final_render_command_uses_the_caption_style_of_its_own_frame() -> None:
+    wide = studio.final_command(Path("j.mp4"), None, None, 6, True, Path("o.mp4"), (1920, 1080))
+    tall = studio.final_command(Path("j.mp4"), None, None, 6, True, Path("o.mp4"), (1080, 1920))
+    default = studio.final_command(Path("j.mp4"), None, None, 6, True, Path("o.mp4"))
+    assert f"force_style='{studio.caption_style((1920, 1080))}'" in wide[wide.index("-filter_complex") + 1]
+    assert f"force_style='{studio.caption_style((1080, 1920))}'" in tall[tall.index("-filter_complex") + 1]
+    assert default == wide
+    assert "-filter_complex" not in studio.final_command(Path("j.mp4"), None, None, 6, False, Path("o.mp4"))
+
+
 def test_the_plan_is_stretched_to_the_asked_length_and_captions_are_timed() -> None:
     title, voiceover, music, shots = studio.plan_from({"shots": [{"seconds": 2, "visual": "a", "caption": "one"},
                                                                 {"seconds": 2, "visual": "b", "caption": "two"}]}, 20)
