@@ -156,7 +156,7 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      (Claude as judge) and the launch score (Codex, blind: 5/10, weakest part the video script) come from
      an agent that did not write the work; the rest are the writers' own advice.
    - Stage 2 status (2026-10-25, on `feat/host-mode` at c6163dc, nothing pushed). Eleven one-goal sessions
-     ran; their work sits on separate branches that are NOT merged yet:
+     ran; their work sat on separate branches (the five fix branches are now merged, see below):
      - Proved by hand: install, deploy and train examples pass 4 of 5 claims (the README wording does not
        yet say what each check does not prove). The example site, the call-MCP server and both videos work
        for real (videos play to the end, sound is present).
@@ -168,16 +168,22 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      - Independent Codex score: promo 6/10, film 6/10 (the film's own score was 8). Codex saw frames and
        text only, so voice, music and motion are still unjudged. A person must listen.
      - `_pick_best` fix approved and built: judged ties go to the later version (`a7d8d40` on
-       `claude/stage2-pick-best-tie`, unmerged; 79 passed, 4 skipped, all 14 records unchanged).
-     - Waiting on Boss: `tests/test_native_build_sample.py` fails only under bare `pytest`; fix is
-       `pythonpath = ["src", "."]` in `pyproject.toml`.
+       `claude/stage2-pick-best-tie`; 79 passed, 4 skipped, all 14 records unchanged).
+     - `tests/test_native_build_sample.py` failed only under bare `pytest`; fixed by `pythonpath = ["src", "."]`
+       in `pyproject.toml`.
      - Full suite on c6163dc (before any fix branch): 2385 passed, 50 skipped (all Windows limits), 0 failed,
        0 errors; `tests/test_native_build_sample.py` left out (needs the one-line `pyproject.toml` fix).
      - Film replaced (2026-10-26, `e494cfc`, local, not pushed): `video/final-premium.mp4` is a 48.8 s,
        1920x1080 film with a new script and a new local voice (no paid calls); the old 30 s `final.mp4` is kept.
        `video-record` and the Codex 6/10 score still describe the old 30 s film. Boss watched and listened to the
        new film and accepted it as is (voice, pacing, music, visuals frozen). The 24 s launch promo is on hold.
-     - Not done: the final README table, Stage 3, a full-suite run after the fix branches are merged.
+     - Merged locally into `feat/host-mode` (2026-10-26, nothing pushed, no conflicts): `a7d8d40`, `cd56c24`,
+       `0ace81b`, `8953149`, `992ccfe` + `1d98d93`, plus `db942a4` (`pythonpath = ["src", "."]`, so
+       `tests/test_native_build_sample.py` collects under bare `pytest`; its 5 tests pass). Not merged: the two
+       Codex branches (`5a20791` repeat, `1d1f922` scores).
+     - Full suite on the merged branch (bare `uv run --no-sync pytest`, native test included): 2409 passed,
+       50 skipped, 1 deselected, 0 failed, 0 errors (7 min 10 s).
+     - Not done: the final README table, Stage 3, re-recording and re-scoring the 48.8 s film.
      - Known issues, only logged: the desktop browser check on the example site times out and still prints
        PASS; `mcp-record` has two copies of the old MCP server; Edge width; delegate run-ID collision.
    - Then, on host mode: limit tests.
