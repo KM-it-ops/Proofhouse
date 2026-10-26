@@ -6,7 +6,7 @@
 
 | id | kind | path | check |
 | --- | --- | --- | --- |
-| site | site | site | failed |
+| site | site | site | not measured |
 | announce | copy | announcement/copy.md | passed |
 | support | skill | support-skill | passed |
 | release-notes | prompt | prompt/prompt.md | passed |
