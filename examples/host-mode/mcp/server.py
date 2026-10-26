@@ -303,8 +303,10 @@ def main() -> None:
         try:
             request = json.loads(line)
         except json.JSONDecodeError:
+            rpc_error(None, -32700, "Parse error")
             continue
         if not isinstance(request, dict):
+            rpc_error(None, -32600, "Invalid Request")
             continue
         try:
             dispatch(request)
