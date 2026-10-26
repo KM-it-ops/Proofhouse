@@ -375,12 +375,14 @@ def _part_text_for_readme(kind: str, path: Path) -> str:
     return _collect_part_text(kind, path)
 
 
-def _part_passed(checks: list[dict[str, Any]], part_id: str) -> bool:
+def _part_status(checks: list[dict[str, Any]], part_id: str) -> str:
     prefix = f"part {part_id}:"
     part_rows = [row for row in checks if str(row.get("check", "")).startswith(prefix)]
-    if not part_rows:
-        return False
-    return all(row.get("ok") is not False for row in part_rows) and not any(row.get("ok") is None for row in part_rows)
+    if not part_rows or any(row.get("ok") is False for row in part_rows):
+        return "failed"
+    if any(row.get("ok") is None for row in part_rows):
+        return "not measured"
+    return "passed"
 
 
 def _fact_carriers(data: dict[str, Any], folder: Path) -> dict[str, list[str]]:
@@ -442,8 +444,7 @@ def write_launch_readme(
             part_id = str(raw.get("id", ""))
             kind = str(raw.get("kind", ""))
             path_name = str(raw.get("path", ""))
-            status = "passed" if _part_passed(checks, part_id) else "failed"
-            lines.append(f"| {part_id} | {kind} | {path_name} | {status} |")
+            lines.append(f"| {part_id} | {kind} | {path_name} | {_part_status(checks, part_id)} |")
     lines.extend(["", "## Shared names", ""])
     shared = data.get("shared_names")
     if isinstance(shared, list):

@@ -213,6 +213,37 @@ def test_record_launch_delivers_parts_readme_and_best_score(tmp_path: Path, monk
     assert (out / "v1").is_dir() and (out / "v2").is_dir()
 
 
+def _part_status_rows(tmp_path: Path, checks: list[dict[str, object]]) -> dict[str, str]:
+    from proofhouse.host_launch import write_launch_readme
+
+    data = {"name": "Brew", "goal": "g", "parts": [{"id": "site", "kind": "site", "path": "site"}]}
+    readme = tmp_path / "README.md"
+    write_launch_readme(readme, data, tmp_path, checks, agent="cursor", score=None)
+    rows = [line.split("|") for line in readme.read_text(encoding="utf-8").splitlines() if line.startswith("| site |")]
+    return {"site": rows[0][4].strip()}
+
+
+def test_launch_readme_says_not_measured_when_only_a_check_was_not_run(tmp_path: Path) -> None:
+    checks: list[dict[str, object]] = [
+        {"check": "part site: title", "ok": True},
+        {"check": "part site: opened in a browser", "ok": None},
+    ]
+    assert _part_status_rows(tmp_path, checks)["site"] == "not measured"
+
+
+def test_launch_readme_says_failed_when_a_check_failed_even_if_another_was_not_run(tmp_path: Path) -> None:
+    checks: list[dict[str, object]] = [
+        {"check": "part site: title", "ok": False},
+        {"check": "part site: opened in a browser", "ok": None},
+    ]
+    assert _part_status_rows(tmp_path, checks)["site"] == "failed"
+
+
+def test_launch_readme_says_passed_when_every_check_passed(tmp_path: Path) -> None:
+    checks: list[dict[str, object]] = [{"check": "part site: title", "ok": True}]
+    assert _part_status_rows(tmp_path, checks)["site"] == "passed"
+
+
 def test_record_launch_refuses_out_inside_launch(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     launch = write_launch(tmp_path / "LAUNCH")
     assert cli.main([

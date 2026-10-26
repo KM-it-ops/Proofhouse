@@ -21,7 +21,7 @@ How to read the table:
 | `record site` | `site/`, `site-record/` | Cursor | none (own 9/10) | Record check passed; the page was opened and works | $0 |
 | `record app` | `app/`, `app-record/` | Cursor | none (own 9/10) | Record check passed; not run by hand | $0 |
 | `record` + `render video` | `video/`, `video-record/` | Claude Code | none (own 8/10, for the 30 s film) | Both films play to the end with sound. `final.mp4` is 30 s; `final-premium.mp4` is 48.8 s. The record and its score describe the 30 s film | $0 paid. Two clips came from Gemini's free allowance |
-| `record launch` | `launch/`, `launch-record/` | Cursor | Codex 5/10 (read the text parts only) | Record check passed, but its `site` part shows `failed` in the README; not investigated | $0 paid. Same two Gemini clips |
+| `record launch` | `launch/`, `launch-record/` | Cursor | Codex 5/10 (read the text parts only) | Record check passed. Its README shows the `site` part as `failed`; that was a mislabel for "browser check not measured" (fixed in the code, README not regenerated) | $0 paid. Same two Gemini clips |
 | `compare` | `compare/` | Codex, Grok, Cursor | Claude | Words counted by script; scores are one agent's advice | $0 |
 | `referee` (loop) | `loop/` | Cursor | the 40 tests | Finished in 7 of 20 rounds; the check exits 0 | $0 |
 | `install` / `uninstall` | `install/`, `install-record/` | Claude | Codex 7/10 | `prove.py` passed every check on a throwaway folder | $0 |
