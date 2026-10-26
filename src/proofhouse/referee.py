@@ -188,6 +188,8 @@ def start_referee(
         raise RefereeError("--check is required")
     if max_rounds < 1:
         raise RefereeError("--rounds must be at least 1")
+    if max_seconds is not None and max_seconds <= 0:
+        raise RefereeError("--for must be longer than 0")
     if command_timeout < 1:
         raise RefereeError("--command-timeout must be at least 1 second")
     secrets = _secret_values()

@@ -50,6 +50,6 @@ Delivered output lands under `--out` (site copy, skill folder, `final.md` for pr
 
 - `--out` must be a new or empty folder (or one a previous `record` made), and must not hold or sit inside the thing you record.
 - Folders may not contain symbolic or hard links.
-- A check that did not run (no `--allow-commands`, no browser found, a browser that got stuck) is shown as `NOT MEASURED` and never counts as passed. `check` and `record` then exit 3: nothing failed, but it is not a pass. `record` still saves that version as "not measured" and delivers it only if no version has passed. Exit 0 means every check ran and passed; exit 1 means something failed.
+- A check that did not run (no `--allow-commands`, no browser found, a browser that got stuck) is shown as `NOT MEASURED` and never counts as passed. `check` and `record` then exit 3: nothing failed, but it is not a pass. An MCP server or hook that was not started is a refusal instead (exit 1), because nothing about it was checked. `record` still saves that version as "not measured" and delivers it only if no version has passed. Exit 0 means every check ran and passed; exit 1 means something failed. `render video` also exits 1 when a finished file has the wrong length, frame size or sound; it still saves `studio.json` with the failed rows.
 - An MCP or hook needs `--allow-commands` before its check can run, and a site needs it to be opened in a browser.
 - Video shots are pictures or clips (png, jpg, webp, gif, bmp, mp4, webm, mov, mkv); voice and music are wav, mp3, m4a, aac, ogg, flac or opus.

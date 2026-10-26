@@ -31,7 +31,7 @@ _ID = re.compile(r"[a-z0-9][a-z0-9._-]*")
 _FILE = re.compile(r"[A-Za-z0-9._/-]+")
 _NPM_NAME = re.compile(r"(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*")
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_()]*")
-_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|AUTH", re.IGNORECASE)
+_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTH", re.IGNORECASE)
 # The build's home and temp folders point inside its folder and PATH is the machine's own; platform data may not change them.
 _CONTAINED = {"HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "TEMP", "TMP", "TMPDIR", "PATH"}
 

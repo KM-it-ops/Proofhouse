@@ -73,7 +73,7 @@ def _cmd_render_video(args: argparse.Namespace) -> int:
     if not formats:
         return _fail("name at least one format")
     code = host.run_render_video(args.folder, formats=formats, size_scale=args.size_scale)
-    return EXIT_OK if code == 0 else EXIT_USAGE
+    return code if code in (EXIT_OK, 1) else EXIT_USAGE
 
 
 def add_host_commands(subparsers: argparse._SubParsersAction) -> None:

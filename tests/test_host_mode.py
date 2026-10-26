@@ -143,6 +143,18 @@ def test_check_hook_runs_it_on_the_sample_event(tmp_path: Path, capsys: pytest.C
     assert "PASS" in capsys.readouterr().out
 
 
+def test_check_hook_without_allow_commands_refuses_and_does_not_run_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    folder = hook(tmp_path / "h")
+    (folder / "hook.py").write_text("open('ran.txt', 'w').write('yes')\n" + HOOK, encoding="utf-8")
+    assert cli.main(["check", "hook", str(folder), "--json"]) == 1
+    rows = json.loads(capsys.readouterr().out)
+    assert not (folder / "ran.txt").exists()
+    assert any(row["ok"] is None for row in rows)
+    assert all(row["ok"] is not False for row in rows)
+
+
 def test_check_hook_rejects_an_unknown_event(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     folder = hook(tmp_path / "h")
     manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
@@ -733,6 +745,22 @@ def test_check_site_needs_an_entry_page(tmp_path: Path, capsys: pytest.CaptureFi
     empty.mkdir()
     assert cli.main(["check", "site", str(empty)]) == 2
     assert "index.html" in capsys.readouterr().err
+
+
+@needs_ffmpeg
+@pytest.mark.parametrize("wrong, check", [({"seconds": 9.0}, "length"), ({"width": 64, "height": 64}, "frame size"),
+                                          ({"audio": False}, "sound")])
+def test_render_video_fails_when_the_finished_file_is_wrong(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                            capsys: pytest.CaptureFixture[str],
+                                                            wrong: dict[str, object], check: str) -> None:
+    folder = video_folder(tmp_path)
+    real_probe = studio.probe
+    monkeypatch.setattr(studio, "probe", lambda path: {**real_probe(path), **wrong})
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 1
+    assert check in capsys.readouterr().err
+    record = json.loads((folder / "studio.json").read_text(encoding="utf-8"))
+    rows = [row for row in record["checks"] if row["check"] == check]
+    assert rows and rows[0]["ok"] is False
 
 
 @needs_ffmpeg

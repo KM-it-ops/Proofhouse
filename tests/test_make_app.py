@@ -184,7 +184,7 @@ def test_build_gets_named_tool_locations_but_not_other_variables(tmp_path: Path,
 
 
 @pytest.mark.parametrize("field", ["env", "home_env"])
-@pytest.mark.parametrize("name", ["OPENAI_API_KEY", "GITHUB_TOKEN", "DB_PASSWORD", "MY_SECRET"])
+@pytest.mark.parametrize("name", ["OPENAI_API_KEY", "GITHUB_TOKEN", "DB_PASSWORD", "MY_SECRET", "DATABASE_URL", "CONNECTION_STRING", "AWS_CREDENTIALS", "BASIC_AUTH", "SMTP_PASSWD"])
 def test_secret_looking_variables_cannot_be_passed_to_builds(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, name: str, field: str) -> None:
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
     _platform_file(tmp_path, _python_entry({"command": ["python", "x.py"], field: [name] if field == "env" else {name: ".tool"}}))

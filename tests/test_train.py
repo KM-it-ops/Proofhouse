@@ -159,3 +159,26 @@ def test_the_gate_itself_refuses_a_job_over_the_ceiling(data: Path, monkeypatch:
         ceiling_usd="100", send=lambda url, body: sent.append(url),
     )
     assert admitted.admission.decision == "admitted" and sent == ["https://api.openai.com/v1/fine_tuning/jobs"]
+
+
+@pytest.mark.parametrize("epochs", [0, 51, -1, 2.0, "3", True, None])
+def test_epochs_outside_1_to_50_are_refused_before_any_request(data: Path, epochs: object) -> None:
+    params = {"file_id": "f", "epochs": epochs, "data_files": [str(data / "train.jsonl")]}
+    with pytest.raises(train.TrainError, match="1 to 50"):
+        train.build_job_request(train.find("openai"), "m", params)
+
+
+@pytest.mark.parametrize("epochs", [1, 50])
+def test_epochs_at_the_edges_are_accepted(data: Path, epochs: int) -> None:
+    params = {"file_id": "f", "epochs": epochs, "data_files": [str(data / "train.jsonl")]}
+    assert train.build_job_request(train.find("openai"), "m", params)[2] == epochs
+
+
+@pytest.mark.parametrize("model", ["@evil.example", ".evil.example", ":1@evil.example"])
+def test_a_model_name_cannot_move_the_job_to_another_host(data: Path, model: str) -> None:
+    service = train._parse({"id": "x", "base_url": "https://api.x.ai", "upload": {"path": "/f", "id": "id"},
+                            "create": {"path": "{model}/jobs", "body": {"model": "{model}", "n": "{epochs}"}},
+                            "status": {"path": "/jobs/{job_id}", "field": "status", "done": ["ok"]}}, "yours")
+    params = {"file_id": "f", "epochs": 3, "data_files": [str(data / "train.jsonl")]}
+    with pytest.raises(train.TrainError, match="leaves the service's host"):
+        train.build_job_request(service, model, params)

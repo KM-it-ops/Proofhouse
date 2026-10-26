@@ -766,4 +766,7 @@ def run_render_video(
     production.spent_usd = Decimal(0)
     production.calls = []
     studio._write_record(production, production.title or "host video")
-    return 0
+    failed = [row for row in production.checks if row.get("ok") is not True]
+    for row in failed:
+        _print_error(f"{row.get('render')}: {row.get('check')} failed ({row.get('detail')})")
+    return 1 if failed else 0
