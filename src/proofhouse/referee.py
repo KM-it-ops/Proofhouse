@@ -31,6 +31,12 @@ class RefereeError(Exception):
     """A referee command cannot run; the message says why."""
 
 _SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTH", re.IGNORECASE)
+# The check sees only these variables, so a secret under any name (GH_PAT, POSTGRES_URL, ...) stays out.
+_CHECK_ENV_KEYS = ("PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "COMSPEC", "TEMP", "TMP", "TMPDIR",
+                   "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA",
+                   "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "COMMONPROGRAMFILES", "NUMBER_OF_PROCESSORS",
+                   "PROCESSOR_ARCHITECTURE", "OS", "USERNAME", "USER", "LOGNAME", "SHELL", "TERM", "LANG", "LC_ALL",
+                   "LC_CTYPE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME")
 
 
 def _secret_values() -> list[str]:
@@ -49,7 +55,8 @@ def _kill_tree(proc: subprocess.Popen[str]) -> None:
 
 
 def _run_check(command: str, cwd: Path, timeout: int) -> dict[str, Any]:
-    env = {k: v for k, v in os.environ.items() if not _SECRET_NAME.search(k)}
+    wanted = {name.upper() for name in _CHECK_ENV_KEYS}
+    env = {k: v for k, v in os.environ.items() if k.upper() in wanted and not _SECRET_NAME.search(k)}
     env["PYTHONDONTWRITEBYTECODE"] = "1"
     try:
         proc = subprocess.Popen(command, shell=True, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,

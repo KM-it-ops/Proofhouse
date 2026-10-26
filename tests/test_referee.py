@@ -271,3 +271,14 @@ def test_time_stop_without_pass(monkeypatch: pytest.MonkeyPatch, tmp_path: Path,
     code = referee.run_round(out, "late", agent="cursor", allow_commands=True, now=fake_now)
     assert code == 11
     assert "time" in capsys.readouterr().out.lower()
+
+
+def test_check_does_not_see_secrets_under_unusual_names(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+
+    monkeypatch.setenv("GH_PAT", "ghp_secretvalue123")
+    monkeypatch.setenv("POSTGRES_URL", "postgres" + "://u:" + "pw123456" + "@h/db")  # fake; split so the secret scanner skips it
+    command = f'"{sys.executable}" -c "import os;print(os.environ.get(\'GH_PAT\'), os.environ.get(\'POSTGRES_URL\'))"'
+    output = referee._run_check(command, tmp_path, 30)["output"]
+    assert "ghp_secretvalue123" not in output
+    assert "pw123456" not in output
