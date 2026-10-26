@@ -212,9 +212,11 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
        The four proved findings are fixed, each with its failing test (`c0e5ec7` launch part ids, `394318c`
        referee allow list, `1efb23f` browser that exits with an error is "not measured", `e8535a7` only
        direct children of `--out` are cleared). Full suite after the fixes: 2421 passed, 50 skipped,
-       1 deselected. The other three findings are not fixed yet.
-     - Not done: the three unproved review findings, pushing the branch, Stage 3, re-recording and re-scoring the
-       48.8 s film.
+       1 deselected. The other three are fixed too, each with its failing test (`c8c907e` `record` says so and
+       exits 1 when the version failed its checks, `0e09c4e` empty facts, avoid words and text-less shared
+       names are not a pass, `bd8ba27` compare labels that clean to one name get their own file). Full suite
+       after all seven: 2425 passed, 50 skipped, 1 deselected.
+     - Not done: pushing the branch, Stage 3, re-recording and re-scoring the 48.8 s film.
      - Known issues, only logged: the desktop browser check on the example site can time out (it now reports
        "not measured", not PASS); `mcp-record` has two copies of the old MCP server; Edge width; delegate
        run-ID collision.
