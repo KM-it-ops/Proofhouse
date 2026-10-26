@@ -554,7 +554,13 @@ def run_record(
     not_run = sum(1 for row in checks if row.get("ok") is None)
     if as_json:
         print(json.dumps({"version": version, "checks_not_run": not_run, "passed": passed, "best_version": best_version}))
-    return 0
+    if passed:
+        return 0
+    # The version is kept, but a caller that trusts the exit code must not read this as a success.
+    if not as_json:
+        best = f"v{best_version} is still the delivered one" if best_version is not None else "no version has passed yet"
+        print(f"v{version} saved, but it failed its checks; {best} (see {record_path})")
+    return 1
 
 
 def _check_target(out: Path, kind: str, version: int, source: Path) -> Path:

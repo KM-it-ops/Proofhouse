@@ -57,7 +57,11 @@ def _cmd_record(args: argparse.Namespace) -> int:
         allow_commands=args.allow_commands,
         as_json=args.json,
     )
-    return EXIT_OK if code == 0 else EXIT_USAGE
+    if code == 0:
+        return EXIT_OK
+    if code == 2:
+        return EXIT_USAGE
+    return 1
 
 
 def _cmd_render_video(args: argparse.Namespace) -> int:

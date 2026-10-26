@@ -260,7 +260,7 @@ def test_an_old_record_without_per_version_agents_keeps_its_agent(tmp_path: Path
 
 def test_a_version_that_fails_its_checks_never_beats_one_that_passes(tmp_path: Path) -> None:
     # A failing version is still kept (every version is kept), but it can never be the delivered one.
-    assert record(tmp_path, "site", site(tmp_path / "bad", BROKEN), "--score", "9") == 0
+    assert record(tmp_path, "site", site(tmp_path / "bad", BROKEN), "--score", "9") == 1
     assert (tmp_path / "out" / "v1" / "site" / "index.html").is_file()
     assert saved(tmp_path)["best_version"] is None
     assert not (tmp_path / "out" / "site").exists()
@@ -589,7 +589,7 @@ def test_record_refuses_an_out_folder_that_holds_or_sits_inside_the_source(tmp_p
 
 
 def test_record_does_not_call_an_unrun_check_a_pass(tmp_path: Path) -> None:
-    assert record(tmp_path, "mcp", mcp(tmp_path / "m")) == 0
+    assert record(tmp_path, "mcp", mcp(tmp_path / "m")) == 1
     out = tmp_path / "out"
     saved_record = json.loads((out / "record.json").read_text(encoding="utf-8"))
     assert saved_record["best_version"] is None and saved_record["rounds"][0]["passed"] is False
@@ -667,7 +667,7 @@ def test_a_delivered_skill_carries_its_support_files(tmp_path: Path) -> None:
 
 def test_record_refuses_to_mix_kinds_in_one_out_folder(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     prompt = tmp_path / "p.md"
-    prompt.write_text(_long_prompt("Say hello."), encoding="utf-8")
+    prompt.write_text(_long_prompt("You are a support agent."), encoding="utf-8")
     assert record(tmp_path, "prompt", prompt, "--score", "9") == 0
     skill = tmp_path / "s"
     skill.mkdir()
@@ -784,7 +784,7 @@ def test_check_app_needs_an_entry_page(tmp_path: Path, capsys: pytest.CaptureFix
 
 
 def test_record_app_keeps_every_version_and_delivers_the_best_app(tmp_path: Path) -> None:
-    assert record(tmp_path, "app", pwa(tmp_path / "a1", worker=False), "--score", "9") == 0
+    assert record(tmp_path, "app", pwa(tmp_path / "a1", worker=False), "--score", "9") == 1
     assert saved(tmp_path)["best_version"] is None
     assert record(tmp_path, "app", pwa(tmp_path / "a2"), "--score", "7") == 0
     out = tmp_path / "out"
@@ -827,7 +827,7 @@ def test_record_copy_delivers_final_md_and_keeps_versions(tmp_path: Path, monkey
     first, second = tmp_path / "c1.md", tmp_path / "c2.md"
     first.write_text(_long_copy().replace("\n", " TODO better headline.\n"), encoding="utf-8")
     second.write_text("# Bread by 5 AM\n" + _long_copy(), encoding="utf-8")
-    assert record(tmp_path, "copy", first, "--score", "9") == 0
+    assert record(tmp_path, "copy", first, "--score", "9") == 1
     assert saved(tmp_path)["best_version"] is None and not (tmp_path / "out" / "final.md").exists()
     assert record(tmp_path, "copy", second, "--score", "7") == 0
     assert (tmp_path / "out" / "final.md").read_text(encoding="utf-8") == second.read_text(encoding="utf-8")
@@ -858,3 +858,11 @@ def test_check_site_browser_that_exits_with_an_error_is_not_a_pass(tmp_path: Pat
     assert "no JavaScript errors in the browser" not in rows
     assert rows["opened in a browser"]["ok"] is None
     assert "code 2" in rows["opened in a browser"]["detail"]
+
+
+def test_record_says_so_and_exits_1_when_the_version_failed_its_checks(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    assert record(tmp_path, "site", site(tmp_path / "bad", BROKEN), "--score", "9") == 1
+    assert "failed its checks" in capsys.readouterr().out
+    assert saved(tmp_path)["rounds"][0]["passed"] is False  # the failed version is still recorded
