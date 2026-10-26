@@ -200,8 +200,18 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      - Final examples table written (`examples/host-mode/README.md`, 16 rows, from the records and READMEs; the
        launch record's `site` part shows `failed` only because its browser check was not measured; the label
        is fixed in `host_launch.py` (now "not measured"), and the committed README was corrected by hand, not re-recorded; a later `check launch examples/host-mode/launch --allow-commands` passed all 36 checks, browser included, and is not saved in the record).
-     - Not done: the final independent review of the branch, pushing it, Stage 3, re-recording and
-       re-scoring the 48.8 s film.
+     - Final independent review (Opus, 2026-10-26, code diff vs main, read only): 7 findings, 4 proved by
+       failing tests. High: `record launch` deletes and overwrites folders outside `--out` through an
+       unchecked part `id` ("../x", absolute path, drive name; `host_launch.py` `_deliver_part`). Medium: a
+       drive name such as "C:" in a record's `delivered` list wipes the saved versions (`host.py`
+       `_clear_delivery`); the referee's cleaned environment is a deny list, so names like `GH_PAT` and
+       `POSTGRES_URL` reach the check and are not redacted (builds use an allow list); the browser
+       "no JavaScript errors" check passes when the browser never loaded the page (`sitecheck.py`); `record`
+       prints nothing and returns 0 when the recorded version failed. Low: empty `facts` and empty shared
+       names count as passed in launch checks; `compare` labels "a:b" and "a/b" save to the same file.
+       Not fixed yet.
+     - Not done: fixing the review findings, pushing the branch, Stage 3, re-recording and re-scoring the
+       48.8 s film.
      - Known issues, only logged: the desktop browser check on the example site can time out (it now reports
        "not measured", not PASS); `mcp-record` has two copies of the old MCP server; Edge width; delegate
        run-ID collision.
