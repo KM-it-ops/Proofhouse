@@ -106,7 +106,7 @@ expect("only 4 examples" in text, "too few examples gives a warning")
 print("\n== NO MODEL IS TRAINED OR PAID FOR ==")
 os.chdir(home)  # train start leaves a record folder in the current folder, so run it in the throwaway one
 code, text = run("train", "start", "--service", "openai", "--model", "gpt-4.1-mini", "--data", str(ROOT / HERE / "data"))
-expect(code != 0 and "OPENAI_API_KEY" in text, "train start without a key and a spending limit is refused")
+expect(code != 0 and "OPENAI_API_KEY" in text, "train start without an OPENAI_API_KEY is refused")
 record = next(Path(home).glob("train-openai-*/train.json"))
 refusal = json.loads(record.read_text(encoding="utf-8"))
 print("refusal record:", json.dumps({k: refusal[k] for k in ("status", "job_id", "trained_model", "message")}))

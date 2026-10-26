@@ -7,3 +7,9 @@ uv run --no-sync python examples/host-mode/train/prove.py
 ```
 
 No model is trained and nothing is paid for. Twenty examples is a demonstration, not enough for a useful fine-tune.
+
+## What this does not prove
+
+- The refusal shown is the missing-key one only. The spending-limit refusal is not exercised here.
+- No fine-tune job was started, so nothing shows that training works or that the result would be any good.
+- The 20 tickets are invented, so the data says nothing about real support traffic.

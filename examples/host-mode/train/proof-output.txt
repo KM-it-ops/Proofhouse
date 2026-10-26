@@ -69,7 +69,7 @@ $ proofhouse train start --service openai --model gpt-4.1-mini --data <repo>\exa
 PHC-RUN-0003: set OPENAI_API_KEY to your OpenAI fine-tuning key
 record: <home>\train-openai-20261025-220631/train.json
 [exit 7]
-  PASS: train start without a key and a spending limit is refused
+  PASS: train start without an OPENAI_API_KEY is refused
 refusal record: {"status": "refused", "job_id": null, "trained_model": null, "message": "PHC-RUN-0003: set OPENAI_API_KEY to your OpenAI fine-tuning key"}
   PASS: the record says refused: no job, no trained model
 data prepared is plain files in examples/host-mode/train/data: ['data.json', 'train.jsonl', 'valid.jsonl']

@@ -6,4 +6,6 @@
 uv run --no-sync python examples/host-mode/install/prove.py
 ```
 
+What this does not prove: the installed files were never loaded by Claude Code or Cursor themselves, and the checks cover only this one agent, rule and MCP server on a throwaway folder (not other tools, other projects or other systems).
+
 Known weakness shown in the output: uninstall leaves empty `.claude` and `.cursor` folders, and keeps two backup copies in the Proofhouse home.
