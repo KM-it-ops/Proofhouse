@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- `proofhouse make` no longer reports a site, app, rule, MCP server or hook as made when the model's reply could not be written. Before, a high judge score on such a version printed "made" with a path to files that did not exist; now that version is never picked, and the result line says how many checks the chosen version passed.
+
 ## 0.10.0 - 2026-10-27
 
 ### Added

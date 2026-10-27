@@ -257,7 +257,9 @@ def _cmd_make(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps(summary, sort_keys=True))
     else:
-        best = f"version {made.best_version} (judge score {made.best_score}/10)" if made.best_version else "nothing usable"
+        checked = next((r.test_output for r in made.rounds if r.version == made.best_version), None)             if made.kind in make.CHECKED_KINDS else None
+        score = f"judge score {made.best_score}/10" + (f"; {checked}" if checked else "")
+        best = f"version {made.best_version} ({score})" if made.best_version else "nothing usable"
         if made.learned is not None:
             from . import learn
 
