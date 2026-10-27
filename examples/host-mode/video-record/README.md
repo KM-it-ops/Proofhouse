@@ -24,3 +24,7 @@
 - Agent: claude-code
 - Score: n/a
 - Judge: codex (7/10)
+
+## Not kept in the repo
+
+The finished MP4 (about 4 MB) is left out to keep the repo small; the seven shot clips, voice, music, captions and `build_premium.py` are here. Rebuilding needs the launch promo's generated clips and app frames named in `build_shots.py`, which are not tracked.
