@@ -944,3 +944,32 @@ def test_record_says_so_and_exits_1_when_the_version_failed_its_checks(
     assert record(tmp_path, "site", site(tmp_path / "bad", BROKEN), "--score", "9") == 1
     assert "failed its checks" in capsys.readouterr().out
     assert saved(tmp_path)["rounds"][0]["passed"] is False  # the failed version is still recorded
+
+
+def _png(width: int, height: int) -> bytes:
+    signature = bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+    return signature + (13).to_bytes(4, "big") + b"IHDR" + width.to_bytes(4, "big") + height.to_bytes(4, "big") + bytes(5)
+
+
+@pytest.mark.parametrize(("phone_width", "expected"), [(390, True), (500, None)])
+def test_check_site_screenshot_at_the_wrong_width_is_not_measured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phone_width: int, expected: bool | None,
+) -> None:
+    """Some browsers keep a minimum window width, so a 'phone' shot can come out wider than a phone."""
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "msedge.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+
+    def shoot(command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+        out = Path(next(part for part in command if part.startswith("--screenshot=")).split("=", 1)[1])
+        out.write_bytes(_png(1440, 900) if "--window-size=1440,900" in command else _png(phone_width, 844))
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(sitecheck, "_open", shoot)
+    rows = sitecheck.check_site(site(tmp_path / "s"), shots=tmp_path / "shots")
+    row = next(c for c in rows if c["check"] == "screenshots at desktop and phone width")
+    assert row["ok"] is expected
+    if expected is None:
+        assert "phone" in row["detail"] and "500" in row["detail"] and "390" in row["detail"]
