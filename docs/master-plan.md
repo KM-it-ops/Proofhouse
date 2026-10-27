@@ -120,7 +120,7 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    provider key, so a person who only has an AI app or a monthly plan (Cursor, Codex, Gemini CLI, Grok CLI,
    Claude Code) cannot use it. In host mode the AI app they already use is the writer and the judge, using its
    own model, and Proofhouse is the referee, the assembler and the recorder. No key, no setup beyond
-   installing the package and one skill. Planned for 0.10.0.
+   installing the package and one skill. Version 0.10.0 is prepared in the package and not published.
    - `proofhouse check <kind> <folder>` runs the same real-world checks `make` runs (site opened like a
      visitor; MCP server answers `initialize` and `tools/list`; hook run on a sample event; rule installed and
      removed on every tool; skill and agent files accepted by the installers) and prints pass or fail.
@@ -155,8 +155,8 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      model trained or paid for. The compare scores
      (Claude as judge) and the launch score (Codex, blind: 5/10, weakest part the video script) come from
      an agent that did not write the work; the rest are the writers' own advice.
-   - Stage 2 status (updated 2026-10-26, on `feat/host-mode` pushed, open as PR #85). Eleven one-goal sessions
-     ran; their work sat on separate branches (the five fix branches are now merged, see below):
+   - Stage 2 status (updated 2026-10-26; PR #85 is merged, see below). Eleven one-goal sessions
+     ran; their work sat on separate branches (the fix branches are now merged, see below):
      - Proved by hand: install, deploy and train examples pass 4 of 5 claims; the README now says what each
        check does not prove (`caababc`). The example site, the call-MCP server and both videos work
        for real (videos play to the end, sound is present).
@@ -186,13 +186,13 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      - "Not measured" counted as passed: fixed in the browser check (`f92bb83`, `sitecheck.py`) and the site
        total (`c58b62f`, `make.py`). A sweep of `src/proofhouse` found no other place. Still by design: a site
        checked without `--allow-commands` is saved as `"passed": true` and the count of checks that did not run
-       is printed with `--json` only, never saved (`host.py` `_check_rows_pass_exit`); Boss to decide.
+       is printed with `--json` only (`host.py` `_check_rows_pass_exit`). This was settled later: such checks are now saved as "not measured" (`7fce0a9`, below).
      - Limits audit (read only): the spend gate, most `--allow-commands` refusals and the install/deploy
        refusals have tests that fail if the limit is removed. No such test for: the referee's per-check time
        stop and its round/time settings; most secret-looking names (only `TOKEN` is proved removed, and the
        build list in `app_platforms.py` lacks `DATABASE_URL` and `CONNECTION_STRING`); render video failing on
        length, sound or frame size; `check hook` refusing without the flag; train's 1-50 epochs and same-host
-       address rule. Boss picks which get tests.
+       address rule. Boss chose all of them; they are done (`02f74b3`, below).
      - Checked by the new coordinator (2026-10-26, read-only): both Codex score files judge the old 30 s
        `film/final.mp4` (version 3) and the rebuilt 24 s promo, from 12 frames each, so they say nothing about the
        48.8 s film; the record-paths test diff (`992ccfe`) asserts the `<this-folder>` placeholder and that no
@@ -246,6 +246,21 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      broke, what held and what each cost, are in [stage3/hard-cases.md](stage3/hard-cases.md). Every real
      break is fixed with its failing test first.
      - Status: DONE. 78 cases across all 39 commands: 78 held, 0 broke, $0 spent. The first run broke 18; 9 were real defects, now fixed test-first (4e04676, d338472, d530ff4), 9 were wrong expectations. Findings in [stage3/findings.md](stage3/findings.md). Independent end review (Codex) done; its fixes are in the same findings file.
+
+## What is left (updated 2026-10-27)
+
+All build steps above are done. Branch `feat/finish-master-plan` holds 15 commits that are not pushed and
+not yet a pull request. What is left is the owner's call, not new building:
+
+1. Push `feat/finish-master-plan`, open the pull request and merge it to `main`.
+2. Publish 0.10.0 (version set and CHANGELOG written; not tagged, not on PyPI).
+3. U5: a fresh user tries the reference workflow (completion criterion 6). No agent can do this.
+4. Put the finished 48.8 s film MP4 back in the repo, or keep it out (kept out today to save space).
+5. The zod alert waits on Remotion, which pins zod at exactly 4.5.4.
+6. Known issues, only logged: the desktop browser check on the example site can time out (it reports
+   "not measured"); Edge width; delegate run-ID collision.
+7. Not yet judged: the sound and motion of the example videos (Codex saw frames and text only), and the
+   Codex finding that the example MCP server accepts a wrong JSON-RPC version.
 
 ## Known limits
 
