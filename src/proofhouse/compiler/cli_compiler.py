@@ -702,7 +702,13 @@ def _cmd_execute_openai(args: argparse.Namespace) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="proofhouse-compiler", description="Proofhouse Compiler Core v0.1")
+    from proofhouse import __version__
+
+    parser = argparse.ArgumentParser(
+        prog="proofhouse",
+        description="Say what you want, pick any model; Proofhouse makes it, runs it, improves it and keeps every version.",
+    )
+    parser.add_argument("--version", action="version", version=f"proofhouse {__version__}")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     p_validate = subparsers.add_parser("validate", help="Validate a Proofhouse IR document.")
