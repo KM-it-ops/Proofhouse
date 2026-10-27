@@ -65,7 +65,7 @@ Fixed, each with a failing test first (`tests/test_stage3_runner.py`, `tests/tes
 - The film example imported `build_shots`, which was missing. It is back in `film/` and `v4/video/`.
 
 Not changed:
-- `train-2` cannot reach a real upload (no price, bad data), so its "nothing uploaded" line is matched text only. The upload boundary itself is covered by the mocked unit test in `tests/test_train.py`. Reaching a real upload would need a paid call, which this stage does not make.
+- `train-2` cannot reach a real upload (no price, bad data), so its "nothing uploaded" line is matched text only. The upload boundary itself is covered by the mocked unit test in `tests/test_train.py`. Reaching a real upload would need a paid call, which this stage does not make. Boss accepted this gap on 2026-10-26: no live check with a real key.
 - The finished film MP4 stays out of the repo. That was chosen earlier to keep the repo small and is now written in the example's README. Putting it back is Boss's call.
 - `compare` says "file not found" for a directory given as an output file. It is clear enough and does not crash.
 
