@@ -206,6 +206,18 @@ def _run(*, cli: list[str], workspace: str | None, quiet: bool) -> None:
         f"reference workflow: OK in {elapsed:.1f}s -- v1 FAIL {failed_v1}, v2 PASS with "
         f"{len(v2['constraints'])} constraints satisfied; export/import reproduced; workspace {root}"
     )
+    print(
+        "\nOpen the results again any time:\n"
+        f"  report:  {root / 'report.md'}\n"
+        f"  proofhouse case status --case {_arg(case)}\n"
+        f"  proofhouse case check --case {_arg(case)}"
+    )
+
+
+def _arg(path: Path) -> str:
+    """A path the user can paste back into a shell: quoted only when it contains a space."""
+    text = str(path)
+    return f'"{text}"' if " " in text else text
 
 
 def main(argv: list[str] | None = None) -> int:

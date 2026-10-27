@@ -8,6 +8,8 @@ Run it in one go after install:
 proofhouse demo                # recorded outputs, no model call
 ```
 
+It ends by printing the workspace folder, the path to `report.md`, and two commands that reopen the case later: `proofhouse case status --case <folder>/advisory-case` shows where the case stands, and `proofhouse case check --case <folder>/advisory-case` checks it again.
+
 From a clone:
 
 ```bash
