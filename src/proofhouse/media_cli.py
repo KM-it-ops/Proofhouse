@@ -112,6 +112,8 @@ def _cmd_generate(args: argparse.Namespace) -> int:
     if args.voice:
         params["voice"] = args.voice
     if args.seconds is not None:
+        if args.seconds < 1:
+            return _fail("--seconds must be a whole number of seconds, 1 or more")
         params["seconds"] = args.seconds
     out = Path(args.out) if args.out else Path.cwd() / f"{args.kind}-{date.today().isoformat()}"
     research = None

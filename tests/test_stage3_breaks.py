@@ -119,3 +119,16 @@ def test_training_with_a_negative_epoch_count_is_refused_before_anything_is_uplo
         assert result.status == "refused", epochs
         assert "epoch" in result.message
     assert uploads == []
+
+
+def test_generate_refuses_a_length_of_zero_or_less_before_any_paid_request(home: Path, monkeypatch, capsys) -> None:
+    from proofhouse import cli, media
+
+    monkeypatch.setenv("REPLICATE_API_TOKEN", "fake-test-value")
+    monkeypatch.setattr(media, "generate", lambda *a, **k: (_ for _ in ()).throw(AssertionError("a paid request must not start")))
+    for seconds in ("-3", "0"):
+        code = cli.main(["generate", "video", "--provider", "replicate", "--model", "m", "--prompt", "moon",
+                         "--seconds", seconds, "--out", str(home / "clip.mp4"), "--max-cost-usd", "5"])
+        err = capsys.readouterr().err
+        assert code == 2, seconds
+        assert "seconds" in err
