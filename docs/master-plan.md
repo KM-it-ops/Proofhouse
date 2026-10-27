@@ -234,10 +234,11 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
          steps are unclear); `video-record` version 4 is the 48.8 s film, unchanged (Codex 7/10 from 16
          frames, the script and loudness; it cannot hear sound).
        - Housekeeping: merged worktrees removed (one locked folder, `.claude/worktrees/ok-none-sweep-266dd5`,
-         could not be deleted while in use). The zod alert stays open: Remotion pins zod at exactly 4.5.4,
-         so it waits on Remotion.
-     - Known issues, only logged: the desktop browser check on the example site can time out (it reports
-       "not measured", not PASS); Edge width; delegate run-ID collision.
+         could not be deleted while in use). The zod alert is closed: an npm override forces zod 4.6.6
+         under Remotion, and the film re-renders with it (`2ce7084`).
+     - Known issues, closed 2026-10-27: the desktop browser timeout no longer reproduces and reports
+       "not measured" if it does; a screenshot at the wrong width (the Edge issue) is now "not measured",
+       not passed (`61d1056`); the delegate run-ID collision is in the delegate tool, not Proofhouse.
    - **Stage 3, hard cases.** Two creative, hard cases for every one of the 39 `proofhouse` commands: the
      unusual but realistic use most likely to break each one (odd paths and names, empty, huge or wrong
      files, conflicting flags, bad numbers, repeat runs, half-finished earlier runs). The runner itself
@@ -249,18 +250,20 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
 
 ## What is left (updated 2026-10-27)
 
-All build steps above are done. Branch `feat/finish-master-plan` holds 15 commits that are not pushed and
-not yet a pull request. What is left is the owner's call, not new building:
+All build steps above are done, and the gaps between "works" and "ready to hand out" found on 2026-10-27
+are fixed test-first: `proofhouse --version`, help that names `proofhouse`, the demo's reopen lines and
+measured run time, the MCP example's JSON-RPC check and install steps, the wrong-width screenshot, the
+film record pointing at the tracked MP4, zod forced to 4.6.6, and the full 0.10.0 CHANGELOG.
 
-1. Push `feat/finish-master-plan`, open the pull request and merge it to `main`.
-2. Publish 0.10.0 (version set and CHANGELOG written; not tagged, not on PyPI).
-3. U5: a fresh user tries the reference workflow (completion criterion 6). No agent can do this.
-4. Put the finished 48.8 s film MP4 back in the repo, or keep it out (kept out today to save space).
-5. The zod alert waits on Remotion, which pins zod at exactly 4.5.4.
-6. Known issues, only logged: the desktop browser check on the example site can time out (it reports
-   "not measured"); Edge width; delegate run-ID collision.
-7. Not yet judged: the sound and motion of the example videos (Codex saw frames and text only), and the
-   Codex finding that the example MCP server accepts a wrong JSON-RPC version.
+1. Pull request #86 is held until the end: full suite, CI on all three systems and one independent review,
+   then the owner's word to push and merge.
+2. After it merges (owner's standing go-ahead): tag v0.10.0, make the GitHub release, publish to TestPyPI
+   and check it, then publish to PyPI and check it.
+3. U5: a fresh user tries the reference workflow (completion criterion 6). No agent can do this; it waits
+   on the owner's tester, with the wheel rebuilt in `dist-tester/`.
+
+Settled: the owner judged the example videos' sound and motion fine; the train-2 upload gap is accepted
+with no live key; the film MP4 stays out of the repo and the record points at `../video/final-premium.mp4`.
 
 ## Known limits
 
