@@ -447,6 +447,8 @@ def start(
         return TrainResult("refused", "PHC-RUN-0002", f"PHC-RUN-0002: {make_checks.NOT_ALLOWED}", service_id, model)
     if not model:
         return TrainResult("refused", "PHC-RUN-0002", "PHC-RUN-0002: name the base model to train", profile.id, model)
+    if type(epochs) is not int or not 1 <= epochs <= 50:  # before the cost is worked out: a negative count would price as free
+        return TrainResult("refused", "PHC-RUN-0002", "PHC-RUN-0002: epochs must be a whole number from 1 to 50; nothing was uploaded", profile.id, model)
     try:
         train_file, valid_file = _data_files(data)
         examples = read_examples(train_file)

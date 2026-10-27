@@ -94,3 +94,28 @@ def test_models_show_prints_a_name_the_console_cannot_encode(home: Path, monkeyp
     code = cli_compiler.main(["models", "show", "unknown-☃"])
     narrow.flush()
     assert code in (0, 2)
+
+
+def test_training_with_a_negative_epoch_count_is_refused_before_anything_is_uploaded(home: Path, monkeypatch) -> None:
+    from proofhouse import cli, train
+
+    monkeypatch.setenv("OPENAI_API_KEY", "fake-test-value")
+    pairs = home / "pairs.jsonl"
+    pairs.write_text("".join(json.dumps({"input": f"q{i}", "output": f"a{i}"}) + "\n" for i in range(30)), encoding="utf-8")
+    train.build_dataset(pairs, home / "data")
+    assert cli.main(["train", "price", "openai", "base-model", "--usd-per-million", "25"]) == 0
+    uploads: list[str] = []
+
+    def upload(url, headers, fields, file_field, file_name, content):
+        uploads.append(file_name)
+        return train.TrainResponse(200, {"id": "file-1"})
+
+    def create(request):
+        raise AssertionError("a job must not be created")
+
+    for epochs in (-2, 0, 51):
+        result = train.start("openai", "base-model", home / "data", epochs=epochs, max_cost_usd="1000",
+                             out_dir=home / f"rec{epochs}", transport=create, upload=upload, poll_every=0)
+        assert result.status == "refused", epochs
+        assert "epoch" in result.message
+    assert uploads == []
