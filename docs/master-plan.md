@@ -216,11 +216,36 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
        exits 1 when the version failed its checks, `0e09c4e` empty facts, avoid words and text-less shared
        names are not a pass, `bd8ba27` compare labels that clean to one name get their own file). Full suite
        after all seven: 2425 passed, 50 skipped, 1 deselected.
-     - Not done: merging PR #85, Stage 3, re-recording and re-scoring the 48.8 s film.
-     - Known issues, only logged: the desktop browser check on the example site can time out (it now reports
-       "not measured", not PASS); `mcp-record` has two copies of the old MCP server; Edge width; delegate
-       run-ID collision.
-   - Then, on host mode: limit tests for the limits Boss picks from the audit above.
+     - PR #85 merged into `main` (`a99773a`). The rest of Stage 2 is on `feat/finish-master-plan`
+       (local, not pushed):
+       - Checks that did not run are saved as "not measured", never as passed; `check` and `record` exit 3
+         when nothing failed but something was not measured (`7fce0a9`).
+       - The Codex repeat of the `prompt` example is merged (`e4ead31`); the branch with its scores
+         (`1d1f922`) is left unmerged on purpose.
+       - Limit tests, all of them (`02f74b3`): referee rounds, time and per-check timeout; build secret
+         names; render video finished-file checks; hooks and MCP servers not started without
+         `--allow-commands`; train epochs and model names that try to leave the service's host. Each
+         limit was removed once by a script and a test caught every removal. Three real bugs found and
+         fixed: `render video` returned 0 when the finished file had the wrong length, size or sound; the
+         referee accepted `--for 0`; the build's secret-name list missed `DATABASE_URL` and
+         `CONNECTION_STRING`.
+       - Re-recorded with a score from an agent that did not write them (`62d13fc`): `mcp-record` version 3
+         is the current server (Codex ran it: 7/10; it accepts a wrong JSON-RPC version and the install
+         steps are unclear); `video-record` version 4 is the 48.8 s film, unchanged (Codex 7/10 from 16
+         frames, the script and loudness; it cannot hear sound).
+       - Housekeeping: merged worktrees removed (one locked folder, `.claude/worktrees/ok-none-sweep-266dd5`,
+         could not be deleted while in use). The zod alert stays open: Remotion pins zod at exactly 4.5.4,
+         so it waits on Remotion.
+     - Known issues, only logged: the desktop browser check on the example site can time out (it reports
+       "not measured", not PASS); Edge width; delegate run-ID collision.
+   - **Stage 3, hard cases.** Two creative, hard cases for every one of the 39 `proofhouse` commands: the
+     unusual but realistic use most likely to break each one (odd paths and names, empty, huge or wrong
+     files, conflicting flags, bad numbers, escapes out of a folder, repeat runs, half-finished earlier
+     runs). Each case states what should happen before it runs. They run offline with no keys and no
+     money, each in its own throwaway folder (`scripts/stage3_hard_cases.py`). The results, with what
+     broke, what held and what each cost, are in [stage3/hard-cases.md](stage3/hard-cases.md). Every real
+     break is fixed with its failing test first.
+     - Status: DONE. 78 cases across all 39 commands: 78 held, 0 broke, $0 spent. The first run broke 18; 9 were real defects, now fixed test-first (4e04676, d338472, d530ff4), 9 were wrong expectations. Findings in [stage3/findings.md](stage3/findings.md). Independent end review of the whole diff against main still to run.
 
 ## Known limits
 
