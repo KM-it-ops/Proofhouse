@@ -345,8 +345,10 @@ def make(
     except _Stop as stop:
         result.stopped = str(stop)
 
-    scored = [r for r in result.rounds if r.score is not None]
-    best = max(scored, key=lambda r: (r.score, r.version)) if scored else (result.rounds[-1] if result.rounds else None)
+    # A version whose reply could not be written is never the one made, whatever the judge scored it.
+    usable = [r for r in result.rounds if _written(folder, kind, r.version)]
+    scored = [r for r in usable if r.score is not None]
+    best = max(scored, key=lambda r: (r.score, r.version)) if scored else (usable[-1] if usable else None)
     if best is not None:
         result.best_version, result.best_score = best.version, best.score
         if kind == "app":
@@ -378,6 +380,20 @@ def _site_files(text: str) -> dict[str, str]:
     if not isinstance(files, dict) or not all(isinstance(v, str) for v in files.values()):
         raise sitecheck.SiteError("the model did not return the site as JSON files")
     return files
+
+
+CHECKED_KINDS = ("site", "app", "rule", "mcp", "hook")
+
+
+def _written(folder: Path, kind: str, version: int) -> bool:
+    """False when this version's checks say the model's reply could not be written at all."""
+    if kind not in CHECKED_KINDS:
+        return True
+    try:
+        checks: list[dict[str, Any]] = json.loads((folder / f"v{version}" / "checks.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return not any(c.get("ok") is False and c.get("check") in (f"{kind} written", "site written") for c in checks)
 
 
 def _try_site(text: str, version_dir: Path) -> tuple[str, str]:

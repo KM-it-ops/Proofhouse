@@ -8,11 +8,12 @@ from pathlib import Path
 
 import pytest
 
-from proofhouse import live, make, make_checks
+from proofhouse import cli, live, make, make_checks
+from proofhouse.live_cli import EXIT_REFUSED
 
 
 class ScriptedModel:
-    def __init__(self, replies: list[dict[str, object]], scores: list[int] | None = None) -> None:
+    def __init__(self, replies: list[dict[str, object] | str], scores: list[int] | None = None) -> None:
         self.replies = list(replies)
         self.scores = list(scores or [9] * len(replies))
         self.judged: list[str] = []
@@ -23,7 +24,8 @@ class ScriptedModel:
             self.judged.append(prompt)
             content = json.dumps({"score": self.scores.pop(0), "missing": [], "fix": "fix checks"})
         else:
-            content = json.dumps(self.replies.pop(0))
+            reply = self.replies.pop(0)
+            content = reply if isinstance(reply, str) else json.dumps(reply)
         return live.Response(200, {"choices": [{"message": {"content": content}}],
                                    "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
 
@@ -265,3 +267,35 @@ def test_mcp_with_one_broken_tool_fails(tmp_path: Path) -> None:
 def test_settings_snippet_refuses_unknown_events(tmp_path: Path) -> None:
     assert make_checks.settings_snippet("NotAnEvent", None, "python hook.py", tmp_path) is None
     assert make_checks.settings_snippet("Stop", None, "python hook.py", tmp_path) is not None
+
+
+def test_unwritten_mcp_is_not_reported_as_made(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    # A local model returned prose instead of the JSON spec: the judge still scored it 8, but nothing was written.
+    monkeypatch.setattr(live, "_httpx_post", ScriptedModel(["Here is your server: it returns the time."], [8]))
+    code = cli.main(["make", "an MCP server that returns the time", "--kind", "mcp", "--provider", "ollama",
+                     "--model", "m", "--rounds", "1", "--out", str(tmp_path / "out")])
+    out = capsys.readouterr().out
+    assert checks(tmp_path / "out")[0] == {"check": "mcp written", "ok": False,
+                                            "detail": checks(tmp_path / "out")[0]["detail"]}
+    assert code == EXIT_REFUSED
+    assert "made: nothing usable" in out and "server:" not in out
+    assert not (tmp_path / "out" / "mcp").exists() and not (tmp_path / "out" / "INSTALL-MCP.txt").exists()
+    record = json.loads((tmp_path / "out" / "record.json").read_text(encoding="utf-8"))
+    assert record["best_version"] is None
+
+
+def test_best_version_is_one_that_was_written(tmp_path: Path) -> None:
+    model = ScriptedModel([{"name": "tiny-server", "command": "python", "args": ["server.py"], "files": {"server.py": SERVER}},
+                           "not json at all"], [5, 9])
+    result = make.make("a useful mcp", provider_id="ollama", model="m", kind="mcp", rounds=2, target=10,
+                       out_dir=tmp_path / "out", transport=model, allow_commands=True)
+    assert result.best_version == 1 and result.best_score == 5
+    assert (tmp_path / "out" / "mcp" / "server.py").is_file()
+
+
+def test_made_line_says_how_many_checks_passed(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    monkeypatch.setattr(live, "_httpx_post", ScriptedModel(
+        [{"name": "tiny-server", "command": "python", "args": ["server.py"], "files": {"server.py": SERVER}}]))
+    code = cli.main(["make", "a useful mcp", "--kind", "mcp", "--provider", "ollama", "--model", "m", "--rounds", "1",
+                     "--allow-commands", "--out", str(tmp_path / "out")])
+    assert code == 0 and "made: version 1 (judge score 9/10; 1 of 1 checks passed)" in capsys.readouterr().out
