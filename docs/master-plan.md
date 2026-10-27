@@ -255,9 +255,9 @@ are fixed test-first: `proofhouse --version`, help that names `proofhouse`, the 
 measured run time, the MCP example's JSON-RPC check and install steps, the wrong-width screenshot, the
 film record pointing at the tracked MP4, zod forced to 4.6.6, and the full 0.10.0 CHANGELOG.
 
-1. Pull request #86 is held until the end: full suite, CI on all three systems and one independent review,
-   then the owner's word to push and merge.
-2. After it merges (owner's standing go-ahead): tag v0.10.0, make the GitHub release, publish to TestPyPI
+1. Done: pull request #86 passed the full suite, CI on all three systems and an independent review and
+   re-review, and was merged on 2026-10-27.
+2. Now (owner's go-ahead): tag v0.10.0, make the GitHub release, publish to TestPyPI
    and check it, then publish to PyPI and check it.
 3. U5: a fresh user tries the reference workflow (completion criterion 6). No agent can do this; it waits
    on the owner's tester, with the wheel rebuilt in `dist-tester/`.

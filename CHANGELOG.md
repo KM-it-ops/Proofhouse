@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.10.0 - unreleased (prepared, not published)
+## 0.10.0 - 2026-10-27
 
 ### Added
 
@@ -22,6 +22,9 @@
 - The referee, build, render, hook and train limits each have a test that proves they hold.
 - The unit-desk MCP example refuses requests that are not JSON-RPC 2.0, and its install steps give the full path to `server.py`.
 - The film example's shot builder is back, and its README points at the tracked MP4.
+- Older saved rounds whose checks never ran are read back as "not measured", not as passed; the site and launch examples are relabelled to match.
+- The unit-desk MCP example handed out is now the exact version that was checked and scored (record version 4).
+- The public Stage 3 report hides profile folders on Windows, macOS and Linux, including names with spaces and lower-case paths.
 
 ### Security
 
