@@ -16,7 +16,7 @@ How to read the table:
 | `record agent` | `agent/`, `agent-record/` | Cursor, reviewed and fixed by Claude | none (own 9/10) | Record check passed | $0 |
 | `record rule` | `rule/`, `rule-record/` | Cursor, reviewed and fixed by Claude | none (own 9/10) | Record check passed | $0 |
 | `record copy` | `copy/`, `copy-record/` | Cursor | none (own 9/10) | Record check passed | $0 |
-| `record mcp` | `mcp/`, `mcp-record/` | Cursor | Codex 7/10 (ran it: both tools correct; accepts a wrong JSON-RPC version; install steps unclear) | Record check passed; the server was called by hand and answers. Version 3 of the record is the current `mcp/`, which answers bad input with a proper error; versions 1 and 2 are the older copies that stay silent | $0 |
+| `record mcp` | `mcp/`, `mcp-record/` | Cursor | Codex 8/10 on version 4 (ran it with real and bad requests; conversions round to six significant digits). Version 3 had 7/10: it accepted a wrong JSON-RPC version | Record check passed; the server was called by hand and answers. Version 4 of the record is the current `mcp/`, which refuses a wrong JSON-RPC version and answers bad input with a proper error; versions 1 to 3 are the older copies | $0 |
 | `record hook` | `hook/`, `hook-record/` | Cursor and Claude | none (own 9/10) | Record check passed; the folder holds its own tests | $0 |
 | `record site` | `site/`, `site-record/` | Cursor | none (own 9/10) | Record check passed; the page was opened and works | $0 |
 | `record app` | `app/`, `app-record/` | Cursor | none (own 9/10) | Record check passed; not run by hand | $0 |

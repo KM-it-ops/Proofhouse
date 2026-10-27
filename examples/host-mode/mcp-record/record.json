@@ -1,14 +1,14 @@
 {
   "agent": "claude",
   "best_status": "passed",
-  "best_version": 3,
+  "best_version": 4,
   "delivered": [
     "INSTALL-MCP.txt",
     "mcp"
   ],
   "judge": "codex",
   "judge_note": "Scored by codex, a different agent from the writer (claude); still advice, not proof.",
-  "judge_score": 7,
+  "judge_score": 8,
   "kind": "mcp",
   "proofhouse_version": "0.10.0",
   "request": "unit-desk MCP: convert_units and days_between",
@@ -32,6 +32,16 @@
       "score": null,
       "status": "passed",
       "version": 3
+    },
+    {
+      "agent": "claude",
+      "judge": "codex",
+      "judge_note": "Conversions silently round to six significant digits; 1 mile returns 1609.34 meters instead of 1609.344.",
+      "judge_score": 8,
+      "passed": true,
+      "score": null,
+      "status": "passed",
+      "version": 4
     }
   ],
   "schema": "proofhouse.host/v1"
