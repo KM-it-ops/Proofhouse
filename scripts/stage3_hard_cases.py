@@ -254,7 +254,9 @@ def _scrub(text: str, root: Path) -> str:
     for base, label in ((root, "<case>"), (ROOT, "<repo>")):
         for form in (str(base), base.as_posix(), str(base).replace("\\", "\\\\")):
             text = text.replace(form, label)
-    return re.sub(r"(?:[A-Za-z]:[\\/]+|/)(?:Users|home)[\\/]+[^\\/\s\"']+", "<user>", text)
+    # A profile name may hold spaces when more path follows it; Windows paths are case-blind.
+    name = r"[^\\/\s\"']+(?:(?: [^\\/\s\"']+)+(?=[\\/]))?"
+    return re.sub(r"(?:[A-Za-z]:[\\/]+|/)(?:Users|home)[\\/]+" + name, "<user>", text, flags=re.IGNORECASE)
 
 
 def _captured(raw: str | bytes | None, root: Path) -> str:
