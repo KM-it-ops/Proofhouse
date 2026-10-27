@@ -247,6 +247,10 @@ def dispatch(request: dict) -> None:
     req_id = request.get("id")
     has_id = "id" in request and request["id"] is not None
 
+    if request.get("jsonrpc") != "2.0":
+        if has_id:
+            rpc_error(req_id, -32600, "Invalid Request")
+        return
     if method == "notifications/initialized":
         return
     if not isinstance(method, str):
