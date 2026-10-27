@@ -10,7 +10,7 @@ A prompt, a skill, a website, an app, a video, or a whole launch. Proofhouse wri
 
 It is a local command-line tool, not a hosted service. The `proofhouse` command is the one front door.
 
-**Host mode (no API key):** use `proofhouse check`, `proofhouse record` and `proofhouse render video` when your existing AI app writes and judges; see [docs/usage.md](docs/usage.md#host-mode-no-api-key).
+**Host mode (no API key):** use `proofhouse check`, `proofhouse record` and `proofhouse render video` when your existing AI app writes and judges; see [docs/usage.md](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/usage.md#host-mode-no-api-key).
 
 ## Try it in two minutes
 
@@ -83,7 +83,7 @@ Built-in `modelNotes` cover prompting quirks, API ids, and cost and caching leve
 
 Profiles last reviewed 2026-10-18; a profile older than 90 days is flagged stale. 10 of 27 profiles cite sources; the rest are labeled unverified. They are prompting guidance, not vendor specifications. `proofhouse models list` shows per-model ids, aliases, and dates.
 
-Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · human-readable [`proofhouse-framework.md`](proofhouse-framework.md)
+Full profiles: [`proofhouse-framework.json`](https://github.com/KM-it-ops/Proofhouse/blob/main/proofhouse-framework.json) · human-readable [`proofhouse-framework.md`](https://github.com/KM-it-ops/Proofhouse/blob/main/proofhouse-framework.md)
 <!-- supported-models:end -->
 
 ---
