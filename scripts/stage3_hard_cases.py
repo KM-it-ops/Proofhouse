@@ -254,7 +254,7 @@ def _scrub(text: str, root: Path) -> str:
     for base, label in ((root, "<case>"), (ROOT, "<repo>")):
         for form in (str(base), base.as_posix(), str(base).replace("\\", "\\\\")):
             text = text.replace(form, label)
-    return re.sub(r"[A-Za-z]:[\/]+Users[\/]+[^\/\s\"']+", "<user>", text)
+    return re.sub(r"(?:[A-Za-z]:[\\/]+|/)(?:Users|home)[\\/]+[^\\/\s\"']+", "<user>", text)
 
 
 def _captured(raw: str | bytes | None, root: Path) -> str:
