@@ -50,8 +50,8 @@ README_OTHER_ROW = (
     "your own notes, otherwise the generic profile is used and labeled `fallback`. |"
 )
 README_FULL_PROFILES = (
-    "Full profiles: [`proofhouse-framework.json`](proofhouse-framework.json) · "
-    "human-readable [`proofhouse-framework.md`](proofhouse-framework.md)"
+    "Full profiles: [`proofhouse-framework.json`](https://github.com/KM-it-ops/Proofhouse/blob/main/proofhouse-framework.json) · "
+    "human-readable [`proofhouse-framework.md`](https://github.com/KM-it-ops/Proofhouse/blob/main/proofhouse-framework.md)"
 )
 
 
