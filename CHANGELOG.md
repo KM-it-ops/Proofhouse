@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.10.0 - unreleased (prepared, not published)
+## 0.10.0 - 2026-10-27
 
 ### Added
 
@@ -20,8 +20,12 @@
 - **Spending-limit holes:** `train start` refuses a bad epoch count before pricing or uploading anything, and `generate` refuses a length of zero or less before any paid request.
 - Clean messages, not tracebacks, for a folder given as a file, a bad or binary claims file, a half-written `case.json`, a model name the console cannot print, and a failed compile (which no longer leaves an empty folder).
 - The referee, build, render, hook and train limits each have a test that proves they hold.
+- The lock file pins `certifi` 2026.10.23, which drops root certificates whose keys were compromised (it only reaches installs that add the optional `live` extra).
 - The unit-desk MCP example refuses requests that are not JSON-RPC 2.0, and its install steps give the full path to `server.py`.
 - The film example's shot builder is back, and its README points at the tracked MP4.
+- Older saved rounds whose checks never ran are read back as "not measured", not as passed; the site and launch examples are relabelled to match.
+- The unit-desk MCP example handed out is now the exact version that was checked and scored (record version 4).
+- The public Stage 3 report hides profile folders on Windows, macOS and Linux, including names with spaces and lower-case paths.
 
 ### Security
 

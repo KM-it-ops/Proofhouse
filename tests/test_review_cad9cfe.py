@@ -1,5 +1,5 @@
 """Failing tests for review-cad9cfe. Run from the repo root:
-uv run --extra test pytest -c pyproject.toml --rootdir . C:/AI/reviews/proofhouse/review-cad9cfe-tests -q -p no:cacheprovider
+uv run --extra test pytest tests/test_review_cad9cfe.py -q
 """
 
 from __future__ import annotations
