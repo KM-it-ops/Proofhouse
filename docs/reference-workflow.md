@@ -16,7 +16,7 @@ From a clone:
 python scripts/reference_workflow.py    # prints each command and its output
 ```
 
-Measured on the maintainer's Windows machine: about 13 seconds for the script. How long a person takes to follow it by hand has not been measured.
+Measured on the maintainer's Windows machine on 2026-10-27: about 70 seconds for `proofhouse demo` or the script, and about 100 seconds for the first run from a clean install. It prints nothing while it works with `--quiet`, so let it finish. How long a person takes to follow it by hand has not been measured.
 
 The rest of this page is the same journey by hand. Commands assume you are in a scratch directory holding copies of the example files; `pc` stands for `proofhouse` (`uv run proofhouse` from a clone).
 

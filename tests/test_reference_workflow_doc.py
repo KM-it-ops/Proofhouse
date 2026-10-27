@@ -62,3 +62,9 @@ def test_every_documented_command_runs_as_documented(tmp_path: Path, monkeypatch
             shutil.copy(tmp_path / "answers.json", tmp_path / "advisory-case" / "answers.json")
     assert (tmp_path / "report.md").is_file()
     assert (tmp_path / "elsewhere" / "advisory-case" / "case.json").is_file()
+
+
+def test_the_stated_run_time_is_the_one_last_measured() -> None:
+    text = DOC.read_text(encoding="utf-8")
+    assert "about 13 seconds" not in text, "re-measured 2026-10-27: about 70 seconds"
+    assert "about 70 seconds" in text and "about 100 seconds" in text
