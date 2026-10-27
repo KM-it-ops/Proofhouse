@@ -21,7 +21,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_DIR = ROOT / "docs" / "stage3"
 TIMEOUT = 120
-SENSITIVE = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL", "AUTH")
+SENSITIVE = ("KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD", "CREDENTIAL", "AUTH", "SESSION", "CONNECTION", "DSN", "COOKIE")
+SENSITIVE_SUFFIXES = ("_URL", "_URI", "_PAT", "_PWD")
 
 
 @dataclass(frozen=True)
@@ -142,8 +143,8 @@ add("run", 2, "A prompt file is actually a directory.", ["run", "--provider", "o
 add("loop", 1, "A negative duration is not a valid length of time.", ["loop", "Write a file", "--provider", "openai", "--model", "unknown", "--for", "-1", "--in", ".", "--out", "loop"], must=("not a length of time",), absent=("loop",))
 add("loop", 2, "A watch loop without an interval must refuse to start.", ["loop", "Watch files", "--provider", "openai", "--model", "unknown", "--watch", "echo changed", "--in", ".", "--out", "loop"], must=("--every",), absent=("loop/rounds.jsonl",))
 add("referee", 1, "Starting a check without opt-in must not run a shell command.", ["referee", "start", "Check output", "--check", "echo HELLO", "--folder", ".", "--out", "rounds"], must=("--allow-commands",), absent=("rounds/rounds.jsonl",))
-add("referee", 2, "A record folder is only half written before status reads it.", ["referee", "status", "rounds"], fixtures=(folder("rounds"), file("rounds/record.json", "{")), must=("error",))
-add("compare", 1, "Saved-output mode receives a directory instead of an output file.", ["compare", "A job", "--entry", "one=output.txt", "--out", "comparison"], fixtures=(folder("output.txt"),), must=("error",), absent=("comparison/side-by-side.html",))
+add("referee", 2, "A record folder is only half written before status reads it.", ["referee", "status", "rounds"], fixtures=(folder("rounds"), file("rounds/loop.json", "{")), must=("loop.json", "not readable JSON"))
+add("compare", 1, "Saved-output mode receives a directory instead of an output file.", ["compare", "A job", "--entry", "one=output.txt", "--entry", "two=other.txt", "--out", "comparison"], fixtures=(folder("output.txt"), file("other.txt", "answer")), must=("file not found",), absent=("comparison/side-by-side.html",))
 add("compare", 2, "Saved outputs and live model selections conflict and must never call a model.", ["compare", "A job", "--entry", "one=output.txt", "--on", "openai:unknown", "--out", "comparison"], fixtures=(file("output.txt", "answer"),), must=("mutually exclusive",), absent=("comparison",))
 add("train", 1, "An empty training file cannot be divided into training and validation data.", ["train", "data", "empty.jsonl", "--out", "training"], fixtures=(file("empty.jsonl", ""),), must=("error",), absent=("training/train.jsonl",))
 add("train", 2, "Training start has a negative epoch count, which used to price as free and upload first.", ["train", "start", "--service", "openai", "--model", "unknown", "--data", "data", "--epochs", "-2", "--out", "training"], fixtures=(file("data/train.jsonl", "{}"),), exits=(7,), must=("PHC-RUN-0002", "epochs must be a whole number", "nothing was uploaded"), env=FAKE_OPENAI)
@@ -208,7 +209,8 @@ def _fixture(root: Path, item: Fixture) -> None:
 
 def _environment(root: Path, extra: tuple[tuple[str, str], ...] = ()) -> dict[str, str]:
     env = {name: value for name, value in os.environ.items()
-           if not any(mark in name.upper() for mark in SENSITIVE)}
+           if not any(mark in name.upper() for mark in SENSITIVE)
+           and not name.upper().endswith(SENSITIVE_SUFFIXES)}
     env.pop("VIRTUAL_ENV", None)
     env.pop("UV_PROJECT_ENVIRONMENT", None)
     for name in ("HOME", "USERPROFILE", "APPDATA", "LOCALAPPDATA", "XDG_CONFIG_HOME",
@@ -229,7 +231,8 @@ def _environment(root: Path, extra: tuple[tuple[str, str], ...] = ()) -> dict[st
 def _safety(case: Case) -> None:
     if not case.argv or case.argv[0] != case.command:
         raise ValueError("case command and argv disagree")
-    if any(Path(value).is_absolute() or ".." in Path(value).parts for value in case.argv):
+    if any(Path(part).is_absolute() or part[0] in ("/", chr(92)) or ".." in Path(part).parts
+           for value in case.argv for part in (value, value.partition("=")[2]) if part):
         raise ValueError("case argv contains an absolute or parent path")
     if "--allow-commands" in case.argv or "--opt-in" in case.argv:
         raise ValueError("case enables command execution or live model execution")
@@ -253,6 +256,18 @@ def _scrub(text: str, root: Path) -> str:
     return re.sub(r"[A-Za-z]:[\/]+Users[\/]+[^\/\s\"']+", "<user>", text)
 
 
+def _captured(raw: str | bytes | None, root: Path) -> str:
+    """Output from a child, scrubbed the same way whether it finished, failed or timed out."""
+    text = raw.decode("utf-8", "replace") if isinstance(raw, bytes) else (raw or "")
+    return _scrub(text, root)
+
+
+def _exit_code(results: list[dict], under_two: list[str]) -> int:
+    """Non-zero when a case broke, could not run, or a command has fewer than two cases."""
+    broke = any(result["verdict"] == "broke" for result in results)
+    return 1 if under_two or broke or any(result["unable"] for result in results) else 0
+
+
 def run_case(case: Case) -> dict:
     started = time.perf_counter()
     with tempfile.TemporaryDirectory(prefix=f"{case.id}-", dir=REPORT_DIR) as directory:
@@ -273,9 +288,7 @@ def run_case(case: Case) -> dict:
             hung = False
             unable = False
         except subprocess.TimeoutExpired as exc:
-            output = (exc.stdout or b"")
-            if isinstance(output, bytes):
-                output = output.decode("utf-8", "replace")
+            output = _captured(exc.stdout, root)
             code = None
             hung = True
             unable = False
@@ -348,7 +361,7 @@ def main() -> int:
         lines.append("None.")
     (REPORT_DIR / "hard-cases.md").write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
     print(f"Wrote {len(results)} verdicts: {len(broken)} broke; {len(under_two)} commands under two cases.")
-    return 1 if under_two or any(result["unable"] for result in results) else 0
+    return _exit_code(results, under_two)
 
 
 if __name__ == "__main__":

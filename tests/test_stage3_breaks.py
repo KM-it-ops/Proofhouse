@@ -93,7 +93,8 @@ def test_models_show_prints_a_name_the_console_cannot_encode(home: Path, monkeyp
     monkeypatch.setattr(sys, "stdout", narrow)
     code = cli_compiler.main(["models", "show", "unknown-☃"])
     narrow.flush()
-    assert code in (0, 2)
+    assert code == 0
+    assert b"model: unknown-?" in narrow.buffer.getvalue()  # the snowman is replaced, not a crash
 
 
 def test_training_with_a_negative_epoch_count_is_refused_before_anything_is_uploaded(home: Path, monkeypatch) -> None:
