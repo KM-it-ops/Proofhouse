@@ -309,6 +309,21 @@ def _round_status(row: dict[str, Any]) -> str:
     return str(row.get("status") or ("passed" if row.get("passed") else "failed"))
 
 
+def _relabel_old_round(out: Path, row: dict[str, Any]) -> dict[str, Any]:
+    # A round saved before rounds carried a status said passed even when a check did not run. Its own
+    # checks.json still shows that, so it is read back as "not measured", never as passed.
+    if row.get("status") or not row.get("passed"):
+        return row
+    try:
+        checks = json.loads((out / f"v{row.get('version')}" / "checks.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return row
+    not_run = sum(1 for check in checks if isinstance(check, dict) and check.get("ok") is None) if isinstance(checks, list) else 0
+    if not not_run:
+        return row
+    return {**row, "passed": False, "status": "not measured", "not_measured": not_run}
+
+
 def _pick_best(rounds: list[dict[str, Any]]) -> int | None:
     # A version that failed is never delivered. One whose checks did not all run is delivered only when no
     # version passed every check, and it stays labelled "not measured".
@@ -522,7 +537,7 @@ def run_record(
     not_run = sum(1 for row in checks if row.get("ok") is None)
     record_path = out / "record.json"
     prior = _read_record(out)
-    rounds: list[dict[str, Any]] = list(prior.get("rounds") or [])
+    rounds: list[dict[str, Any]] = [_relabel_old_round(out, row) for row in prior.get("rounds") or []]
     prior_delivered = [str(name) for name in prior.get("delivered") or []]
     round_row: dict[str, Any] = {"version": version, "score": score, "passed": passed, "status": status}
     if status == "not measured":

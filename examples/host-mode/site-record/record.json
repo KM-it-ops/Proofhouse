@@ -10,13 +10,17 @@
   "request": "Maple & Rye Bakery one-page site",
   "rounds": [
     {
-      "passed": true,
+      "not_measured": 1,
+      "passed": false,
       "score": 7,
+      "status": "not measured",
       "version": 1
     },
     {
-      "passed": true,
+      "not_measured": 1,
+      "passed": false,
       "score": 8,
+      "status": "not measured",
       "version": 2
     },
     {
