@@ -85,13 +85,14 @@ The artifact line prints the absolute path. `build/` is git-ignored. `--json` on
 
 ```powershell
 uv run proofhouse case new --case build/case-demo --objective "Summarise a security advisory for a SOC audience" --model "Sonnet 5"
-# answer build/case-demo/01-clarify.md in your host agent; put answers in build/case-demo/answers.json
+# answer build/case-demo/01-clarify.md in your host agent and put the answers in build/case-demo/answers.json; to try it now, use the example's:
+Copy-Item examples/reference-advisory/answers.json build/case-demo/answers.json
 uv run proofhouse case compile --case build/case-demo
 # run 02-compile.md; save the compiled prompt to a file
 uv run proofhouse case record --case build/case-demo --prompt-file <file>
 uv run proofhouse case criteria add --case build/case-demo --must-contain "SOC"
 uv run proofhouse case criteria add --case build/case-demo --max-words 200
-uv run proofhouse case check --case build/case-demo --all
+uv run proofhouse case check --case build/case-demo --all    # exit 3: v1 FAIL until each answer is linked to a passing check
 uv run proofhouse case revise --case build/case-demo --feedback "too long"
 ```
 
@@ -102,7 +103,8 @@ optimize: new case <your clone>\build\case-demo
   wrote: case.json, 01-clarify.md, answers.json
   next: run 01-clarify.md in your host agent, put answers in answers.json, then: proofhouse case compile --case <your clone>\build\case-demo
 check: <your clone>\build\case-demo
-  v1: PASS  C1=PASS C2=PASS
+  v1: FAIL  C1=PASS C2=PASS
+      constraints: K1=no_evidence K2=no_evidence K3=no_evidence
 ```
 
 Criteria are yours: substring, word cap, regex, or a manual verdict (`case verdict`), checked against the prompt text or, with `--target output`, against outputs you record with `case output add`. `check` prints PASS/FAIL/UNJUDGED/NOT_EVALUATED per criterion per revision and exits 3 unless everything passes. After `case compile`, your answers are accepted constraints that must be linked to passing checks (`case constraints link`) before a revision passes. There is no quality rating and no comparison across models. The full journey, including outputs, compare, report and export, is in [reference-workflow.md](reference-workflow.md).
