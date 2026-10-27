@@ -1,0 +1,22 @@
+[
+  {
+    "check": "prompt present",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "prompt has no filler",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "length",
+    "ok": true,
+    "detail": "447 words"
+  },
+  {
+    "check": "filler",
+    "ok": true,
+    "detail": ""
+  }
+]

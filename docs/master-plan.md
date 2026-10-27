@@ -120,7 +120,7 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    provider key, so a person who only has an AI app or a monthly plan (Cursor, Codex, Gemini CLI, Grok CLI,
    Claude Code) cannot use it. In host mode the AI app they already use is the writer and the judge, using its
    own model, and Proofhouse is the referee, the assembler and the recorder. No key, no setup beyond
-   installing the package and one skill. Planned for 0.10.0.
+   installing the package and one skill. Version 0.10.0 is prepared in the package and not published.
    - `proofhouse check <kind> <folder>` runs the same real-world checks `make` runs (site opened like a
      visitor; MCP server answers `initialize` and `tools/list`; hook run on a sample event; rule installed and
      removed on every tool; skill and agent files accepted by the installers) and prints pass or fail.
@@ -155,8 +155,8 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      model trained or paid for. The compare scores
      (Claude as judge) and the launch score (Codex, blind: 5/10, weakest part the video script) come from
      an agent that did not write the work; the rest are the writers' own advice.
-   - Stage 2 status (updated 2026-10-26, on `feat/host-mode` pushed, open as PR #85). Eleven one-goal sessions
-     ran; their work sat on separate branches (the five fix branches are now merged, see below):
+   - Stage 2 status (updated 2026-10-26; PR #85 is merged, see below). Eleven one-goal sessions
+     ran; their work sat on separate branches (the fix branches are now merged, see below):
      - Proved by hand: install, deploy and train examples pass 4 of 5 claims; the README now says what each
        check does not prove (`caababc`). The example site, the call-MCP server and both videos work
        for real (videos play to the end, sound is present).
@@ -186,13 +186,13 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
      - "Not measured" counted as passed: fixed in the browser check (`f92bb83`, `sitecheck.py`) and the site
        total (`c58b62f`, `make.py`). A sweep of `src/proofhouse` found no other place. Still by design: a site
        checked without `--allow-commands` is saved as `"passed": true` and the count of checks that did not run
-       is printed with `--json` only, never saved (`host.py` `_check_rows_pass_exit`); Boss to decide.
+       is printed with `--json` only (`host.py` `_check_rows_pass_exit`). This was settled later: such checks are now saved as "not measured" (`7fce0a9`, below).
      - Limits audit (read only): the spend gate, most `--allow-commands` refusals and the install/deploy
        refusals have tests that fail if the limit is removed. No such test for: the referee's per-check time
        stop and its round/time settings; most secret-looking names (only `TOKEN` is proved removed, and the
        build list in `app_platforms.py` lacks `DATABASE_URL` and `CONNECTION_STRING`); render video failing on
        length, sound or frame size; `check hook` refusing without the flag; train's 1-50 epochs and same-host
-       address rule. Boss picks which get tests.
+       address rule. Boss chose all of them; they are done (`02f74b3`, below).
      - Checked by the new coordinator (2026-10-26, read-only): both Codex score files judge the old 30 s
        `film/final.mp4` (version 3) and the rebuilt 24 s promo, from 12 frames each, so they say nothing about the
        48.8 s film; the record-paths test diff (`992ccfe`) asserts the `<this-folder>` placeholder and that no
@@ -216,11 +216,54 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
        exits 1 when the version failed its checks, `0e09c4e` empty facts, avoid words and text-less shared
        names are not a pass, `bd8ba27` compare labels that clean to one name get their own file). Full suite
        after all seven: 2425 passed, 50 skipped, 1 deselected.
-     - Not done: merging PR #85, Stage 3, re-recording and re-scoring the 48.8 s film.
-     - Known issues, only logged: the desktop browser check on the example site can time out (it now reports
-       "not measured", not PASS); `mcp-record` has two copies of the old MCP server; Edge width; delegate
-       run-ID collision.
-   - Then, on host mode: limit tests for the limits Boss picks from the audit above.
+     - PR #85 merged into `main` (`a99773a`). The rest of Stage 2 is on `feat/finish-master-plan`
+       (local, not pushed):
+       - Checks that did not run are saved as "not measured", never as passed; `check` and `record` exit 3
+         when nothing failed but something was not measured (`7fce0a9`).
+       - The Codex repeat of the `prompt` example is merged (`e4ead31`); the branch with its scores
+         (`1d1f922`) is left unmerged on purpose.
+       - Limit tests, all of them (`02f74b3`): referee rounds, time and per-check timeout; build secret
+         names; render video finished-file checks; hooks and MCP servers not started without
+         `--allow-commands`; train epochs and model names that try to leave the service's host. Each
+         limit was removed once by a script and a test caught every removal. Three real bugs found and
+         fixed: `render video` returned 0 when the finished file had the wrong length, size or sound; the
+         referee accepted `--for 0`; the build's secret-name list missed `DATABASE_URL` and
+         `CONNECTION_STRING`.
+       - Re-recorded with a score from an agent that did not write them (`62d13fc`): `mcp-record` version 3
+         is the current server (Codex ran it: 7/10; it accepts a wrong JSON-RPC version and the install
+         steps are unclear); `video-record` version 4 is the 48.8 s film, unchanged (Codex 7/10 from 16
+         frames, the script and loudness; it cannot hear sound).
+       - Housekeeping: merged worktrees removed (one locked folder, `.claude/worktrees/ok-none-sweep-266dd5`,
+         could not be deleted while in use). The zod alert is closed: an npm override forces zod 4.6.6
+         under Remotion, and the film re-renders with it (`2ce7084`).
+     - Known issues, closed 2026-10-27: the desktop browser timeout no longer reproduces and reports
+       "not measured" if it does; a screenshot at the wrong width (the Edge issue) is now "not measured",
+       not passed (`61d1056`); the delegate run-ID collision is in the delegate tool, not Proofhouse.
+   - **Stage 3, hard cases.** Two creative, hard cases for every one of the 39 `proofhouse` commands: the
+     unusual but realistic use most likely to break each one (odd paths and names, empty, huge or wrong
+     files, conflicting flags, bad numbers, repeat runs, half-finished earlier runs). The runner itself
+     refuses absolute or parent paths, so folder-escape attempts are not among the 78. Each case states what should happen before it runs. They run offline with no keys and no
+     money, each in its own throwaway folder (`scripts/stage3_hard_cases.py`). The results, with what
+     broke, what held and what each cost, are in [stage3/hard-cases.md](stage3/hard-cases.md). Every real
+     break is fixed with its failing test first.
+     - Status: DONE. 78 cases across all 39 commands: 78 held, 0 broke, $0 spent. The first run broke 18; 9 were real defects, now fixed test-first (4e04676, d338472, d530ff4), 9 were wrong expectations. Findings in [stage3/findings.md](stage3/findings.md). Independent end review (Codex) done; its fixes are in the same findings file.
+
+## What is left (updated 2026-10-27)
+
+All build steps above are done, and the gaps between "works" and "ready to hand out" found on 2026-10-27
+are fixed test-first: `proofhouse --version`, help that names `proofhouse`, the demo's reopen lines and
+measured run time, the MCP example's JSON-RPC check and install steps, the wrong-width screenshot, the
+film record pointing at the tracked MP4, zod forced to 4.6.6, and the full 0.10.0 CHANGELOG.
+
+1. Pull request #86 is held until the end: full suite, CI on all three systems and one independent review,
+   then the owner's word to push and merge.
+2. After it merges (owner's standing go-ahead): tag v0.10.0, make the GitHub release, publish to TestPyPI
+   and check it, then publish to PyPI and check it.
+3. U5: a fresh user tries the reference workflow (completion criterion 6). No agent can do this; it waits
+   on the owner's tester, with the wheel rebuilt in `dist-tester/`.
+
+Settled: the owner judged the example videos' sound and motion fine; the train-2 upload gap is accepted
+with no live key; the film MP4 stays out of the repo and the record points at `../video/final-premium.mp4`.
 
 ## Known limits
 

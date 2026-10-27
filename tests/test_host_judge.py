@@ -4,11 +4,12 @@ from __future__ import annotations
 
 import json
 import socket
+import subprocess
 from pathlib import Path
 
 import pytest
 
-from proofhouse import cli, host
+from proofhouse import cli, host, sitecheck
 
 def _site_blurb() -> str:
     return " ".join(f"fresh loaf {i}" for i in range(1, 28)) + " Baked at 5 AM daily."
@@ -23,12 +24,16 @@ MENU = SITE.replace("Corner Bakery</title>", "Menu</title>").replace('<a href="m
 
 
 @pytest.fixture(autouse=True)
-def no_network(monkeypatch: pytest.MonkeyPatch) -> None:
+def no_network(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     def refuse(*args: object, **kwargs: object) -> None:
         raise AssertionError("host judge tests must not use the network")
 
     monkeypatch.setattr(socket.socket, "connect", refuse)
-    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(Path("no-such-browser")))
+    # A stand-in browser that opens every page cleanly, so the site's browser check really runs.
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+    monkeypatch.setattr(sitecheck, "_open", lambda command, timeout: subprocess.CompletedProcess(command, 0, "", ""))
     for name in ("OPENAI_API_KEY", "ANTHROPIC_API_KEY", "GROQ_API_KEY", "GEMINI_API_KEY", "XAI_API_KEY"):
         monkeypatch.delenv(name, raising=False)
 
@@ -52,6 +57,7 @@ def record(tmp_path: Path, source: Path, *extra: str, agent: str = "cursor") -> 
             "bakery",
             "--agent",
             agent,
+            "--allow-commands",
             *extra,
         ]
     )

@@ -1,27 +1,93 @@
 1
-00:00:00,000 --> 00:00:05,000
-The tide doesn't wait. Out here, there's no signal.
+00:00:00,950 --> 00:00:03,200
+At low tide, you only need one answer:
 
 2
-00:00:05,000 --> 00:00:08,000
-Meet Tidewatch.
+00:00:03,350 --> 00:00:04,800
+when's the water coming back?
 
 3
-00:00:08,000 --> 00:00:13,000
-Tide tables in your pocket. No signal required.
+00:00:04,910 --> 00:00:06,850
+And out here, there's no signal.
 
 4
-00:00:13,000 --> 00:00:18,000
-Works fully offline, with two years of tide data built in
+00:00:07,730 --> 00:00:10,050
+Tidewatch keeps that answer on your phone.
 
 5
-00:00:18,000 --> 00:00:23,000
-$4.99 one-time purchase
+00:00:10,280 --> 00:00:12,200
+Your favorite spots sit at the top,
 
 6
-00:00:23,000 --> 00:00:27,000
-No accounts to make. No ads to skip.
+00:00:12,310 --> 00:00:14,150
+each with how far away it is.
 
 7
-00:00:27,000 --> 00:00:30,000
+00:00:15,030 --> 00:00:17,050
+You get the next high water
+straight away:
+
+8
+00:00:17,190 --> 00:00:20,100
+7:48 AM,
+9.4 feet
+
+9
+00:00:20,360 --> 00:00:23,050
+A curve shows the
+whole day, with a
+marker for now
+
+10
+00:00:23,180 --> 00:00:25,300
+and every high and
+low is listed.
+
+11
+00:00:26,130 --> 00:00:27,350
+Now lose
+your signal.
+
+12
+00:00:27,580 --> 00:00:28,950
+Nothing changes.
+
+13
+00:00:29,130 --> 00:00:31,200
+The tide data is
+already on your phone,
+
+14
+00:00:31,280 --> 00:00:32,550
+two years of it.
+
+15
+00:00:33,130 --> 00:00:35,750
+Unlock every station
+$4.99
+
+16
+00:00:35,900 --> 00:00:36,950
+You pay once.
+
+17
+00:00:37,110 --> 00:00:38,350
+No account
+to make,
+
+18
+00:00:38,450 --> 00:00:40,000
+and no ads
+to skip.
+
+19
+00:00:40,700 --> 00:00:42,450
+So you can head out, tie off,
+
+20
+00:00:42,520 --> 00:00:44,350
+and know when the water's coming back.
+
+21
+00:00:45,160 --> 00:00:47,600
 Tidewatch. Know the water.

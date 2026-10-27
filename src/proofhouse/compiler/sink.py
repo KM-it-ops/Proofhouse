@@ -33,12 +33,12 @@ class DirectorySink:
 
     def __init__(self, directory: Path | str):
         self._directory = Path(directory)
-        self._directory.mkdir(parents=True, exist_ok=True)
 
     def write(self, artifact: Artifact) -> Artifact:
         if artifact.data is None:
             raise ValueError(f"artifact {artifact.name!r} has no in-memory bytes to write")
 
+        self._directory.mkdir(parents=True, exist_ok=True)
         resolved_dir = self._directory.resolve()
         target = (self._directory / artifact.name).resolve()
         if target != resolved_dir and resolved_dir not in target.parents:

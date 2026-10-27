@@ -198,5 +198,21 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, brows
     checks.append({"check": "no JavaScript errors in the browser", "ok": js_ok, "detail": detail.strip()})
     if shots is not None:
         made = all((shots / f"{label}.png").is_file() for label in ("desktop", "phone"))
-        checks.append({"check": "screenshots at desktop and phone width", "ok": made, "detail": str(shots)})
+        # some browsers keep a minimum window width, so a phone shot can come out wider than asked
+        wrong = [f"{label} screenshot is {width} px wide, asked for {asked}"
+                 for label, asked in (("desktop", 1440), ("phone", 390))
+                 if made and (width := _png_width(shots / f"{label}.png")) != asked]
+        if wrong:
+            checks.append({"check": "screenshots at desktop and phone width", "ok": None,
+                           "detail": "not measured: " + "; ".join(wrong)})
+        else:
+            checks.append({"check": "screenshots at desktop and phone width", "ok": made, "detail": str(shots)})
     return checks
+
+
+def _png_width(path: Path) -> int | None:
+    """The width a PNG says it has (bytes 16 to 20 of the IHDR header), or None if it is not a PNG."""
+    head = path.read_bytes()[:24]
+    if len(head) < 24 or head[12:16] != b"IHDR":
+        return None
+    return int.from_bytes(head[16:20], "big")

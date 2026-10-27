@@ -1,0 +1,56 @@
+{
+  "total": 48.8,
+  "voice": "af_heart",
+  "speed": 1.0,
+  "shots": [
+    {
+      "text": "At low tide, you only need one answer: when's the water coming back? And out here, there's no signal.",
+      "shot_start": 0.0,
+      "seconds": 7.4333,
+      "voice_start": 0.95,
+      "voice_seconds": 6.075
+    },
+    {
+      "text": "Tidewatch keeps that answer on your phone. Your favorite spots sit at the top, each with how far away it is.",
+      "shot_start": 7.4333,
+      "seconds": 7.3,
+      "voice_start": 7.7333,
+      "voice_seconds": 6.6
+    },
+    {
+      "text": "You get the next high water straight away: seven forty-eight, nine point four feet. A curve shows the whole day with a marker for now, and every high and low is listed.",
+      "shot_start": 14.7333,
+      "seconds": 11.1,
+      "voice_start": 15.0333,
+      "voice_seconds": 10.395
+    },
+    {
+      "text": "Now lose your signal. Nothing changes. The tide data is already on your phone, two years of it.",
+      "shot_start": 25.8333,
+      "seconds": 7.0,
+      "voice_start": 26.1333,
+      "voice_seconds": 6.285
+    },
+    {
+      "text": "Unlocking every station is four ninety-nine. You pay once. There's no account to make, and no ads to skip.",
+      "shot_start": 32.8333,
+      "seconds": 7.5667,
+      "voice_start": 33.1333,
+      "voice_seconds": 6.875
+    },
+    {
+      "text": "So you can head out, tie off, and know when the water's coming back.",
+      "shot_start": 40.4,
+      "seconds": 4.4667,
+      "voice_start": 40.7,
+      "voice_seconds": 3.775
+    },
+    {
+      "text": "Tidewatch. Know the water.",
+      "shot_start": 44.8667,
+      "seconds": 3.9333,
+      "voice_start": 45.1667,
+      "voice_seconds": 1.725
+    }
+  ]
+}

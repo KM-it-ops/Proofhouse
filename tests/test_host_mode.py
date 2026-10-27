@@ -104,8 +104,8 @@ def hook(folder: Path) -> Path:
 # ---------------------------------------------------------------- check
 
 
-def test_check_site_passes_a_good_site(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main(["check", "site", str(site(tmp_path / "s")), "--json"]) == 0
+def test_check_site_passes_a_good_site(tmp_path: Path, browser_ok: None, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["check", "site", str(site(tmp_path / "s")), "--json", "--allow-commands"]) == 0
     rows = json.loads(capsys.readouterr().out)
     assert rows and all(row["ok"] is not False for row in rows)
     assert {"check", "ok", "detail"} <= set(rows[0])
@@ -141,6 +141,18 @@ def test_check_mcp_needs_the_manifest(tmp_path: Path, capsys: pytest.CaptureFixt
 def test_check_hook_runs_it_on_the_sample_event(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     assert cli.main(["check", "hook", str(hook(tmp_path / "h")), "--allow-commands"]) == 0
     assert "PASS" in capsys.readouterr().out
+
+
+def test_check_hook_without_allow_commands_refuses_and_does_not_run_it(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str],
+) -> None:
+    folder = hook(tmp_path / "h")
+    (folder / "hook.py").write_text("open('ran.txt', 'w').write('yes')\n" + HOOK, encoding="utf-8")
+    assert cli.main(["check", "hook", str(folder), "--json"]) == 1
+    rows = json.loads(capsys.readouterr().out)
+    assert not (folder / "ran.txt").exists()
+    assert any(row["ok"] is None for row in rows)
+    assert all(row["ok"] is not False for row in rows)
 
 
 def test_check_hook_rejects_an_unknown_event(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
@@ -215,9 +227,9 @@ def saved(tmp_path: Path) -> dict[str, object]:
     return json.loads((tmp_path / "out" / "record.json").read_text(encoding="utf-8"))
 
 
-def test_record_keeps_every_version_and_delivers_the_best_site(tmp_path: Path) -> None:
-    assert record(tmp_path, "site", site(tmp_path / "s1"), "--score", "6") == 0
-    assert record(tmp_path, "site", site(tmp_path / "s2"), "--score", "8") == 0
+def test_record_keeps_every_version_and_delivers_the_best_site(tmp_path: Path, browser_ok: None) -> None:
+    assert record(tmp_path, "site", site(tmp_path / "s1"), "--score", "6", "--allow-commands") == 0
+    assert record(tmp_path, "site", site(tmp_path / "s2"), "--score", "8", "--allow-commands") == 0
     out = tmp_path / "out"
     assert (out / "v1" / "site" / "index.html").is_file() and (out / "v2" / "site" / "index.html").is_file()
     assert (out / "v1" / "checks.json").is_file()
@@ -228,9 +240,9 @@ def test_record_keeps_every_version_and_delivers_the_best_site(tmp_path: Path) -
     assert "advice" in str(data["judge_note"])
 
 
-def test_each_version_keeps_the_agent_that_wrote_it(tmp_path: Path) -> None:
+def test_each_version_keeps_the_agent_that_wrote_it(tmp_path: Path, browser_ok: None) -> None:
     out = str(tmp_path / "out")
-    base = ["record", "site", "--out", out, "--request", "a useful thing"]
+    base = ["record", "site", "--out", out, "--request", "a useful thing", "--allow-commands"]
     assert cli.main([*base[:2], str(site(tmp_path / "s1")), *base[2:], "--agent", "cursor", "--score", "9"]) == 0
     assert cli.main([*base[:2], str(site(tmp_path / "s2")), *base[2:], "--agent", "codex", "--score", "6"]) == 0
     data = saved(tmp_path)
@@ -238,14 +250,14 @@ def test_each_version_keeps_the_agent_that_wrote_it(tmp_path: Path) -> None:
     assert data["best_version"] == 1 and data["agent"] == "cursor"
     # A later call that names no agent must not erase or replace what is already recorded.
     assert host.run_record("site", site(tmp_path / "s3"), out=tmp_path / "out", request="a useful thing", agent=None,
-                           score=10, judge=None, judge_score=None, judge_note=None, allow_commands=False, as_json=False) == 0
+                           score=10, judge=None, judge_score=None, judge_note=None, allow_commands=True, as_json=False) == 0
     data = saved(tmp_path)
     assert [r.get("agent") for r in data["rounds"]] == ["cursor", "codex", None]
     assert data["best_version"] == 3 and data["agent"] == "cursor"
 
 
-def test_an_old_record_without_per_version_agents_keeps_its_agent(tmp_path: Path) -> None:
-    assert record(tmp_path, "site", site(tmp_path / "s1"), "--score", "6") == 0
+def test_an_old_record_without_per_version_agents_keeps_its_agent(tmp_path: Path, browser_ok: None) -> None:
+    assert record(tmp_path, "site", site(tmp_path / "s1"), "--score", "6", "--allow-commands") == 0
     path = tmp_path / "out" / "record.json"
     old = saved(tmp_path)
     for row in old["rounds"]:
@@ -253,18 +265,18 @@ def test_an_old_record_without_per_version_agents_keeps_its_agent(tmp_path: Path
     old["agent"] = "windsurf"
     path.write_text(json.dumps(old), encoding="utf-8")
     assert host.run_record("site", site(tmp_path / "s2"), out=tmp_path / "out", request="a useful thing", agent=None,
-                           score=5, judge=None, judge_score=None, judge_note=None, allow_commands=False, as_json=False) == 0
+                           score=5, judge=None, judge_score=None, judge_note=None, allow_commands=True, as_json=False) == 0
     data = saved(tmp_path)
     assert "agent" not in data["rounds"][0] and data["best_version"] == 1 and data["agent"] == "windsurf"
 
 
-def test_a_version_that_fails_its_checks_never_beats_one_that_passes(tmp_path: Path) -> None:
+def test_a_version_that_fails_its_checks_never_beats_one_that_passes(tmp_path: Path, browser_ok: None) -> None:
     # A failing version is still kept (every version is kept), but it can never be the delivered one.
-    assert record(tmp_path, "site", site(tmp_path / "bad", BROKEN), "--score", "9") == 1
+    assert record(tmp_path, "site", site(tmp_path / "bad", BROKEN), "--score", "9", "--allow-commands") == 1
     assert (tmp_path / "out" / "v1" / "site" / "index.html").is_file()
     assert saved(tmp_path)["best_version"] is None
     assert not (tmp_path / "out" / "site").exists()
-    assert record(tmp_path, "site", site(tmp_path / "good"), "--score", "6") == 0
+    assert record(tmp_path, "site", site(tmp_path / "good"), "--score", "6", "--allow-commands") == 0
     data = saved(tmp_path)
     assert data["best_version"] == 2 and data["rounds"][0]["passed"] is False
     assert 'href="menu.html"' in (tmp_path / "out" / "site" / "index.html").read_text(encoding="utf-8")
@@ -331,6 +343,56 @@ def test_record_says_so_when_a_check_was_not_run(tmp_path: Path, capsys: pytest.
     record(tmp_path, "mcp", mcp(tmp_path / "m"), "--json")
     summary = json.loads(capsys.readouterr().out)
     assert summary["version"] == 1 and summary["checks_not_run"] == 1
+
+
+@pytest.fixture
+def browser_ok(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """A stand-in browser that opens every page cleanly, so a site's browser check really runs."""
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+    monkeypatch.setattr(sitecheck, "_open", lambda command, timeout: subprocess.CompletedProcess(command, 0, "", ""))
+
+
+def test_check_with_a_check_that_did_not_run_is_not_a_pass(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(tmp_path / "no-browser-here.exe"))
+    assert cli.main(["check", "site", str(site(tmp_path / "s"))]) == 3
+    out = capsys.readouterr().out
+    assert "NOT MEASURED: opened in a browser" in out
+    assert "1 check did not run" in out and "not a pass" in out
+
+
+def test_record_saves_a_version_with_unrun_checks_as_not_measured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str],
+) -> None:
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(tmp_path / "no-browser-here.exe"))
+    assert record(tmp_path, "site", site(tmp_path / "s1"), "--score", "9") == 3
+    data = saved(tmp_path)
+    row = data["rounds"][0]
+    assert row["passed"] is False and row["status"] == "not measured" and row["not_measured"] == 1
+    # Nothing better exists, so it is handed over, but labelled as not measured, never as passed.
+    assert data["best_version"] == 1 and data["best_status"] == "not measured"
+    assert (tmp_path / "out" / "site" / "index.html").is_file()
+    assert "not counted as passed" in capsys.readouterr().out
+
+
+def test_a_measured_pass_outranks_a_higher_scored_unmeasured_version(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, browser_ok: None,
+) -> None:
+    assert record(tmp_path, "site", site(tmp_path / "s1"), "--score", "5", "--allow-commands") == 0
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(tmp_path / "no-browser-here.exe"))
+    assert record(tmp_path, "site", site(tmp_path / "s2"), "--score", "10") == 3
+    data = saved(tmp_path)
+    assert data["rounds"][0]["status"] == "passed" and data["rounds"][1]["status"] == "not measured"
+    assert data["best_version"] == 1 and data["best_status"] == "passed"
+
+
+def test_an_old_record_round_without_a_status_keeps_its_meaning(tmp_path: Path) -> None:
+    assert host._pick_best([{"version": 1, "score": 3, "passed": True}, {"version": 2, "score": 9, "passed": False}]) == 1
 
 
 @pytest.mark.parametrize("score", ["11", "-1", "nine"])
@@ -453,13 +515,13 @@ def test_check_site_does_not_open_a_browser_unless_commands_are_allowed(
     monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
     opened: list[list[str]] = []
 
-    def record_launch(command: list[str], timeout: int) -> str:
+    def record_launch(command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
         opened.append(command)
-        return "stubbed"
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(sitecheck, "_open", record_launch)
     folder = site(tmp_path / "s")
-    assert cli.main(["check", "site", str(folder)]) == 0
+    assert cli.main(["check", "site", str(folder)]) == host.NOT_MEASURED_EXIT  # the browser check did not run, so it is not a pass
     assert opened == []
     assert cli.main(["check", "site", str(folder), "--allow-commands"]) == 0
     assert opened, "with --allow-commands the site is opened in the browser"
@@ -475,9 +537,9 @@ def test_check_site_browser_launch_always_gives_the_browser_a_reason_to_exit(
     monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
     opened: list[list[str]] = []
 
-    def record_launch(command: list[str], timeout: int) -> str:
+    def record_launch(command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
         opened.append(command)
-        return "stubbed"
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(sitecheck, "_open", record_launch)
     assert cli.main(["check", "site", str(site(tmp_path / "s")), "--allow-commands"]) == 0
@@ -686,6 +748,22 @@ def test_check_site_needs_an_entry_page(tmp_path: Path, capsys: pytest.CaptureFi
 
 
 @needs_ffmpeg
+@pytest.mark.parametrize("wrong, check", [({"seconds": 9.0}, "length"), ({"width": 64, "height": 64}, "frame size"),
+                                          ({"audio": False}, "sound")])
+def test_render_video_fails_when_the_finished_file_is_wrong(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                            capsys: pytest.CaptureFixture[str],
+                                                            wrong: dict[str, object], check: str) -> None:
+    folder = video_folder(tmp_path)
+    real_probe = studio.probe
+    monkeypatch.setattr(studio, "probe", lambda path: {**real_probe(path), **wrong})
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 1
+    assert check in capsys.readouterr().err
+    record = json.loads((folder / "studio.json").read_text(encoding="utf-8"))
+    rows = [row for row in record["checks"] if row["check"] == check]
+    assert rows and rows[0]["ok"] is False
+
+
+@needs_ffmpeg
 def test_render_video_refuses_a_mix_of_pictures_and_clips(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     folder = video_folder(tmp_path)
     (folder / "clip.mp4").write_bytes(b"not really a video")
@@ -767,8 +845,8 @@ def pwa(folder: Path, *, worker: bool = True) -> Path:
     return folder
 
 
-def test_check_app_passes_a_working_installable_app(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
-    assert cli.main(["check", "app", str(pwa(tmp_path / "app"))]) == 0
+def test_check_app_passes_a_working_installable_app(tmp_path: Path, browser_ok: None, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["check", "app", str(pwa(tmp_path / "app")), "--allow-commands"]) == 0
     assert "service-worker.js" in capsys.readouterr().out
 
 
@@ -783,10 +861,10 @@ def test_check_app_needs_an_entry_page(tmp_path: Path, capsys: pytest.CaptureFix
     assert "index.html" in capsys.readouterr().err
 
 
-def test_record_app_keeps_every_version_and_delivers_the_best_app(tmp_path: Path) -> None:
-    assert record(tmp_path, "app", pwa(tmp_path / "a1", worker=False), "--score", "9") == 1
+def test_record_app_keeps_every_version_and_delivers_the_best_app(tmp_path: Path, browser_ok: None) -> None:
+    assert record(tmp_path, "app", pwa(tmp_path / "a1", worker=False), "--score", "9", "--allow-commands") == 1
     assert saved(tmp_path)["best_version"] is None
-    assert record(tmp_path, "app", pwa(tmp_path / "a2"), "--score", "7") == 0
+    assert record(tmp_path, "app", pwa(tmp_path / "a2"), "--score", "7", "--allow-commands") == 0
     out = tmp_path / "out"
     assert (out / "v1" / "app" / "index.html").is_file() and (out / "v2" / "app" / "manifest.webmanifest").is_file()
     assert (out / "app" / "service-worker.js").is_file()
@@ -866,3 +944,32 @@ def test_record_says_so_and_exits_1_when_the_version_failed_its_checks(
     assert record(tmp_path, "site", site(tmp_path / "bad", BROKEN), "--score", "9") == 1
     assert "failed its checks" in capsys.readouterr().out
     assert saved(tmp_path)["rounds"][0]["passed"] is False  # the failed version is still recorded
+
+
+def _png(width: int, height: int) -> bytes:
+    signature = bytes([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A])
+    return signature + (13).to_bytes(4, "big") + b"IHDR" + width.to_bytes(4, "big") + height.to_bytes(4, "big") + bytes(5)
+
+
+@pytest.mark.parametrize(("phone_width", "expected"), [(390, True), (500, None)])
+def test_check_site_screenshot_at_the_wrong_width_is_not_measured(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, phone_width: int, expected: bool | None,
+) -> None:
+    """Some browsers keep a minimum window width, so a 'phone' shot can come out wider than a phone."""
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "msedge.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+
+    def shoot(command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+        out = Path(next(part for part in command if part.startswith("--screenshot=")).split("=", 1)[1])
+        out.write_bytes(_png(1440, 900) if "--window-size=1440,900" in command else _png(phone_width, 844))
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(sitecheck, "_open", shoot)
+    rows = sitecheck.check_site(site(tmp_path / "s"), shots=tmp_path / "shots")
+    row = next(c for c in rows if c["check"] == "screenshots at desktop and phone width")
+    assert row["ok"] is expected
+    if expected is None:
+        assert "phone" in row["detail"] and "500" in row["detail"] and "390" in row["detail"]

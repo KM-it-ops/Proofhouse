@@ -296,3 +296,16 @@ def test_review_f4_command_map_names_test_files_that_exist() -> None:
     named = re.findall(r"tests/[\w/]+\.py", command_map.__doc__ or "")
     assert named, "the map's docstring should name the architecture test"
     assert [name for name in named if not (ROOT / name).is_file()] == []
+
+
+def test_version_and_help_name_the_front_door(capsys: pytest.CaptureFixture[str]) -> None:
+    from proofhouse import __version__
+    from proofhouse.cli import main as front_door
+
+    assert front_door(["--version"], prog="proofhouse") == 0
+    assert capsys.readouterr().out.strip() == f"proofhouse {__version__}"
+
+    assert front_door(["--help"], prog="proofhouse") == 0
+    usage = capsys.readouterr().out
+    assert usage.startswith("usage: proofhouse ")
+    assert "proofhouse-compiler" not in usage and "Compiler Core" not in usage

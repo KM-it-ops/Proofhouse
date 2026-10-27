@@ -25,5 +25,8 @@
     "@remotion/cli": "^4.0.0",
     "@types/react": "^19.0.0",
     "typescript": "^5.8.0"
+  },
+  "overrides": {
+    "zod": "4.6.6"
   }
 }

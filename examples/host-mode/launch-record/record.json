@@ -18,21 +18,27 @@
   "request": "Multi-part host launch for fictional Tidewatch offline tide app",
   "rounds": [
     {
-      "passed": true,
+      "not_measured": 1,
+      "passed": false,
       "score": 6,
+      "status": "not measured",
       "version": 1
     },
     {
-      "passed": true,
+      "not_measured": 1,
+      "passed": false,
       "score": 7,
+      "status": "not measured",
       "version": 2
     },
     {
       "judge": "codex",
       "judge_note": "Blind read of the five text parts; weakest is the video script, which repeats claims over title cards without showing the app in use.",
       "judge_score": 5,
-      "passed": true,
+      "not_measured": 1,
+      "passed": false,
       "score": null,
+      "status": "not measured",
       "version": 3
     }
   ],

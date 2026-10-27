@@ -9,18 +9,16 @@ A small MCP (Model Context Protocol) server over stdio for unit conversion and c
 
 ## Install
 
-From this folder’s parent directory (or any host that supports MCP):
-
 ```bash
-proofhouse install mcp unit-desk --command=python --arg=server.py --into <host>
+proofhouse install mcp unit-desk --command=python --arg="<full path to this folder>/server.py" --into <host>
 ```
 
-Point the host’s working directory at this folder, or copy `server.py` and run with `python server.py`.
+Replace `<full path to this folder>` with the full path of the folder that holds this README. The host starts the server from its own folder, so a bare `server.py` would not be found. Keep the double quotes; they let a path with spaces work.
 
 ## Manual test
 
 ```bash
-cd examples/host-mode/mcp
+cd examples/host-mode/mcp-record/mcp
 echo '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"t","version":"1"}}}' | python server.py
 ```
 

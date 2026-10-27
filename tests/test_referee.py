@@ -282,3 +282,29 @@ def test_check_does_not_see_secrets_under_unusual_names(tmp_path: Path, monkeypa
     output = referee._run_check(command, tmp_path, 30)["output"]
     assert "ghp_secretvalue123" not in output
     assert "pw123456" not in output
+
+
+def test_check_that_runs_too_long_is_stopped_and_not_passed(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    work, out = tmp_path / "work", tmp_path / "out"
+    work.mkdir()
+    slow = 'python -c "import time; time.sleep(30)"'
+    assert cli.main(["referee", "start", "x", "--check", slow, "--folder", str(work), "--out", str(out),
+                     "--command-timeout", "1", "--allow-commands"]) == 0
+    began = time.monotonic()
+    assert _round(out, "slow") == 10
+    assert time.monotonic() - began < 20
+    row = json.loads((out / "rounds.jsonl").read_text(encoding="utf-8").strip().splitlines()[-1])
+    assert row["check_passed"] is False
+    assert row["check_exit"] is None
+    assert "stopped after 1 seconds" in row["check_output"]
+
+
+@pytest.mark.parametrize("extra", [["--rounds", "0"], ["--rounds", "-3"], ["--command-timeout", "0"],
+                                   ["--command-timeout", "-1"], ["--for", "-5"], ["--for", "soon"],
+                                   ["--for", "0"], ["--for", "0s"]])
+def test_start_refuses_bad_limits(tmp_path: Path, extra: list[str]) -> None:
+    work, out = tmp_path / "work", tmp_path / "out"
+    work.mkdir()
+    args = ["referee", "start", "x", "--check", CHECK, "--folder", str(work), "--out", str(out), "--allow-commands", *extra]
+    assert cli.main(args) == 2
+    assert not (out / "loop.json").exists()

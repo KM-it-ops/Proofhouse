@@ -1,0 +1,3209 @@
+{
+  "timeout_seconds": 120,
+  "case_count": 78,
+  "uncovered_commands": [],
+  "commands_with_fewer_than_two_cases": [],
+  "cases": [
+    {
+      "id": "validate-1",
+      "command": "validate",
+      "hard": "An IR file has a .json name but contains binary bytes.",
+      "argv": [
+        "validate",
+        "odd name ☃.json"
+      ],
+      "fixtures": [
+        {
+          "path": "odd name ☃.json",
+          "kind": "binary",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          3
+        ],
+        "must": [
+          "validate: error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 3,
+      "output_first_400": "validate: error\n  [error] PRG-NORMALIZATION-0001 : input is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte at <root>\n",
+      "wall_seconds": 3.55,
+      "happened": "Exit 3; validate: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "validate-2",
+      "command": "validate",
+      "hard": "A sparse IR file is one byte past the documented 8 MiB limit.",
+      "argv": [
+        "validate",
+        "huge.json"
+      ],
+      "fixtures": [
+        {
+          "path": "huge.json",
+          "kind": "huge",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "EVR-RES-0001"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: EVR-RES-0001: input exceeds MAX_INPUT_BYTES\n",
+      "wall_seconds": 3.071,
+      "happened": "Exit 2; error: EVR-RES-0001: input exceeds MAX_INPUT_BYTES",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "inspect-1",
+      "command": "inspect",
+      "hard": "An input path names a directory instead of an IR file.",
+      "argv": [
+        "inspect",
+        "looks.json"
+      ],
+      "fixtures": [
+        {
+          "path": "looks.json",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: [Errno 13] Permission denied: 'looks.json'\n",
+      "wall_seconds": 2.682,
+      "happened": "Exit 2; error: [Errno 13] Permission denied: 'looks.json'",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "inspect-2",
+      "command": "inspect",
+      "hard": "A JSON file repeats a key, which must not be silently accepted.",
+      "argv": [
+        "inspect",
+        "repeat.json"
+      ],
+      "fixtures": [
+        {
+          "path": "repeat.json",
+          "kind": "text",
+          "content": "{\"a\":1,\"a\":2}"
+        }
+      ],
+      "expected": {
+        "exits": [
+          3
+        ],
+        "must": [
+          "inspect: error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 3,
+      "output_first_400": "inspect: error\n  [error] PRG-NORMALIZATION-0001 : duplicate key 'a' rejected before canonicalization at <root>\n",
+      "wall_seconds": 2.706,
+      "happened": "Exit 3; inspect: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "compile-1",
+      "command": "compile",
+      "hard": "A binary input must fail before creating the requested output folder.",
+      "argv": [
+        "compile",
+        "binary.json",
+        "--adapter-version",
+        "0.1",
+        "--output",
+        "built"
+      ],
+      "fixtures": [
+        {
+          "path": "binary.json",
+          "kind": "binary",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          3
+        ],
+        "must": [
+          "compile: error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "built"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 3,
+      "output_first_400": "compile: error\n  [error] PRG-NORMALIZATION-0001 : input is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte at <root>\n",
+      "wall_seconds": 2.633,
+      "happened": "Exit 3; compile: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "compile-2",
+      "command": "compile",
+      "hard": "An unsupported adapter and an existing output folder cannot produce an artifact (adapter failure is documented as exit 6).",
+      "argv": [
+        "compile",
+        "empty.json",
+        "--adapter",
+        "not-real",
+        "--adapter-version",
+        "999",
+        "--output",
+        "built"
+      ],
+      "fixtures": [
+        {
+          "path": "empty.json",
+          "kind": "text",
+          "content": "{}"
+        },
+        {
+          "path": "built",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          6
+        ],
+        "must": [
+          "compile: error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "built/artifact.json"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 6,
+      "output_first_400": "compile: error\n  [error] PRG-ADAPTER-0002 : unknown adapter id 'not-real'\n",
+      "wall_seconds": 2.714,
+      "happened": "Exit 6; compile: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "adapters-1",
+      "command": "adapters",
+      "hard": "Repeated JSON switches should still return one parseable registry result.",
+      "argv": [
+        "adapters",
+        "--json",
+        "--json"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          0
+        ],
+        "must": [
+          "\"command\": \"adapters\""
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "{\"command\": \"adapters\", \"contract_version\": \"0.1.0\", \"data\": {\"adapters\": [{\"adapter_id\": \"fake\", \"adapter_version\": \"0.1.0\", \"artifact_kinds\": [\"compiled_prompt\"], \"capability_manifest_digest\": \"eee8d5a20e1ab864a70f91628a65cce437c7cad3863fb946b00b1f4f6401afd4\", \"capability_manifest_version\": \"0.1.0\", \"conformance_suite_version\": \"0.1.0\", \"provider_id\": \"fake\", \"supported_ir_range\": \"0.1.0\"}, {\"ad",
+      "wall_seconds": 2.645,
+      "happened": "Exit 0; {\"command\": \"adapters\", \"contract_version\": \"0.1.0\", \"data\": {\"adapters\": [{\"adapter_id\": \"fake\", \"adapter_version\": \"0.1.0\", \"artifact_kinds\": [\"compiled_promp",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "adapters-2",
+      "command": "adapters",
+      "hard": "A plausible but unsupported adapter filter must be rejected.",
+      "argv": [
+        "adapters",
+        "--adapter",
+        "fake"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "unrecognized arguments"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "usage: proofhouse [-h] [--version]\n                  {validate,inspect,compile,adapters,doctor,closed-loop,compile-requirements,evaluate-product,closed-loop-bridged-008,route,assay,proof,execute-openai,case,optimize,demo,models,install-skill,uninstall-skill,check,record,render,make,providers,run,loop,referee,compare,train,addons,deploy,hosts,install,uninstall,generate,media,eval,scan,parts} ...\npr",
+      "wall_seconds": 2.69,
+      "happened": "Exit 2; usage: proofhouse [-h] [--version]",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "doctor-1",
+      "command": "doctor",
+      "hard": "Doctor runs with every credential-like variable stripped.",
+      "argv": [
+        "doctor",
+        "--json"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          0,
+          7
+        ],
+        "must": [
+          "\"command\": \"doctor\""
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "{\"command\": \"doctor\", \"contract_version\": \"0.1.0\", \"data\": {\"checks\": [{\"detail\": \"3.14.6 (requires >= 3.11)\", \"name\": \"python_version\", \"ok\": true}, {\"detail\": \"loaded\", \"name\": \"diagnostic_registry\", \"ok\": true}, {\"detail\": \"loaded\", \"name\": \"ir_schema\", \"ok\": true}, {\"detail\": \"certified path performs no network access; this is an assertion, not a probe\", \"name\": \"offline_mode_assertion\", \"ok\":",
+      "wall_seconds": 2.712,
+      "happened": "Exit 0; {\"command\": \"doctor\", \"contract_version\": \"0.1.0\", \"data\": {\"checks\": [{\"detail\": \"3.14.6 (requires >= 3.11)\", \"name\": \"python_version\", \"ok\": true}, {\"detail\":",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "doctor-2",
+      "command": "doctor",
+      "hard": "A repeated output switch must not turn a health result into a traceback.",
+      "argv": [
+        "doctor",
+        "--json",
+        "--json"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          0,
+          7
+        ],
+        "must": [
+          "\"command\": \"doctor\""
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "{\"command\": \"doctor\", \"contract_version\": \"0.1.0\", \"data\": {\"checks\": [{\"detail\": \"3.14.6 (requires >= 3.11)\", \"name\": \"python_version\", \"ok\": true}, {\"detail\": \"loaded\", \"name\": \"diagnostic_registry\", \"ok\": true}, {\"detail\": \"loaded\", \"name\": \"ir_schema\", \"ok\": true}, {\"detail\": \"certified path performs no network access; this is an assertion, not a probe\", \"name\": \"offline_mode_assertion\", \"ok\":",
+      "wall_seconds": 2.86,
+      "happened": "Exit 0; {\"command\": \"doctor\", \"contract_version\": \"0.1.0\", \"data\": {\"checks\": [{\"detail\": \"3.14.6 (requires >= 3.11)\", \"name\": \"python_version\", \"ok\": true}, {\"detail\":",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "closed-loop-1",
+      "command": "closed-loop",
+      "hard": "A negative repair budget is outside the advertised 0 to 2 range.",
+      "argv": [
+        "closed-loop",
+        "requirements.json",
+        "--repair-budget",
+        "-1"
+      ],
+      "fixtures": [
+        {
+          "path": "requirements.json",
+          "kind": "text",
+          "content": "{}"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "invalid choice"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "usage: proofhouse closed-loop [-h] [--repair-budget {0,1,2}]\n                              [--enable-model-suggestions] [--json]\n                              [--product-eval-dataset PRODUCT_EVAL_DATASET]\n                              [--product-eval-rubric PRODUCT_EVAL_RUBRIC]\n                              input\nproofhouse closed-loop: error: argument --repair-budget: invalid choice: '-1' (choose",
+      "wall_seconds": 2.703,
+      "happened": "Exit 2; usage: proofhouse closed-loop [-h] [--repair-budget {0,1,2}]",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "closed-loop-2",
+      "command": "closed-loop",
+      "hard": "A product dataset without its rubric must be refused before reading input.",
+      "argv": [
+        "closed-loop",
+        "missing.json",
+        "--product-eval-dataset",
+        "data.jsonl"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "requires both"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "closed-loop: error\n  [error] PRG-CLI-0001 : closed-loop product eval requires both --product-eval-dataset and --product-eval-rubric\n",
+      "wall_seconds": 2.84,
+      "happened": "Exit 2; closed-loop: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "compile-requirements-1",
+      "command": "compile-requirements",
+      "hard": "A JSON envelope with duplicate keys must be rejected.",
+      "argv": [
+        "compile-requirements",
+        "duplicate.json"
+      ],
+      "fixtures": [
+        {
+          "path": "duplicate.json",
+          "kind": "text",
+          "content": "{\"kind\":\"file\",\"kind\":\"api\"}"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "invalid JSON"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "compile-requirements: error\n  [error] PRG-CLI-0001 : invalid JSON (duplicate JSON key 'kind')\n",
+      "wall_seconds": 2.686,
+      "happened": "Exit 2; compile-requirements: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "compile-requirements-2",
+      "command": "compile-requirements",
+      "hard": "A binary file using a .json extension must be rejected cleanly.",
+      "argv": [
+        "compile-requirements",
+        "binary.json"
+      ],
+      "fixtures": [
+        {
+          "path": "binary.json",
+          "kind": "binary",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "invalid JSON"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "compile-requirements: error\n  [error] PRG-CLI-0001 : invalid JSON ('utf-8' codec can't decode byte 0xff in position 1: invalid start byte)\n",
+      "wall_seconds": 2.778,
+      "happened": "Exit 2; compile-requirements: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "evaluate-product-1",
+      "command": "evaluate-product",
+      "hard": "The dataset path is a folder while the rubric is a real file.",
+      "argv": [
+        "evaluate-product",
+        "--dataset",
+        "data.jsonl",
+        "--rubric",
+        "rubric.json",
+        "--candidate-digest",
+        "sha256:abc"
+      ],
+      "fixtures": [
+        {
+          "path": "data.jsonl",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "rubric.json",
+          "kind": "text",
+          "content": "{}"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "dataset not found"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "evaluate-product: error\n  [error] PRG-CLI-0001 : dataset not found: data.jsonl\n",
+      "wall_seconds": 2.989,
+      "happened": "Exit 2; evaluate-product: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "evaluate-product-2",
+      "command": "evaluate-product",
+      "hard": "The rubric path is a folder while the dataset is a real file.",
+      "argv": [
+        "evaluate-product",
+        "--dataset",
+        "data.jsonl",
+        "--rubric",
+        "rubric.json",
+        "--candidate-digest",
+        "sha256:abc"
+      ],
+      "fixtures": [
+        {
+          "path": "data.jsonl",
+          "kind": "text",
+          "content": ""
+        },
+        {
+          "path": "rubric.json",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "rubric not found"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "evaluate-product: error\n  [error] PRG-CLI-0001 : rubric not found: rubric.json\n",
+      "wall_seconds": 3.041,
+      "happened": "Exit 2; evaluate-product: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "closed-loop-bridged-008-1",
+      "command": "closed-loop-bridged-008",
+      "hard": "A repeated JSON key must fail before bridging requirements.",
+      "argv": [
+        "closed-loop-bridged-008",
+        "double.json"
+      ],
+      "fixtures": [
+        {
+          "path": "double.json",
+          "kind": "text",
+          "content": "{\"status\":\"SUCCESS\",\"status\":\"PARTIAL\"}"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "invalid JSON"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "closed-loop-bridged-008: error\n  [error] PRG-CLI-0001 : invalid JSON (duplicate JSON key 'status')\n",
+      "wall_seconds": 2.676,
+      "happened": "Exit 2; closed-loop-bridged-008: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "closed-loop-bridged-008-2",
+      "command": "closed-loop-bridged-008",
+      "hard": "An enormous repair budget must fail argument parsing.",
+      "argv": [
+        "closed-loop-bridged-008",
+        "missing.json",
+        "--repair-budget",
+        "999999999"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "invalid choice"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "usage: proofhouse closed-loop-bridged-008 [-h] [--repair-budget {0,1,2}]\n                                          [--json]\n                                          input\nproofhouse closed-loop-bridged-008: error: argument --repair-budget: invalid choice: '999999999' (choose from '0', '1', '2')\n",
+      "wall_seconds": 2.651,
+      "happened": "Exit 2; usage: proofhouse closed-loop-bridged-008 [-h] [--repair-budget {0,1,2}]",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "route-1",
+      "command": "route",
+      "hard": "Routing constraints contain a JSON array where an object is required.",
+      "argv": [
+        "route",
+        "--objective",
+        "Make a site",
+        "--constraints",
+        "[]"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "constraints must be a JSON object"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "route: error\n  [error] PRG-CLI-0001 : constraints must be a JSON object\n",
+      "wall_seconds": 2.689,
+      "happened": "Exit 2; route: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "route-2",
+      "command": "route",
+      "hard": "Routing constraints contain truncated JSON.",
+      "argv": [
+        "route",
+        "--objective",
+        "Make a site",
+        "--constraints",
+        "{\"kind\":"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "constraints must be a JSON object"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "route: error\n  [error] PRG-CLI-0001 : constraints must be a JSON object\n",
+      "wall_seconds": 2.674,
+      "happened": "Exit 2; route: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "assay-1",
+      "command": "assay",
+      "hard": "Claims are stored as a JSON object instead of the required array.",
+      "argv": [
+        "assay",
+        "--claims",
+        "claims.json"
+      ],
+      "fixtures": [
+        {
+          "path": "claims.json",
+          "kind": "text",
+          "content": "{}"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error",
+          "PASS"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "assay: error\n  [error] PRG-CLI-0001 : claims file claims.json must hold a JSON array of claims, not dict\n",
+      "wall_seconds": 2.689,
+      "happened": "Exit 2; assay: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "assay-2",
+      "command": "assay",
+      "hard": "A .json claims file contains binary bytes.",
+      "argv": [
+        "assay",
+        "--claims",
+        "claims.json",
+        "--rotten-fields"
+      ],
+      "fixtures": [
+        {
+          "path": "claims.json",
+          "kind": "binary",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error",
+          "PASS"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "assay: error\n  [error] PRG-CLI-0001 : claims file claims.json is not valid JSON: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte\n",
+      "wall_seconds": 2.712,
+      "happened": "Exit 2; assay: error",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "proof-1",
+      "command": "proof",
+      "hard": "Empty artifact and spec must never be described as reviewed.",
+      "argv": [
+        "proof",
+        "--artifact",
+        "",
+        "--spec",
+        ""
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          3
+        ],
+        "must": [
+          "UNJUDGED"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error",
+          "SHIP"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 3,
+      "output_first_400": "proof: UNJUDGED\n  no review pass ran (none is wired to this command); nothing was judged\n",
+      "wall_seconds": 2.711,
+      "happened": "Exit 3; proof: UNJUDGED",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "proof-2",
+      "command": "proof",
+      "hard": "Unicode claims and a contradictory spec must remain unjudged without a review pass.",
+      "argv": [
+        "proof",
+        "--artifact",
+        "π = 4",
+        "--spec",
+        "π = 3.14",
+        "--json"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          3
+        ],
+        "must": [
+          "UNJUDGED"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error",
+          "\"SHIP\""
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 3,
+      "output_first_400": "{\"findings\": [], \"passes\": 0, \"status\": \"UNJUDGED\"}\n",
+      "wall_seconds": 2.753,
+      "happened": "Exit 3; {\"findings\": [], \"passes\": 0, \"status\": \"UNJUDGED\"}",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "execute-openai-1",
+      "command": "execute-openai",
+      "hard": "Live execution receives an IR file but no explicit opt-in; the documented refusal is EXE-OPT-0001 with exit 7.",
+      "argv": [
+        "execute-openai",
+        "ir.json",
+        "--model",
+        "unknown",
+        "--credential-env",
+        "FAKE_KEY",
+        "--max-output-tokens",
+        "1",
+        "--max-cost-usd",
+        "0",
+        "--json"
+      ],
+      "fixtures": [
+        {
+          "path": "ir.json",
+          "kind": "text",
+          "content": "{}"
+        }
+      ],
+      "expected": {
+        "exits": [
+          7
+        ],
+        "must": [
+          "EXE-OPT-0001"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 7,
+      "output_first_400": "{\"command\": \"execute-openai\", \"diagnostics\": [\"EXE-OPT-0001\"], \"envelope\": {\"q1_model\": \"gpt-5.6-luna\", \"q1_unpicked\": false, \"single_request\": true}, \"status\": \"error\"}\n",
+      "wall_seconds": 2.616,
+      "happened": "Exit 7; {\"command\": \"execute-openai\", \"diagnostics\": [\"EXE-OPT-0001\"], \"envelope\": {\"q1_model\": \"gpt-5.6-luna\", \"q1_unpicked\": false, \"single_request\": true}, \"status\":",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "execute-openai-2",
+      "command": "execute-openai",
+      "hard": "A provider and target URL conflict must fail before any network access.",
+      "argv": [
+        "execute-openai",
+        "missing.json",
+        "--provider",
+        "openai",
+        "--target-url",
+        "https://example.invalid"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "cannot be used with"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: --target-url cannot be used with --provider\n",
+      "wall_seconds": 2.576,
+      "happened": "Exit 2; error: --target-url cannot be used with --provider",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "case-1",
+      "command": "case",
+      "hard": "A new case collides with an existing folder holding another user's file.",
+      "argv": [
+        "case",
+        "new",
+        "--case",
+        "case dir",
+        "--objective",
+        "Write a prompt",
+        "--model",
+        "unknown"
+      ],
+      "fixtures": [
+        {
+          "path": "case dir",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "case dir/keep.txt",
+          "kind": "text",
+          "content": "keep"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [
+          "case dir/keep.txt"
+        ],
+        "absent": [
+          "case dir/case.json"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: case directory already exists: case dir\n",
+      "wall_seconds": 2.711,
+      "happened": "Exit 2; error: case directory already exists: case dir",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "case-2",
+      "command": "case",
+      "hard": "An objective file path names a folder.",
+      "argv": [
+        "case",
+        "new",
+        "--case",
+        "new-case",
+        "--objective-file",
+        "goal.txt",
+        "--model",
+        "unknown"
+      ],
+      "fixtures": [
+        {
+          "path": "goal.txt",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "file not found"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "new-case"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: objective file not found: goal.txt\n",
+      "wall_seconds": 2.77,
+      "happened": "Exit 2; error: objective file not found: goal.txt",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "optimize-1",
+      "command": "optimize",
+      "hard": "The deprecated alias must still reject a case folder that already exists.",
+      "argv": [
+        "optimize",
+        "new",
+        "--case",
+        "old",
+        "--objective",
+        "Make a skill",
+        "--model",
+        "unknown"
+      ],
+      "fixtures": [
+        {
+          "path": "old",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [
+          "old"
+        ],
+        "absent": [
+          "old/case.json"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "notice: 'proofhouse optimize' is now 'proofhouse case' (same subcommands and flags); the optimize alias will be removed after 0.5\nerror: case directory already exists: old\n",
+      "wall_seconds": 2.586,
+      "happened": "Exit 2; notice: 'proofhouse optimize' is now 'proofhouse case' (same subcommands and flags); the optimize alias will be removed after 0.5",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "optimize-2",
+      "command": "optimize",
+      "hard": "The alias status command sees a half-written case folder.",
+      "argv": [
+        "optimize",
+        "status",
+        "--case",
+        "half"
+      ],
+      "fixtures": [
+        {
+          "path": "half",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "half/case.json",
+          "kind": "text",
+          "content": "{"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "notice: 'proofhouse optimize' is now 'proofhouse case' (same subcommands and flags); the optimize alias will be removed after 0.5\nerror: case.json is not valid JSON (Expecting property name enclosed in double quotes: line 1 column 2 (char 1)): half\\case.json\n",
+      "wall_seconds": 2.628,
+      "happened": "Exit 2; notice: 'proofhouse optimize' is now 'proofhouse case' (same subcommands and flags); the optimize alias will be removed after 0.5",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "demo-1",
+      "command": "demo",
+      "hard": "The offline demo gets a workspace path that is a file.",
+      "argv": [
+        "demo",
+        "--workspace",
+        "workspace"
+      ],
+      "fixtures": [
+        {
+          "path": "workspace",
+          "kind": "text",
+          "content": "already here"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [
+          "workspace"
+        ],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: [WinError 183] Cannot create a file when that file already exists: '<case>\\\\workspace'\n",
+      "wall_seconds": 2.689,
+      "happened": "Exit 2; error: [WinError 183] Cannot create a file when that file already exists: '<case>\\\\workspace'",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "demo-2",
+      "command": "demo",
+      "hard": "The offline demo gets an already populated workspace and must preserve its file.",
+      "argv": [
+        "demo",
+        "--workspace",
+        "workspace",
+        "--quiet"
+      ],
+      "fixtures": [
+        {
+          "path": "workspace",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "workspace/keep.txt",
+          "kind": "text",
+          "content": "keep"
+        }
+      ],
+      "expected": {
+        "exits": [
+          0,
+          1,
+          2
+        ],
+        "must": [],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [
+          "workspace/keep.txt"
+        ],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "reference workflow: OK in 77.0s -- v1 FAIL ['ACC', 'CITE', 'NOGUESS', 'UNK'], v2 PASS with 4 constraints satisfied; export/import reproduced; workspace <case>\\workspace\n\nOpen the results again any time:\n  report:  <case>\\workspace\\report.md\n  proofhouse case status --case <case>\\workspace\\advisory-case\n  proofhouse case check --case <case>\\workspace\\advisory-case\n",
+      "wall_seconds": 79.797,
+      "happened": "Exit 0; reference workflow: OK in 77.0s -- v1 FAIL ['ACC', 'CITE', 'NOGUESS', 'UNK'], v2 PASS with 4 constraints satisfied; export/import reproduced; workspace <case>\\w",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "models-1",
+      "command": "models",
+      "hard": "A model name with Unicode has no local notes and cannot trigger research.",
+      "argv": [
+        "models",
+        "show",
+        "unknown-☃"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          0
+        ],
+        "must": [
+          "unknown-"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "warning: no notes for \"unknown-?\"; using the generic profile (source=fallback)\nmodel: unknown-?\n  entered: unknown-?\n  canonical_id: unknown\n  provider: -  tier: generic\n  source: fallback  verified_at: -  stale: no\n  sources: none recorded\n  evidence: unverified\n  notes: No verified vendor-specific behavior available. General best practice: explicit goal, constraints, format, audience. Note in ra",
+      "wall_seconds": 4.152,
+      "happened": "Exit 0; warning: no notes for \"unknown-?\"; using the generic profile (source=fallback)",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "models-2",
+      "command": "models",
+      "hard": "Forgetting a never-cached model must not create a notes file.",
+      "argv": [
+        "models",
+        "forget",
+        "never-cached-☃"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "nothing cached"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: nothing cached for \"never-cached-?\"\n",
+      "wall_seconds": 3.767,
+      "happened": "Exit 2; error: nothing cached for \"never-cached-?\"",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "install-skill-1",
+      "command": "install-skill",
+      "hard": "A bundle path names a plain text file rather than a skill archive (environment failure, exit 7).",
+      "argv": [
+        "install-skill",
+        "--dest",
+        "skills",
+        "--bundle",
+        "fake.skill",
+        "--json"
+      ],
+      "fixtures": [
+        {
+          "path": "fake.skill",
+          "kind": "text",
+          "content": "not a zip"
+        }
+      ],
+      "expected": {
+        "exits": [
+          7
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "skills/proofhouse"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 7,
+      "output_first_400": "error: bundle unreadable: fake.skill: File is not a zip file\n",
+      "wall_seconds": 3.557,
+      "happened": "Exit 7; error: bundle unreadable: fake.skill: File is not a zip file",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "install-skill-2",
+      "command": "install-skill",
+      "hard": "A bundle folder has no SKILL.md and must leave the destination empty.",
+      "argv": [
+        "install-skill",
+        "--dest",
+        "skills",
+        "--bundle",
+        "bundle",
+        "--json"
+      ],
+      "fixtures": [
+        {
+          "path": "bundle",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "bundle/readme.md",
+          "kind": "text",
+          "content": "not a skill"
+        }
+      ],
+      "expected": {
+        "exits": [
+          7
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "skills/proofhouse"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 7,
+      "output_first_400": "error: installed skill failed verification: SKILL.md missing; nothing was installed in <case>\\skills\n",
+      "wall_seconds": 3.693,
+      "happened": "Exit 7; error: installed skill failed verification: SKILL.md missing; nothing was installed in <case>\\skills",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "uninstall-skill-1",
+      "command": "uninstall-skill",
+      "hard": "A named skill was never installed in the isolated destination.",
+      "argv": [
+        "uninstall-skill",
+        "proofhouse",
+        "--dest",
+        "skills",
+        "--json"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "skills/proofhouse"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: Proofhouse has no record of installing <case>\\skills\\proofhouse; it removes only what it installed. Nothing was removed.\n",
+      "wall_seconds": 3.591,
+      "happened": "Exit 2; error: Proofhouse has no record of installing <case>\\skills\\proofhouse; it removes only what it installed. Nothing was removed.",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "uninstall-skill-2",
+      "command": "uninstall-skill",
+      "hard": "An untracked skill folder must not be removed without a matching install record.",
+      "argv": [
+        "uninstall-skill",
+        "proofhouse",
+        "--dest",
+        "skills",
+        "--json"
+      ],
+      "fixtures": [
+        {
+          "path": "skills/proofhouse",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "skills/proofhouse/keep.txt",
+          "kind": "text",
+          "content": "keep"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [
+          "skills/proofhouse/keep.txt"
+        ],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: Proofhouse has no record of installing <case>\\skills\\proofhouse; it removes only what it installed. Nothing was removed.\n",
+      "wall_seconds": 3.446,
+      "happened": "Exit 2; error: Proofhouse has no record of installing <case>\\skills\\proofhouse; it removes only what it installed. Nothing was removed.",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "check-1",
+      "command": "check",
+      "hard": "A rule path is a directory instead of a rules file.",
+      "argv": [
+        "check",
+        "rule",
+        "rules.md"
+      ],
+      "fixtures": [
+        {
+          "path": "rules.md",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          1,
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: rules.md\n",
+      "wall_seconds": 3.471,
+      "happened": "Exit 2; error: rules.md",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "check-2",
+      "command": "check",
+      "hard": "A skill folder is half written and lacks SKILL.md, so it is not a skill (usage error, exit 2).",
+      "argv": [
+        "check",
+        "skill",
+        "skill dir"
+      ],
+      "fixtures": [
+        {
+          "path": "skill dir",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "skill dir/readme.txt",
+          "kind": "text",
+          "content": "partial"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "skill dir"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: SKILL.md not found in skill dir\n",
+      "wall_seconds": 3.535,
+      "happened": "Exit 2; error: SKILL.md not found in skill dir",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "record-1",
+      "command": "record",
+      "hard": "A score below zero must be rejected before recording anything.",
+      "argv": [
+        "record",
+        "rule",
+        "rule.md",
+        "--out",
+        "record",
+        "--request",
+        "Make a rule",
+        "--agent",
+        "cursor",
+        "--score",
+        "-1"
+      ],
+      "fixtures": [
+        {
+          "path": "rule.md",
+          "kind": "text",
+          "content": "Be clear."
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "record"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "",
+      "wall_seconds": 3.528,
+      "happened": "Exit 2; no output",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "record-2",
+      "command": "record",
+      "hard": "The same agent cannot also be its independent judge.",
+      "argv": [
+        "record",
+        "rule",
+        "rule.md",
+        "--out",
+        "record",
+        "--request",
+        "Make a rule",
+        "--agent",
+        "Cursor",
+        "--judge",
+        "cursor",
+        "--judge-score",
+        "8"
+      ],
+      "fixtures": [
+        {
+          "path": "rule.md",
+          "kind": "text",
+          "content": "Be clear."
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "different agent"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "record"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: judge must be a different agent from the one that wrote this version\n",
+      "wall_seconds": 3.6,
+      "happened": "Exit 2; error: judge must be a different agent from the one that wrote this version",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "render-1",
+      "command": "render",
+      "hard": "An empty format list must fail before FFmpeg sees a folder.",
+      "argv": [
+        "render",
+        "video",
+        "film",
+        "--formats",
+        ",, "
+      ],
+      "fixtures": [
+        {
+          "path": "film",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "name at least one format"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: name at least one format\n",
+      "wall_seconds": 3.719,
+      "happened": "Exit 2; error: name at least one format",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "render-2",
+      "command": "render",
+      "hard": "A movie folder is actually a file.",
+      "argv": [
+        "render",
+        "video",
+        "film",
+        "--formats",
+        "16x9"
+      ],
+      "fixtures": [
+        {
+          "path": "film",
+          "kind": "text",
+          "content": "not a film"
+        }
+      ],
+      "expected": {
+        "exits": [
+          1,
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: script.json not found in film\n",
+      "wall_seconds": 3.696,
+      "happened": "Exit 2; error: script.json not found in film",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "make-1",
+      "command": "make",
+      "hard": "A paid maker request has no spending ceiling or credential.",
+      "argv": [
+        "make",
+        "Build a prompt",
+        "--kind",
+        "prompt",
+        "--provider",
+        "openai",
+        "--model",
+        "unknown",
+        "--out",
+        "made"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2,
+          7
+        ],
+        "must": [
+          "limit"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "made/result.txt"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: name a spending limit for the whole make (--max-cost-usd)\n",
+      "wall_seconds": 3.666,
+      "happened": "Exit 2; error: name a spending limit for the whole make (--max-cost-usd)",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "make-2",
+      "command": "make",
+      "hard": "A video request has no visual service or model.",
+      "argv": [
+        "make",
+        "Make a short film",
+        "--kind",
+        "video",
+        "--provider",
+        "openai",
+        "--model",
+        "unknown",
+        "--out",
+        "made"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "video needs"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "made"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: a video needs --visual-provider and --visual-model (see `proofhouse media list`)\n",
+      "wall_seconds": 3.69,
+      "happened": "Exit 2; error: a video needs --visual-provider and --visual-model (see `proofhouse media list`)",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "providers-1",
+      "command": "providers",
+      "hard": "An invalid negative cloud price must not alter the provider registry.",
+      "argv": [
+        "providers",
+        "price",
+        "openai",
+        "unknown",
+        "--input",
+        "-1",
+        "--output",
+        "1"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "plain decimal"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: --input must be a plain decimal such as 2.50 (USD per million tokens), above zero for a paid provider\n",
+      "wall_seconds": 3.698,
+      "happened": "Exit 2; error: --input must be a plain decimal such as 2.50 (USD per million tokens), above zero for a paid provider",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "providers-2",
+      "command": "providers",
+      "hard": "Removing a shipped provider must leave the local registry untouched.",
+      "argv": [
+        "providers",
+        "remove",
+        "openai"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "not in your providers file"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: openai is not in your providers file (<case>\\proofhouse_home\\providers.json); shipped providers can be overridden, not removed\n",
+      "wall_seconds": 3.726,
+      "happened": "Exit 2; error: openai is not in your providers file (<case>\\proofhouse_home\\providers.json); shipped providers can be overridden, not removed",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "run-1",
+      "command": "run",
+      "hard": "A paid run with a (fake) key and prompt text lacks the required spending ceiling.",
+      "argv": [
+        "run",
+        "--provider",
+        "openai",
+        "--model",
+        "unknown",
+        "--prompt",
+        "Hello"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          7
+        ],
+        "must": [
+          "PHC-RUN-0002",
+          "spending limit"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 7,
+      "output_first_400": "PHC-RUN-0002: name a spending limit for a paid provider (--max-cost-usd)\n",
+      "wall_seconds": 3.662,
+      "happened": "Exit 7; PHC-RUN-0002: name a spending limit for a paid provider (--max-cost-usd)",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "run-2",
+      "command": "run",
+      "hard": "A prompt file is actually a directory.",
+      "argv": [
+        "run",
+        "--provider",
+        "openai",
+        "--model",
+        "unknown",
+        "--prompt-file",
+        "prompt.txt"
+      ],
+      "fixtures": [
+        {
+          "path": "prompt.txt",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "cannot read a file"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: cannot read a file: [Errno 13] Permission denied: 'prompt.txt'\n",
+      "wall_seconds": 3.681,
+      "happened": "Exit 2; error: cannot read a file: [Errno 13] Permission denied: 'prompt.txt'",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "loop-1",
+      "command": "loop",
+      "hard": "A negative duration is not a valid length of time.",
+      "argv": [
+        "loop",
+        "Write a file",
+        "--provider",
+        "openai",
+        "--model",
+        "unknown",
+        "--for",
+        "-1",
+        "--in",
+        ".",
+        "--out",
+        "loop"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "not a length of time"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "loop"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: '-1' is not a length of time; use for example 90, 30s, 5m, 2h or 1d\n",
+      "wall_seconds": 3.647,
+      "happened": "Exit 2; error: '-1' is not a length of time; use for example 90, 30s, 5m, 2h or 1d",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "loop-2",
+      "command": "loop",
+      "hard": "A watch loop without an interval must refuse to start.",
+      "argv": [
+        "loop",
+        "Watch files",
+        "--provider",
+        "openai",
+        "--model",
+        "unknown",
+        "--watch",
+        "echo changed",
+        "--in",
+        ".",
+        "--out",
+        "loop"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "--every"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "loop/rounds.jsonl"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: a watch needs --every (seconds between looks)\n",
+      "wall_seconds": 3.649,
+      "happened": "Exit 2; error: a watch needs --every (seconds between looks)",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "referee-1",
+      "command": "referee",
+      "hard": "Starting a check without opt-in must not run a shell command.",
+      "argv": [
+        "referee",
+        "start",
+        "Check output",
+        "--check",
+        "echo HELLO",
+        "--folder",
+        ".",
+        "--out",
+        "rounds"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "--allow-commands"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "rounds/rounds.jsonl"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: a check command needs --allow-commands\n",
+      "wall_seconds": 3.796,
+      "happened": "Exit 2; error: a check command needs --allow-commands",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "referee-2",
+      "command": "referee",
+      "hard": "A record folder is only half written before status reads it.",
+      "argv": [
+        "referee",
+        "status",
+        "rounds"
+      ],
+      "fixtures": [
+        {
+          "path": "rounds",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "rounds/loop.json",
+          "kind": "text",
+          "content": "{"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "loop.json",
+          "not readable JSON"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: loop.json in <case>\\rounds is not readable JSON\n",
+      "wall_seconds": 3.733,
+      "happened": "Exit 2; error: loop.json in <case>\\rounds is not readable JSON",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "compare-1",
+      "command": "compare",
+      "hard": "Saved-output mode receives a directory instead of an output file.",
+      "argv": [
+        "compare",
+        "A job",
+        "--entry",
+        "one=output.txt",
+        "--entry",
+        "two=other.txt",
+        "--out",
+        "comparison"
+      ],
+      "fixtures": [
+        {
+          "path": "output.txt",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "other.txt",
+          "kind": "text",
+          "content": "answer"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "file not found"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "comparison/side-by-side.html"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: file not found: <case>\\output.txt\n",
+      "wall_seconds": 3.744,
+      "happened": "Exit 2; error: file not found: <case>\\output.txt",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "compare-2",
+      "command": "compare",
+      "hard": "Saved outputs and live model selections conflict and must never call a model.",
+      "argv": [
+        "compare",
+        "A job",
+        "--entry",
+        "one=output.txt",
+        "--on",
+        "openai:unknown",
+        "--out",
+        "comparison"
+      ],
+      "fixtures": [
+        {
+          "path": "output.txt",
+          "kind": "text",
+          "content": "answer"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "mutually exclusive"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "comparison"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: --entry and --on are mutually exclusive\n",
+      "wall_seconds": 3.757,
+      "happened": "Exit 2; error: --entry and --on are mutually exclusive",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "train-1",
+      "command": "train",
+      "hard": "An empty training file cannot be divided into training and validation data.",
+      "argv": [
+        "train",
+        "data",
+        "empty.jsonl",
+        "--out",
+        "training"
+      ],
+      "fixtures": [
+        {
+          "path": "empty.jsonl",
+          "kind": "text",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "training/train.jsonl"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: empty.jsonl has no examples\n",
+      "wall_seconds": 3.514,
+      "happened": "Exit 2; error: empty.jsonl has no examples",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "train-2",
+      "command": "train",
+      "hard": "Training start has a negative epoch count, which used to price as free and upload first.",
+      "argv": [
+        "train",
+        "start",
+        "--service",
+        "openai",
+        "--model",
+        "unknown",
+        "--data",
+        "data",
+        "--epochs",
+        "-2",
+        "--out",
+        "training"
+      ],
+      "fixtures": [
+        {
+          "path": "data/train.jsonl",
+          "kind": "text",
+          "content": "{}"
+        }
+      ],
+      "expected": {
+        "exits": [
+          7
+        ],
+        "must": [
+          "PHC-RUN-0002",
+          "epochs must be a whole number",
+          "nothing was uploaded"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 7,
+      "output_first_400": "PHC-RUN-0002: epochs must be a whole number from 1 to 50; nothing was uploaded\n",
+      "wall_seconds": 3.688,
+      "happened": "Exit 7; PHC-RUN-0002: epochs must be a whole number from 1 to 50; nothing was uploaded",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "addons-1",
+      "command": "addons",
+      "hard": "An add-on folder lacks the required addon.json manifest.",
+      "argv": [
+        "addons",
+        "install",
+        "pack"
+      ],
+      "fixtures": [
+        {
+          "path": "pack",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: pack\\addon.json is unreadable: FileNotFoundError\n",
+      "wall_seconds": 3.772,
+      "happened": "Exit 2; error: pack\\addon.json is unreadable: FileNotFoundError",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "addons-2",
+      "command": "addons",
+      "hard": "Removing a pack that was never installed must leave other state alone.",
+      "argv": [
+        "addons",
+        "remove",
+        "never-installed"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: no installed pack named 'never-installed'; see `proofhouse addons list`\n",
+      "wall_seconds": 3.753,
+      "happened": "Exit 2; error: no installed pack named 'never-installed'; see `proofhouse addons list`",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "deploy-1",
+      "command": "deploy",
+      "hard": "A deployment dry run receives a path that is a file.",
+      "argv": [
+        "deploy",
+        "site",
+        "--to",
+        "netlify",
+        "--dry-run"
+      ],
+      "fixtures": [
+        {
+          "path": "site",
+          "kind": "text",
+          "content": "not a folder"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: <case>\\site has no index.html to deploy\n",
+      "wall_seconds": 3.608,
+      "happened": "Exit 2; error: <case>\\site has no index.html to deploy",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "deploy-2",
+      "command": "deploy",
+      "hard": "A populated site can produce a dry-run command without deploying it.",
+      "argv": [
+        "deploy",
+        "site with spaces",
+        "--to",
+        "netlify",
+        "--dry-run",
+        "--json"
+      ],
+      "fixtures": [
+        {
+          "path": "site with spaces",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "site with spaces/index.html",
+          "kind": "text",
+          "content": "<h1>Hi</h1>"
+        }
+      ],
+      "expected": {
+        "exits": [
+          0
+        ],
+        "must": [
+          "dry run"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [
+          "site with spaces/index.html"
+        ],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "{\"command\": [\"netlify\", \"deploy\", \"--dir\", \"<case>\\\\site with spaces\", \"--prod\"], \"folder\": \"<case>\\\\site with spaces\", \"status\": \"dry run\", \"target\": \"netlify\", \"url\": null}\n",
+      "wall_seconds": 3.797,
+      "happened": "Exit 0; {\"command\": [\"netlify\", \"deploy\", \"--dir\", \"<case>\\\\site with spaces\", \"--prod\"], \"folder\": \"<case>\\\\site with spaces\", \"status\": \"dry run\", \"target\": \"netlify\"",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "hosts-1",
+      "command": "hosts",
+      "hard": "The host registry should remain readable without any account credentials.",
+      "argv": [
+        "hosts",
+        "list",
+        "--json"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          0
+        ],
+        "must": [
+          "\"hosts\""
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "{\"hosts\": [{\"agent\": {\"format\": \"file\", \"project\": \"{project}/.claude/agents/{name}.md\", \"user\": \"~/.claude/agents/{name}.md\"}, \"id\": \"claude\", \"mcp\": {\"format\": \"json-mcp\", \"project\": \"{project}/.mcp.json\"}, \"name\": \"Claude Code\", \"rule\": {\"format\": \"md-block\", \"project\": \"{project}/CLAUDE.md\", \"user\": \"~/.claude/CLAUDE.md\"}}, {\"id\": \"cursor\", \"mcp\": {\"format\": \"json-mcp\", \"project\": \"{project}/.",
+      "wall_seconds": 3.686,
+      "happened": "Exit 0; {\"hosts\": [{\"agent\": {\"format\": \"file\", \"project\": \"{project}/.claude/agents/{name}.md\", \"user\": \"~/.claude/agents/{name}.md\"}, \"id\": \"claude\", \"mcp\": {\"format\"",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "hosts-2",
+      "command": "hosts",
+      "hard": "A repeated JSON flag should still return one host registry.",
+      "argv": [
+        "hosts",
+        "list",
+        "--json",
+        "--json"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          0
+        ],
+        "must": [
+          "\"hosts\""
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "{\"hosts\": [{\"agent\": {\"format\": \"file\", \"project\": \"{project}/.claude/agents/{name}.md\", \"user\": \"~/.claude/agents/{name}.md\"}, \"id\": \"claude\", \"mcp\": {\"format\": \"json-mcp\", \"project\": \"{project}/.mcp.json\"}, \"name\": \"Claude Code\", \"rule\": {\"format\": \"md-block\", \"project\": \"{project}/CLAUDE.md\", \"user\": \"~/.claude/CLAUDE.md\"}}, {\"id\": \"cursor\", \"mcp\": {\"format\": \"json-mcp\", \"project\": \"{project}/.",
+      "wall_seconds": 3.588,
+      "happened": "Exit 0; {\"hosts\": [{\"agent\": {\"format\": \"file\", \"project\": \"{project}/.claude/agents/{name}.md\", \"user\": \"~/.claude/agents/{name}.md\"}, \"id\": \"claude\", \"mcp\": {\"format\"",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "install-1",
+      "command": "install",
+      "hard": "An agent file lacks required frontmatter and must not be installed into the project.",
+      "argv": [
+        "install",
+        "agent",
+        "agent.md",
+        "--into",
+        "cursor",
+        "--project",
+        "project"
+      ],
+      "fixtures": [
+        {
+          "path": "agent.md",
+          "kind": "text",
+          "content": "plain text"
+        },
+        {
+          "path": "project",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "frontmatter"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "project/.cursor/agents/agent.md"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: an agent file needs frontmatter with name: and description: (or pass --name)\n",
+      "wall_seconds": 3.886,
+      "happened": "Exit 2; error: an agent file needs frontmatter with name: and description: (or pass --name)",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "install-2",
+      "command": "install",
+      "hard": "An MCP server has no command and cannot be installed into the project.",
+      "argv": [
+        "install",
+        "mcp",
+        "test-server",
+        "--into",
+        "cursor",
+        "--project",
+        "project"
+      ],
+      "fixtures": [
+        {
+          "path": "project",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "needs --command"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "project/.cursor/mcp.json"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: an MCP server needs --command\n",
+      "wall_seconds": 4.18,
+      "happened": "Exit 2; error: an MCP server needs --command",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "uninstall-1",
+      "command": "uninstall",
+      "hard": "A project install was never recorded and must not remove anything.",
+      "argv": [
+        "uninstall",
+        "agent",
+        "missing",
+        "--from",
+        "cursor",
+        "--project",
+        "project"
+      ],
+      "fixtures": [
+        {
+          "path": "project",
+          "kind": "dir",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: Cursor has no place for agents on your machine\n",
+      "wall_seconds": 3.917,
+      "happened": "Exit 2; error: Cursor has no place for agents on your machine",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "uninstall-2",
+      "command": "uninstall",
+      "hard": "An existing hand-written rule must survive an uninstall without a record.",
+      "argv": [
+        "uninstall",
+        "rule",
+        "handmade",
+        "--from",
+        "cursor",
+        "--project",
+        "project"
+      ],
+      "fixtures": [
+        {
+          "path": "project",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "project/.cursor/rules/handmade.mdc",
+          "kind": "text",
+          "content": "Keep me."
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [
+          "project/.cursor/rules/handmade.mdc"
+        ],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: Proofhouse has no record of installing rule handmade into Cursor at <case>\\project\\.cursor\\rules\\handmade.mdc\n",
+      "wall_seconds": 3.729,
+      "happened": "Exit 2; error: Proofhouse has no record of installing rule handmade into Cursor at <case>\\project\\.cursor\\rules\\handmade.mdc",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "generate-1",
+      "command": "generate",
+      "hard": "A paid image request with a (fake) key has no spending ceiling.",
+      "argv": [
+        "generate",
+        "image",
+        "--provider",
+        "openai-images",
+        "--model",
+        "unknown",
+        "--prompt",
+        "A moon",
+        "--out",
+        "moon.png"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          7
+        ],
+        "must": [
+          "PHC-RUN-0002",
+          "spending limit"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "moon.png"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 7,
+      "output_first_400": "PHC-RUN-0002: name a spending limit for a paid service (--max-cost-usd)\n",
+      "wall_seconds": 3.655,
+      "happened": "Exit 7; PHC-RUN-0002: name a spending limit for a paid service (--max-cost-usd)",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "generate-2",
+      "command": "generate",
+      "hard": "A negative video length must be rejected before any paid request is priced or sent.",
+      "argv": [
+        "generate",
+        "video",
+        "--provider",
+        "replicate",
+        "--model",
+        "unknown",
+        "--prompt",
+        "A moon",
+        "--seconds",
+        "-3",
+        "--out",
+        "clip.mp4"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "--seconds"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "clip.mp4"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: --seconds must be a whole number of seconds, 1 or more\n",
+      "wall_seconds": 3.629,
+      "happened": "Exit 2; error: --seconds must be a whole number of seconds, 1 or more",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "media-1",
+      "command": "media",
+      "hard": "A negative declared unit price must not be saved.",
+      "argv": [
+        "media",
+        "price",
+        "openai-images",
+        "unknown",
+        "--usd",
+        "-1"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "plain decimal"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: --usd must be a plain decimal above zero (USD per image)\n",
+      "wall_seconds": 3.677,
+      "happened": "Exit 2; error: --usd must be a plain decimal above zero (USD per image)",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "media-2",
+      "command": "media",
+      "hard": "A media service template is actually a binary file.",
+      "argv": [
+        "media",
+        "add",
+        "--from",
+        "media.json"
+      ],
+      "fixtures": [
+        {
+          "path": "media.json",
+          "kind": "binary",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte\n",
+      "wall_seconds": 3.616,
+      "happened": "Exit 2; error: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "eval-1",
+      "command": "eval",
+      "hard": "A JSONL dataset contains a broken line after a valid-looking extension.",
+      "argv": [
+        "eval",
+        "validate",
+        "--dataset",
+        "data with spaces.jsonl"
+      ],
+      "fixtures": [
+        {
+          "path": "data with spaces.jsonl",
+          "kind": "text",
+          "content": "{broken\n"
+        }
+      ],
+      "expected": {
+        "exits": [
+          1
+        ],
+        "must": [
+          "validation failed"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 1,
+      "output_first_400": "Dataset validation failed: data with spaces.jsonl\nline 1: Invalid JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\n",
+      "wall_seconds": 3.563,
+      "happened": "Exit 1; Dataset validation failed: data with spaces.jsonl",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "eval-2",
+      "command": "eval",
+      "hard": "A loadout id does not exist and must not create output.",
+      "argv": [
+        "eval",
+        "compile-loadout",
+        "--id",
+        "never-existed",
+        "--out",
+        "loadout.md"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2,
+          8
+        ],
+        "must": [
+          "error"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [
+          "loadout.md"
+        ],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: [Errno 2] No such file or directory: 'loadouts\\\\legendary_loadouts.json'\n",
+      "wall_seconds": 3.583,
+      "happened": "Exit 2; error: [Errno 2] No such file or directory: 'loadouts\\\\legendary_loadouts.json'",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "scan-1",
+      "command": "scan",
+      "hard": "The scan target is a file instead of a project folder.",
+      "argv": [
+        "scan",
+        "project.txt"
+      ],
+      "fixtures": [
+        {
+          "path": "project.txt",
+          "kind": "text",
+          "content": "a file"
+        }
+      ],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "scan:"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "scan: not a folder: <case>\\project.txt\n",
+      "wall_seconds": 3.667,
+      "happened": "Exit 2; scan: not a folder: <case>\\project.txt",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "scan-2",
+      "command": "scan",
+      "hard": "A directory with a Unicode name and binary file must still scan safely.",
+      "argv": [
+        "scan",
+        "project ☃",
+        "--json"
+      ],
+      "fixtures": [
+        {
+          "path": "project ☃",
+          "kind": "dir",
+          "content": ""
+        },
+        {
+          "path": "project ☃/data.bin",
+          "kind": "binary",
+          "content": ""
+        }
+      ],
+      "expected": {
+        "exits": [
+          0
+        ],
+        "must": [
+          "\""
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "{\n  \"scanned\": \"<case>\\\\project \\u2603\",\n  \"project_name\": \"project \\u2603\",\n  \"running_in\": [\n    \"Claude Code\"\n  ],\n  \"agent_products_used_here\": [],\n  \"languages\": {},\n  \"frameworks\": [],\n  \"package_managers\": [],\n  \"test_tools\": [],\n  \"script_names\": [],\n  \"ci\": [],\n  \"hosting_or_packaging\": [],\n  \"agent_instruction_files\": [],\n  \"git_branch\": null,\n  \"layout\": [],\n  \"readme_excerpt\": \"\",\n  \"s",
+      "wall_seconds": 3.642,
+      "happened": "Exit 0; {",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "parts-1",
+      "command": "parts",
+      "hard": "The part registry must serialize in an isolated home with no keys.",
+      "argv": [
+        "parts",
+        "--json"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          0
+        ],
+        "must": [
+          "\"parts\""
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 0,
+      "output_first_400": "{\n  \"contract_version\": \"proofhouse.part/v1\",\n  \"parts\": [\n    {\n      \"capability_manifest\": {\n        \"adapter_id\": \"fake\",\n        \"adapter_version\": \"0.1.0\",\n        \"conditional\": [],\n        \"limits\": {},\n        \"manifest_version\": \"0.1.0\",\n        \"supported\": [\n          \"output.structured_json@1\",\n          \"reasoning.effort_control@1\",\n          \"tools.function_calling@1\"\n        ]\n    ",
+      "wall_seconds": 3.756,
+      "happened": "Exit 0; {",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "parts-2",
+      "command": "parts",
+      "hard": "An unsupported filter must fail rather than print an incomplete part list.",
+      "argv": [
+        "parts",
+        "--kind",
+        "video"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "unrecognized arguments"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": false
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "usage: proofhouse [-h] [--version]\n                  {validate,inspect,compile,adapters,doctor,closed-loop,compile-requirements,evaluate-product,closed-loop-bridged-008,route,assay,proof,execute-openai,case,optimize,demo,models,install-skill,uninstall-skill,check,record,render,make,providers,run,loop,referee,compare,train,addons,deploy,hosts,install,uninstall,generate,media,eval,scan,parts} ...\npr",
+      "wall_seconds": 3.715,
+      "happened": "Exit 2; usage: proofhouse [-h] [--version]",
+      "hung": false,
+      "unable": false
+    }
+  ]
+}

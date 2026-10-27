@@ -195,7 +195,10 @@ def prompt_sha256(prompt: str) -> str:
 
 
 def _read_json(path: Path):
-    return json.loads(path.read_text(encoding="utf-8"))
+    try:
+        return json.loads(path.read_bytes().decode("utf-8"))
+    except ValueError as exc:  # bad UTF-8 or bad JSON, for example a half-written file
+        raise CaseError(f"{path.name} is not valid JSON ({exc}): {path}") from None
 
 
 def notes_from_file(name: str, notes_path: Path) -> ResolvedNotes:

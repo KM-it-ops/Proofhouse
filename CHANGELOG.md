@@ -6,6 +6,26 @@
 
 - **Host mode** for agents you already use: `proofhouse check`, `proofhouse record` and `proofhouse render video` need no API key and make no network calls of their own (`--allow-commands` runs model-written code, which may); the `proofhouse-host` skill teaches the write-check-record loop.
 - `proofhouse install-skill --skill proofhouse-host` installs that skill from the package itself, no checkout needed (plain `install-skill` still installs `proofhouse`).
+- `proofhouse demo` ends by saying where the report is and which commands reopen the case (`case status`, `case check`).
+- `proofhouse --version` prints the installed version.
+
+### Changed
+
+- **Checks that did not run are saved as "not measured"**, never as passed. A site check that cannot start a browser, or gets a screenshot at the wrong width, exits 3 and says why.
+- `proofhouse --help` names `proofhouse`, the one front door (`proofhouse-compiler` still works as an alias).
+- The demo guide states the run time measured on 2026-10-27: about 70 seconds, about 100 seconds for the first run after a clean install.
+
+### Fixed
+
+- **Spending-limit holes:** `train start` refuses a bad epoch count before pricing or uploading anything, and `generate` refuses a length of zero or less before any paid request.
+- Clean messages, not tracebacks, for a folder given as a file, a bad or binary claims file, a half-written `case.json`, a model name the console cannot print, and a failed compile (which no longer leaves an empty folder).
+- The referee, build, render, hook and train limits each have a test that proves they hold.
+- The unit-desk MCP example refuses requests that are not JSON-RPC 2.0, and its install steps give the full path to `server.py`.
+- The film example's shot builder is back, and its README points at the tracked MP4.
+
+### Security
+
+- The README video project forces zod 4.6.6 under Remotion (not part of the Python package).
 
 ## 0.9.1 - 2026-10-25
 

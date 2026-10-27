@@ -47,3 +47,30 @@ def test_notifications_and_blank_lines_still_get_no_reply() -> None:
 def test_only_json_goes_to_stdout() -> None:
     replies, _ = talk(["oops", json.dumps(LIST)])
     assert all(reply["jsonrpc"] == "2.0" for reply in replies)
+
+
+DELIVERED = [SERVER, SERVER.parents[1] / "mcp-record" / "mcp" / "server.py"]
+
+
+@pytest.mark.parametrize("server", DELIVERED, ids=["example", "record"])
+@pytest.mark.parametrize("version", [{"jsonrpc": "1.0"}, {"jsonrpc": 2.0}, {"jsonrpc": None}, {}])
+def test_a_request_without_jsonrpc_2_0_is_refused(server: Path, version: dict[str, Any]) -> None:
+    bad = {"id": 3, "method": "tools/list", "params": {}, **version}
+    process = subprocess.run(
+        [sys.executable, str(server)], input=json.dumps(bad) + "\n" + json.dumps(LIST) + "\n",
+        capture_output=True, text=True, timeout=30,
+    )
+    replies = [json.loads(line) for line in process.stdout.splitlines()]
+    assert replies[0] == {"jsonrpc": "2.0", "id": 3, "error": {"code": -32600, "message": "Invalid Request"}}
+    assert replies[1]["id"] == 7 and len(replies) == 2
+
+
+@pytest.mark.parametrize("server", DELIVERED, ids=["example", "record"])
+def test_readme_install_steps_point_at_the_real_server_file(server: Path) -> None:
+    readme = (server.parent / "README.md").read_text(encoding="utf-8")
+    assert "--arg=server.py" not in readme, "a bare server.py is looked up in the host's folder, not this one"
+    assert '--arg="<full path to this folder>/server.py"' in readme
+    repo = Path(__file__).resolve().parent.parent
+    for line in readme.splitlines():
+        if line.startswith("cd "):
+            assert (repo / line[3:].strip()) == server.parent

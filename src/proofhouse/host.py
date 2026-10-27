@@ -53,12 +53,22 @@ def _print_error(message: str) -> None:
     print(f"error: {message}", file=sys.stderr)
 
 
+NOT_MEASURED_EXIT = 3  # nothing failed, but at least one check did not run, so this is not a pass
+
+
 def _check_rows_pass_exit(checks: list[dict[str, Any]], *, commands_required: bool) -> int:
     if any(row.get("ok") is False for row in checks):
         return 1
     if commands_required and any(row.get("ok") is None for row in checks):
         return 1
+    if any(row.get("ok") is None for row in checks):
+        return NOT_MEASURED_EXIT
     return 0
+
+
+def _not_run_line(not_run: int) -> str:
+    noun = "check" if not_run == 1 else "checks"
+    return f"{not_run} {noun} did not run (not measured), so this is not a pass; --allow-commands runs them"
 
 
 def _format_check_line(row: dict[str, Any]) -> str:
@@ -67,7 +77,7 @@ def _format_check_line(row: dict[str, Any]) -> str:
         return f"PASS: {name}" + (f" ({detail})" if detail else "")
     if row.get("ok") is False:
         return f"FAIL: {name}" + (f": {detail}" if detail else "")
-    return f"{name}: {detail}" if detail else name
+    return f"NOT MEASURED: {name}" + (f" ({detail})" if detail else "")
 
 
 def _path_inside(folder: Path, name: str) -> Path:
@@ -176,6 +186,9 @@ def run_check(kind: str, path: Path, *, allow_commands: bool, as_json: bool) -> 
     else:
         for row in checks:
             print(_format_check_line(row))
+        not_run = sum(1 for row in checks if row.get("ok") is None)
+        if not_run and not any(row.get("ok") is False for row in checks):
+            print(_not_run_line(not_run))
     commands_required = kind in ("mcp", "hook")
     if kind == "launch":
         from .host_launch import launch_commands_required
@@ -284,12 +297,39 @@ def _next_version(out: Path) -> int:
     return highest + 1
 
 
-def _version_passed(checks: list[dict[str, Any]], *, commands_required: bool) -> bool:
-    return bool(checks) and _check_rows_pass_exit(checks, commands_required=commands_required) == 0
+def _version_status(checks: list[dict[str, Any]], *, commands_required: bool) -> str:
+    if not checks:
+        return "failed"
+    exit_code = _check_rows_pass_exit(checks, commands_required=commands_required)
+    return {0: "passed", NOT_MEASURED_EXIT: "not measured"}.get(exit_code, "failed")
+
+
+def _round_status(row: dict[str, Any]) -> str:
+    # Rounds saved before rounds carried a status only said passed or not.
+    return str(row.get("status") or ("passed" if row.get("passed") else "failed"))
+
+
+def _relabel_old_round(out: Path, row: dict[str, Any]) -> dict[str, Any]:
+    # A round saved before rounds carried a status said passed even when a check did not run. Its own
+    # checks.json still shows that, so it is read back as "not measured", never as passed.
+    if row.get("status") or not row.get("passed"):
+        return row
+    try:
+        checks = json.loads((out / f"v{row.get('version')}" / "checks.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return row
+    not_run = sum(1 for check in checks if isinstance(check, dict) and check.get("ok") is None) if isinstance(checks, list) else 0
+    if not not_run:
+        return row
+    return {**row, "passed": False, "status": "not measured", "not_measured": not_run}
 
 
 def _pick_best(rounds: list[dict[str, Any]]) -> int | None:
-    eligible = [row for row in rounds if row.get("passed")]
+    # A version that failed is never delivered. One whose checks did not all run is delivered only when no
+    # version passed every check, and it stays labelled "not measured".
+    eligible = [row for row in rounds if _round_status(row) == "passed"]
+    if not eligible:
+        eligible = [row for row in rounds if _round_status(row) == "not measured"]
     if not eligible:
         return None
     # Judged passing rounds outrank self-scored ones; then judge_score, then the later version.
@@ -492,12 +532,16 @@ def run_record(
         from .host_launch import launch_commands_required
 
         commands_required = launch_commands_required(checks, source)
-    passed = _version_passed(checks, commands_required=commands_required)
+    status = _version_status(checks, commands_required=commands_required)
+    passed = status == "passed"
+    not_run = sum(1 for row in checks if row.get("ok") is None)
     record_path = out / "record.json"
     prior = _read_record(out)
-    rounds: list[dict[str, Any]] = list(prior.get("rounds") or [])
+    rounds: list[dict[str, Any]] = [_relabel_old_round(out, row) for row in prior.get("rounds") or []]
     prior_delivered = [str(name) for name in prior.get("delivered") or []]
-    round_row: dict[str, Any] = {"version": version, "score": score, "passed": passed}
+    round_row: dict[str, Any] = {"version": version, "score": score, "passed": passed, "status": status}
+    if status == "not measured":
+        round_row["not_measured"] = not_run
     if agent:
         round_row["agent"] = agent
     if judge is not None:
@@ -520,6 +564,7 @@ def run_record(
         "kind": kind,
         "rounds": rounds,
         "best_version": best_version,
+        "best_status": _round_status(best_round) if best_round else None,
         "judge_note": judge_note_for_record(record_agent or "the writer", best_judge),
     }
     if best_round and best_round.get("judge_score") is not None:
@@ -551,11 +596,17 @@ def run_record(
             delivered = sorted({path.name for path in out.iterdir()} - before)
     payload["delivered"] = delivered
     record_path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
-    not_run = sum(1 for row in checks if row.get("ok") is None)
     if as_json:
-        print(json.dumps({"version": version, "checks_not_run": not_run, "passed": passed, "best_version": best_version}))
+        print(json.dumps({"version": version, "checks_not_run": not_run, "passed": passed, "status": status,
+                          "best_version": best_version}))
     if passed:
         return 0
+    if status == "not measured":
+        if not as_json:
+            delivered_note = f"v{best_version} is the delivered one" if best_version is not None else "nothing is delivered"
+            print(f"v{version} saved, but {_not_run_line(not_run).replace('this is not a pass', 'it is not counted as passed')}; "
+                  f"{delivered_note} (see {record_path})")
+        return NOT_MEASURED_EXIT
     # The version is kept, but a caller that trusts the exit code must not read this as a success.
     if not as_json:
         best = f"v{best_version} is still the delivered one" if best_version is not None else "no version has passed yet"
@@ -730,4 +781,7 @@ def run_render_video(
     production.spent_usd = Decimal(0)
     production.calls = []
     studio._write_record(production, production.title or "host video")
-    return 0
+    failed = [row for row in production.checks if row.get("ok") is not True]
+    for row in failed:
+        _print_error(f"{row.get('render')}: {row.get('check')} failed ({row.get('detail')})")
+    return 1 if failed else 0
