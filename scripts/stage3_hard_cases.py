@@ -16,7 +16,7 @@ import sys
 import tempfile
 import time
 from dataclasses import asdict, dataclass
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 ROOT = Path(__file__).resolve().parents[1]
 REPORT_DIR = ROOT / "docs" / "stage3"
@@ -231,8 +231,9 @@ def _environment(root: Path, extra: tuple[tuple[str, str], ...] = ()) -> dict[st
 def _safety(case: Case) -> None:
     if not case.argv or case.argv[0] != case.command:
         raise ValueError("case command and argv disagree")
-    if any(Path(part).is_absolute() or part[0] in ("/", chr(92)) or ".." in Path(part).parts
-           for value in case.argv for part in (value, value.partition("=")[2]) if part):
+    if any(kind(part).is_absolute() or part[0] in ("/", chr(92)) or ".." in kind(part).parts
+           for value in case.argv for part in (value, value.partition("=")[2]) if part
+           for kind in (Path, PureWindowsPath)):
         raise ValueError("case argv contains an absolute or parent path")
     if "--allow-commands" in case.argv or "--opt-in" in case.argv:
         raise ValueError("case enables command execution or live model execution")
