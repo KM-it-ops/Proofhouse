@@ -48,3 +48,25 @@ files in folders the commands refused to use were never overwritten. Duplicate J
 ## Cost
 
 About 3 minutes of machine time per full run, $0 paid.
+
+## Independent end review (Codex, whole diff against main)
+
+Codex did not write the product fixes; Claude did not run the review. It raised 3 serious and 8 smaller points.
+
+Fixed, each with a failing test first (`tests/test_stage3_runner.py`, `tests/test_stage3_breaks.py`):
+- The runner returned success even when a case broke. It now fails if any case broke.
+- `--name=value` options slipped past the "no outside paths" guard. The value after `=` is now checked, including a leading slash.
+- Output from a case that timed out was saved without removing local paths. It is now scrubbed like every other output.
+- Variables ending in `_URL`, `_URI`, `_PAT`, or containing `CONNECTION`, `SESSION`, `DSN`, `COOKIE` were not stripped from the case environment. They are now.
+- `compare-1` stopped at "name at least two outputs" and never read the directory. It now has two entries and expects "file not found".
+- `referee-2` damaged a file the command never reads. It now damages `loop.json` and expects "not readable JSON".
+- The narrow-console test accepted exit 0 or 2. It now needs exit 0 and the replaced name.
+- The plan claimed folder-escape cases. The runner refuses those paths, so the claim is removed.
+- The film example imported `build_shots`, which was missing. It is back in `film/` and `v4/video/`.
+
+Not changed:
+- `train-2` cannot reach a real upload (no price, bad data), so its "nothing uploaded" line is matched text only. The upload boundary itself is covered by the mocked unit test in `tests/test_train.py`. Reaching a real upload would need a paid call, which this stage does not make.
+- The finished film MP4 stays out of the repo. That was chosen earlier to keep the repo small and is now written in the example's README. Putting it back is Boss's call.
+- `compare` says "file not found" for a directory given as an output file. It is clear enough and does not crash.
+
+Result after the fixes: 78 held, 0 broke, $0 spent.

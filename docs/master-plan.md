@@ -240,12 +240,12 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
        "not measured", not PASS); Edge width; delegate run-ID collision.
    - **Stage 3, hard cases.** Two creative, hard cases for every one of the 39 `proofhouse` commands: the
      unusual but realistic use most likely to break each one (odd paths and names, empty, huge or wrong
-     files, conflicting flags, bad numbers, escapes out of a folder, repeat runs, half-finished earlier
-     runs). Each case states what should happen before it runs. They run offline with no keys and no
+     files, conflicting flags, bad numbers, repeat runs, half-finished earlier runs). The runner itself
+     refuses absolute or parent paths, so folder-escape attempts are not among the 78. Each case states what should happen before it runs. They run offline with no keys and no
      money, each in its own throwaway folder (`scripts/stage3_hard_cases.py`). The results, with what
      broke, what held and what each cost, are in [stage3/hard-cases.md](stage3/hard-cases.md). Every real
      break is fixed with its failing test first.
-     - Status: DONE. 78 cases across all 39 commands: 78 held, 0 broke, $0 spent. The first run broke 18; 9 were real defects, now fixed test-first (4e04676, d338472, d530ff4), 9 were wrong expectations. Findings in [stage3/findings.md](stage3/findings.md). Independent end review of the whole diff against main still to run.
+     - Status: DONE. 78 cases across all 39 commands: 78 held, 0 broke, $0 spent. The first run broke 18; 9 were real defects, now fixed test-first (4e04676, d338472, d530ff4), 9 were wrong expectations. Findings in [stage3/findings.md](stage3/findings.md). Independent end review (Codex) done; its fixes are in the same findings file.
 
 ## Known limits
 
