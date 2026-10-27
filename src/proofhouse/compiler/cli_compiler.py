@@ -601,12 +601,34 @@ def _cmd_route(args: argparse.Namespace) -> int:
     return _emit_route_decision(route(RouteRequest(args.objective, constraints)), as_json=args.json)
 
 
-def _cmd_assay(args: argparse.Namespace) -> int:
-    from .orchestration.assay import assay
+def _load_claims(path: str) -> tuple["Claim", ...]:
+    """Read a claims file: a JSON array of claim objects, each with every Claim field."""
     from .orchestration.claim_ledger import Claim
 
-    raw = json.loads(Path(args.claims).read_text(encoding="utf-8"))
-    claims = tuple(Claim(**item) for item in raw)
+    try:
+        raw = json.loads(Path(path).read_bytes().decode("utf-8"))
+    except ValueError as exc:  # bad UTF-8 or bad JSON
+        raise ValueError(f"claims file {path} is not valid JSON: {exc}") from None
+    if not isinstance(raw, list):
+        raise ValueError(f"claims file {path} must hold a JSON array of claims, not {type(raw).__name__}")
+    claims = []
+    for index, item in enumerate(raw):
+        if not isinstance(item, dict):
+            raise ValueError(f"claim {index} in {path} must be a JSON object, not {type(item).__name__}")
+        try:
+            claims.append(Claim(**item))
+        except TypeError as exc:
+            raise ValueError(f"claim {index} in {path} is malformed: {exc}") from None
+    return tuple(claims)
+
+
+def _cmd_assay(args: argparse.Namespace) -> int:
+    from .orchestration.assay import assay
+
+    try:
+        claims = _load_claims(args.claims)
+    except ValueError as exc:
+        return _cli_error("assay", str(exc), args.claims, as_json=args.json)
     result = assay(claims, rotten_fields=bool(args.rotten_fields))
     payload = {"status": result.status, "claim_ids": [claim.id for claim in result.claims]}
     if args.json:
@@ -984,7 +1006,16 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _make_console_safe() -> None:
+    """A narrow Windows console must print a name it cannot encode as ``?``, never crash with a Traceback."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(errors="replace")
+
+
 def main(argv: list[str] | None = None) -> int:
+    _make_console_safe()
     argv_list = list(sys.argv[1:] if argv is None else argv)
     if (
         argv_list
@@ -1011,7 +1042,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         return args.func(args)
-    except FileNotFoundError as exc:
+    except (FileNotFoundError, PermissionError, IsADirectoryError, NotADirectoryError, FileExistsError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE_ERROR
     except ValueError as exc:
