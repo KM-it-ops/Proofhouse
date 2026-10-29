@@ -758,10 +758,7 @@ def run_render_video(
             _print_error(str(exc))
             return 2
     kinds = {_visual_kind(Path(shot.file or "")) for shot in shots}
-    if len(kinds) > 1:
-        _print_error("shots mix pictures and video clips; use only pictures or only clips in one video")
-        return 2
-    visual_kind = kinds.pop()
+    visual_kind = kinds.pop() if len(kinds) == 1 else "mixed"
     production = studio.Production(folder.resolve())
     production.title = str(data.get("title", "")).strip()
     production.voiceover = str(data.get("voiceover", "")).strip()
