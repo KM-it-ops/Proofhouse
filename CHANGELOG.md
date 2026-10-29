@@ -8,8 +8,12 @@
 
 - `proofhouse setup` looks at your machine (AI tools, local model servers, browser, Node, ffmpeg, git, hosting tools, which provider keys are set, never their values), says what each missing piece would unlock and how to get it, and ends with what you can do now and the first command to try.
 
+- `proofhouse agent-server claude|codex|grok` lets a coding agent you are already logged in to answer as a model provider on this machine only. Each request is one headless call to the agent's own command line, billed to that agent's plan. Add your own agent in `agent_commands.json` with no code change.
+- `proofhouse render video` cuts still pictures and video clips together in one film; before, a script that mixed them was refused.
+
 ### Fixed
 
+- The hook writer is now told which Claude Code event names exist, and that a git hook is not one. Before, it could pick a git hook name and the hook never ran.
 - A saved prompt or learned kind no longer starts with the model's lead-in line ("Here is the improved prompt:").
 - First-run dead ends now say what to do next: `check agent` or `check rule` given a folder says a file is expected; an unknown agent for `install-skill` says to pass `--dest`; a local model server that is not running says what to start; a self-judged record is no longer called independent because the labels differ.
 - `proofhouse deploy` starts a found tool by its full path, so Windows tools such as `vercel` run; a `--name` the target cannot use is now said, not silently dropped.
