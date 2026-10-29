@@ -41,8 +41,8 @@ watch or check output. Answer with ONE JSON object and nothing else:
 {"thinking": "one or two sentences", "actions": [ ... ], "done": false, "summary": "what you did this round"}
 
 Actions (at most 10 per round, carried out in order):
-  {"read": "relative/path"}
-  {"write": "relative/path", "text": "the whole new file content"}
+  {"read": "<a file name from the list, such as notes.txt>"}
+  {"write": "<the file name to create or replace>", "text": "the whole new file content"}
   {"run": "a shell command, run in the folder"}%s
 
 Set "done": true only when the goal is fully met. Paths must stay inside the folder.
@@ -50,7 +50,9 @@ Set "done": true only when the goal is fully met. Paths must stay inside the fol
 GOAL:
 %s"""
 
-_NO_COMMANDS = "\n(Running commands is switched off for this agent: use read and write only.)"
+_PLACEHOLDER_PATHS = {"relative/path", "path", "path/to/file", "filename", "file name", "file_name", "your/path"}
+
+_NO_COMMANDS ="\n(Running commands is switched off for this agent: use read and write only.)"
 
 
 class LoopError(ValueError):
@@ -124,6 +126,8 @@ def _shell(command: str, cwd: Path, timeout: int, secrets: list[str]) -> dict[st
 def _inside(workdir: Path, relative: Any) -> Path:
     if not isinstance(relative, str) or not relative.strip():
         raise LoopError("a path is missing")
+    if relative.strip().strip("\"'<>").lower() in _PLACEHOLDER_PATHS:
+        raise LoopError(f"{relative!r} is a placeholder, not a real file name; use a real name")
     target = (workdir / relative).resolve()
     if not target.is_relative_to(workdir):
         raise LoopError(f"{relative!r} is outside the folder")
@@ -246,6 +250,8 @@ def run_loop(
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = (out_dir or Path.cwd() / f"loop-{_slug(goal)}-{stamp}").resolve()
+    if folder.exists():
+        raise LoopError(f"{folder} already exists; pick a new folder with --out, or remove it first")
     folder.mkdir(parents=True, exist_ok=False)
     result = LoopResult(folder, workdir)
     secrets = _secrets()

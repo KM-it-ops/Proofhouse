@@ -48,6 +48,7 @@ PROCESS_OR_FOREIGN = {"subprocess", "multiprocessing", "ctypes", "os.system"}
 ALLOWED = {
     ("compiler/execution.py", "httpx"),  # execute-openai; sends only through the spend gate
     ("live.py", "httpx"),  # any provider, any model; sends only through the spend gate
+    ("live.py", "urllib.request"),  # the same send step, when the optional httpx is not installed
     ("catalog.py", "httpx"),  # free model lists and official release pages; the paid reading goes through live.run_prompt and the spend gate
     ("media.py", "httpx"),
     ("train.py", "httpx"),  # training jobs; the one paid request goes only through the spend gate

@@ -73,6 +73,7 @@ class RunResult:
 @dataclass(frozen=True, slots=True)
 class _SendFailed:
     reason: str
+    timed_out: bool = False
 
 
 def _refused(code: str, detail: str, provider: str, model: str) -> RunResult:
@@ -95,13 +96,40 @@ def _scrub(value: Any, secret: str | None) -> Any:
     return value
 
 
+DEFAULT_TIMEOUT_SECONDS = 120.0
+
+
+def _timeout_seconds() -> float:
+    """How long to wait for a model: PROOFHOUSE_TIMEOUT_SECONDS if it is a positive number, else 120."""
+    try:
+        seconds = float(os.environ.get("PROOFHOUSE_TIMEOUT_SECONDS", ""))
+    except ValueError:
+        return DEFAULT_TIMEOUT_SECONDS
+    return seconds if 0 < seconds < float("inf") else DEFAULT_TIMEOUT_SECONDS
+
+
 def _httpx_post(request: Request) -> Response:
-    # Optional extra: a default install must not import httpx at module load.
+    timeout = _timeout_seconds()
+    # Optional extra: a default install must not import httpx at module load. Without it, the standard library sends.
     try:
         import httpx
     except ImportError:
-        raise ModuleNotFoundError("httpx") from None
-    with httpx.Client(timeout=120.0) as client:
+        import json
+        import urllib.error
+        import urllib.request
+
+        sent = urllib.request.Request(request.url, data=request.body_bytes, headers=request.headers, method="POST")
+        try:
+            with urllib.request.urlopen(sent, timeout=timeout) as answer:
+                status, raw = answer.status, answer.read()
+        except urllib.error.HTTPError as exc:  # a 4xx or 5xx is still an answer to read
+            status, raw = exc.code, exc.read()
+        try:
+            decoded = json.loads(raw)
+        except ValueError:
+            decoded = {"text": raw.decode("utf-8", "replace")}
+        return Response(status, decoded if isinstance(decoded, dict) else {"value": decoded})
+    with httpx.Client(timeout=timeout) as client:
         reply = client.post(request.url, headers=request.headers, content=request.body_bytes)
         try:
             payload = reply.json()
@@ -176,7 +204,8 @@ def run_prompt(
         except ModuleNotFoundError:
             return _SendFailed("httpx is not installed (pip install 'proofhouse[live]')")
         except Exception as exc:  # noqa: BLE001 -- the live boundary must not leak the key
-            return _SendFailed(type(exc).__name__)
+            slow = isinstance(exc, TimeoutError) or "Timeout" in type(exc).__name__
+            return _SendFailed(type(exc).__name__, timed_out=slow)
 
     gated = spend.send_within_ceiling(
         unsent.body,
@@ -192,7 +221,13 @@ def run_prompt(
         return RunResult("refused", gated.admission.code, gated.admission.message, profile.id, model, admission=admission)
     response = gated.response
     if isinstance(response, _SendFailed):
-        detail = f"the request could not be sent ({response.reason}); nothing more was tried"
+        if response.timed_out:
+            detail = (
+                f"{profile.name} did not answer within {_timeout_seconds():g} seconds; nothing more was tried. "
+                "A slow or large model needs longer: set PROOFHOUSE_TIMEOUT_SECONDS (for example 600), or use a faster model"
+            )
+        else:
+            detail = f"the request could not be sent ({response.reason}); nothing more was tried"
         result = RunResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: {detail}", profile.id, model, admission=admission)
         return RunResult(**_scrub(result.to_dict(), secret))
     status_code = getattr(response, "status_code", None)
