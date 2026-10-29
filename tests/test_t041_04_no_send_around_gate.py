@@ -53,6 +53,8 @@ ALLOWED = {
     ("media.py", "httpx"),
     ("train.py", "httpx"),  # training jobs; the one paid request goes only through the spend gate
     ("train.py", "subprocess"),  # trains on this machine with your own command (for example MLX LoRA)  # any media service; the one paid request goes only through the spend gate
+    ("agent_server.py", "http"),  # listens on 127.0.0.1 only and sends nothing out; a provider pointed at it still sends through live.py and the spend gate
+    ("agent_server.py", "subprocess"),  # starts the coding agent you are logged in to (claude, codex, grok), billed to that agent's plan, no shell
     ("optimize/reference_workflow.py", "subprocess"),  # runs the proofhouse CLI itself, offline
     ("studio.py", "subprocess"),  # runs ffmpeg and ffprobe on local files; no network
     ("sitecheck.py", "subprocess"),

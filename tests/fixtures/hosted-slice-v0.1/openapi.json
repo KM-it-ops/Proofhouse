@@ -81,6 +81,57 @@
         "x-default-hosted-slice": true
       }
     },
+    "/v0/compiler/agent-server": {
+      "post": {
+        "operationId": "agent_server",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": false,
+                "properties": {
+                  "agent": {
+                    "description": "Agent name from data/agent_commands.json (claude, codex, grok, or your own).",
+                    "type": "string"
+                  },
+                  "port": {
+                    "description": "Port to listen on (default: the agent's own port).",
+                    "type": "integer"
+                  },
+                  "timeout": {
+                    "description": "Seconds to wait for one answer.",
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "agent"
+                ],
+                "type": "object"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResultEnvelope"
+                }
+              }
+            },
+            "description": "Compiler JSON envelope. Transport metadata may be stripped for library/CLI parity."
+          }
+        },
+        "summary": "agent-server",
+        "tags": [
+          "default-hosted-slice"
+        ],
+        "x-cli-command": "agent-server",
+        "x-default-hosted-slice": true
+      }
+    },
     "/v0/compiler/assay": {
       "post": {
         "operationId": "assay",
@@ -1649,6 +1700,7 @@
   "x-cli-commands": [
     "adapters",
     "addons",
+    "agent-server",
     "assay",
     "case",
     "check",
@@ -1696,6 +1748,7 @@
   ],
   "x-default-hosted-slice": [
     "adapters",
+    "agent-server",
     "assay",
     "closed-loop",
     "closed-loop-bridged-008",
