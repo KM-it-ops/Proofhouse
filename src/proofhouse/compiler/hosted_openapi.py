@@ -15,7 +15,7 @@ from .cli_compiler import build_parser
 OPENAPI_VERSION = "3.0.3"
 OPT_IN_LIVE_COMMANDS = frozenset({"execute-openai", "run", "make", "generate", "loop", "compare", "train"})
 LOCAL_ONLY_COMMANDS = frozenset(
-    {"case", "optimize", "models", "install-skill", "uninstall-skill", "demo", "eval", "scan", "parts", "providers", "hosts", "install", "uninstall", "media", "addons", "deploy", "check", "record", "render", "referee"}
+    {"case", "optimize", "models", "install-skill", "uninstall-skill", "demo", "eval", "scan", "parts", "providers", "hosts", "install", "uninstall", "media", "addons", "deploy", "check", "record", "render", "referee", "setup"}
 )
 ENVELOPE_FIELDS = ("contract_version", "command", "status", "data", "diagnostics")
 

@@ -51,6 +51,8 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "providers remove": (SPINE, "", "model layer: removes a provider you added"),
     "providers price": (SPINE, "", "model layer: declares a model's price when none is shipped"),
     "run": (SPINE, "", "model layer: runs a prompt on any provider and model through the spend gate"),
+    "setup add": (SPINE, "", "first run: records a tool you have that was not found, a program or a website, as data"),
+    "setup remove": (SPINE, "", "first run: forgets a tool you declared"),
     "hosts list": (SPINE, "", "delivery: the tools Proofhouse installs into, shipped and yours"),
     **{f"install {kind}": (SPINE, "", f"delivery: writes a {kind} into a tool, with a record and a backup") for kind in ("agent", "rule", "mcp")},
     **{f"uninstall {kind}": (SPINE, "", f"delivery: removes only the {kind} Proofhouse wrote") for kind in ("agent", "rule", "mcp")},

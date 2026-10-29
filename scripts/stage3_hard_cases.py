@@ -166,6 +166,8 @@ add("eval", 1, "A JSONL dataset contains a broken line after a valid-looking ext
 add("eval", 2, "A loadout id does not exist and must not create output.", ["eval", "compile-loadout", "--id", "never-existed", "--out", "loadout.md"], exits=(2, 8), must=("error",), absent=("loadout.md",))
 add("scan", 1, "The scan target is a file instead of a project folder.", ["scan", "project.txt"], fixtures=(file("project.txt", "a file"),), must=("scan:",))
 add("scan", 2, "A directory with a Unicode name and binary file must still scan safely.", ["scan", "project ☃", "--json"], fixtures=(folder("project ☃"), binary("project ☃/data.bin")), exits=(0,), must=('"',))
+add("setup", 1, "A tool is declared as a program but no program name is given, and nothing may be saved.", ["setup", "add", "mygen", "--name", "My generator", "--how", "cli"], must=("command",), home_clean=True)
+add("setup", 2, "Forgetting a tool that was never declared must say so and leave other state alone.", ["setup", "remove", "never-declared"], must=("no declared tool",), home_clean=True)
 add("parts", 1, "The part registry must serialize in an isolated home with no keys.", ["parts", "--json"], exits=(0,), must=('"parts"',))
 add("parts", 2, "An unsupported filter must fail rather than print an incomplete part list.", ["parts", "--kind", "video"], must=("unrecognized arguments",))
 

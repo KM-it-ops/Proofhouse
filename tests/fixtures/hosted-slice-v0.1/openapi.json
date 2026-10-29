@@ -1687,6 +1687,7 @@
     "route",
     "run",
     "scan",
+    "setup",
     "train",
     "uninstall",
     "uninstall-skill",
@@ -1732,6 +1733,7 @@
     "referee",
     "render",
     "scan",
+    "setup",
     "uninstall",
     "uninstall-skill"
   ],

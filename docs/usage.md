@@ -2,6 +2,18 @@
 
 Every way to make, run and deliver things. For a short tour, see the [README](../README.md); for the evidence trail, see [the evidence trail](evidence-trail.md). `<model>` stands for a model id from your provider.
 
+## First run: what do I have, and what is missing?
+
+```bash
+proofhouse setup                 # finds your agents, local model servers, keys (set / not set), ffmpeg, a browser, a hosting tool
+proofhouse setup --json
+proofhouse setup add grok-imagine --name "Grok Imagine" --how web --url https://grok.com/imagine --makes image,video --step "Open the page" --step "Paste the brief" --step "Download the clip"
+proofhouse setup add my-gen --name "My generator" --how cli --command my-gen --makes image
+proofhouse setup remove grok-imagine
+```
+
+It only looks: it never starts a program, never shows a key's value, and talks only to ports on your own machine. For each missing piece it says what that piece would unlock and how to get it, and ends with a "You can do now / Not yet" list. A tool it cannot find, such as a website-only app, is saved as data in `PROOFHOUSE_HOME/tools.json`; a website tool is listed as used by hand, with your steps, and the file it makes comes back through `record` or `render video`. For a hosting tool it cannot tell whether you are signed in.
+
 ## Host mode (no API key)
 
 If you already work in Cursor, Codex, Gemini CLI, Grok CLI or Claude Code, **host mode** lets that agent write and judge with its own model while Proofhouse only checks, records and assembles—no API key, and Proofhouse itself makes no network calls on these commands. (With `--allow-commands`, Proofhouse runs the code the model wrote, and that code may use the network.)
