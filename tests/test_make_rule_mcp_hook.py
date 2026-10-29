@@ -299,3 +299,20 @@ def test_made_line_says_how_many_checks_passed(tmp_path: Path, monkeypatch: pyte
     code = cli.main(["make", "a useful mcp", "--kind", "mcp", "--provider", "ollama", "--model", "m", "--rounds", "1",
                      "--allow-commands", "--out", str(tmp_path / "out")])
     assert code == 0 and "made: version 1 (judge score 9/10; 1 of 1 checks passed)" in capsys.readouterr().out
+
+
+def test_hook_writer_is_told_every_event_name_it_may_use(tmp_path: Path) -> None:
+    seen: list[str] = []
+    inner = ScriptedModel([{"event": "PreToolUse", "command": "python hook.py",
+                            "files": {"hook.py": "import sys\nsys.exit(0)\n"},
+                            "sample_event": {"hook_event_name": "PreToolUse"}}])
+
+    def spy(request: live.Request) -> live.Response:
+        seen.append(" ".join(message["content"] for message in json.loads(request.body_bytes)["messages"]))
+        return inner(request)
+
+    make.make("block commits that contain API keys", provider_id="ollama", model="m", kind="hook", rounds=1,
+              out_dir=tmp_path / "out", transport=spy, allow_commands=True)
+    for event in make_checks._known_events():
+        assert event in seen[0]
+    assert "git hook" in seen[0]

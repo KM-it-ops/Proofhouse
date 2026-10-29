@@ -86,7 +86,9 @@ _WRITE = {
         "Build a Claude Code command hook. It receives event JSON on stdin and exits 0 to allow or 2 to block. "
         'Reply with JSON only: {"event": "PreToolUse", "matcher": "optional pattern", "command": "python hook.py", '
         '"files": {"hook.py": "complete source"}, "sample_event": {"hook_event_name": "PreToolUse"}}. '
-        "Use a documented Claude Code event name; the command must work from the file folder."
+        "The event must be exactly one of these Claude Code event names: " + ", ".join(make_checks._known_events()) + ". "
+        "A git hook such as pre-commit is not a Claude Code event: to guard commits, use PreToolUse with matcher Bash "
+        "and inspect the command in the event JSON. The command must work from the file folder."
     ),
 }
 _TEST_INPUT = (
