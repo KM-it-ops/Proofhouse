@@ -253,8 +253,7 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
         rows.extend(host_quality.text_quality_rows(host_quality.body_after_frontmatter(text), "skill"))
         return rows
     if kind == "agent":
-        if not path.is_file():
-            raise HostError(str(path))
+        _need_file(kind, path)
         text = path.read_text(encoding="utf-8")
         try:
             check_frontmatter(text)
@@ -264,8 +263,7 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
         rows.extend(host_quality.text_quality_rows(host_quality.body_after_frontmatter(text), "skill"))
         return rows
     if kind == "rule":
-        if not path.is_file():
-            raise HostError(str(path))
+        _need_file(kind, path)
         text = path.read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory(prefix="host-rule-") as temporary:
             folder = Path(temporary)

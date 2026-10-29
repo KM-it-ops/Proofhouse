@@ -73,3 +73,17 @@ def test_a_cloud_provider_that_cannot_be_reached_does_not_claim_a_local_server_i
 
     result = live.run_prompt("openai", "some-model", prompt="hi", max_cost_usd="0.01", transport=refused)
     assert "not running" not in result.message
+
+
+@pytest.mark.parametrize("kind", ["agent", "rule"])
+def test_checking_an_agent_or_rule_given_a_folder_says_a_file_is_expected(kind: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["check", kind, str(tmp_path)]) == 2
+    err = capsys.readouterr().err
+    assert "folder" in err and "file" in err and str(tmp_path) in err
+
+
+@pytest.mark.parametrize("kind", ["agent", "rule"])
+def test_checking_an_agent_or_rule_that_is_not_there_says_it_was_not_found(kind: str, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    missing = tmp_path / "nope.md"
+    assert cli.main(["check", kind, str(missing)]) == 2
+    assert "not found" in capsys.readouterr().err
