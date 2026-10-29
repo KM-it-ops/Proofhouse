@@ -344,6 +344,13 @@ def assemble(
     work = out_dir / "work"
     work.mkdir()
     try:
+        if production.voice_file:
+            spoken = probe(Path(production.voice_file))["seconds"]
+            production.checks.append({
+                "render": "all", "check": "voice fits the film", "ok": spoken <= total + 0.25,
+                "detail": f"{spoken:.1f}s of voice in a {total}s film" + (
+                    f": the last {spoken - total:.1f}s of speech is cut off; shorten the script or lengthen the shots"
+                    if spoken > total + 0.25 else "")})
         for name in formats:
             w, h = FORMATS[name]
             size = (int(w * size_scale) // 2 * 2, int(h * size_scale) // 2 * 2)
