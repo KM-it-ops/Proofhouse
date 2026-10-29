@@ -37,6 +37,15 @@ def test_a_saved_prompt_never_starts_with_the_models_chatter(tmp_path: Path, cha
     assert make._strip_fences(f"{chatter}\n\n```\nYou are a calm support agent.\n```") == "You are a calm support agent."
 
 
+@pytest.mark.parametrize("chatter", [
+    "Here's a sample one-page checklist for closing a small cafe at night:",
+    "Here is a template for a weekly update:",
+    "Sure! Here are the closing steps:",
+])
+def test_a_learned_kind_never_starts_with_the_models_chatter(chatter: str) -> None:
+    assert make._strip_fences(f"{chatter}\n\n**Closing**\n\n* Lock up") == "**Closing**\n\n* Lock up"
+
+
 def test_real_text_that_only_looks_like_chatter_is_kept() -> None:
     kept = "Here is what to do when a customer writes in angry: stay calm.\nThen apologise."
     assert make._strip_fences(kept) == kept

@@ -159,10 +159,16 @@ _PREFACE = re.compile(
     r"here(?:'s|\s+is|\s+are)\b[^\n]{0,60}?\b(?:prompt|version|draft|rewrite|text|skill|agent|rule|file|copy|output)s?\b[^\n]{0,40}:[ \t]*\n+",
     flags=re.I,
 )
+# Any kind: a short "Here is ...:" line that stands alone before a blank line is a lead-in too.
+_LEAD_LINE = re.compile(
+    r"\s*(?:(?:sure|certainly|of course|absolutely|okay|ok)\b[^\w\n]{0,3}\s*)?"
+    r"here(?:'s|\s+is|\s+are)\b[^\n]{0,120}:[ \t]*\n[ \t]*\n",
+    flags=re.I,
+)
 
 
 def _strip_fences(text: str) -> str:
-    preface = _PREFACE.match(text)
+    preface = _PREFACE.match(text) or _LEAD_LINE.match(text)
     if preface:
         text = text[preface.end():]
     match = re.fullmatch(r"\s*```[a-zA-Z0-9_-]*\n(.*?)\n```\s*", text, flags=re.S)
