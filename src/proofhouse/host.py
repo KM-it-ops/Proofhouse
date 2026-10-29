@@ -787,4 +787,7 @@ def run_render_video(
     failed = [row for row in production.checks if row.get("ok") is not True]
     for row in failed:
         _print_error(f"{row.get('render')}: {row.get('check')} failed ({row.get('detail')})")
+    for name, path in sorted(production.renders.items()):
+        print(f"rendered {name}: {path}")
+    print(f"{len(production.checks) - len(failed)} of {len(production.checks)} checks passed")
     return 1 if failed else 0

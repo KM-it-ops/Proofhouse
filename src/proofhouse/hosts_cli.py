@@ -150,7 +150,7 @@ def add_host_commands(subparsers: argparse._SubParsersAction) -> None:
 
         u = uninstall_sub.add_parser(kind, help=f"Remove an installed {kind}.")
         u.add_argument("name")
-        u.add_argument("--from", dest="host", required=True, help="Tool id.")
+        u.add_argument("--from", "--into", dest="host", required=True, help="Tool id.")
         u.add_argument("--project", default=None, help="The project folder it was installed into, if any.")
         u.add_argument("--force", action="store_true", help="Remove it even if it was edited since.")
         u.set_defaults(func=_cmd_uninstall, kind=kind)
