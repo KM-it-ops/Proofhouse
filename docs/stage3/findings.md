@@ -1,10 +1,10 @@
 # Stage 3 findings
 
-78 cases, two for each of the 39 `proofhouse` commands, run by `scripts/stage3_hard_cases.py`. Every case runs in
+82 cases, two for each of the 41 `proofhouse` commands, run by `scripts/stage3_hard_cases.py`. Every case runs in
 its own throwaway folder, with every key-like variable removed, a fake key where a limit check needs one, and a
 dead network address, so nothing can be sent and nothing is spent. The full table is in [hard-cases.md](hard-cases.md).
 
-**Result: 78 held, 0 broke, 0 commands under two cases.** Paid calls: $0.
+**Result: 82 held, 0 broke, 0 commands under two cases.** Paid calls: $0.
 
 ## First run: 18 cases broke
 
@@ -69,4 +69,4 @@ Not changed:
 - The finished film MP4 stays out of the repo. That was chosen earlier to keep the repo small and is now written in the example's README. Putting it back is Boss's call.
 - `compare` says "file not found" for a directory given as an output file. It is clear enough and does not crash.
 
-Result after the fixes: 78 held, 0 broke, $0 spent.
+Result after the fixes: 82 held (78 earlier, plus 4 cases for the two commands added since), 0 broke, $0 spent.
