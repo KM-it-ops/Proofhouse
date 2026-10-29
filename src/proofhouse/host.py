@@ -35,9 +35,7 @@ def agent_base(name: str) -> str:
 
 def judge_note_for_record(agent: str, judge: str | None) -> str:
     if judge:
-        return (
-            f"Scored by {judge}, a different agent from the writer ({agent}); still advice, not proof."
-        )
+        return f"Scored by {judge}; the writer was {agent}. Still advice, not proof."
     return JUDGE_NOTE
 _VIDEO_SUFFIX = re.compile(r"\.(mp4|webm|mov|mkv)$", re.IGNORECASE)
 _PICTURE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"})
@@ -197,6 +195,14 @@ def run_check(kind: str, path: Path, *, allow_commands: bool, as_json: bool) -> 
     return _check_rows_pass_exit(checks, commands_required=commands_required)
 
 
+def _need_file(kind: str, path: Path) -> None:
+    if path.is_file():
+        return
+    if path.is_dir():
+        raise HostError(f"{path} is a folder; a {kind} check needs one file (for example a .md file)")
+    raise HostError(f"not found: {path}")
+
+
 def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[str, Any]]:
     if kind == "launch":
         from .host_launch import HostError as LaunchHostError, collect_launch_checks
@@ -206,13 +212,12 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
         except LaunchHostError as exc:
             raise HostError(str(exc)) from exc
     if kind in _TEXT_KINDS:
-        if not path.is_file():
-            raise HostError(str(path))
+        _need_file(kind, path)
         return _text_checks(kind, path.read_text(encoding="utf-8"))
     if kind not in CHECK_KINDS:
         raise HostError(f"unknown kind {kind!r}")
     if not path.exists():
-        raise HostError(str(path))
+        raise HostError(f"not found: {path}")
     if kind == "site":
         if not path.is_dir():
             raise HostError(f"folder not found: {path}")

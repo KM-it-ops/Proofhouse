@@ -141,7 +141,8 @@ def _check_host(host: str) -> None:
 
     if host not in skill_hosts():
         raise InstallSkillError(
-            f"invalid choice {host!r}; name --provider and --model to research a host Proofhouse does not know",
+            f"invalid choice {host!r}. To use another agent, pass --dest with that agent's skills folder; "
+            "or name --provider and --model to research a host Proofhouse does not know",
             EXIT_USAGE_ERROR,
         )
 
@@ -189,7 +190,7 @@ def resolve_host(host: str | None, dest: Path | None, research: Any = None, ask:
         return present[0]
     reason = "found more than one agent folder" if present else "found no agent folder"
     raise InstallSkillError(
-        f"no agent named and {reason} under {Path.home()}; re-run with --host {{{','.join(sorted(HOSTS))}}} or --dest",
+        f"no agent named and {reason} under {Path.home()}; re-run with --host {{{','.join(sorted(HOSTS))}}}, or --dest <skills folder> for any other agent",
         EXIT_USAGE_ERROR,
     )
 

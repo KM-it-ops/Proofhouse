@@ -226,6 +226,11 @@ def run_prompt(
                 f"{profile.name} did not answer within {_timeout_seconds():g} seconds; nothing more was tried. "
                 "A slow or large model needs longer: set PROOFHOUSE_TIMEOUT_SECONDS (for example 600), or use a faster model"
             )
+        elif profile.local:
+            detail = (
+                f"nothing answered at {urlparse(url).netloc}; {profile.name} is probably not running. "
+                "Start it, then try again (`proofhouse setup` shows how); nothing more was tried"
+            )
         else:
             detail = f"the request could not be sent ({response.reason}); nothing more was tried"
         result = RunResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: {detail}", profile.id, model, admission=admission)
