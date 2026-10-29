@@ -17,7 +17,6 @@
 - `proofhouse uninstall` accepts `--into` as well as `--from`, matching `install`.
 - `proofhouse render video` prints each file it wrote and how many checks passed.
 - The front door sends "a rule that ..." to a rule and "a hook that blocks commits ..." to a hook.
-
 - `proofhouse make` no longer reports a site, app, rule, MCP server or hook as made when the model's reply could not be written. Before, a high judge score on such a version printed "made" with a path to files that did not exist; now that version is never picked, and the result line says how many checks the chosen version passed.
 
 ## 0.10.0 - 2026-10-27
