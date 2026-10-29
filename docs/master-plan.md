@@ -120,7 +120,7 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    provider key, so a person who only has an AI app or a monthly plan (Cursor, Codex, Gemini CLI, Grok CLI,
    Claude Code) cannot use it. In host mode the AI app they already use is the writer and the judge, using its
    own model, and Proofhouse is the referee, the assembler and the recorder. No key, no setup beyond
-   installing the package and one skill. Version 0.10.0 is prepared in the package and not published.
+   installing the package and one skill. Version 0.10.1 is published (see the CHANGELOG).
    - `proofhouse check <kind> <folder>` runs the same real-world checks `make` runs (site opened like a
      visitor; MCP server answers `initialize` and `tools/list`; hook run on a sample event; rule installed and
      removed on every tool; skill and agent files accepted by the installers) and prints pass or fail.
