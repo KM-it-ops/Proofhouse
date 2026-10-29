@@ -97,5 +97,29 @@ def test_a_check_that_was_not_measured_is_not_counted_as_passed(tmp_path: Path, 
     ]
     monkeypatch.setattr(sitecheck, "check_site", lambda *args, **kwargs: rows)
     summary, subject = make._try_site(json.dumps({"files": GOOD}), tmp_path / "v1")
-    assert summary == "1 of 3 checks passed"
+    assert summary == "1 of 3 checks passed, 1 not run"
     assert "NOT MEASURED: b" in subject
+
+
+def test_the_judge_is_shown_every_file_of_the_site_not_just_the_first_page(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(tmp_path / "no-browser"))
+    big = dict(GOOD)
+    big["index.html"] = GOOD["index.html"].replace("<h1>Acme</h1>", "<h1>Acme</h1>" + "<p>filler</p>" * 4000)
+    big["styles.css"] = "body{font-family:sans-serif}/*CSS-MARKER*/"
+    big["script.js"] = "document.title = document.title;/*JS-MARKER*/"
+    _, subject = make._try_site(json.dumps({"files": big}), tmp_path / "v1")
+    for name in big:
+        assert f"=== {name}" in subject, name
+    assert "CSS-MARKER" in subject and "JS-MARKER" in subject and "About" in subject
+    assert "characters of this file are not shown" in subject  # a cut file says it was cut, so the judge does not call it broken
+    assert len(subject) < 60_000
+
+
+def test_a_site_too_big_for_the_judge_still_shows_every_file_name_and_a_start_of_each(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(tmp_path / "no-browser"))
+    files = {"index.html": GOOD["index.html"]}
+    files.update({f"p{i}.html": f"<!doctype html><title>P{i}</title>" + "x" * 30_000 for i in range(8)})
+    _, subject = make._try_site(json.dumps({"files": files}), tmp_path / "v1")
+    for name in files:
+        assert f"=== {name}" in subject, name
+    assert len(subject) < 60_000

@@ -417,6 +417,48 @@ def _written(folder: Path, kind: str, version: int) -> bool:
     return not any(c.get("ok") is False and c.get("check") in (f"{kind} written", "site written") for c in checks)
 
 
+SITE_JUDGE_CHARS = 40_000
+SHELL_JUDGE_CHARS = 20_000
+
+
+def _tally(checks: list[dict[str, Any]]) -> str:
+    """'N of M checks passed', and how many were not run, so an unrun check is not read as a failed one."""
+    passed = sum(c["ok"] is True for c in checks)
+    not_run = [c for c in checks if c["ok"] is None]
+    text = f"{passed} of {len(checks)} checks passed"
+    if not_run:
+        text += f", {len(not_run)} not run"
+        if any("--allow-commands" in str(c.get("detail", "")) for c in not_run):
+            text += " (add --allow-commands to run them)"
+    return text
+
+
+def _file_digest(files: dict[str, str], budget: int) -> str:
+    """Every text file, in full while it fits; big files share what is left, and a cut file says so."""
+    shown: dict[str, str] = {}
+    remaining = budget
+    for index, (name, body) in enumerate(sorted(files.items(), key=lambda item: len(item[1]))):
+        room = max(500, remaining // (len(files) - index))
+        shown[name] = body[:room]
+        remaining -= len(shown[name])
+    parts = []
+    for name in sorted(files):
+        cut = len(files[name]) - len(shown[name])
+        note = f"\n[... {cut} more characters of this file are not shown; the file itself is complete]" if cut else ""
+        parts.append(f"=== {name} ({len(files[name])} characters) ===\n{shown[name]}{note}")
+    return "\n\n".join(parts)
+
+
+def _read_texts(folder: Path, names: list[str]) -> dict[str, str]:
+    texts: dict[str, str] = {}
+    for name in names:
+        try:
+            texts[name] = (folder / name).read_text(encoding="utf-8")
+        except (OSError, UnicodeDecodeError):
+            continue  # pictures and other non-text files are listed by name, not shown
+    return texts
+
+
 def _try_site(text: str, version_dir: Path) -> tuple[str, str]:
     """Write this version of the site, check it like a visitor, and describe both for the judge."""
     try:
@@ -426,14 +468,11 @@ def _try_site(text: str, version_dir: Path) -> tuple[str, str]:
         names, checks = [], [{"check": "site written", "ok": False, "detail": str(exc)}]
     (version_dir).mkdir(parents=True, exist_ok=True)
     (version_dir / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
-    passed = sum(c["ok"] is True for c in checks)
     summary = "\n".join(f"- {'PASS' if c['ok'] else ('NOT MEASURED' if c['ok'] is None else 'FAIL')}: {c['check']} {c['detail']}".rstrip()
                         for c in checks)
-    index = ""
-    if (version_dir / "site" / "index.html").is_file():
-        index = (version_dir / "site" / "index.html").read_text(encoding="utf-8")[:8000]
-    subject = f"FILES: {', '.join(names) or 'none'}\n\nindex.html:\n{index}\n\nCHECKS RUN ON THE SITE:\n{summary}"
-    return f"{passed} of {len(checks)} checks passed", subject
+    digest = _file_digest(_read_texts(version_dir / "site", names), SITE_JUDGE_CHARS)
+    subject = f"FILES: {', '.join(names) or 'none'}\n\n{digest}\n\nCHECKS RUN ON THE SITE:\n{summary}"
+    return _tally(checks), subject
 
 
 def _try_app(
@@ -503,15 +542,17 @@ def _try_app(
             names = []
             platform_checks = [{"check": f"{platform_id} written", "ok": False, "detail": str(exc)}]
         checks.extend(platform_checks)
-        subjects.append(f"{entry['name']} FILES: {', '.join(names) or 'none'}\nMODEL FILES:\n{response[:12000]}")
+        own = {name: body for name, body in _read_texts(destination, names).items() if shared_here.get(name) != body}
+        subjects.append(f"{entry['name']} FILES: {', '.join(names) or 'none'}\n"
+                        f"FILES THIS PLATFORM ADDED OR CHANGED (the shared web files above are copied in unchanged):\n"
+                        f"{_file_digest(own, SHELL_JUDGE_CHARS) if own else response[:12000]}")
     version_dir.mkdir(parents=True, exist_ok=True)
     (version_dir / "checks.json").write_text(json.dumps(checks, indent=2) + "\n", encoding="utf-8")
     (version_dir / "written.json").write_text(json.dumps(written, indent=2) + "\n", encoding="utf-8")
     (version_dir / "responses.json").write_text(json.dumps(responses, indent=2) + "\n", encoding="utf-8")
     summary = "\n".join(f"- {'PASS' if c['ok'] is True else 'FAIL' if c['ok'] is False else 'NOT BUILT'}: "
                         f"{c['check']} {c['detail']}" for c in checks)
-    passed = sum(c["ok"] is True for c in checks)
-    return f"{passed} of {len(checks)} checks passed", "\n\n".join(subjects) + "\n\nCHECKS:\n" + summary
+    return _tally(checks), "\n\n".join(subjects) + "\n\nCHECKS:\n" + summary
 
 
 def _deliver_app(folder: Path, version: int, chosen: list[str], catalog: dict[str, dict[str, Any]]) -> None:
@@ -575,8 +616,7 @@ def _try_new_kind(kind: str, text: str, request: str, version_dir: Path, allow_c
     summary = "\n".join(f"- {'PASS' if c['ok'] else ('NOT CHECKED' if c['ok'] is None else 'FAIL')}: "
                         f"{c['check']} {c['detail']}" for c in checks)
     subject = f"{kind.upper()} SPECIFICATION:\n{text[:12000]}\n\nFILES: {', '.join(names) or 'none'}\n\nCHECKS:\n{summary}"
-    passed = sum(c["ok"] is True for c in checks)
-    return f"{passed} of {len(checks)} checks passed", subject
+    return _tally(checks), subject
 
 
 def _deliver_new_kind(folder: Path, kind: str, text: str, request: str, version: int) -> None:

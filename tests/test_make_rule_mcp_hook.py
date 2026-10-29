@@ -94,6 +94,15 @@ def test_mcp_no_tools_fails_and_missing_command_is_unchecked(
         assert checks(folder)[0]["detail"] == f"not checked: {command} not found"
 
 
+def test_a_check_that_was_not_run_is_counted_as_not_run_and_says_how_to_run_it(tmp_path: Path) -> None:
+    reply = {"name": "tiny-server", "command": "python", "args": ["server.py"], "files": {"server.py": SERVER}}
+    summary, subject = make._try_new_kind("mcp", json.dumps(reply), "an mcp server", tmp_path / "v1", allow_commands=False)
+    assert summary == "0 of 1 checks passed, 1 not run (add --allow-commands to run them)"
+    assert "NOT CHECKED: MCP tools/list" in subject
+    summary, _ = make._try_new_kind("mcp", json.dumps(reply), "an mcp server", tmp_path / "v2", allow_commands=True)
+    assert summary == "1 of 1 checks passed"
+
+
 def test_hook_runs_known_event_without_parent_secret(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("FAKE_SECRET_KEY", "do-not-pass")
     script = "import json, os, sys\nevent = json.load(sys.stdin)\nprint(event['hook_event_name'])\nprint('blocked: demo', file=sys.stderr)\nsys.exit(1 if 'FAKE_SECRET_KEY' in os.environ else 2)\n"
