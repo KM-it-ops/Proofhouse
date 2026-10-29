@@ -130,7 +130,10 @@ def deploy(folder: Path, target_id: str, *, name: str | None = None, dry_run: bo
     if dry_run:
         return Deployed(target_id, str(folder), command, "dry run")
     tool = target.get("tool") or command[0]
-    if shutil.which(command[0]) is None:
+    found_at = shutil.which(command[0])
+    if found_at is not None:
+        command = [found_at, *command[1:]]  # Windows npm tools are .cmd files; the bare name cannot be started
+    else:
         hint = ""
         if target.get("install"):
             text = learn_catalog.suggested(str(target["install"]), target.get("learned_by")) if learned else str(target["install"])
