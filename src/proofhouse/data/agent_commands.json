@@ -1,0 +1,24 @@
+{
+  "schema": "proofhouse.agent_commands.v1",
+  "note": "How to ask a logged-in coding agent one question and get one answer on stdout. Check each line against the tool's own --help; add your own agent in PROOFHOUSE_HOME/agent_commands.json with no code change. 'prompt' is 'stdin' (the question is piped in) or 'file' (a {prompt_file} placeholder in argv is replaced by a temp file). 'model_flag' is added only when a real model name is given (not 'default' and not the agent's own name).",
+  "agents": {
+    "claude": {
+      "port": 11801,
+      "argv": ["claude", "-p", "--tools", "", "--no-session-persistence"],
+      "model_flag": ["--model", "{model}"],
+      "prompt": "stdin"
+    },
+    "codex": {
+      "port": 11802,
+      "argv": ["codex", "exec", "--skip-git-repo-check", "--ephemeral", "--sandbox", "read-only", "-"],
+      "model_flag": ["--model", "{model}"],
+      "prompt": "stdin"
+    },
+    "grok": {
+      "port": 11803,
+      "argv": ["grok", "--prompt-file", "{prompt_file}", "--output-format", "plain"],
+      "model_flag": ["--model", "{model}"],
+      "prompt": "file"
+    }
+  }
+}

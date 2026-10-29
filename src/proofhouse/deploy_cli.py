@@ -38,6 +38,9 @@ def _cmd_deploy(args: argparse.Namespace) -> int:
     except (deploy.DeployError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return EXIT_USAGE
+    if args.name and not any("{name}" in word for word in deploy.all_targets().get(args.to, {}).get("command", [])):
+        print(f"note: {args.to} does not take a name here; it names the project after the folder, so --name {args.name} was not used. "
+              f"Deploy from a folder called {args.name} to name it.", file=sys.stderr)
     if args.json:
         print(json.dumps({"target": done.target, "folder": done.folder, "command": done.command, "status": done.status,
                           "url": done.url}, sort_keys=True))

@@ -110,6 +110,8 @@ def run_launch(
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = (out_dir or Path.cwd() / f"launch-{make._slug(goal)}-{stamp}").resolve()
+    if folder.exists():
+        raise LaunchError(f"{folder} already exists; pick a new folder with --out, or remove it first")
     folder.mkdir(parents=True, exist_ok=False)
     result = Launch(folder)
 
@@ -122,7 +124,12 @@ def run_launch(
         result.stopped = f"planning failed: {reply.message}"
         _write(folder, goal, profile.id, model, max_cost_usd, result, budget)
         return result
-    result.name, result.parts = _plan(reply.output_text, parts)
+    try:
+        result.name, result.parts = _plan(reply.output_text, parts)
+    except LaunchError as exc:
+        result.stopped = f"the plan could not be read: {exc}; try another model (the planner must answer with JSON)"
+        _write(folder, goal, profile.id, model, max_cost_usd, result, budget)
+        return result
     (folder / "plan.json").write_text(json.dumps({"name": result.name, "parts": [p.to_dict() for p in result.parts]}, indent=2) + "\n",
                                       encoding="utf-8")
 

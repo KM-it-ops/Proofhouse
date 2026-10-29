@@ -48,13 +48,17 @@ PROCESS_OR_FOREIGN = {"subprocess", "multiprocessing", "ctypes", "os.system"}
 ALLOWED = {
     ("compiler/execution.py", "httpx"),  # execute-openai; sends only through the spend gate
     ("live.py", "httpx"),  # any provider, any model; sends only through the spend gate
+    ("live.py", "urllib.request"),  # the same send step, when the optional httpx is not installed
     ("catalog.py", "httpx"),  # free model lists and official release pages; the paid reading goes through live.run_prompt and the spend gate
     ("media.py", "httpx"),
     ("train.py", "httpx"),  # training jobs; the one paid request goes only through the spend gate
     ("train.py", "subprocess"),  # trains on this machine with your own command (for example MLX LoRA)  # any media service; the one paid request goes only through the spend gate
+    ("agent_server.py", "http"),  # listens on 127.0.0.1 only and sends nothing out; a provider pointed at it still sends through live.py and the spend gate
+    ("agent_server.py", "subprocess"),  # starts the coding agent you are logged in to (claude, codex, grok), billed to that agent's plan, no shell
     ("optimize/reference_workflow.py", "subprocess"),  # runs the proofhouse CLI itself, offline
     ("studio.py", "subprocess"),  # runs ffmpeg and ffprobe on local files; no network
     ("sitecheck.py", "subprocess"),
+    ("setup_check.py", "socket"),  # `proofhouse setup` only asks this machine's own ports whether a local model server answers; it sends nothing
     ("make_checks.py", "subprocess"),  # starts a made MCP server or hook locally: no shell, a reduced environment, a timeout
     ("deploy.py", "subprocess"),  # runs the hosting service's own tool (netlify, vercel, wrangler, surge) when you deploy
     ("loop.py", "subprocess"),  # runs your check and watch commands, and the agent's only with --allow-commands  # opens a generated site from disk in a local headless browser

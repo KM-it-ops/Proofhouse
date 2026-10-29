@@ -74,3 +74,29 @@ def test_an_add_on_can_bring_a_deploy_target(tmp_path: Path, made: Path) -> None
                                      encoding="utf-8")
     addons.install(pack)
     assert deploy.deploy(made, "edge", dry_run=True).command == ["edge", "push", str(made.resolve() / "site")]
+
+
+def test_a_tool_found_on_the_path_is_started_by_the_path_it_was_found_at(made: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # on Windows an npm tool is vercel.cmd; starting the bare name fails with "file not found"
+    found = str(made / "vercel.cmd")
+    monkeypatch.setattr(deploy.shutil, "which", lambda name: found if name == "vercel" else None)
+    started: list[list[str]] = []
+
+    def fake_run(command: list[str], **_: object) -> object:
+        started.append(command)
+        return type("Run", (), {"returncode": 0, "stdout": "Production: https://brew.vercel.app", "stderr": ""})()
+
+    monkeypatch.setattr(deploy.subprocess, "run", fake_run)
+    assert deploy.deploy(made, "vercel").url == "https://brew.vercel.app"
+    assert started[0][0] == found
+    assert deploy.deploy(made, "vercel", dry_run=True).command[0] == "vercel"
+
+
+def test_a_name_the_target_cannot_use_is_said_not_dropped(made: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from proofhouse import cli
+
+    assert cli.main(["deploy", str(made), "--to", "vercel", "--name", "harbor-demo", "--dry-run"]) == 0
+    err = capsys.readouterr().err
+    assert "vercel" in err and "folder" in err and "harbor-demo" in err
+    assert cli.main(["deploy", str(made), "--to", "cloudflare", "--name", "harbor-demo", "--dry-run"]) == 0
+    assert capsys.readouterr().err == ""

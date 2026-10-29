@@ -764,14 +764,16 @@ def test_render_video_fails_when_the_finished_file_is_wrong(tmp_path: Path, monk
 
 
 @needs_ffmpeg
-def test_render_video_refuses_a_mix_of_pictures_and_clips(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+def test_render_video_cuts_pictures_and_clips_together_in_one_film(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     folder = video_folder(tmp_path)
-    (folder / "clip.mp4").write_bytes(b"not really a video")
+    ffmpeg("-f", "lavfi", "-i", "testsrc=s=320x240:d=3:r=25", "-pix_fmt", "yuv420p", str(folder / "clip.mp4"))
     script = json.loads((folder / "script.json").read_text(encoding="utf-8"))
     script["shots"][1]["file"] = "clip.mp4"
     (folder / "script.json").write_text(json.dumps(script), encoding="utf-8")
-    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 2
-    assert "mix" in capsys.readouterr().err
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 0
+    out = capsys.readouterr().out
+    assert "checks passed" in out and "0 of" not in out
+    assert studio.probe(folder / "video-1x1.mp4")["seconds"] > 3.5
 
 
 # ---------------------------------------------------------------- skill that teaches the loop

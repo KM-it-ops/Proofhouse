@@ -86,7 +86,9 @@ _WRITE = {
         "Build a Claude Code command hook. It receives event JSON on stdin and exits 0 to allow or 2 to block. "
         'Reply with JSON only: {"event": "PreToolUse", "matcher": "optional pattern", "command": "python hook.py", '
         '"files": {"hook.py": "complete source"}, "sample_event": {"hook_event_name": "PreToolUse"}}. '
-        "Use a documented Claude Code event name; the command must work from the file folder."
+        "The event must be exactly one of these Claude Code event names: " + ", ".join(make_checks._known_events()) + ". "
+        "A git hook such as pre-commit is not a Claude Code event: to guard commits, use PreToolUse with matcher Bash "
+        "and inspect the command in the event JSON. The command must work from the file folder."
     ),
 }
 _TEST_INPUT = (
@@ -153,7 +155,24 @@ def _slug(text: str) -> str:
     return "-".join(words) or "made"
 
 
+# A model's lead-in line ("Here is the improved prompt:") is not part of the thing it made.
+_PREFACE = re.compile(
+    r"\s*(?:(?:sure|certainly|of course|absolutely|okay|ok)\b[^\n]{0,3}\s*)?"
+    r"here(?:'s|\s+is|\s+are)\b[^\n]{0,60}?\b(?:prompt|version|draft|rewrite|text|skill|agent|rule|file|copy|output)s?\b[^\n]{0,40}:[ \t]*\n+",
+    flags=re.I,
+)
+# Any kind: a short "Here is ...:" line that stands alone before a blank line is a lead-in too.
+_LEAD_LINE = re.compile(
+    r"\s*(?:(?:sure|certainly|of course|absolutely|okay|ok)\b[^\w\n]{0,3}\s*)?"
+    r"here(?:'s|\s+is|\s+are)\b[^\n]{0,120}:[ \t]*\n[ \t]*\n",
+    flags=re.I,
+)
+
+
 def _strip_fences(text: str) -> str:
+    preface = _PREFACE.match(text) or _LEAD_LINE.match(text)
+    if preface:
+        text = text[preface.end():]
     match = re.fullmatch(r"\s*```[a-zA-Z0-9_-]*\n(.*?)\n```\s*", text, flags=re.S)
     return (match.group(1) if match else text).strip()
 
@@ -259,6 +278,8 @@ def make(
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = out_dir or Path.cwd() / f"make-{_slug(request)}-{stamp}"
+    if folder.exists():
+        raise MakeError(f"{folder} already exists; pick a new folder with --out, or remove it first")
     result = MakeResult(folder, kind, "rounds used up", None, None, Decimal(0))
 
     def call(role: str, prompt: str, input_text: str | None = None) -> str | None:

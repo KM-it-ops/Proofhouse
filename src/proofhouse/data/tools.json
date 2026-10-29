@@ -1,0 +1,23 @@
+{
+  "schema": "proofhouse.tools/v1",
+  "note": "What `proofhouse setup` looks for. Add your own with `proofhouse setup add`; they are kept in PROOFHOUSE_HOME/tools.json.",
+  "agents": [
+    {"id": "claude", "name": "Claude Code", "programs": ["claude"], "unlocks": "write and judge work with an agent you already have (host mode)", "get": "https://claude.com/claude-code"},
+    {"id": "codex", "name": "Codex", "programs": ["codex"], "unlocks": "write work with Codex, or use it as a second, independent judge", "get": "npm install -g @openai/codex"},
+    {"id": "cursor", "name": "Cursor", "programs": ["cursor-agent", "cursor"], "unlocks": "write work with Cursor, or use it as a second judge", "get": "https://cursor.com"},
+    {"id": "gemini", "name": "Gemini CLI", "programs": ["gemini"], "unlocks": "write work with Gemini CLI, or use it as a second judge", "get": "npm install -g @google/gemini-cli"},
+    {"id": "grok", "name": "Grok CLI", "programs": ["grok"], "unlocks": "write work with Grok CLI, or use it as a second judge", "get": "https://x.ai"}
+  ],
+  "system": [
+    {"id": "git", "name": "git", "programs": ["git"], "unlocks": "keep your work in versions and publish it", "get": "https://git-scm.com"},
+    {"id": "node", "name": "Node.js", "programs": ["node"], "unlocks": "run JavaScript tools, including most hosting tools", "get": "https://nodejs.org"},
+    {"id": "ffmpeg", "name": "ffmpeg", "programs": ["ffmpeg"], "unlocks": "put video together: cut, mix sound, add captions", "get": "https://ffmpeg.org/download.html (it comes with ffprobe)"},
+    {"id": "ffprobe", "name": "ffprobe", "programs": ["ffprobe"], "unlocks": "measure a video so it can be checked", "get": "https://ffmpeg.org/download.html (it comes with ffmpeg)"}
+  ],
+  "servers": {
+    "ollama": {"programs": ["ollama"], "start": "ollama serve (or open the Ollama app), then `ollama pull <model>`", "get": "https://ollama.com"},
+    "lmstudio": {"programs": ["lms"], "start": "open LM Studio and start its local server", "get": "https://lmstudio.ai"},
+    "vllm": {"programs": ["vllm"], "start": "vllm serve <model>", "get": "pip install vllm"},
+    "llamacpp": {"programs": ["llama-server"], "start": "llama-server -m <model file>", "get": "https://github.com/ggml-org/llama.cpp"}
+  }
+}

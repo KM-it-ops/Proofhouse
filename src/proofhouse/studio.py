@@ -317,6 +317,9 @@ def produce(
     return production
 
 
+_CLIP_SUFFIXES = frozenset({".mp4", ".webm", ".mov", ".mkv"})
+
+
 def assemble(
     out_dir: Path,
     shots: list[Shot],
@@ -349,7 +352,8 @@ def assemble(
                 if not shot.file:
                     raise StudioError(f"shot {index} has no file")
                 clip = work / f"{name}-shot-{index:02d}.mp4"
-                _run(shot_command(Path(shot.file), visual_kind, shot.seconds, size, clip), out_dir, production)
+                kind = visual_kind if visual_kind != "mixed" else ("video" if Path(shot.file).suffix.lower() in _CLIP_SUFFIXES else "image")
+                _run(shot_command(Path(shot.file), kind, shot.seconds, size, clip), out_dir, production)
                 clips.append(clip)
             listing = work / f"{name}-list.txt"
             listing.write_text("".join(f"file '{c.name}'\n" for c in clips), encoding="utf-8")

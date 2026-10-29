@@ -70,6 +70,28 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
 `scripts/native_build_sample.py <platform>` locally, or the `native-builds` workflow on GitHub's machines
 ([first green run](https://github.com/KM-it-ops/Proofhouse/actions/runs/39157949115)). Signed release builds for the app stores are not covered.
 
+### How far each part has been proved (updated 2026-10-29)
+
+"Works" above means the offline tests pass. Three levels are kept apart, because they are not the same:
+tested offline (recorded answers, no network), run live once (a real model on the owner's machine, files
+opened and checked), and shown to a stranger (not done yet; it waits on the owner's tester).
+
+| Part | Offline tests | Run live once (2026-10-29, logged-in coding agent, paid spend $0) | Shown to a stranger |
+|------|---------------|-------------------------------------------------------------------|---------------------|
+| Prompt, skill, agent, rule | yes | prompt 8/10; skill 10/10; agent 10/10; rule 10/10 with 3 of 3 checks | no |
+| MCP server | yes | 9/10 after two rounds, but 0 of 1 checks passed; one still to fix | no |
+| Hook | yes | first runs failed the event-name check three times; fixed test-first (the writer is now told every allowed event); re-run 7/10 with 1 of 1 checks | no |
+| Website | yes | 6/10, 7 of 7 checks, opened and shot on desktop and phone; a real Vercel deploy answered HTTP 200 | no |
+| App | yes | 4/10, 46 of 52 checks passed | no |
+| Launch (site, copy, prompt from one goal) | yes | site 8/10, copy 8/10, prompt 10/10 | no |
+| Loop | yes | broken code fixed in 2 rounds, 4 of 4 tests pass, run again by hand | no |
+| Video engine | yes | two finished films with voice, music and burned-in captions, in three shapes (60 s and 45 s) | no |
+| Another provider (the Claude and Grok agent bridges, Ollama) | yes | not run live | no |
+| Paid image, voice, music and video services; training start; learning an unknown kind; model-list update | yes | not run live (spend limit 0, no keys) | no |
+
+Notes from that run: the film's music is a locally built bed, because the Gemini music attempt failed twice.
+The agent bridge (`proofhouse agent-server`) was added in this run; its API entry is in the OpenAPI fixture.
+
 ## Build order
 
 1. Rules, MCP servers and hooks as make kinds. Done.
@@ -120,7 +142,7 @@ A fixed sample app (`samples/native_build/`) builds on every platform with no mo
    provider key, so a person who only has an AI app or a monthly plan (Cursor, Codex, Gemini CLI, Grok CLI,
    Claude Code) cannot use it. In host mode the AI app they already use is the writer and the judge, using its
    own model, and Proofhouse is the referee, the assembler and the recorder. No key, no setup beyond
-   installing the package and one skill. Version 0.10.0 is prepared in the package and not published.
+   installing the package and one skill. Version 0.10.1 is published (see the CHANGELOG).
    - `proofhouse check <kind> <folder>` runs the same real-world checks `make` runs (site opened like a
      visitor; MCP server answers `initialize` and `tools/list`; hook run on a sample event; rule installed and
      removed on every tool; skill and agent files accepted by the installers) and prints pass or fail.
@@ -257,8 +279,8 @@ film record pointing at the tracked MP4, zod forced to 4.6.6, and the full 0.10.
 
 1. Done: pull request #86 passed the full suite, CI on all three systems and an independent review and
    re-review, and was merged on 2026-10-27.
-2. Now (owner's go-ahead): tag v0.10.0, make the GitHub release, publish to TestPyPI
-   and check it, then publish to PyPI and check it.
+2. Done: v0.10.0 is on PyPI and GitHub. 0.10.1 (the #88 fix, the agent bridge, mixed stills and clips,
+   the hook-writer fix) is prepared on a branch and held until the owner says to push it.
 3. U5: a fresh user tries the reference workflow (completion criterion 6). No agent can do this; it waits
    on the owner's tester, with the wheel rebuilt in `dist-tester/`.
 

@@ -89,7 +89,12 @@ def _cmd_media_price(args: argparse.Namespace) -> int:
 def _cmd_media_add(args: argparse.Namespace) -> int:
     try:
         raw = json.loads(Path(args.from_file).read_text(encoding="utf-8"))
+        if isinstance(raw, dict) and isinstance(raw.get("providers"), list):
+            raw = raw["providers"]
         entries = raw if isinstance(raw, list) else [raw]
+        for entry in entries:
+            if not isinstance(entry, dict) or "id" not in entry:
+                raise ValueError(f"{args.from_file} must hold one media service with an \"id\", or a list of them (or {{\"providers\": [...]}})")
         parsed = [media._parse(entry, "yours") for entry in entries]
         path = media.user_path()
         current = media._load(path)

@@ -14,7 +14,7 @@ from scripts.stage3_hard_cases import (CASES, Case, Expected, _captured, _enviro
 def test_two_cases_for_every_real_top_level_subcommand() -> None:
     counts = Counter(case.command for case in CASES)
     commands = parser_commands()
-    assert len(commands) == 39
+    assert len(commands) == 41
     assert set(counts) == commands
     assert all(counts[command] >= 2 for command in commands)
 

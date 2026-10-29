@@ -35,9 +35,7 @@ def agent_base(name: str) -> str:
 
 def judge_note_for_record(agent: str, judge: str | None) -> str:
     if judge:
-        return (
-            f"Scored by {judge}, a different agent from the writer ({agent}); still advice, not proof."
-        )
+        return f"Scored by {judge}; the writer was {agent}. Still advice, not proof."
     return JUDGE_NOTE
 _VIDEO_SUFFIX = re.compile(r"\.(mp4|webm|mov|mkv)$", re.IGNORECASE)
 _PICTURE_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"})
@@ -197,6 +195,14 @@ def run_check(kind: str, path: Path, *, allow_commands: bool, as_json: bool) -> 
     return _check_rows_pass_exit(checks, commands_required=commands_required)
 
 
+def _need_file(kind: str, path: Path) -> None:
+    if path.is_file():
+        return
+    if path.is_dir():
+        raise HostError(f"{path} is a folder; a {kind} check needs one file (for example a .md file)")
+    raise HostError(f"not found: {path}")
+
+
 def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[str, Any]]:
     if kind == "launch":
         from .host_launch import HostError as LaunchHostError, collect_launch_checks
@@ -206,13 +212,12 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
         except LaunchHostError as exc:
             raise HostError(str(exc)) from exc
     if kind in _TEXT_KINDS:
-        if not path.is_file():
-            raise HostError(str(path))
+        _need_file(kind, path)
         return _text_checks(kind, path.read_text(encoding="utf-8"))
     if kind not in CHECK_KINDS:
         raise HostError(f"unknown kind {kind!r}")
     if not path.exists():
-        raise HostError(str(path))
+        raise HostError(f"not found: {path}")
     if kind == "site":
         if not path.is_dir():
             raise HostError(f"folder not found: {path}")
@@ -248,8 +253,7 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
         rows.extend(host_quality.text_quality_rows(host_quality.body_after_frontmatter(text), "skill"))
         return rows
     if kind == "agent":
-        if not path.is_file():
-            raise HostError(str(path))
+        _need_file(kind, path)
         text = path.read_text(encoding="utf-8")
         try:
             check_frontmatter(text)
@@ -259,8 +263,7 @@ def collect_checks(kind: str, path: Path, *, allow_commands: bool) -> list[dict[
         rows.extend(host_quality.text_quality_rows(host_quality.body_after_frontmatter(text), "skill"))
         return rows
     if kind == "rule":
-        if not path.is_file():
-            raise HostError(str(path))
+        _need_file(kind, path)
         text = path.read_text(encoding="utf-8")
         with tempfile.TemporaryDirectory(prefix="host-rule-") as temporary:
             folder = Path(temporary)
@@ -755,10 +758,7 @@ def run_render_video(
             _print_error(str(exc))
             return 2
     kinds = {_visual_kind(Path(shot.file or "")) for shot in shots}
-    if len(kinds) > 1:
-        _print_error("shots mix pictures and video clips; use only pictures or only clips in one video")
-        return 2
-    visual_kind = kinds.pop()
+    visual_kind = kinds.pop() if len(kinds) == 1 else "mixed"
     production = studio.Production(folder.resolve())
     production.title = str(data.get("title", "")).strip()
     production.voiceover = str(data.get("voiceover", "")).strip()
@@ -784,4 +784,7 @@ def run_render_video(
     failed = [row for row in production.checks if row.get("ok") is not True]
     for row in failed:
         _print_error(f"{row.get('render')}: {row.get('check')} failed ({row.get('detail')})")
+    for name, path in sorted(production.renders.items()):
+        print(f"rendered {name}: {path}")
+    print(f"{len(production.checks) - len(failed)} of {len(production.checks)} checks passed")
     return 1 if failed else 0
