@@ -197,6 +197,7 @@ _GROUPS: tuple[tuple[str, int, str, tuple[re.Pattern[str], ...]], ...] = (
             r"\b(?:commit message|commit convention|coding standard|style guide|house style|code style|"
             r"coding convention|naming convention|conventions|contributing guide|changelog rules?)\b"
             r"|\balways (?:follow|follows|apply|applies|use|uses)\b|\bstanding instructions\b|\brules\b"
+            r"|\b(?:a|the|one) rule (?:that|which|to|for)\b"
         ),
     )),
     # A server that lets AI tools reach a system. Named outright, so it outranks side details.
@@ -214,8 +215,9 @@ _GROUPS: tuple[tuple[str, int, str, tuple[re.Pattern[str], ...]], ...] = (
     ("hook", 7, "behavior", (
         re.compile(
             r"\b(?:pre|post)-(?:commit|push|merge|checkout)\b|\b(?:commit|push) hook\b|\bgit hook\b"
-            r"|\b(?:block|prevent|reject|stop|refuse)\b.{0,40}\b(?:commit|push|merge)\b"
-            r"|\b(?:commit|push|merge)\b.{0,40}\b(?:block|reject|refuse|prevent)\b"
+            r"|\b(?:block|prevent|reject|stop|refuse)s?\b.{0,40}\b(?:commit|push|merge)(?:s|es)?\b"
+            r"|\b(?:commit|push|merge)(?:s|es)?\b.{0,40}\b(?:block|reject|refuse|prevent)(?:s|ed)?\b"
+            r"|\b(?:a|the|one) hook (?:that|which|to)\b"
             r"|\bbefore (?:each |every |a |any )?(?:commit|push|merge)\b"
             r"|\b(?:when|after)\b.{0,40}\b(?:finishes|completes|ends|is done)\b"
             r"|\b(?:run|install|add|set up) (?:a |the )?hook\b"

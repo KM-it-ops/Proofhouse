@@ -244,3 +244,12 @@ def test_the_front_door_flags_reach_the_model(tmp_path: Path, monkeypatch: pytes
 def test_the_front_door_wants_a_model_with_a_provider(capsys) -> None:
     code = cli.main(["a weekly digest of new releases", "--provider", "ollama"], prog="proofhouse")
     assert code == 2 and "--model" in capsys.readouterr().err
+
+
+@pytest.mark.parametrize("goal, kind", [
+    ("a rule that stops the agent editing files in the vendor folder", "rule"),
+    ("a hook that blocks commits containing API keys", "hook"),
+    ("a hook that rejects pushes with failing tests", "hook"),
+])
+def test_a_goal_that_names_its_kind_and_mentions_an_agent_or_a_commit_gets_that_kind(goal: str, kind: str) -> None:
+    assert overseer.decide(goal).artifact_class == kind
