@@ -90,3 +90,13 @@ def test_a_tool_found_on_the_path_is_started_by_the_path_it_was_found_at(made: P
     assert deploy.deploy(made, "vercel").url == "https://brew.vercel.app"
     assert started[0][0] == found
     assert deploy.deploy(made, "vercel", dry_run=True).command[0] == "vercel"
+
+
+def test_a_name_the_target_cannot_use_is_said_not_dropped(made: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    from proofhouse import cli
+
+    assert cli.main(["deploy", str(made), "--to", "vercel", "--name", "harbor-demo", "--dry-run"]) == 0
+    err = capsys.readouterr().err
+    assert "vercel" in err and "folder" in err and "harbor-demo" in err
+    assert cli.main(["deploy", str(made), "--to", "cloudflare", "--name", "harbor-demo", "--dry-run"]) == 0
+    assert capsys.readouterr().err == ""
