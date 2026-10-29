@@ -90,6 +90,10 @@ opened and checked), and shown to a stranger (not done yet; it waits on the owne
 | Paid image, voice, music and video services; training start; learning an unknown kind; model-list update | yes | not run live (spend limit 0, no keys) | no |
 
 Notes from that run: the film's music is a locally built bed, because the Gemini music attempt failed twice.
+Since then (branch `feat/video-finishing`, not merged): the engine itself now dissolves between shots, fades the film in and out,
+cleans the voice, dips the music under it and levels the mix to -16 LUFS. That polish used to exist only in the example scripts.
+Tested on a short local film (no model calls, $0). Still not done in the video engine: the voice and music still come only from a
+service or a file you give (nothing is made locally when you have neither), and shots are not timed to the spoken words.
 The agent bridge (`proofhouse agent-server`) was added in this run; its API entry is in the OpenAPI fixture.
 
 ## Build order
