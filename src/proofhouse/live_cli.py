@@ -167,13 +167,18 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 
 def _cmd_make_video(args: argparse.Namespace) -> int:
-    if not args.visual_provider or not args.visual_model:
-        return _fail("a video needs --visual-provider and --visual-model (see `proofhouse media list`)")
+    facts = None
+    if args.facts:
+        try:
+            facts = studio.load_facts(Path(args.facts))
+        except studio.StudioError as exc:
+            return _fail(str(exc))
     out = Path(args.out) if args.out else Path.cwd() / f"video-{make._slug(args.request)}"
     try:
         made = studio.produce(
             args.request, provider_id=args.provider, model=args.model,
-            max_cost_usd=args.max_cost_usd, out_dir=out, **_video_options(args),
+            max_cost_usd=args.max_cost_usd, out_dir=out, facts=facts,
+            **_video_options(args),
         )
     except (studio.StudioError, OSError) as exc:
         return _fail(str(exc))
@@ -197,7 +202,8 @@ def _video_options(args: argparse.Namespace) -> dict:
             "voice_provider": args.voice_provider, "voice_model": args.voice_model, "voice": args.voice,
             "music_provider": args.music_provider, "music_model": args.music_model,
             "music_file": Path(args.music_file) if args.music_file else None, "seconds": args.seconds,
-            "formats": tuple(args.formats.split(",")), "captions": not args.no_captions}
+            "formats": tuple(args.formats.split(",")), "captions": not args.no_captions,
+            "allow_commands": bool(getattr(args, "allow_commands", False))}
 
 
 def _cmd_make_launch(args: argparse.Namespace) -> int:
@@ -306,6 +312,7 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     video.add_argument("--visual-provider", default=None, help="Media service for the shots (see `proofhouse media list`).")
     video.add_argument("--visual-model", default=None, help="Image or video model for the shots.")
     video.add_argument("--visual-kind", default="image", choices=("image", "video"), help="Shots as images (animated) or video clips.")
+    video.add_argument("--facts", default=None, help="Product fact sheet JSON for real capture shots and a fact-based script.")
     video.add_argument("--voice-provider", default=None, help="Speech service for the voice-over (optional).")
     video.add_argument("--voice-model", default=None)
     video.add_argument("--voice", default=None, help="Voice id.")
@@ -321,7 +328,8 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make.add_argument("--input-file", default=None, help="A real input to test a prompt on (otherwise the model writes one).")
     p_make.add_argument("--out", default=None, help="Folder for the results (default ./make-<words>-<time>).")
     p_make.add_argument("--allow-commands", action="store_true",
-                        help="Start made MCP, hook or app build commands to check them. They run model-written code with your rights; this is not a sandbox.")
+                        help="Start made MCP, hook or app build commands to check them; for --kind video with --facts, "
+                             "run the commands in the fact sheet on this machine. Model-written code runs with your rights; not a sandbox.")
     p_make.add_argument("--json", action="store_true", help="Emit a JSON summary.")
     p_make.set_defaults(func=_cmd_make)
 

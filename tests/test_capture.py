@@ -1,12 +1,16 @@
 """Real captures as video shots: command output and pages become frames, and the script writer works from a fact sheet."""
 from __future__ import annotations
 
+import base64
+import json
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
 import pytest
 
-from proofhouse import capture, sitecheck, studio
+from proofhouse import capture, cli, live, media, sitecheck, studio
 
 FACTS = {
     "product": "Proofhouse",
@@ -96,3 +100,157 @@ def test_capture_shots_name_a_listed_item_and_the_writer_cannot_invent_one() -> 
         studio.plan_from(invented, 4, FACTS)
     with pytest.raises(studio.StudioError):
         studio.plan_from(data, 12, None)  # capture shots with no fact sheet to take them from
+
+
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="FFmpeg not installed")
+
+
+def _ffmpeg(*args: str) -> None:
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", *args], check=True)
+
+
+@pytest.fixture
+def capture_services(tmp_path: Path) -> dict[str, bytes]:
+    _ffmpeg("-f", "lavfi", "-i", "color=c=0x2255aa:s=320x180", "-frames:v", "1", str(tmp_path / "frame.png"))
+    templates = [
+        {"id": "local-images", "kinds": ["image"], "base_url": "http://localhost:7860", "auth": "none", "unit": "image",
+         "submit": {"path": "/img", "body": {"prompt": "{prompt}"}}, "result": {"asset": ["image"], "ext": "png"}},
+    ]
+    (tmp_path / "t.json").write_text(json.dumps(templates), encoding="utf-8")
+    assert cli.main(["media", "add", "--from", str(tmp_path / "t.json")]) == 0
+    return {"png": (tmp_path / "frame.png").read_bytes()}
+
+
+CAPTURE_SCRIPT = {
+    "title": "Real and generated",
+    "voiceover": "Here is the real output. Here is something made.",
+    "music": "calm electronic",
+    "shots": [
+        {"seconds": 3, "source": "capture", "ref": "version", "caption": "Real"},
+        {"seconds": 3, "source": "generate", "visual": "a calm workshop for the product", "caption": "Made"},
+    ],
+}
+
+
+@needs_ffmpeg
+def test_capture_and_generated_shots_charge_once_for_media_and_need_allow_commands(
+    tmp_path: Path, capture_services: dict[str, bytes], monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    facts_path = tmp_path / "facts.json"
+    facts_path.write_text(json.dumps(FACTS), encoding="utf-8")
+    png = capture_services["png"]
+    renders: list[str] = []
+
+    def fake_card(command: str, output: str, out_png: Path, **kwargs: object) -> Path:
+        out_png.parent.mkdir(parents=True, exist_ok=True)
+        _ffmpeg("-f", "lavfi", "-i", "color=c=0x333333:s=320x180", "-frames:v", "1", str(out_png))
+        renders.append("card")
+        return out_png
+
+    monkeypatch.setattr(capture, "render_card", fake_card)
+    media_calls: list[str] = []
+
+    def writer(request: live.Request) -> live.Response:
+        return live.Response(200, {"choices": [{"message": {"content": json.dumps(CAPTURE_SCRIPT)}}],
+                                   "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        media_calls.append(request.url)
+        return media.MediaResponse(200, {"image": base64.b64encode(png).decode()})
+
+    blocked = studio.produce(
+        "film", provider_id="ollama", model="m", visual_provider="local-images", visual_model="sdxl",
+        seconds=6, formats=("16x9",), out_dir=tmp_path / "blocked", facts=FACTS, allow_commands=False,
+        text_transport=writer, media_transport=post,
+    )
+    assert "allow-commands" in blocked.stopped.lower()
+    assert renders == [] and media_calls == []
+
+    made = studio.produce(
+        "film", provider_id="ollama", model="m", visual_provider="local-images", visual_model="sdxl",
+        seconds=6, out_dir=tmp_path / "video", facts=FACTS, allow_commands=True,
+        text_transport=writer, media_transport=post, size_scale=0.1,
+    )
+    assert made.stopped == "finished", made.stopped
+    assert set(made.renders) == {"16x9", "9x16", "1x1"}
+    assert renders == ["card"]
+    assert len(media_calls) == 1
+
+
+def test_the_card_hides_private_text_in_the_command_line_too() -> None:
+    page = capture.card_html("proofhouse --project C:\\Users\\alice\\repo", "ok", redact=("C:\\Users\\alice",))
+    assert "alice" not in page and "[hidden]" in page
+
+
+def test_private_text_lists_the_home_folder_in_every_spelling_and_the_user_name(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: Path("C:/Users/alice")))
+    found = capture.private_text()
+    assert any(part.lower().endswith("alice") and "\\\\" in part for part in found) or "C:/Users/alice" in found
+    assert "alice" in found
+    assert list(found) == sorted(found, key=len, reverse=True)
+
+
+def test_the_video_command_hands_facts_and_allow_commands_over_once_and_needs_no_visual_service_up_front(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    facts_path = tmp_path / "facts.json"
+    facts_path.write_text(json.dumps(FACTS), encoding="utf-8")
+    seen: dict[str, object] = {}
+
+    def fake_produce(brief: str, **kwargs: object) -> studio.Production:
+        seen.update(kwargs)
+        return studio.Production(tmp_path / "out")
+
+    monkeypatch.setattr(studio, "produce", fake_produce)
+    code = cli.main(["make", "a launch film", "--kind", "video", "--provider", "ollama", "--model", "m",
+                     "--facts", str(facts_path), "--allow-commands", "--out", str(tmp_path / "out")])
+    assert seen, "the command never reached produce"  # it used to crash, then refuse a capture-only film for want of a visual service
+    assert code == 7  # the fake made no renders
+    assert seen["allow_commands"] is True
+    assert seen["facts"]["product"] == "Proofhouse"  # type: ignore[index]
+    assert not seen["visual_provider"]
+
+
+def test_a_command_may_carry_the_line_to_show_instead_of_its_real_arguments(tmp_path: Path) -> None:
+    sheet = dict(FACTS, commands=[{"id": "v", "argv": ["uv", "run", "--project", "C:\\x", "proofhouse", "--version"],
+                                   "display": "proofhouse --version"}])
+    path = tmp_path / "facts.json"
+    path.write_text(json.dumps(sheet), encoding="utf-8")
+    assert studio.load_facts(path)["commands"][0]["display"] == "proofhouse --version"
+    sheet["commands"][0]["display"] = 5
+    path.write_text(json.dumps(sheet), encoding="utf-8")
+    with pytest.raises(studio.StudioError, match="display"):
+        studio.load_facts(path)
+
+
+@needs_ffmpeg
+def test_a_film_of_captures_only_needs_no_visual_service_and_other_clip_types_are_not_taken_for_pictures(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clip = tmp_path / "bridge.avi"
+    _ffmpeg("-f", "lavfi", "-i", "color=c=0x225588:s=320x180:d=2", "-pix_fmt", "yuv420p", str(clip))
+    card = tmp_path / "card.png"
+    _ffmpeg("-f", "lavfi", "-i", "color=c=0x333333:s=320x180", "-frames:v", "1", str(card))
+
+    def fake_card(command: str, output: str, out_png: Path, **kwargs: object) -> Path:
+        out_png.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(card, out_png)
+        return out_png
+
+    monkeypatch.setattr(capture, "render_card", fake_card)
+    script = {"title": "t", "voiceover": "Real output.", "music": "calm",
+              "shots": [{"seconds": 3, "source": "capture", "ref": "version", "caption": "Real"}]}
+
+    def writer(request: live.Request) -> live.Response:
+        return live.Response(200, {"choices": [{"message": {"content": json.dumps(script)}}],
+                                   "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+
+    made = studio.produce("film", provider_id="ollama", model="m", seconds=3, formats=("16x9",), out_dir=tmp_path / "v",
+                          facts=FACTS, allow_commands=True, text_transport=writer, size_scale=0.1)
+    assert made.stopped == "finished", made.stopped
+
+    shots = [studio.Shot(seconds=2, visual="x", caption="", file=str(card)), studio.Shot(seconds=2, visual="x", caption="", file=str(clip))]
+    (tmp_path / "mixed").mkdir()
+    again = studio.assemble(tmp_path / "mixed", shots, visual_kind="mixed", formats=("16x9",), size_scale=0.1, captions=False,
+                            voice_file=None, music_file=None, production=studio.Production(tmp_path / "mixed"))
+    assert again.renders and not [c for c in again.checks if not c["ok"]]

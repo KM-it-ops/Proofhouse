@@ -58,6 +58,7 @@ ALLOWED = {
     ("optimize/reference_workflow.py", "subprocess"),  # runs the proofhouse CLI itself, offline
     ("studio.py", "subprocess"),  # runs ffmpeg and ffprobe on local files; no network
     ("sitecheck.py", "subprocess"),
+    ("capture.py", "subprocess"),  # fact-sheet commands for real video shots; no shell, only with --allow-commands
     ("setup_check.py", "socket"),  # `proofhouse setup` only asks this machine's own ports whether a local model server answers; it sends nothing
     ("make_checks.py", "subprocess"),  # starts a made MCP server or hook locally: no shell, a reduced environment, a timeout
     ("deploy.py", "subprocess"),  # runs the hosting service's own tool (netlify, vercel, wrangler, surge) when you deploy

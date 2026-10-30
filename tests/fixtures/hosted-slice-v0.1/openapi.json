@@ -1177,8 +1177,12 @@
                 "additionalProperties": false,
                 "properties": {
                   "allow-commands": {
-                    "description": "Start made MCP, hook or app build commands to check them. They run model-written code with your rights; this is not a sandbox.",
+                    "description": "Start made MCP, hook or app build commands to check them; for --kind video with --facts, run the commands in the fact sheet on this machine. Model-written code runs with your rights; not a sandbox.",
                     "type": "boolean"
+                  },
+                  "facts": {
+                    "description": "Product fact sheet JSON for real capture shots and a fact-based script.",
+                    "type": "string"
                   },
                   "formats": {
                     "description": "Renders: 16x9, 9x16, 1x1 (comma separated).",
