@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import base64
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -156,3 +157,81 @@ def test_the_plan_is_stretched_to_the_asked_length_and_captions_are_timed() -> N
     assert studio.srt(shots).startswith("1\n00:00:00,000 --> 00:00:10,000\none\n")
     with pytest.raises(studio.StudioError):
         studio.plan_from({"shots": []}, 10)
+
+
+def _colour_at(path: Path, seconds: float) -> tuple[int, int, int]:
+    run = subprocess.run(["ffmpeg", "-loglevel", "error", "-ss", str(seconds), "-i", str(path), "-frames:v", "1",
+                          "-vf", "scale=1:1", "-f", "rawvideo", "-pix_fmt", "rgb24", "-"], capture_output=True, check=True)
+    return run.stdout[0], run.stdout[1], run.stdout[2]
+
+
+def _band_level(path: Path, start: float, length: float, hertz: int) -> float:
+    run = subprocess.run(["ffmpeg", "-nostats", "-ss", str(start), "-t", str(length), "-i", str(path), "-af",
+                          f"bandpass=f={hertz}:width_type=h:w=40,volumedetect", "-f", "null", "-"],
+                         capture_output=True, text=True, check=True)
+    return float(re.search(r"mean_volume: (-?[\d.]+) dB", run.stderr).group(1))
+
+
+def _loudness(path: Path) -> float:
+    run = subprocess.run(["ffmpeg", "-nostats", "-i", str(path), "-af", "ebur128", "-f", "null", "-"],
+                         capture_output=True, text=True, check=True)
+    return float(re.findall(r"I:\s+(-?[\d.]+) LUFS", run.stderr)[-1])
+
+
+@needs_ffmpeg
+def test_shots_dissolve_into_each_other_and_the_film_fades_in_and_out_of_black(tmp_path: Path) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "color=c=0xcc2222:s=320x180", "-frames:v", "1", str(tmp_path / "red.png"))
+    _ffmpeg("-f", "lavfi", "-i", "color=c=0x2222cc:s=320x180", "-frames:v", "1", str(tmp_path / "blue.png"))
+    shots = [studio.Shot(2, "a", "one", str(tmp_path / "red.png")), studio.Shot(2, "b", "two", str(tmp_path / "blue.png"))]
+    (tmp_path / "out").mkdir()
+    made = studio.assemble(tmp_path / "out", shots, visual_kind="image", formats=("1x1",), size_scale=0.1)
+    assert made.stopped == "finished", made.stopped
+    film = Path(made.renders["1x1"])
+    assert studio.probe(film)["seconds"] == pytest.approx(4, abs=0.15)
+    assert sum(_colour_at(film, 0.0)) < 120  # starts from black
+    red, blue = _colour_at(film, 1.2), _colour_at(film, 2.8)
+    assert red[0] > 150 and red[2] < 80 and blue[2] > 150 and blue[0] < 80
+    mixed = _colour_at(film, 1.8)  # inside the dissolve that ends at the cut
+    assert mixed[0] > 70 and mixed[2] > 70, mixed
+    assert sum(_colour_at(film, 3.95)) < 150  # ends in black
+    assert all(c["ok"] for c in made.checks), made.checks
+
+
+@needs_ffmpeg
+def test_one_shot_has_no_dissolve_and_very_short_shots_still_render_at_the_full_length(tmp_path: Path) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "color=c=0xcc2222:s=320x180", "-frames:v", "1", str(tmp_path / "red.png"))
+    (tmp_path / "one").mkdir()
+    (tmp_path / "four").mkdir()
+    one = studio.assemble(tmp_path / "one", [studio.Shot(3, "a", "", str(tmp_path / "red.png"))], visual_kind="image",
+                          formats=("1x1",), size_scale=0.1)
+    assert one.stopped == "finished" and studio.probe(Path(one.renders["1x1"]))["seconds"] == pytest.approx(3, abs=0.15)
+    quick = [studio.Shot(1, "a", "", str(tmp_path / "red.png")) for _ in range(4)]
+    four = studio.assemble(tmp_path / "four", quick, visual_kind="image", formats=("1x1",), size_scale=0.1)
+    assert four.stopped == "finished" and studio.probe(Path(four.renders["1x1"]))["seconds"] == pytest.approx(4, abs=0.15)
+
+
+@needs_ffmpeg
+def test_music_dips_under_the_voice_and_the_mix_is_brought_to_a_normal_listening_level(tmp_path: Path) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "color=c=0x2255aa:s=320x180", "-frames:v", "1", str(tmp_path / "frame.png"))
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-af", "adelay=3000|3000", str(tmp_path / "voice.wav"))
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=220:duration=8", str(tmp_path / "music.wav"))
+    shots = [studio.Shot(2, "a", "", str(tmp_path / "frame.png")) for _ in range(3)]  # a 6 s film; the voice speaks in its second half
+    (tmp_path / "out").mkdir()
+    made = studio.assemble(tmp_path / "out", shots, visual_kind="image", formats=("1x1",), size_scale=0.1,
+                           voice_file=str(tmp_path / "voice.wav"), music_file=str(tmp_path / "music.wav"))
+    assert made.stopped == "finished" and all(c["ok"] for c in made.checks), made.checks
+    film = Path(made.renders["1x1"])
+    alone, under_voice = _band_level(film, 1.0, 1.8, 220), _band_level(film, 3.6, 1.5, 220)
+    assert under_voice < alone - 3, (alone, under_voice)
+    assert abs(_loudness(film) - -16) <= 3
+
+
+def test_the_final_command_cleans_the_voice_ducks_the_music_and_fades_in_and_out() -> None:
+    both = studio.final_command(Path("j.mp4"), Path("v.wav"), Path("m.wav"), 30, False, Path("o.mp4"))
+    graph = both[both.index("-filter_complex") + 1]
+    assert "highpass" in graph and "sidechaincompress" in graph and "loudnorm" in graph and "afade=t=out" in graph
+    assert "fade=t=in" in graph and "fade=t=out" in graph
+    music_only = studio.final_command(Path("j.mp4"), None, Path("m.wav"), 30, False, Path("o.mp4"))
+    assert "sidechaincompress" not in music_only[music_only.index("-filter_complex") + 1]
+    silent = studio.final_command(Path("j.mp4"), None, None, 30, False, Path("o.mp4"))
+    assert "-filter_complex" not in silent and "fade=t=in" in silent[silent.index("-vf") + 1]
