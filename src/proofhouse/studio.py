@@ -144,9 +144,9 @@ def srt(shots: list[Shot]) -> str:
     return "\n".join(blocks)
 
 
-def shot_command(source: Path, kind: str, seconds: int, size: tuple[int, int], out: Path) -> list[str]:
+def shot_command(source: Path, kind: str, seconds: float, size: tuple[int, int], out: Path) -> list[str]:
     w, h = size
-    frames = seconds * FPS
+    frames = round(seconds * FPS)
     if kind == "image":
         vf = (f"scale={2 * w}:{2 * h}:force_original_aspect_ratio=increase,crop={2 * w}:{2 * h},"
               f"zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps={FPS},"
@@ -169,8 +169,36 @@ def caption_style(size: tuple[int, int]) -> str:
     return f"Fontsize={round(short * 0.07 * grid, 1)},Outline={max(1.5, round(short * 0.006 * grid, 1))},Shadow=1,MarginV=40"
 
 
+DISSOLVE = 0.5
+LOUDNESS = "loudnorm=I=-16:TP=-1.5:LRA=9,aresample=48000"
+
+
+def dissolve_length(shots: list[Shot]) -> float:
+    """How long neighbouring shots overlap: half a second, less when a shot is too short to give that much."""
+    if len(shots) < 2:
+        return 0.0
+    return min(DISSOLVE, min(s.seconds for s in shots) / 2)
+
+
+def join_command(clips: list[Path], seconds: list[int], dissolve: float, out: Path) -> list[str]:
+    """Join the shots with dissolves; the film keeps the length of the shots added up, so the captions stay on time."""
+    cmd = ["ffmpeg", "-y", "-loglevel", "error"]
+    for clip in clips:
+        cmd += ["-i", str(clip)]
+    graph, label, start = [], "[0:v]", seconds[0]
+    for index in range(1, len(clips)):
+        last = index == len(clips) - 1
+        graph.append(f"{label}[{index}:v]xfade=transition=fade:duration={dissolve}:offset={round(start - dissolve, 3)}"
+                     f"[{'v' if last else f'x{index}'}]")
+        label = f"[x{index}]"
+        start += seconds[index]
+    return cmd + ["-filter_complex", ";".join(graph), "-map", "[v]", "-c:v", "libx264", "-preset", "veryfast",
+                  "-crf", "14", "-pix_fmt", "yuv420p", str(out)]
+
+
 def final_command(joined: Path, voice: Path | None, music: Path | None, total: int, captions: bool, out: Path,
                   size: tuple[int, int] = (1920, 1080)) -> list[str]:
+    """Fade the picture and sound in and out; clean the voice, dip the music under it, level the mix."""
     cmd = ["ffmpeg", "-y", "-loglevel", "error", "-i", str(joined)]
     inputs = []
     if voice:
@@ -179,21 +207,30 @@ def final_command(joined: Path, voice: Path | None, music: Path | None, total: i
     if music:
         cmd += ["-stream_loop", "-1", "-i", str(music)]
         inputs.append("music")
+    edge = round(min(0.5, total / 6), 3)
+    fades = f"fade=t=in:st=0:d={edge},fade=t=out:st={round(total - edge, 3)}:d={edge}"
+    picture = f"subtitles=captions.srt:force_style='{caption_style(size)}'," + fades if captions else fades
     graph = []
-    if captions:
-        graph.append(f"[0:v]subtitles=captions.srt:force_style='{caption_style(size)}'[v]")
     labels = []
     for index, name in enumerate(inputs, start=1):
-        level = "1.0" if name == "voice" else ("0.25" if voice else "0.8")
-        graph.append(f"[{index}:a]volume={level},apad[{name}]")
+        fit = f"apad=whole_dur={total},atrim=0:{total}"
+        if name == "voice":
+            graph.append(f"[{index}:a]highpass=f=80,acompressor=threshold=-18dB:ratio=3:attack=5:release=120,{fit}[voice]")
+        else:
+            graph.append(f"[{index}:a]volume={0.6 if voice else 1.0},{fit}[music]")
         labels.append(f"[{name}]")
     if len(labels) == 2:
-        graph.append(f"{''.join(labels)}amix=inputs=2:duration=longest:normalize=0[a]")
-    elif labels:
-        graph.append(f"{labels[0]}anull[a]")
-    if graph:
-        cmd += ["-filter_complex", ";".join(graph)]
-    cmd += ["-map", "[v]" if captions else "0:v"]
+        graph.append("[voice]asplit=2[voice_mix][voice_key]")
+        graph.append("[music][voice_key]sidechaincompress=threshold=0.03:ratio=6:attack=25:release=450:makeup=1[ducked]")
+        graph.append("[voice_mix][ducked]amix=inputs=2:duration=first:normalize=0[mixed]")
+        labels = ["[mixed]"]
+    if labels:
+        graph.append(f"{labels[0]}{LOUDNESS},afade=t=out:st={round(total - edge, 3)}:d={edge}[a]")
+    if graph or captions:
+        graph.insert(0, f"[0:v]{picture}[v]")
+        cmd += ["-filter_complex", ";".join(graph), "-map", "[v]"]
+    else:
+        cmd += ["-vf", picture, "-map", "0:v"]
     if labels:
         cmd += ["-map", "[a]", "-c:a", "aac", "-b:a", "192k"]
     cmd += ["-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-t", str(total),
@@ -355,17 +392,20 @@ def assemble(
             w, h = FORMATS[name]
             size = (int(w * size_scale) // 2 * 2, int(h * size_scale) // 2 * 2)
             clips = []
+            dissolve = dissolve_length(shots)
             for index, shot in enumerate(shots, start=1):
                 if not shot.file:
                     raise StudioError(f"shot {index} has no file")
                 clip = work / f"{name}-shot-{index:02d}.mp4"
                 kind = visual_kind if visual_kind != "mixed" else ("video" if Path(shot.file).suffix.lower() in _CLIP_SUFFIXES else "image")
-                _run(shot_command(Path(shot.file), kind, shot.seconds, size, clip), out_dir, production)
+                # every shot after the first starts one dissolve early, under the end of the shot before it
+                _run(shot_command(Path(shot.file), kind, shot.seconds + (dissolve if index > 1 else 0), size, clip), out_dir, production)
                 clips.append(clip)
-            listing = work / f"{name}-list.txt"
-            listing.write_text("".join(f"file '{c.name}'\n" for c in clips), encoding="utf-8")
             joined = work / f"{name}-joined.mp4"
-            _run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", str(joined)], work, production)
+            if len(clips) == 1:
+                joined = clips[0]
+            else:
+                _run(join_command(clips, [s.seconds for s in shots], dissolve, joined), work, production)
             final = out_dir / f"video-{name}.mp4"
             has_captions = captions and any(s.caption for s in shots)
             _run(final_command(joined, Path(production.voice_file) if production.voice_file else None,

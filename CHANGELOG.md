@@ -11,6 +11,7 @@
 ### Changed
 
 - The stage 3 hard-case record (`docs/stage3/`) is re-run for all 41 commands: 82 cases held.
+- The video engine now finishes a film itself. Shots dissolve into each other instead of cutting hard (the film keeps its length, so captions stay on time), and the picture and sound fade in and out. The voice is cleaned up and lightly levelled, the music dips under the voice and comes back when it stops, and the whole mix is brought to a normal listening level. Before, this polish lived only in a one-off example script. Applies to every film the engine makes, including `proofhouse render video`.
 
 ## 0.10.1 - first-run fixes
 
