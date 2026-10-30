@@ -23,12 +23,14 @@ The rest of this page is the same journey by hand. Commands assume you are in a 
 ## 1. Start a case and answer the clarify packet
 
 ```bash
+mkdir -p build/ref && cp examples/reference-advisory/* build/ref && cd build/ref    # from a clone: the scratch directory
 pc case new --case advisory-case --objective-file objective.txt --model "Claude Sonnet 5" --preset efficient
 ```
 
-`advisory-case/01-clarify.md` is a packet you run in your own agent or model. Put the answers in `advisory-case/answers.json` (the example has them), then:
+`advisory-case/01-clarify.md` is a packet you run in your own agent or model. Put the answers in `advisory-case/answers.json` (the example has them: `cp answers.json advisory-case/answers.json`), then:
 
 ```bash
+cp answers.json advisory-case/answers.json
 pc case compile --case advisory-case
 pc case constraints list --case advisory-case
 ```
