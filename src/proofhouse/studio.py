@@ -285,6 +285,10 @@ def srt(shots: list[Shot]) -> str:
 def shot_command(source: Path, kind: str, seconds: float, size: tuple[int, int], out: Path) -> list[str]:
     w, h = size
     frames = round(seconds * FPS)
+    if kind == "still":  # a real capture is shown whole: the slow zoom would crop the text at its edges
+        vf = f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x0d1117,fps={FPS},format=yuv420p"
+        return ["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", str(source), "-t", str(seconds), "-vf", vf,
+                "-c:v", "libx264", "-preset", "veryfast", "-an", str(out)]
     if kind == "image":
         vf = (f"scale={2 * w}:{2 * h}:force_original_aspect_ratio=increase,crop={2 * w}:{2 * h},"
               f"zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps={FPS},"
@@ -569,7 +573,10 @@ def assemble(
                 if not shot.file:
                     raise StudioError(f"shot {index} has no file")
                 clip = work / f"{name}-shot-{index:02d}.mp4"
-                kind = visual_kind if visual_kind != "mixed" else ("image" if Path(shot.file).suffix.lower() in _STILL_SUFFIXES else "video")
+                kind = visual_kind
+                if visual_kind == "mixed":
+                    is_still = Path(shot.file).suffix.lower() in _STILL_SUFFIXES
+                    kind = ("still" if shot.source == "capture" else "image") if is_still else "video"
                 # every shot after the first starts one dissolve early, under the end of the shot before it
                 _run(shot_command(Path(shot.file), kind, shot.seconds + (dissolve if index > 1 else 0), size, clip), out_dir, production)
                 clips.append(clip)

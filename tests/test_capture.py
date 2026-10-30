@@ -53,6 +53,13 @@ def test_the_screenshot_command_asks_for_the_frame_size() -> None:
     assert command[-1] == "file:///x.html"
 
 
+def test_a_captured_still_is_shown_whole_not_zoomed_into() -> None:
+    still = studio.shot_command(Path("c.png"), "still", 5, (1920, 1080), Path("o.mp4"))
+    assert not any("zoompan" in part for part in still)
+    assert any("pad=1920:1080" in part for part in still)
+    assert any("zoompan" in part for part in studio.shot_command(Path("g.png"), "image", 5, (1920, 1080), Path("o.mp4")))
+
+
 def test_without_a_browser_the_error_says_so(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(sitecheck, "find_browser", lambda: None)
     with pytest.raises(capture.CaptureError, match="Chrome"):
