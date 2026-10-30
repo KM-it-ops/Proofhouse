@@ -1,6 +1,6 @@
 {
   "timeout_seconds": 120,
-  "case_count": 78,
+  "case_count": 82,
   "uncovered_commands": [],
   "commands_with_fewer_than_two_cases": [],
   "cases": [
@@ -37,7 +37,7 @@
       "verdict": "held",
       "exit_code": 3,
       "output_first_400": "validate: error\n  [error] PRG-NORMALIZATION-0001 : input is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte at <root>\n",
-      "wall_seconds": 3.55,
+      "wall_seconds": 1.608,
       "happened": "Exit 3; validate: error",
       "hung": false,
       "unable": false
@@ -75,7 +75,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: EVR-RES-0001: input exceeds MAX_INPUT_BYTES\n",
-      "wall_seconds": 3.071,
+      "wall_seconds": 1.522,
       "happened": "Exit 2; error: EVR-RES-0001: input exceeds MAX_INPUT_BYTES",
       "hung": false,
       "unable": false
@@ -113,7 +113,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: [Errno 13] Permission denied: 'looks.json'\n",
-      "wall_seconds": 2.682,
+      "wall_seconds": 1.383,
       "happened": "Exit 2; error: [Errno 13] Permission denied: 'looks.json'",
       "hung": false,
       "unable": false
@@ -151,7 +151,7 @@
       "verdict": "held",
       "exit_code": 3,
       "output_first_400": "inspect: error\n  [error] PRG-NORMALIZATION-0001 : duplicate key 'a' rejected before canonicalization at <root>\n",
-      "wall_seconds": 2.706,
+      "wall_seconds": 2.164,
       "happened": "Exit 3; inspect: error",
       "hung": false,
       "unable": false
@@ -195,7 +195,7 @@
       "verdict": "held",
       "exit_code": 3,
       "output_first_400": "compile: error\n  [error] PRG-NORMALIZATION-0001 : input is not valid UTF-8: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte at <root>\n",
-      "wall_seconds": 2.633,
+      "wall_seconds": 1.981,
       "happened": "Exit 3; compile: error",
       "hung": false,
       "unable": false
@@ -246,7 +246,7 @@
       "verdict": "held",
       "exit_code": 6,
       "output_first_400": "compile: error\n  [error] PRG-ADAPTER-0002 : unknown adapter id 'not-real'\n",
-      "wall_seconds": 2.714,
+      "wall_seconds": 1.39,
       "happened": "Exit 6; compile: error",
       "hung": false,
       "unable": false
@@ -279,7 +279,7 @@
       "verdict": "held",
       "exit_code": 0,
       "output_first_400": "{\"command\": \"adapters\", \"contract_version\": \"0.1.0\", \"data\": {\"adapters\": [{\"adapter_id\": \"fake\", \"adapter_version\": \"0.1.0\", \"artifact_kinds\": [\"compiled_prompt\"], \"capability_manifest_digest\": \"eee8d5a20e1ab864a70f91628a65cce437c7cad3863fb946b00b1f4f6401afd4\", \"capability_manifest_version\": \"0.1.0\", \"conformance_suite_version\": \"0.1.0\", \"provider_id\": \"fake\", \"supported_ir_range\": \"0.1.0\"}, {\"ad",
-      "wall_seconds": 2.645,
+      "wall_seconds": 1.378,
       "happened": "Exit 0; {\"command\": \"adapters\", \"contract_version\": \"0.1.0\", \"data\": {\"adapters\": [{\"adapter_id\": \"fake\", \"adapter_version\": \"0.1.0\", \"artifact_kinds\": [\"compiled_promp",
       "hung": false,
       "unable": false
@@ -311,8 +311,8 @@
       },
       "verdict": "held",
       "exit_code": 2,
-      "output_first_400": "usage: proofhouse [-h] [--version]\n                  {validate,inspect,compile,adapters,doctor,closed-loop,compile-requirements,evaluate-product,closed-loop-bridged-008,route,assay,proof,execute-openai,case,optimize,demo,models,install-skill,uninstall-skill,check,record,render,make,providers,run,loop,referee,compare,train,addons,deploy,hosts,install,uninstall,generate,media,eval,scan,parts} ...\npr",
-      "wall_seconds": 2.69,
+      "output_first_400": "usage: proofhouse [-h] [--version]\n                  {validate,inspect,compile,adapters,doctor,closed-loop,compile-requirements,evaluate-product,closed-loop-bridged-008,route,assay,proof,execute-openai,case,optimize,demo,models,install-skill,uninstall-skill,check,record,render,make,providers,run,loop,referee,compare,train,addons,deploy,hosts,install,uninstall,setup,generate,media,agent-server,eval",
+      "wall_seconds": 1.429,
       "happened": "Exit 2; usage: proofhouse [-h] [--version]",
       "hung": false,
       "unable": false
@@ -345,7 +345,7 @@
       "verdict": "held",
       "exit_code": 0,
       "output_first_400": "{\"command\": \"doctor\", \"contract_version\": \"0.1.0\", \"data\": {\"checks\": [{\"detail\": \"3.14.6 (requires >= 3.11)\", \"name\": \"python_version\", \"ok\": true}, {\"detail\": \"loaded\", \"name\": \"diagnostic_registry\", \"ok\": true}, {\"detail\": \"loaded\", \"name\": \"ir_schema\", \"ok\": true}, {\"detail\": \"certified path performs no network access; this is an assertion, not a probe\", \"name\": \"offline_mode_assertion\", \"ok\":",
-      "wall_seconds": 2.712,
+      "wall_seconds": 1.5,
       "happened": "Exit 0; {\"command\": \"doctor\", \"contract_version\": \"0.1.0\", \"data\": {\"checks\": [{\"detail\": \"3.14.6 (requires >= 3.11)\", \"name\": \"python_version\", \"ok\": true}, {\"detail\":",
       "hung": false,
       "unable": false
@@ -379,7 +379,7 @@
       "verdict": "held",
       "exit_code": 0,
       "output_first_400": "{\"command\": \"doctor\", \"contract_version\": \"0.1.0\", \"data\": {\"checks\": [{\"detail\": \"3.14.6 (requires >= 3.11)\", \"name\": \"python_version\", \"ok\": true}, {\"detail\": \"loaded\", \"name\": \"diagnostic_registry\", \"ok\": true}, {\"detail\": \"loaded\", \"name\": \"ir_schema\", \"ok\": true}, {\"detail\": \"certified path performs no network access; this is an assertion, not a probe\", \"name\": \"offline_mode_assertion\", \"ok\":",
-      "wall_seconds": 2.86,
+      "wall_seconds": 1.66,
       "happened": "Exit 0; {\"command\": \"doctor\", \"contract_version\": \"0.1.0\", \"data\": {\"checks\": [{\"detail\": \"3.14.6 (requires >= 3.11)\", \"name\": \"python_version\", \"ok\": true}, {\"detail\":",
       "hung": false,
       "unable": false
@@ -419,7 +419,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "usage: proofhouse closed-loop [-h] [--repair-budget {0,1,2}]\n                              [--enable-model-suggestions] [--json]\n                              [--product-eval-dataset PRODUCT_EVAL_DATASET]\n                              [--product-eval-rubric PRODUCT_EVAL_RUBRIC]\n                              input\nproofhouse closed-loop: error: argument --repair-budget: invalid choice: '-1' (choose",
-      "wall_seconds": 2.703,
+      "wall_seconds": 1.803,
       "happened": "Exit 2; usage: proofhouse closed-loop [-h] [--repair-budget {0,1,2}]",
       "hung": false,
       "unable": false
@@ -453,7 +453,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "closed-loop: error\n  [error] PRG-CLI-0001 : closed-loop product eval requires both --product-eval-dataset and --product-eval-rubric\n",
-      "wall_seconds": 2.84,
+      "wall_seconds": 1.71,
       "happened": "Exit 2; closed-loop: error",
       "hung": false,
       "unable": false
@@ -491,7 +491,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "compile-requirements: error\n  [error] PRG-CLI-0001 : invalid JSON (duplicate JSON key 'kind')\n",
-      "wall_seconds": 2.686,
+      "wall_seconds": 1.474,
       "happened": "Exit 2; compile-requirements: error",
       "hung": false,
       "unable": false
@@ -529,7 +529,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "compile-requirements: error\n  [error] PRG-CLI-0001 : invalid JSON ('utf-8' codec can't decode byte 0xff in position 1: invalid start byte)\n",
-      "wall_seconds": 2.778,
+      "wall_seconds": 1.348,
       "happened": "Exit 2; compile-requirements: error",
       "hung": false,
       "unable": false
@@ -577,7 +577,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "evaluate-product: error\n  [error] PRG-CLI-0001 : dataset not found: data.jsonl\n",
-      "wall_seconds": 2.989,
+      "wall_seconds": 1.532,
       "happened": "Exit 2; evaluate-product: error",
       "hung": false,
       "unable": false
@@ -625,7 +625,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "evaluate-product: error\n  [error] PRG-CLI-0001 : rubric not found: rubric.json\n",
-      "wall_seconds": 3.041,
+      "wall_seconds": 1.997,
       "happened": "Exit 2; evaluate-product: error",
       "hung": false,
       "unable": false
@@ -663,7 +663,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "closed-loop-bridged-008: error\n  [error] PRG-CLI-0001 : invalid JSON (duplicate JSON key 'status')\n",
-      "wall_seconds": 2.676,
+      "wall_seconds": 1.79,
       "happened": "Exit 2; closed-loop-bridged-008: error",
       "hung": false,
       "unable": false
@@ -697,7 +697,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "usage: proofhouse closed-loop-bridged-008 [-h] [--repair-budget {0,1,2}]\n                                          [--json]\n                                          input\nproofhouse closed-loop-bridged-008: error: argument --repair-budget: invalid choice: '999999999' (choose from '0', '1', '2')\n",
-      "wall_seconds": 2.651,
+      "wall_seconds": 1.812,
       "happened": "Exit 2; usage: proofhouse closed-loop-bridged-008 [-h] [--repair-budget {0,1,2}]",
       "hung": false,
       "unable": false
@@ -732,7 +732,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "route: error\n  [error] PRG-CLI-0001 : constraints must be a JSON object\n",
-      "wall_seconds": 2.689,
+      "wall_seconds": 1.57,
       "happened": "Exit 2; route: error",
       "hung": false,
       "unable": false
@@ -767,7 +767,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "route: error\n  [error] PRG-CLI-0001 : constraints must be a JSON object\n",
-      "wall_seconds": 2.674,
+      "wall_seconds": 1.472,
       "happened": "Exit 2; route: error",
       "hung": false,
       "unable": false
@@ -807,7 +807,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "assay: error\n  [error] PRG-CLI-0001 : claims file claims.json must hold a JSON array of claims, not dict\n",
-      "wall_seconds": 2.689,
+      "wall_seconds": 2.897,
       "happened": "Exit 2; assay: error",
       "hung": false,
       "unable": false
@@ -848,7 +848,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "assay: error\n  [error] PRG-CLI-0001 : claims file claims.json is not valid JSON: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte\n",
-      "wall_seconds": 2.712,
+      "wall_seconds": 3.694,
       "happened": "Exit 2; assay: error",
       "hung": false,
       "unable": false
@@ -884,7 +884,7 @@
       "verdict": "held",
       "exit_code": 3,
       "output_first_400": "proof: UNJUDGED\n  no review pass ran (none is wired to this command); nothing was judged\n",
-      "wall_seconds": 2.711,
+      "wall_seconds": 3.596,
       "happened": "Exit 3; proof: UNJUDGED",
       "hung": false,
       "unable": false
@@ -921,7 +921,7 @@
       "verdict": "held",
       "exit_code": 3,
       "output_first_400": "{\"findings\": [], \"passes\": 0, \"status\": \"UNJUDGED\"}\n",
-      "wall_seconds": 2.753,
+      "wall_seconds": 3.401,
       "happened": "Exit 3; {\"findings\": [], \"passes\": 0, \"status\": \"UNJUDGED\"}",
       "hung": false,
       "unable": false
@@ -968,7 +968,7 @@
       "verdict": "held",
       "exit_code": 7,
       "output_first_400": "{\"command\": \"execute-openai\", \"diagnostics\": [\"EXE-OPT-0001\"], \"envelope\": {\"q1_model\": \"gpt-5.6-luna\", \"q1_unpicked\": false, \"single_request\": true}, \"status\": \"error\"}\n",
-      "wall_seconds": 2.616,
+      "wall_seconds": 3.339,
       "happened": "Exit 7; {\"command\": \"execute-openai\", \"diagnostics\": [\"EXE-OPT-0001\"], \"envelope\": {\"q1_model\": \"gpt-5.6-luna\", \"q1_unpicked\": false, \"single_request\": true}, \"status\":",
       "hung": false,
       "unable": false
@@ -1004,7 +1004,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: --target-url cannot be used with --provider\n",
-      "wall_seconds": 2.576,
+      "wall_seconds": 3.447,
       "happened": "Exit 2; error: --target-url cannot be used with --provider",
       "hung": false,
       "unable": false
@@ -1057,7 +1057,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: case directory already exists: case dir\n",
-      "wall_seconds": 2.711,
+      "wall_seconds": 3.441,
       "happened": "Exit 2; error: case directory already exists: case dir",
       "hung": false,
       "unable": false
@@ -1103,7 +1103,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: objective file not found: goal.txt\n",
-      "wall_seconds": 2.77,
+      "wall_seconds": 3.533,
       "happened": "Exit 2; error: objective file not found: goal.txt",
       "hung": false,
       "unable": false
@@ -1151,7 +1151,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "notice: 'proofhouse optimize' is now 'proofhouse case' (same subcommands and flags); the optimize alias will be removed after 0.5\nerror: case directory already exists: old\n",
-      "wall_seconds": 2.586,
+      "wall_seconds": 3.47,
       "happened": "Exit 2; notice: 'proofhouse optimize' is now 'proofhouse case' (same subcommands and flags); the optimize alias will be removed after 0.5",
       "hung": false,
       "unable": false
@@ -1196,7 +1196,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "notice: 'proofhouse optimize' is now 'proofhouse case' (same subcommands and flags); the optimize alias will be removed after 0.5\nerror: case.json is not valid JSON (Expecting property name enclosed in double quotes: line 1 column 2 (char 1)): half\\case.json\n",
-      "wall_seconds": 2.628,
+      "wall_seconds": 3.416,
       "happened": "Exit 2; notice: 'proofhouse optimize' is now 'proofhouse case' (same subcommands and flags); the optimize alias will be removed after 0.5",
       "hung": false,
       "unable": false
@@ -1237,7 +1237,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: [WinError 183] Cannot create a file when that file already exists: '<case>\\\\workspace'\n",
-      "wall_seconds": 2.689,
+      "wall_seconds": 3.519,
       "happened": "Exit 2; error: [WinError 183] Cannot create a file when that file already exists: '<case>\\\\workspace'",
       "hung": false,
       "unable": false
@@ -1283,9 +1283,9 @@
       },
       "verdict": "held",
       "exit_code": 0,
-      "output_first_400": "reference workflow: OK in 77.0s -- v1 FAIL ['ACC', 'CITE', 'NOGUESS', 'UNK'], v2 PASS with 4 constraints satisfied; export/import reproduced; workspace <case>\\workspace\n\nOpen the results again any time:\n  report:  <case>\\workspace\\report.md\n  proofhouse case status --case <case>\\workspace\\advisory-case\n  proofhouse case check --case <case>\\workspace\\advisory-case\n",
-      "wall_seconds": 79.797,
-      "happened": "Exit 0; reference workflow: OK in 77.0s -- v1 FAIL ['ACC', 'CITE', 'NOGUESS', 'UNK'], v2 PASS with 4 constraints satisfied; export/import reproduced; workspace <case>\\w",
+      "output_first_400": "reference workflow: OK in 78.8s -- v1 FAIL ['ACC', 'CITE', 'NOGUESS', 'UNK'], v2 PASS with 4 constraints satisfied; export/import reproduced; workspace <case>\\workspace\n\nOpen the results again any time:\n  report:  <case>\\workspace\\report.md\n  proofhouse case status --case <case>\\workspace\\advisory-case\n  proofhouse case check --case <case>\\workspace\\advisory-case\n",
+      "wall_seconds": 82.398,
+      "happened": "Exit 0; reference workflow: OK in 78.8s -- v1 FAIL ['ACC', 'CITE', 'NOGUESS', 'UNK'], v2 PASS with 4 constraints satisfied; export/import reproduced; workspace <case>\\w",
       "hung": false,
       "unable": false
     },
@@ -1316,9 +1316,9 @@
       },
       "verdict": "held",
       "exit_code": 0,
-      "output_first_400": "warning: no notes for \"unknown-?\"; using the generic profile (source=fallback)\nmodel: unknown-?\n  entered: unknown-?\n  canonical_id: unknown\n  provider: -  tier: generic\n  source: fallback  verified_at: -  stale: no\n  sources: none recorded\n  evidence: unverified\n  notes: No verified vendor-specific behavior available. General best practice: explicit goal, constraints, format, audience. Note in ra",
-      "wall_seconds": 4.152,
-      "happened": "Exit 0; warning: no notes for \"unknown-?\"; using the generic profile (source=fallback)",
+      "output_first_400": "warning: no notes for \"unknown-☃\"; using the generic profile (source=fallback)\nmodel: unknown-☃\n  entered: unknown-☃\n  canonical_id: unknown\n  provider: -  tier: generic\n  source: fallback  verified_at: -  stale: no\n  sources: none recorded\n  evidence: unverified\n  notes: No verified vendor-specific behavior available. General best practice: explicit goal, constraints, format, audience. Note in ra",
+      "wall_seconds": 3.333,
+      "happened": "Exit 0; warning: no notes for \"unknown-☃\"; using the generic profile (source=fallback)",
       "hung": false,
       "unable": false
     },
@@ -1349,9 +1349,9 @@
       },
       "verdict": "held",
       "exit_code": 2,
-      "output_first_400": "error: nothing cached for \"never-cached-?\"\n",
-      "wall_seconds": 3.767,
-      "happened": "Exit 2; error: nothing cached for \"never-cached-?\"",
+      "output_first_400": "error: nothing cached for \"never-cached-☃\"\n",
+      "wall_seconds": 4.015,
+      "happened": "Exit 2; error: nothing cached for \"never-cached-☃\"",
       "hung": false,
       "unable": false
     },
@@ -1394,7 +1394,7 @@
       "verdict": "held",
       "exit_code": 7,
       "output_first_400": "error: bundle unreadable: fake.skill: File is not a zip file\n",
-      "wall_seconds": 3.557,
+      "wall_seconds": 3.406,
       "happened": "Exit 7; error: bundle unreadable: fake.skill: File is not a zip file",
       "hung": false,
       "unable": false
@@ -1443,7 +1443,7 @@
       "verdict": "held",
       "exit_code": 7,
       "output_first_400": "error: installed skill failed verification: SKILL.md missing; nothing was installed in <case>\\skills\n",
-      "wall_seconds": 3.693,
+      "wall_seconds": 3.469,
       "happened": "Exit 7; error: installed skill failed verification: SKILL.md missing; nothing was installed in <case>\\skills",
       "hung": false,
       "unable": false
@@ -1480,7 +1480,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: Proofhouse has no record of installing <case>\\skills\\proofhouse; it removes only what it installed. Nothing was removed.\n",
-      "wall_seconds": 3.591,
+      "wall_seconds": 3.328,
       "happened": "Exit 2; error: Proofhouse has no record of installing <case>\\skills\\proofhouse; it removes only what it installed. Nothing was removed.",
       "hung": false,
       "unable": false
@@ -1528,7 +1528,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: Proofhouse has no record of installing <case>\\skills\\proofhouse; it removes only what it installed. Nothing was removed.\n",
-      "wall_seconds": 3.446,
+      "wall_seconds": 3.23,
       "happened": "Exit 2; error: Proofhouse has no record of installing <case>\\skills\\proofhouse; it removes only what it installed. Nothing was removed.",
       "hung": false,
       "unable": false
@@ -1567,9 +1567,9 @@
       },
       "verdict": "held",
       "exit_code": 2,
-      "output_first_400": "error: rules.md\n",
-      "wall_seconds": 3.471,
-      "happened": "Exit 2; error: rules.md",
+      "output_first_400": "error: rules.md is a folder; a rule check needs one file (for example a .md file)\n",
+      "wall_seconds": 3.108,
+      "happened": "Exit 2; error: rules.md is a folder; a rule check needs one file (for example a .md file)",
       "hung": false,
       "unable": false
     },
@@ -1612,7 +1612,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: SKILL.md not found in skill dir\n",
-      "wall_seconds": 3.535,
+      "wall_seconds": 3.188,
       "happened": "Exit 2; error: SKILL.md not found in skill dir",
       "hung": false,
       "unable": false
@@ -1659,7 +1659,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "",
-      "wall_seconds": 3.528,
+      "wall_seconds": 3.376,
       "happened": "Exit 2; no output",
       "hung": false,
       "unable": false
@@ -1710,7 +1710,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: judge must be a different agent from the one that wrote this version\n",
-      "wall_seconds": 3.6,
+      "wall_seconds": 3.27,
       "happened": "Exit 2; error: judge must be a different agent from the one that wrote this version",
       "hung": false,
       "unable": false
@@ -1751,7 +1751,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: name at least one format\n",
-      "wall_seconds": 3.719,
+      "wall_seconds": 3.288,
       "happened": "Exit 2; error: name at least one format",
       "hung": false,
       "unable": false
@@ -1793,7 +1793,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: script.json not found in film\n",
-      "wall_seconds": 3.696,
+      "wall_seconds": 3.59,
       "happened": "Exit 2; error: script.json not found in film",
       "hung": false,
       "unable": false
@@ -1836,7 +1836,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: name a spending limit for the whole make (--max-cost-usd)\n",
-      "wall_seconds": 3.666,
+      "wall_seconds": 3.433,
       "happened": "Exit 2; error: name a spending limit for the whole make (--max-cost-usd)",
       "hung": false,
       "unable": false
@@ -1878,7 +1878,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: a video needs --visual-provider and --visual-model (see `proofhouse media list`)\n",
-      "wall_seconds": 3.69,
+      "wall_seconds": 3.393,
       "happened": "Exit 2; error: a video needs --visual-provider and --visual-model (see `proofhouse media list`)",
       "hung": false,
       "unable": false
@@ -1916,7 +1916,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: --input must be a plain decimal such as 2.50 (USD per million tokens), above zero for a paid provider\n",
-      "wall_seconds": 3.698,
+      "wall_seconds": 3.328,
       "happened": "Exit 2; error: --input must be a plain decimal such as 2.50 (USD per million tokens), above zero for a paid provider",
       "hung": false,
       "unable": false
@@ -1949,7 +1949,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: openai is not in your providers file (<case>\\proofhouse_home\\providers.json); shipped providers can be overridden, not removed\n",
-      "wall_seconds": 3.726,
+      "wall_seconds": 3.239,
       "happened": "Exit 2; error: openai is not in your providers file (<case>\\proofhouse_home\\providers.json); shipped providers can be overridden, not removed",
       "hung": false,
       "unable": false
@@ -1987,7 +1987,7 @@
       "verdict": "held",
       "exit_code": 7,
       "output_first_400": "PHC-RUN-0002: name a spending limit for a paid provider (--max-cost-usd)\n",
-      "wall_seconds": 3.662,
+      "wall_seconds": 3.231,
       "happened": "Exit 7; PHC-RUN-0002: name a spending limit for a paid provider (--max-cost-usd)",
       "hung": false,
       "unable": false
@@ -2030,7 +2030,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: cannot read a file: [Errno 13] Permission denied: 'prompt.txt'\n",
-      "wall_seconds": 3.681,
+      "wall_seconds": 3.641,
       "happened": "Exit 2; error: cannot read a file: [Errno 13] Permission denied: 'prompt.txt'",
       "hung": false,
       "unable": false
@@ -2074,7 +2074,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: '-1' is not a length of time; use for example 90, 30s, 5m, 2h or 1d\n",
-      "wall_seconds": 3.647,
+      "wall_seconds": 3.12,
       "happened": "Exit 2; error: '-1' is not a length of time; use for example 90, 30s, 5m, 2h or 1d",
       "hung": false,
       "unable": false
@@ -2118,7 +2118,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: a watch needs --every (seconds between looks)\n",
-      "wall_seconds": 3.649,
+      "wall_seconds": 3.3,
       "happened": "Exit 2; error: a watch needs --every (seconds between looks)",
       "hung": false,
       "unable": false
@@ -2159,7 +2159,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: a check command needs --allow-commands\n",
-      "wall_seconds": 3.796,
+      "wall_seconds": 3.114,
       "happened": "Exit 2; error: a check command needs --allow-commands",
       "hung": false,
       "unable": false
@@ -2204,7 +2204,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: loop.json in <case>\\rounds is not readable JSON\n",
-      "wall_seconds": 3.733,
+      "wall_seconds": 3.655,
       "happened": "Exit 2; error: loop.json in <case>\\rounds is not readable JSON",
       "hung": false,
       "unable": false
@@ -2255,7 +2255,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: file not found: <case>\\output.txt\n",
-      "wall_seconds": 3.744,
+      "wall_seconds": 3.321,
       "happened": "Exit 2; error: file not found: <case>\\output.txt",
       "hung": false,
       "unable": false
@@ -2301,7 +2301,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: --entry and --on are mutually exclusive\n",
-      "wall_seconds": 3.757,
+      "wall_seconds": 3.134,
       "happened": "Exit 2; error: --entry and --on are mutually exclusive",
       "hung": false,
       "unable": false
@@ -2344,7 +2344,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: empty.jsonl has no examples\n",
-      "wall_seconds": 3.514,
+      "wall_seconds": 3.348,
       "happened": "Exit 2; error: empty.jsonl has no examples",
       "hung": false,
       "unable": false
@@ -2394,7 +2394,7 @@
       "verdict": "held",
       "exit_code": 7,
       "output_first_400": "PHC-RUN-0002: epochs must be a whole number from 1 to 50; nothing was uploaded\n",
-      "wall_seconds": 3.688,
+      "wall_seconds": 3.288,
       "happened": "Exit 7; PHC-RUN-0002: epochs must be a whole number from 1 to 50; nothing was uploaded",
       "hung": false,
       "unable": false
@@ -2433,7 +2433,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: pack\\addon.json is unreadable: FileNotFoundError\n",
-      "wall_seconds": 3.772,
+      "wall_seconds": 3.231,
       "happened": "Exit 2; error: pack\\addon.json is unreadable: FileNotFoundError",
       "hung": false,
       "unable": false
@@ -2466,7 +2466,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: no installed pack named 'never-installed'; see `proofhouse addons list`\n",
-      "wall_seconds": 3.753,
+      "wall_seconds": 3.231,
       "happened": "Exit 2; error: no installed pack named 'never-installed'; see `proofhouse addons list`",
       "hung": false,
       "unable": false
@@ -2507,7 +2507,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: <case>\\site has no index.html to deploy\n",
-      "wall_seconds": 3.608,
+      "wall_seconds": 3.19,
       "happened": "Exit 2; error: <case>\\site has no index.html to deploy",
       "hung": false,
       "unable": false
@@ -2556,7 +2556,7 @@
       "verdict": "held",
       "exit_code": 0,
       "output_first_400": "{\"command\": [\"netlify\", \"deploy\", \"--dir\", \"<case>\\\\site with spaces\", \"--prod\"], \"folder\": \"<case>\\\\site with spaces\", \"status\": \"dry run\", \"target\": \"netlify\", \"url\": null}\n",
-      "wall_seconds": 3.797,
+      "wall_seconds": 3.325,
       "happened": "Exit 0; {\"command\": [\"netlify\", \"deploy\", \"--dir\", \"<case>\\\\site with spaces\", \"--prod\"], \"folder\": \"<case>\\\\site with spaces\", \"status\": \"dry run\", \"target\": \"netlify\"",
       "hung": false,
       "unable": false
@@ -2589,7 +2589,7 @@
       "verdict": "held",
       "exit_code": 0,
       "output_first_400": "{\"hosts\": [{\"agent\": {\"format\": \"file\", \"project\": \"{project}/.claude/agents/{name}.md\", \"user\": \"~/.claude/agents/{name}.md\"}, \"id\": \"claude\", \"mcp\": {\"format\": \"json-mcp\", \"project\": \"{project}/.mcp.json\"}, \"name\": \"Claude Code\", \"rule\": {\"format\": \"md-block\", \"project\": \"{project}/CLAUDE.md\", \"user\": \"~/.claude/CLAUDE.md\"}}, {\"id\": \"cursor\", \"mcp\": {\"format\": \"json-mcp\", \"project\": \"{project}/.",
-      "wall_seconds": 3.686,
+      "wall_seconds": 3.308,
       "happened": "Exit 0; {\"hosts\": [{\"agent\": {\"format\": \"file\", \"project\": \"{project}/.claude/agents/{name}.md\", \"user\": \"~/.claude/agents/{name}.md\"}, \"id\": \"claude\", \"mcp\": {\"format\"",
       "hung": false,
       "unable": false
@@ -2623,7 +2623,7 @@
       "verdict": "held",
       "exit_code": 0,
       "output_first_400": "{\"hosts\": [{\"agent\": {\"format\": \"file\", \"project\": \"{project}/.claude/agents/{name}.md\", \"user\": \"~/.claude/agents/{name}.md\"}, \"id\": \"claude\", \"mcp\": {\"format\": \"json-mcp\", \"project\": \"{project}/.mcp.json\"}, \"name\": \"Claude Code\", \"rule\": {\"format\": \"md-block\", \"project\": \"{project}/CLAUDE.md\", \"user\": \"~/.claude/CLAUDE.md\"}}, {\"id\": \"cursor\", \"mcp\": {\"format\": \"json-mcp\", \"project\": \"{project}/.",
-      "wall_seconds": 3.588,
+      "wall_seconds": 3.687,
       "happened": "Exit 0; {\"hosts\": [{\"agent\": {\"format\": \"file\", \"project\": \"{project}/.claude/agents/{name}.md\", \"user\": \"~/.claude/agents/{name}.md\"}, \"id\": \"claude\", \"mcp\": {\"format\"",
       "hung": false,
       "unable": false
@@ -2673,7 +2673,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: an agent file needs frontmatter with name: and description: (or pass --name)\n",
-      "wall_seconds": 3.886,
+      "wall_seconds": 3.446,
       "happened": "Exit 2; error: an agent file needs frontmatter with name: and description: (or pass --name)",
       "hung": false,
       "unable": false
@@ -2718,7 +2718,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: an MCP server needs --command\n",
-      "wall_seconds": 4.18,
+      "wall_seconds": 3.249,
       "happened": "Exit 2; error: an MCP server needs --command",
       "hung": false,
       "unable": false
@@ -2761,7 +2761,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: Cursor has no place for agents on your machine\n",
-      "wall_seconds": 3.917,
+      "wall_seconds": 3.318,
       "happened": "Exit 2; error: Cursor has no place for agents on your machine",
       "hung": false,
       "unable": false
@@ -2811,7 +2811,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: Proofhouse has no record of installing rule handmade into Cursor at <case>\\project\\.cursor\\rules\\handmade.mdc\n",
-      "wall_seconds": 3.729,
+      "wall_seconds": 3.302,
       "happened": "Exit 2; error: Proofhouse has no record of installing rule handmade into Cursor at <case>\\project\\.cursor\\rules\\handmade.mdc",
       "hung": false,
       "unable": false
@@ -2854,7 +2854,7 @@
       "verdict": "held",
       "exit_code": 7,
       "output_first_400": "PHC-RUN-0002: name a spending limit for a paid service (--max-cost-usd)\n",
-      "wall_seconds": 3.655,
+      "wall_seconds": 3.31,
       "happened": "Exit 7; PHC-RUN-0002: name a spending limit for a paid service (--max-cost-usd)",
       "hung": false,
       "unable": false
@@ -2898,7 +2898,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: --seconds must be a whole number of seconds, 1 or more\n",
-      "wall_seconds": 3.629,
+      "wall_seconds": 3.306,
       "happened": "Exit 2; error: --seconds must be a whole number of seconds, 1 or more",
       "hung": false,
       "unable": false
@@ -2934,7 +2934,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: --usd must be a plain decimal above zero (USD per image)\n",
-      "wall_seconds": 3.677,
+      "wall_seconds": 3.415,
       "happened": "Exit 2; error: --usd must be a plain decimal above zero (USD per image)",
       "hung": false,
       "unable": false
@@ -2974,7 +2974,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte\n",
-      "wall_seconds": 3.616,
+      "wall_seconds": 3.321,
       "happened": "Exit 2; error: 'utf-8' codec can't decode byte 0xff in position 1: invalid start byte",
       "hung": false,
       "unable": false
@@ -3014,7 +3014,7 @@
       "verdict": "held",
       "exit_code": 1,
       "output_first_400": "Dataset validation failed: data with spaces.jsonl\nline 1: Invalid JSON: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)\n",
-      "wall_seconds": 3.563,
+      "wall_seconds": 3.63,
       "happened": "Exit 1; Dataset validation failed: data with spaces.jsonl",
       "hung": false,
       "unable": false
@@ -3053,7 +3053,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "error: [Errno 2] No such file or directory: 'loadouts\\\\legendary_loadouts.json'\n",
-      "wall_seconds": 3.583,
+      "wall_seconds": 3.501,
       "happened": "Exit 2; error: [Errno 2] No such file or directory: 'loadouts\\\\legendary_loadouts.json'",
       "hung": false,
       "unable": false
@@ -3091,7 +3091,7 @@
       "verdict": "held",
       "exit_code": 2,
       "output_first_400": "scan: not a folder: <case>\\project.txt\n",
-      "wall_seconds": 3.667,
+      "wall_seconds": 3.468,
       "happened": "Exit 2; scan: not a folder: <case>\\project.txt",
       "hung": false,
       "unable": false
@@ -3135,8 +3135,144 @@
       "verdict": "held",
       "exit_code": 0,
       "output_first_400": "{\n  \"scanned\": \"<case>\\\\project \\u2603\",\n  \"project_name\": \"project \\u2603\",\n  \"running_in\": [\n    \"Claude Code\"\n  ],\n  \"agent_products_used_here\": [],\n  \"languages\": {},\n  \"frameworks\": [],\n  \"package_managers\": [],\n  \"test_tools\": [],\n  \"script_names\": [],\n  \"ci\": [],\n  \"hosting_or_packaging\": [],\n  \"agent_instruction_files\": [],\n  \"git_branch\": null,\n  \"layout\": [],\n  \"readme_excerpt\": \"\",\n  \"s",
-      "wall_seconds": 3.642,
+      "wall_seconds": 3.311,
       "happened": "Exit 0; {",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "agent-server-1",
+      "command": "agent-server",
+      "hard": "The named agent is not in the shipped or user agent table, so no server may start.",
+      "argv": [
+        "agent-server",
+        "no-such-agent"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "unknown agent"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: unknown agent 'no-such-agent'. Known: claude, codex, grok\n",
+      "wall_seconds": 3.459,
+      "happened": "Exit 2; error: unknown agent 'no-such-agent'. Known: claude, codex, grok",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "agent-server-2",
+      "command": "agent-server",
+      "hard": "The port is not a number, which must fail argument parsing before anything listens.",
+      "argv": [
+        "agent-server",
+        "codex",
+        "--port",
+        "abc"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "invalid int value"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "usage: proofhouse agent-server [-h] [--port PORT] [--timeout TIMEOUT] agent\nproofhouse agent-server: error: argument --port: invalid int value: 'abc'\n",
+      "wall_seconds": 3.24,
+      "happened": "Exit 2; usage: proofhouse agent-server [-h] [--port PORT] [--timeout TIMEOUT] agent",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "setup-1",
+      "command": "setup",
+      "hard": "A tool is declared as a program but no program name is given, and nothing may be saved.",
+      "argv": [
+        "setup",
+        "add",
+        "mygen",
+        "--name",
+        "My generator",
+        "--how",
+        "cli"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "command"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: a command-line tool needs --command: the program's name, as you type it in a terminal\n",
+      "wall_seconds": 3.236,
+      "happened": "Exit 2; error: a command-line tool needs --command: the program's name, as you type it in a terminal",
+      "hung": false,
+      "unable": false
+    },
+    {
+      "id": "setup-2",
+      "command": "setup",
+      "hard": "Forgetting a tool that was never declared must say so and leave other state alone.",
+      "argv": [
+        "setup",
+        "remove",
+        "never-declared"
+      ],
+      "fixtures": [],
+      "expected": {
+        "exits": [
+          2
+        ],
+        "must": [
+          "no declared tool"
+        ],
+        "must_not": [
+          "Traceback",
+          "internal error"
+        ],
+        "exists": [],
+        "absent": [],
+        "home_clean": true
+      },
+      "verdict": "held",
+      "exit_code": 2,
+      "output_first_400": "error: no declared tool named 'never-declared'; see `proofhouse setup`\n",
+      "wall_seconds": 3.352,
+      "happened": "Exit 2; error: no declared tool named 'never-declared'; see `proofhouse setup`",
       "hung": false,
       "unable": false
     },
@@ -3167,7 +3303,7 @@
       "verdict": "held",
       "exit_code": 0,
       "output_first_400": "{\n  \"contract_version\": \"proofhouse.part/v1\",\n  \"parts\": [\n    {\n      \"capability_manifest\": {\n        \"adapter_id\": \"fake\",\n        \"adapter_version\": \"0.1.0\",\n        \"conditional\": [],\n        \"limits\": {},\n        \"manifest_version\": \"0.1.0\",\n        \"supported\": [\n          \"output.structured_json@1\",\n          \"reasoning.effort_control@1\",\n          \"tools.function_calling@1\"\n        ]\n    ",
-      "wall_seconds": 3.756,
+      "wall_seconds": 3.456,
       "happened": "Exit 0; {",
       "hung": false,
       "unable": false
@@ -3199,8 +3335,8 @@
       },
       "verdict": "held",
       "exit_code": 2,
-      "output_first_400": "usage: proofhouse [-h] [--version]\n                  {validate,inspect,compile,adapters,doctor,closed-loop,compile-requirements,evaluate-product,closed-loop-bridged-008,route,assay,proof,execute-openai,case,optimize,demo,models,install-skill,uninstall-skill,check,record,render,make,providers,run,loop,referee,compare,train,addons,deploy,hosts,install,uninstall,generate,media,eval,scan,parts} ...\npr",
-      "wall_seconds": 3.715,
+      "output_first_400": "usage: proofhouse [-h] [--version]\n                  {validate,inspect,compile,adapters,doctor,closed-loop,compile-requirements,evaluate-product,closed-loop-bridged-008,route,assay,proof,execute-openai,case,optimize,demo,models,install-skill,uninstall-skill,check,record,render,make,providers,run,loop,referee,compare,train,addons,deploy,hosts,install,uninstall,setup,generate,media,agent-server,eval",
+      "wall_seconds": 3.862,
       "happened": "Exit 2; usage: proofhouse [-h] [--version]",
       "hung": false,
       "unable": false

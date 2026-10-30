@@ -272,7 +272,7 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      money, each in its own throwaway folder (`scripts/stage3_hard_cases.py`). The results, with what
      broke, what held and what each cost, are in [stage3/hard-cases.md](stage3/hard-cases.md). Every real
      break is fixed with its failing test first.
-     - Status: DONE. 78 cases across all 39 commands: 78 held, 0 broke, $0 spent. The first run broke 18; 9 were real defects, now fixed test-first (4e04676, d338472, d530ff4), 9 were wrong expectations. Findings in [stage3/findings.md](stage3/findings.md). Independent end review (Codex) done; its fixes are in the same findings file.
+     - Status: DONE. 82 cases across all 41 commands: 82 held, 0 broke, $0 spent. The first run broke 18; 9 were real defects, now fixed test-first (4e04676, d338472, d530ff4), 9 were wrong expectations. Findings in [stage3/findings.md](stage3/findings.md). Independent end review (Codex) done; its fixes are in the same findings file.
 
 ## What is left (updated 2026-10-27)
 

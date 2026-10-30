@@ -85,6 +85,23 @@ def test_a_brief_becomes_three_finished_renders_with_voice_music_and_captions(tm
 
 
 @needs_ffmpeg
+def test_a_voice_longer_than_the_film_is_reported_not_silently_cut(tmp_path: Path, services) -> None:
+    for name in ("long", "fits", "silent"):
+        (tmp_path / name).mkdir()
+    shots =[studio.Shot(2, "a", "one", str(tmp_path / "frame.png")), studio.Shot(2, "b", "two", str(tmp_path / "frame.png"))]
+    made = studio.assemble(tmp_path / "long", shots, visual_kind="image", formats=("1x1",), size_scale=0.1,
+                           voice_file=str(tmp_path / "voice.wav"))  # the voice is 5 s, the film 4 s
+    check = next(c for c in made.checks if c["check"] == "voice fits the film")
+    assert check["ok"] is False
+    assert "5.0s of voice" in check["detail"] and "4s film" in check["detail"] and "last 1.0s" in check["detail"]
+    fits = studio.assemble(tmp_path / "fits", shots + [studio.Shot(2, "c", "three", str(tmp_path / "frame.png"))],
+                           visual_kind="image", formats=("1x1",), size_scale=0.1, voice_file=str(tmp_path / "voice.wav"))
+    assert next(c for c in fits.checks if c["check"] == "voice fits the film")["ok"] is True
+    silent = studio.assemble(tmp_path / "silent", shots, visual_kind="image", formats=("1x1",), size_scale=0.1)
+    assert not [c for c in silent.checks if c["check"] == "voice fits the film"]
+
+
+@needs_ffmpeg
 def test_a_relative_output_folder_works(tmp_path: Path, services, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
     made = studio.produce("x", provider_id="ollama", model="m", visual_provider="local-images", visual_model="m",

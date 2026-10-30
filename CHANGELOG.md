@@ -2,8 +2,15 @@
 
 ## Unreleased
 
+### Fixed
+
+- `proofhouse make --kind site` (and `app`, `rule`, `mcp`, `hook`) now shows the judge every file it wrote, not just the first page. Before, a long page was cut mid-tag and the judge scored the cut, calling working pages broken or incomplete. A file that is too long is shown from its start with a note of how much was left out.
+- A check that was not run (an MCP server or hook without `--allow-commands`) is now counted as "not run", with the hint to add `--allow-commands`, instead of reading as "0 of 1 checks passed".
+- `proofhouse render video` now reports when the voice-over is longer than the film (the last seconds of speech were cut off without a word). The check "voice fits the film" fails with how many seconds are lost.
+
 ### Changed
 
+- The stage 3 hard-case record (`docs/stage3/`) is re-run for all 41 commands: 82 cases held.
 - The video engine now finishes a film itself. Shots dissolve into each other instead of cutting hard (the film keeps its length, so captions stay on time), and the picture and sound fade in and out. The voice is cleaned up and lightly levelled, the music dips under the voice and comes back when it stops, and the whole mix is brought to a normal listening level. Before, this polish lived only in a one-off example script. Applies to every film the engine makes, including `proofhouse render video`.
 
 ## 0.10.1 - first-run fixes
