@@ -28,6 +28,18 @@ def test_examples_become_training_and_check_files(tmp_path: Path) -> None:
                                   {"role": "user", "content": "question 0"}, {"role": "assistant", "content": "answer 0"}]}
 
 
+@pytest.mark.parametrize("count", [10, 19])
+def test_a_small_set_still_holds_out_a_row_to_check(tmp_path: Path, count: int) -> None:
+    summary = train.build_dataset(_pairs(tmp_path / "pairs.jsonl", count), tmp_path / "data")
+    assert summary["valid"] == 1 and summary["train"] == count - 1
+    assert len((tmp_path / "data" / "valid.jsonl").read_text(encoding="utf-8").splitlines()) == 1
+
+
+def test_no_hold_out_when_asked_for_none_or_the_set_is_too_small(tmp_path: Path) -> None:
+    assert train.build_dataset(_pairs(tmp_path / "a.jsonl", 20), tmp_path / "a", valid_share=0)["valid"] == 0
+    assert train.build_dataset(_pairs(tmp_path / "b.jsonl", 3), tmp_path / "b")["valid"] == 0
+
+
 def test_csv_works_and_bad_examples_are_named(tmp_path: Path) -> None:
     (tmp_path / "p.csv").write_text("input,output\nhi,hello\nbye,goodbye\n", encoding="utf-8")
     summary = train.build_dataset(tmp_path / "p.csv", tmp_path / "d")
