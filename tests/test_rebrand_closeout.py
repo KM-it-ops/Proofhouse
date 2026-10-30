@@ -53,7 +53,7 @@ def test_only_explicit_historical_files_retain_legacy_brand() -> None:
 
 def test_only_proofhouse_console_scripts_are_published() -> None:
     metadata = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
-    assert metadata["project"]["version"] == "0.10.1"
+    assert metadata["project"]["version"] == "0.10.2"
     assert metadata["project"]["scripts"] == {
         "proofhouse": "proofhouse.cli:main",
         "proofhouse-compiler": "proofhouse.cli:main",  # MISSION-040: one main; the old name is an alias

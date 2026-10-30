@@ -4,7 +4,7 @@ Checks, layout and design rules for people working on Proofhouse. Contribution r
 
 ## Install and verify
 
-One Python package, version 0.10.1, ships one command, `proofhouse`. Every interface reaches the same command tree (`proofhouse-compiler` still works as an alias and prints a one-line notice on stderr; `proofhouse optimize` likewise forwards to `proofhouse case`):
+One Python package, version 0.10.2, ships one command, `proofhouse`. Every interface reaches the same command tree (`proofhouse-compiler` still works as an alias and prints a one-line notice on stderr; `proofhouse optimize` likewise forwards to `proofhouse case`):
 
 | Command group | What it is | Commands |
 |---|---|---|

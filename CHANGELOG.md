@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.2 - finished films and a fairer judge
 
 ### Fixed
 
