@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.10.3 - app goals, a zero ceiling and film shots from real captures
 
 ### Added
 
