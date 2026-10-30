@@ -6,6 +6,14 @@
 
 - Video production can mix real captures with generated shots: command output and web pages become frames, and the script writer can work from a product fact sheet (`--facts`, `--allow-commands` on `proofhouse make --kind video`). A fact-sheet command can carry a `display` line, shown on the frame instead of the real command, and your home folder is always hidden in captured output. A captured frame is shown whole, with no slow zoom that would crop the text at its edges.
 
+### Fixed
+
+- The built-in goal picker (no model, no key) now sees "an installable app to track my water intake" as an app. It only matched the exact words "an app" before, so any word in between sent the goal to a plain prompt.
+- `--max-cost-usd 0` is accepted. A call that costs nothing (a model on your own machine) goes through; anything with a price is refused before sending. A negative or non-numeric limit is still refused.
+- `proofhouse make --kind rule` no longer fails its install check on Windows: the check's scratch folder sits in the system temp folder, so a long output path cannot break it. The "rule file:" line now names the real file instead of `<rule-name>.md`.
+- `proofhouse train data` on 10 to 19 examples now sets aside one row to check the model against; it set aside none.
+- `proofhouse models show agent-codex` (and any agent served by `proofhouse agent-server`, including ones you add) explains what the agent is, instead of "no notes, generic profile".
+
 ## 0.10.2 - finished films and a fairer judge
 
 ### Fixed
