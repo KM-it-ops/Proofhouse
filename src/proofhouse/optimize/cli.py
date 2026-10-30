@@ -17,6 +17,7 @@ import argparse
 import json
 import re
 import sys
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 
@@ -151,6 +152,15 @@ def _cmd_models_show(args: argparse.Namespace) -> int:
     except ValueError as exc:
         return _usage_error(str(exc))
     status = "success"
+    if resolved.source == model_notes.SOURCE_FALLBACK:
+        from .. import agent_server
+
+        bridge = agent_server.bridge_notes(args.name)
+        if bridge is not None:
+            resolved = replace(
+                resolved, canonical_id=f"agent-{bridge[0]}", display_name=f"agent-{bridge[0]}", tier="agent",
+                source=model_notes.SOURCE_BUILTIN, notes=bridge[1],
+            )
     if resolved.source == model_notes.SOURCE_FALLBACK:
         _warn(f'no notes for "{resolved.entered_name}"; using the generic profile (source=fallback)')
         status = "warning"

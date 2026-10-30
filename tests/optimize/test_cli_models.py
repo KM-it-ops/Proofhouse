@@ -113,6 +113,37 @@ def test_models_show_unknown_is_fallback_with_warning(capsys) -> None:
     assert payload["data"]["source"] == "fallback"
 
 
+def test_models_show_explains_a_coding_agent_served_by_the_bridge(capsys) -> None:
+    code, out, err = _run(["models", "show", "agent-codex"], capsys)
+    assert code == 0 and err == ""
+    assert "source: fallback" not in out and "No verified vendor-specific behavior" not in out
+    assert "model: agent-codex" in out
+    assert "proofhouse agent-server codex" in out
+    assert "11802" in out and "plan" in out
+
+    code, out, err = _run(["models", "show", "agent-grok", "--json"], capsys)
+    assert code == 0 and err == ""
+    payload = _json(out)
+    assert payload["status"] == "success"
+    assert payload["data"]["canonical_id"] == "agent-grok"
+    assert payload["data"]["source"] == "builtin"
+    assert "proofhouse agent-server grok" in payload["data"]["notes"]
+
+
+def test_models_show_explains_an_agent_you_added_yourself(capsys, home: Path) -> None:
+    (home / "agent_commands.json").write_text(
+        json.dumps({"agents": {"mine": {"port": 11899, "argv": ["mine", "--ask"], "prompt": "stdin"}}}), encoding="utf-8"
+    )
+    code, out, err = _run(["models", "show", "agent-mine"], capsys)
+    assert code == 0 and err == ""
+    assert "proofhouse agent-server mine" in out and "11899" in out
+
+
+def test_models_show_agent_prefix_without_a_known_agent_is_still_the_generic_profile(capsys) -> None:
+    code, out, err = _run(["models", "show", "agent-nobody"], capsys)
+    assert code == 0 and "source=fallback" in err
+
+
 def test_models_remember_show_forget_roundtrip(capsys, tmp_path: Path) -> None:
     notes = tmp_path / "zeta.md"
     notes.write_text("Zeta 9 prefers numbered constraints.\n", encoding="utf-8")
