@@ -110,7 +110,9 @@ def rule(text: str, request: str, folder: Path) -> tuple[str, list[dict[str, Any
     folder.mkdir(parents=True, exist_ok=True)
     (folder / f"{name}.md").write_text(content.rstrip("\n") + "\n", encoding="utf-8")
     checks: list[dict[str, Any]] = []
-    with tempfile.TemporaryDirectory(prefix="rule-check-", dir=folder) as temporary:
+    # In the system temp folder, not beside the rule: a deep made folder pushes the install record's temporary
+    # file past Windows' 260-character path limit.
+    with tempfile.TemporaryDirectory(prefix="rule-check-") as temporary:
         root = Path(temporary)
         project, home, phome = root / "project", root / "home", root / "proofhouse"
         project.mkdir()
