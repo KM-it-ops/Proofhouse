@@ -130,6 +130,28 @@ def test_a_model_on_this_machine_runs_free_with_no_key_and_no_limit() -> None:
     assert Decimal(result.cost["usd"]) == 0 and result.cost["basis"]["usd"] == "estimated"
 
 
+def test_a_zero_limit_runs_a_free_model_on_this_machine() -> None:
+    rec = Recorder()
+    result = live.run_prompt("ollama", "llama3", prompt="hi", max_cost_usd="0", transport=rec)
+    assert result.status == "success" and len(rec.calls) == 1
+    assert result.admission["ceiling_usd"] == "0"
+
+
+def test_a_zero_limit_still_refuses_a_paid_model_before_sending(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GROQ_API_KEY", "k")
+    _declare("groq", "llama-x")
+    rec = Recorder()
+    result = live.run_prompt("groq", "llama-x", prompt="hi", max_cost_usd="0", transport=rec)
+    assert result.status == "refused" and result.code == "PHC-COST-0001" and rec.calls == []
+
+
+@pytest.mark.parametrize("limit", ["-1", "-0.01", "abc", ""])
+def test_a_limit_below_zero_or_not_a_number_is_still_refused(limit: str) -> None:
+    rec = Recorder()
+    result = live.run_prompt("ollama", "llama3", prompt="hi", max_cost_usd=limit, transport=rec)
+    assert result.status == "refused" and result.code == "PHC-COST-0003" and rec.calls == []
+
+
 @pytest.mark.parametrize(
     "kwargs,code",
     [

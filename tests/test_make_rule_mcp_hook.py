@@ -52,6 +52,34 @@ def test_rule_round_trips_every_rule_host(tmp_path: Path, monkeypatch: pytest.Mo
     assert "PASS:" in model.judged[0]
 
 
+def test_rule_check_scratch_folder_is_not_inside_the_made_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # Inside a deep made folder the install record's temporary file passed Windows' 260-character limit
+    # and every host failed with "No such file or directory". The scratch home must be short.
+    from proofhouse import hosts
+
+    installed: list[Path] = []
+    real_install = hosts.install
+
+    def spy(target: hosts.Target, content: str) -> object:
+        installed.append(target.path)
+        return real_install(target, content)
+
+    monkeypatch.setattr(hosts, "install", spy)
+    folder = tmp_path / "out" / "v1"
+    make_checks.rule("# Safe edits\nRead before changing files.\n", "safe edits", folder)
+    assert installed and not any(path.is_relative_to(folder) for path in installed)
+
+
+def test_made_rule_line_names_the_real_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "outside-home"))
+    monkeypatch.setattr(live, "_httpx_post", ScriptedModel([{"name": "safe-edits", "content": "# Safe edits\nRead first.\n"}]))
+    code = cli.main(["make", "a rule", "--kind", "rule", "--provider", "ollama", "--model", "m", "--rounds", "1",
+                     "--out", str(tmp_path / "out")])
+    out = capsys.readouterr().out
+    assert code == 0 and "<rule-name>" not in out
+    assert any(line.startswith("rule file: ") and line.endswith("safe-edits.md") for line in out.splitlines())
+
+
 SERVER = """import json, os, sys
 for line in sys.stdin:
     request = json.loads(line)

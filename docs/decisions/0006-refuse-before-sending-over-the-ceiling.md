@@ -10,7 +10,7 @@ In the Python package, nothing that can cost money is sent except through one fu
 |---|---|---|
 | `PHC-COST-0001` | the worst case is over the ceiling | 7 |
 | `PHC-COST-0002` | the model has no entry in the price table | 7 |
-| `PHC-COST-0003` | no worst case could be made (table unreadable, an amount that would need rounding, a request above the size its price applies to, a request field or content the estimate does not cover, a ceiling outside 0.000000000001 to under 10000000000000) | 7 |
+| `PHC-COST-0003` | no worst case could be made (table unreadable, an amount that would need rounding, a request above the size its price applies to, a request field or content the estimate does not cover, a ceiling that is not 0 or a decimal from 0.000000000001 to under 10000000000000; a ceiling of 0 admits only a call that costs nothing) | 7 |
 
 Every earlier refusal (opt-in, credential, model, ceilings, allowed hosts, compilation, unsupported fields) still runs first.
 

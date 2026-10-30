@@ -240,8 +240,8 @@ def compare(
             limit = Decimal(max_cost_usd)
         except InvalidOperation:
             raise CompareError("--max-cost-usd must be a decimal such as 1.00") from None
-        if not limit.is_finite() or limit <= 0:
-            raise CompareError("--max-cost-usd must be above zero")
+        if not limit.is_finite() or limit < 0:
+            raise CompareError("--max-cost-usd must be zero or more")
         calls = len(pairs) + (1 if judge_pair else 0)
         share = format((limit / calls).quantize(Decimal("0.000001"), rounding=ROUND_DOWN), "f")
 

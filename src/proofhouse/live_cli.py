@@ -283,7 +283,8 @@ def _cmd_make(args: argparse.Namespace) -> int:
         if made.kind == "agent" and made.best_version:
             print(f"install it: proofhouse install agent {made.folder}/<agent-name>.md --into claude")
         if made.kind == "rule" and made.best_version:
-            print(f"rule file: {made.folder}/<rule-name>.md")
+            rule_file = next(iter(sorted(made.folder.glob("*.md"))), None)
+            print(f"rule file: {rule_file or made.folder / '<rule-name>.md'}")
         if made.kind == "mcp" and made.best_version:
             print(f"server: {made.folder}/mcp; install line: {made.folder}/INSTALL-MCP.txt")
         if made.kind == "hook" and made.best_version:

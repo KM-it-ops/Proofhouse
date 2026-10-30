@@ -177,7 +177,7 @@ _GROUPS: tuple[tuple[str, int, str, tuple[re.Pattern[str], ...]], ...] = (
     ("app", 5, "product", (
         re.compile(
             r"\b(?:dashboard|admin panel|portal|web ?app|mobile app|desktop app|saas|internal tool)\b"
-            r"|\b(?:an|the) application\b|\ban app\b"
+            r"|\b(?:an|the) application\b|\ban app\b|\ban? (?:[\w-]+ ){1,3}app\b|\bprogressive web app\b|\bpwa\b"
             r"|\b(?:users|customers|staff|employees) can (?:create|save|upload|log in|sign in|manage|edit|book|approve|track)\b"
         ),
     )),

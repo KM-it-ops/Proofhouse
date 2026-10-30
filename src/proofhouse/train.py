@@ -241,8 +241,11 @@ def build_dataset(source: Path, out_dir: Path, *, system: str | None = None, val
     if not 0 <= valid_share < 0.5:
         raise TrainError("--valid-share must be from 0 to 0.5")
     examples = read_examples(source, system)
-    every = round(1 / valid_share) if valid_share else 0
-    held = [e for i, e in enumerate(examples) if every and len(examples) >= 2 * every and i % every == every - 1]
+    # At least one row is held out whenever a share is asked for and the set is big enough to train on, so a small
+    # set still has something to check against.
+    count = max(1, int(len(examples) * valid_share)) if valid_share and len(examples) >= MIN_EXAMPLES else 0
+    every = len(examples) // count if count else 0
+    held = [e for i, e in enumerate(examples) if every and i % every == every - 1][:count]
     kept = [e for e in examples if not any(e is h for h in held)]
     out_dir.mkdir(parents=True, exist_ok=True)
     for name, chosen in (("train.jsonl", kept), ("valid.jsonl", held)):

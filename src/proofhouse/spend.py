@@ -82,7 +82,7 @@ SOURCE_LOCAL = "on this machine: no charge"
 # text output formats. Images, audio and other parts are billed far above their bytes, so they are refused.
 _MESSAGE_ROLES = frozenset({"system", "developer", "user", "assistant"})
 _OUTPUT_FORMATS = frozenset({"text", "json_object", "json_schema"})
-# A ceiling from 0.000000000001 up to (not including) 10000000000000 dollars; anything else is refused.
+# A ceiling of 0, or from 0.000000000001 up to (not including) 10000000000000 dollars; anything else is refused.
 _CEILING_EXPONENTS = range(-12, 13)
 ENFORCEMENT = "refused_pre_send_when_worst_case_over_ceiling"
 _TOKENS_PER_PRICE_UNIT = Decimal(1_000_000)
@@ -279,9 +279,10 @@ def _ceiling(value: object) -> Decimal:
         amount = Decimal(value.strip()) if isinstance(value, str) else None
     except DecimalException:
         amount = None
-    if amount is None or not amount.is_finite() or amount <= 0 or amount.adjusted() not in _CEILING_EXPONENTS:
-        raise SpendRefused("PHC-COST-0003", "the ceiling must be a decimal from 0.000000000001 to under 10000000000000")
-    return amount
+    if amount is None or not amount.is_finite() or amount < 0 or (amount and amount.adjusted() not in _CEILING_EXPONENTS):
+        raise SpendRefused("PHC-COST-0003", "the ceiling must be 0 or a decimal from 0.000000000001 to under 10000000000000")
+    # A ceiling of 0 admits only a call that costs nothing (a model on this machine); anything priced is over it.
+    return Decimal(0) if amount == 0 else amount
 
 
 def _snapshot(snapshot: Any) -> Any:

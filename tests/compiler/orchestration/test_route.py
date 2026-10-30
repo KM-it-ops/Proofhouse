@@ -54,6 +54,18 @@ def test_still_pictures_take_the_media_lane() -> None:
     assert route(RouteRequest("build an image search tool", {})).artifact_class != "video"
 
 
+def test_an_app_with_a_word_before_it_is_still_an_app() -> None:
+    for goal in (
+        "an installable app to track my water intake",
+        "build a simple budgeting app for my family",
+        "I need an offline-first habit tracking app",
+        "a progressive web app for tracking workouts",
+    ):
+        assert route(RouteRequest(goal, {})).artifact_class == "app", goal
+    # What the app only reads or is named in stays what it was.
+    assert route(RouteRequest("a prompt that summarizes reviews for a recipe app", {})).artifact_class == "prompt"
+
+
 def test_must_survive_routes_harness() -> None:
     assert route(RouteRequest("make a process that must survive failure", {})).artifact_class == "harness"
     assert route(RouteRequest("make an image that must survive resizing", {})).artifact_class != "harness"

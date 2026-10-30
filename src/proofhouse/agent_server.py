@@ -48,6 +48,22 @@ def load_agents() -> dict[str, dict]:
     return known
 
 
+def bridge_notes(name: str) -> tuple[str, str] | None:
+    """For ``agent-<agent>`` (the provider id ``agent-server`` tells you to add), the agent and a plain-words note."""
+    agent = name.strip().lower().removeprefix("agent-")
+    entry = load_agents().get(agent) if name.strip().lower().startswith("agent-") else None
+    if entry is None:
+        return None
+    return agent, (
+        f"Your own logged-in {agent} coding agent, answering through `proofhouse agent-server {agent}` on this machine "
+        f"only ({HOST}, port {entry.get('port', 'of your choice')}). Which model answers is whatever the agent itself "
+        "uses: Proofhouse asks for 'default' unless you name one. Each call runs the agent's own command line and is "
+        "billed to that agent's plan, not metered per call, so there is no key and no price in Proofhouse's table. "
+        "Answers come back with token counts of 0. There are no vendor-checked prompting notes for the model behind it: "
+        "write the prompt for that model."
+    )
+
+
 def build_prompt(messages: list[dict]) -> str:
     parts = []
     for message in messages:
