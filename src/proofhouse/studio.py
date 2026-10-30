@@ -30,7 +30,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any
 
-from . import __version__, live, media, providers
+from . import __version__, capture, live, media, providers
 
 FORMATS = {"16x9": (1920, 1080), "9x16": (1080, 1920), "1x1": (1080, 1080)}
 FPS = 30
@@ -44,6 +44,23 @@ _SCRIPT = (
     'genre, mood, tempo"}}. The shots must add up to about {seconds} seconds; use 4 to 8 shots.\n\nBRIEF:\n{brief}'
 )
 
+_SCRIPT_FACTS = (
+    "You are a video producer. Plan a finished video for the brief below, about {seconds} seconds long, "
+    "for the product {product}.\n\n"
+    "PRODUCT SUMMARY:\n{summary}\n\n"
+    "FACTS ABOUT THE PRODUCT:\n{facts_block}\n\n"
+    "REAL SHOTS YOU CAN USE (each shot must use source capture with ref set to one of these ids, "
+    "or source generate with a visual prompt):\n{capture_list}\n\n"
+    "Reply with JSON only, in this shape: "
+    '{{"title": "...", "voiceover": "the full narration for speech: write in short phrases, plain words, '
+    "one flowing passage, a beat between ideas, no slogans or lists, fitting about {seconds} seconds spoken\", "
+    '"shots": [{{"seconds": 4, "source": "capture", "ref": "<id from the list>", "caption": "on-screen words"}}, '
+    '{{"seconds": 4, "source": "generate", "visual": "a detailed prompt about the actual product subject: '
+    'setting, camera, light, style; no stock-footage metaphors; no text in the image", "caption": "..."}}], '
+    '"music": "genre, mood, tempo"}}. Use only capture refs from the list above. '
+    "The shots must add up to about {seconds} seconds; use 4 to 8 shots.\n\nBRIEF:\n{brief}"
+)
+
 
 class StudioError(Exception):
     """The production cannot start or cannot continue; the message says why."""
@@ -55,6 +72,8 @@ class Shot:
     visual: str
     caption: str
     file: str | None = None
+    source: str = "generate"
+    ref: str | None = None
 
 
 @dataclass
@@ -111,16 +130,135 @@ def _json_object(text: str | None) -> dict[str, Any]:
     return data
 
 
-def plan_from(data: dict[str, Any], seconds: int) -> tuple[str, str, str, list[Shot]]:
+def load_facts(path: Path) -> dict[str, Any]:
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, ValueError):
+        raise StudioError(f"fact sheet {path} is not valid JSON") from None
+    if not isinstance(raw, dict):
+        raise StudioError("fact sheet must be a JSON object")
+    product = raw.get("product")
+    if not isinstance(product, str) or not product.strip():
+        raise StudioError("fact sheet needs a non-empty product")
+    summary = raw.get("summary")
+    if not isinstance(summary, str) or not summary.strip():
+        raise StudioError("fact sheet needs a non-empty summary")
+    facts_list = raw.get("facts", [])
+    if facts_list is None:
+        facts_list = []
+    if not isinstance(facts_list, list) or any(not isinstance(item, str) for item in facts_list):
+        raise StudioError("fact sheet facts must be a list of strings")
+    commands: list[dict[str, Any]] = []
+    for index, item in enumerate(raw.get("commands") or []):
+        if not isinstance(item, dict):
+            raise StudioError(f"fact sheet commands entry {index + 1} must be an object")
+        cmd_id = item.get("id")
+        if not isinstance(cmd_id, str) or not cmd_id.strip():
+            raise StudioError(f"fact sheet commands entry {index + 1} needs a non-empty id")
+        argv = item.get("argv")
+        if not isinstance(argv, list) or not argv or any(not isinstance(part, str) or not part for part in argv):
+            raise StudioError(f"fact sheet command {cmd_id!r} needs a non-empty argv list of strings")
+        entry: dict[str, Any] = {"id": cmd_id.strip(), "argv": list(argv)}
+        if "shows" in item and item["shows"] is not None:
+            if not isinstance(item["shows"], str):
+                raise StudioError(f"fact sheet command {cmd_id!r} shows must be a string")
+            entry["shows"] = item["shows"]
+        if item.get("display") is not None:
+            if not isinstance(item["display"], str):
+                raise StudioError(f"fact sheet command {cmd_id!r} display must be a string")
+            entry["display"] = item["display"]
+        if "cwd" in item and item["cwd"] is not None:
+            if not isinstance(item["cwd"], str):
+                raise StudioError(f"fact sheet command {cmd_id!r} cwd must be a string")
+            entry["cwd"] = item["cwd"]
+        commands.append(entry)
+    pages: list[dict[str, Any]] = []
+    for index, item in enumerate(raw.get("pages") or []):
+        if not isinstance(item, dict):
+            raise StudioError(f"fact sheet pages entry {index + 1} must be an object")
+        page_id = item.get("id")
+        if not isinstance(page_id, str) or not page_id.strip():
+            raise StudioError(f"fact sheet pages entry {index + 1} needs a non-empty id")
+        url = item.get("url")
+        if not isinstance(url, str) or not url.strip():
+            raise StudioError(f"fact sheet page {page_id!r} needs a url string")
+        entry = {"id": page_id.strip(), "url": url.strip()}
+        if "shows" in item and item["shows"] is not None:
+            if not isinstance(item["shows"], str):
+                raise StudioError(f"fact sheet page {page_id!r} shows must be a string")
+            entry["shows"] = item["shows"]
+        pages.append(entry)
+    seen: set[str] = set()
+    for item in commands + pages:
+        if item["id"] in seen:
+            raise StudioError(f"fact sheet id {item['id']!r} is used more than once")
+        seen.add(item["id"])
+    return {
+        "product": product.strip(),
+        "summary": summary.strip(),
+        "facts": facts_list,
+        "commands": commands,
+        "pages": pages,
+    }
+
+
+def _facts_lookup(facts: dict[str, Any]) -> dict[str, dict[str, Any]]:
+    lookup: dict[str, dict[str, Any]] = {}
+    for item in facts.get("commands") or []:
+        lookup[item["id"]] = {"kind": "command", **item}
+    for item in facts.get("pages") or []:
+        lookup[item["id"]] = {"kind": "page", **item}
+    return lookup
+
+
+def script_prompt(brief: str, seconds: int, facts: dict[str, Any] | None = None) -> str:
+    if facts is None:
+        return _SCRIPT.format(seconds=seconds, brief=brief)
+    lines = [f"- {item['id']}: {item.get('shows', item['id'])}" for item in facts.get("commands") or []]
+    lines += [f"- {item['id']}: {item.get('shows', item['id'])}" for item in facts.get("pages") or []]
+    facts_block = "\n".join(f"- {line}" for line in facts.get("facts") or []) or "- (none listed)"
+    return _SCRIPT_FACTS.format(
+        seconds=seconds,
+        brief=brief,
+        product=facts["product"],
+        summary=facts["summary"],
+        facts_block=facts_block,
+        capture_list="\n".join(lines) or "- (none)",
+    )
+
+
+def plan_from(data: dict[str, Any], seconds: int, facts: dict[str, Any] | None = None) -> tuple[str, str, str, list[Shot]]:
+    lookup = _facts_lookup(facts) if facts else {}
     shots = []
     for raw in data.get("shots") or []:
-        if not isinstance(raw, dict) or not str(raw.get("visual", "")).strip():
+        if not isinstance(raw, dict):
             continue
+        source = str(raw.get("source", "generate")).strip() or "generate"
         try:
             length = max(1, min(20, int(round(float(raw.get("seconds", 4))))))
         except (TypeError, ValueError):
             length = 4
-        shots.append(Shot(length, str(raw["visual"]).strip(), str(raw.get("caption", "")).strip()))
+        caption = str(raw.get("caption", "")).strip()
+        if source == "capture":
+            if facts is None:
+                raise StudioError("capture shots need a fact sheet (--facts)")
+            ref = raw.get("ref")
+            if not isinstance(ref, str) or not ref.strip():
+                continue
+            ref = ref.strip()
+            item = lookup.get(ref)
+            if item is None:
+                raise StudioError(f"capture ref {ref!r} is not in the fact sheet")
+            visual = str(raw.get("visual", "")).strip() or str(item.get("shows") or ref)
+            shots.append(Shot(length, visual, caption, source="capture", ref=ref))
+        elif source == "generate":
+            if not str(raw.get("visual", "")).strip():
+                continue
+            shots.append(Shot(length, str(raw["visual"]).strip(), caption, source="generate"))
+        else:
+            if not str(raw.get("visual", "")).strip():
+                continue
+            shots.append(Shot(length, str(raw["visual"]).strip(), caption))
     if not shots:
         raise StudioError("the script has no shots")
     total = sum(s.seconds for s in shots)
@@ -147,6 +285,10 @@ def srt(shots: list[Shot]) -> str:
 def shot_command(source: Path, kind: str, seconds: float, size: tuple[int, int], out: Path) -> list[str]:
     w, h = size
     frames = round(seconds * FPS)
+    if kind == "still":  # a real capture is shown whole: the slow zoom would crop the text at its edges
+        vf = f"scale={w}:{h}:force_original_aspect_ratio=decrease,pad={w}:{h}:(ow-iw)/2:(oh-ih)/2:color=0x0d1117,fps={FPS},format=yuv420p"
+        return ["ffmpeg", "-y", "-loglevel", "error", "-loop", "1", "-i", str(source), "-t", str(seconds), "-vf", vf,
+                "-c:v", "libx264", "-preset", "veryfast", "-an", str(out)]
     if kind == "image":
         vf = (f"scale={2 * w}:{2 * h}:force_original_aspect_ratio=increase,crop={2 * w}:{2 * h},"
               f"zoompan=z='min(zoom+0.0008,1.12)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d={frames}:s={w}x{h}:fps={FPS},"
@@ -259,8 +401,8 @@ def produce(
     *,
     provider_id: str,
     model: str,
-    visual_provider: str,
-    visual_model: str,
+    visual_provider: str = "",
+    visual_model: str = "",
     visual_kind: str = "image",
     voice_provider: str | None = None,
     voice_model: str | None = None,
@@ -277,6 +419,8 @@ def produce(
     text_transport: live.Transport | None = None,
     media_transport: Any = None,
     media_get: Any = None,
+    facts: dict[str, Any] | None = None,
+    allow_commands: bool = False,
 ) -> Production:
     for tool in ("ffmpeg", "ffprobe"):
         if shutil.which(tool) is None:
@@ -289,8 +433,12 @@ def produce(
     if not 3 <= seconds <= 600:
         raise StudioError("--seconds must be 3 to 600")
     paid = [p for p in (providers.find(provider_id),) if p is not None and not p.local]
-    for service in (visual_provider, voice_provider, music_provider):
+    for service in (voice_provider, music_provider):
         found = media.find(service) if service else None
+        if found is not None and not found.local:
+            paid.append(found)
+    if visual_provider:
+        found = media.find(visual_provider)
         if found is not None and not found.local:
             paid.append(found)
     if paid and max_cost_usd is None:
@@ -308,15 +456,22 @@ def produce(
             raise StudioError(f"{role}: {result.message}")
 
     try:
-        reply = live.run_prompt(provider_id, model, prompt=_SCRIPT.format(seconds=seconds, brief=brief),
+        reply = live.run_prompt(provider_id, model, prompt=script_prompt(brief, seconds, facts),
                                 max_output_tokens=2048, max_cost_usd=budget.next_limit(), transport=text_transport)
         figure = (reply.cost or {}).get("usd")
         budget.charge(figure if reply.status != "refused" else 0)
         record("script", reply, figure)
-        title, narration, music_brief, shots = plan_from(_json_object(reply.output_text), seconds)
+        title, narration, music_brief, shots = plan_from(_json_object(reply.output_text), seconds, facts)
         production.title, production.voiceover, production.music_brief, production.shots = title, narration, music_brief, shots
         (out_dir / "script.json").write_text(json.dumps({"title": title, "voiceover": narration, "music": music_brief,
                                                           "shots": [vars(s) for s in shots]}, indent=2) + "\n", encoding="utf-8")
+
+        needs_generated = any(s.source == "generate" for s in shots)
+        if needs_generated and (not visual_provider or not visual_model):
+            raise StudioError("generated shots need --visual-provider and --visual-model (see `proofhouse media list`)")
+        lookup = _facts_lookup(facts) if facts else {}
+        has_capture = any(s.source == "capture" for s in shots)
+        assemble_kind = "mixed" if has_capture else visual_kind
 
         def make_media(kind: str, service: str, model_id: str, prompt: str, target: Path, params: dict[str, Any]) -> str:
             result = media.generate(kind, service, model_id, prompt=prompt, out=target, params=params,
@@ -329,8 +484,29 @@ def produce(
 
         (out_dir / "shots").mkdir()
         for index, shot in enumerate(shots, start=1):
-            params = {"seconds": shot.seconds} if visual_kind == "video" else {"size": "1792x1024"}
-            shot.file = make_media(visual_kind, visual_provider, visual_model, shot.visual, out_dir / "shots" / f"shot-{index:02d}", params)
+            target = out_dir / "shots" / f"shot-{index:02d}"
+            if shot.source == "capture":
+                item = lookup.get(shot.ref or "")
+                if item is None:
+                    raise StudioError(f"capture ref {shot.ref!r} is not in the fact sheet")
+                try:
+                    if item["kind"] == "command":
+                        if not allow_commands:
+                            raise StudioError(
+                                "command capture shots need --allow-commands (running the commands in the fact sheet on this machine)"
+                            )
+                        cwd = Path(item["cwd"]) if item.get("cwd") else Path.cwd()
+                        output = capture.run_command(item["argv"], cwd=cwd)
+                        cmd_line = item.get("display") or " ".join(item["argv"])
+                        shot.file = str(capture.render_card(cmd_line, output, target.with_suffix(".png"),
+                                                            redact=capture.private_text()))
+                    else:
+                        shot.file = str(capture.render_page(item["url"], target.with_suffix(".png")))
+                except capture.CaptureError as exc:
+                    raise StudioError(str(exc)) from exc
+            else:
+                params = {"seconds": shot.seconds} if visual_kind == "video" else {"size": "1792x1024"}
+                shot.file = make_media(visual_kind, visual_provider, visual_model, shot.visual, target, params)
         if voice_provider and narration:
             production.voice_file = make_media("speech", voice_provider, voice_model or "", narration, out_dir / "voice",
                                                {"voice": voice} if voice else {})
@@ -346,7 +522,7 @@ def produce(
         return production
 
     production = assemble(
-        out_dir, shots, visual_kind=visual_kind, formats=formats, size_scale=size_scale, captions=captions,
+        out_dir, shots, visual_kind=assemble_kind, formats=formats, size_scale=size_scale, captions=captions,
         voice_file=production.voice_file, music_file=production.music_file, production=production,
     )
     production.spent_usd = budget.spent
@@ -354,7 +530,7 @@ def produce(
     return production
 
 
-_CLIP_SUFFIXES = frozenset({".mp4", ".webm", ".mov", ".mkv"})
+_STILL_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"})
 
 
 def assemble(
@@ -397,7 +573,10 @@ def assemble(
                 if not shot.file:
                     raise StudioError(f"shot {index} has no file")
                 clip = work / f"{name}-shot-{index:02d}.mp4"
-                kind = visual_kind if visual_kind != "mixed" else ("video" if Path(shot.file).suffix.lower() in _CLIP_SUFFIXES else "image")
+                kind = visual_kind
+                if visual_kind == "mixed":
+                    is_still = Path(shot.file).suffix.lower() in _STILL_SUFFIXES
+                    kind = ("still" if shot.source == "capture" else "image") if is_still else "video"
                 # every shot after the first starts one dissolve early, under the end of the shot before it
                 _run(shot_command(Path(shot.file), kind, shot.seconds + (dissolve if index > 1 else 0), size, clip), out_dir, production)
                 clips.append(clip)

@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- Video production can mix real captures with generated shots: command output and web pages become frames, and the script writer can work from a product fact sheet (`--facts`, `--allow-commands` on `proofhouse make --kind video`). A fact-sheet command can carry a `display` line, shown on the frame instead of the real command, and your home folder is always hidden in captured output. A captured frame is shown whole, with no slow zoom that would crop the text at its edges.
+
 ## 0.10.2 - finished films and a fairer judge
 
 ### Fixed
