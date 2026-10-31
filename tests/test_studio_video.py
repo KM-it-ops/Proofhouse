@@ -33,7 +33,7 @@ def _ffmpeg(*args: str) -> None:
 
 @pytest.fixture
 def services(tmp_path: Path) -> dict[str, bytes]:
-    _ffmpeg("-f", "lavfi", "-i", "color=c=0x2255aa:s=320x180", "-frames:v", "1", str(tmp_path / "frame.png"))
+    _ffmpeg("-f", "lavfi", "-i", "testsrc2=s=320x180", "-frames:v", "1", str(tmp_path / "frame.png"))  # a picture with detail, as a real shot has
     _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=5", str(tmp_path / "voice.wav"))
     _ffmpeg("-f", "lavfi", "-i", "sine=frequency=220:duration=3", str(tmp_path / "bed.wav"))
     templates = [
@@ -229,7 +229,7 @@ def test_one_shot_has_no_dissolve_and_very_short_shots_still_render_at_the_full_
 
 @needs_ffmpeg
 def test_music_dips_under_the_voice_and_the_mix_is_brought_to_a_normal_listening_level(tmp_path: Path) -> None:
-    _ffmpeg("-f", "lavfi", "-i", "color=c=0x2255aa:s=320x180", "-frames:v", "1", str(tmp_path / "frame.png"))
+    _ffmpeg("-f", "lavfi", "-i", "testsrc2=s=320x180", "-frames:v", "1", str(tmp_path / "frame.png"))
     _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=3", "-af", "adelay=3000|3000", str(tmp_path / "voice.wav"))
     _ffmpeg("-f", "lavfi", "-i", "sine=frequency=220:duration=8", str(tmp_path / "music.wav"))
     shots = [studio.Shot(2, "a", "", str(tmp_path / "frame.png")) for _ in range(3)]  # a 6 s film; the voice speaks in its second half
@@ -252,3 +252,75 @@ def test_the_final_command_cleans_the_voice_ducks_the_music_and_fades_in_and_out
     assert "sidechaincompress" not in music_only[music_only.index("-filter_complex") + 1]
     silent = studio.final_command(Path("j.mp4"), None, None, 30, False, Path("o.mp4"))
     assert "-filter_complex" not in silent and "fade=t=in" in silent[silent.index("-vf") + 1]
+
+
+def _textured(path: Path) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "testsrc2=s=320x180", "-frames:v", "1", str(path))
+
+
+def test_a_captured_still_gets_a_different_camera_move_on_each_neighbouring_shot() -> None:
+    moves = {" ".join(studio.shot_command(Path("c.png"), "still", 6, (1920, 1080), Path("o.mp4"), variant=v)) for v in range(4)}
+    assert len(moves) == 4 and all("zoompan" in m and "overlay" in m for m in moves)
+
+
+def test_a_generated_image_keeps_moving_for_the_whole_shot() -> None:
+    cmd = " ".join(studio.shot_command(Path("g.png"), "image", 9, (1920, 1080), Path("o.mp4")))
+    assert "on/269" in cmd and "min(zoom+" not in cmd  # the old push-in was capped after five seconds and then froze
+
+
+def test_titles_are_timed_to_their_shots_and_slide_in_and_out() -> None:
+    shots = [studio.Shot(4, "a", "Any model", "a.png"), studio.Shot(5, "b", "", "b.png"), studio.Shot(6, "c", "Every version kept", "c.png")]
+    ass = studio.title_track(shots, (1920, 1080), 0.5)
+    assert "PlayResX: 1920" in ass and "PlayResY: 1080" in ass
+    lines = [line for line in ass.splitlines() if line.startswith("Dialogue:")]
+    assert len(lines) == 2 and "Any model" in lines[0] and "Every version kept" in lines[1]  # a shot with no words gets no title
+    assert "\\move(" in lines[0] and "\\fad(" in lines[0]
+    assert lines[0].split(",")[1] == "0:00:00.60" and lines[0].split(",")[2] == "0:00:03.50"
+    assert lines[1].split(",")[1] == "0:00:09.60" and lines[1].split(",")[2] == "0:00:14.50"  # in after the dissolve, out before the next
+
+
+def test_titles_cannot_break_the_subtitle_file() -> None:
+    ass = studio.title_track([studio.Shot(5, "a", "{\\an9}One, two\nthree", "a.png")], (1920, 1080), 0.5)
+    text = next(line for line in ass.splitlines() if line.startswith("Dialogue:"))
+    assert "{\\an9}" not in text and "\n" not in text.split(",", 9)[-1] and "One, two" in text
+
+
+def test_the_final_command_burns_the_titles_only_when_asked() -> None:
+    on = studio.final_command(Path("j.mp4"), None, None, 6, False, Path("o.mp4"), titles=True)
+    assert "subtitles=titles.ass" in " ".join(on)
+    assert "titles.ass" not in " ".join(studio.final_command(Path("j.mp4"), None, None, 6, False, Path("o.mp4")))
+
+
+@needs_ffmpeg
+def test_a_film_of_captures_keeps_moving_and_carries_its_titles(tmp_path: Path) -> None:
+    _textured(tmp_path / "card.png")
+    shots = [studio.Shot(6, "a", "First words", str(tmp_path / "card.png"), source="capture"),
+             studio.Shot(6, "b", "Second words", str(tmp_path / "card.png"), source="capture")]
+    (tmp_path / "out").mkdir()
+    made = studio.assemble(tmp_path / "out", shots, visual_kind="mixed", formats=("16x9",), size_scale=0.2, captions=False)
+    assert made.stopped == "finished", made.stopped
+    moving = next(c for c in made.checks if c["check"] == "picture keeps moving")
+    assert moving["ok"] is True, moving
+    assert "First words" in (tmp_path / "out" / "titles.ass").read_text(encoding="utf-8")
+    assert all(c["ok"] for c in made.checks), made.checks
+    assert max((d for _, d in studio.frozen_stretches(Path(made.renders["16x9"]))), default=0.0) < studio.MAX_HOLD
+
+
+@needs_ffmpeg
+def test_titles_are_off_when_captions_are_burned_in_and_can_be_turned_off(tmp_path: Path) -> None:
+    _textured(tmp_path / "card.png")
+    shots = [studio.Shot(4, "a", "Words", str(tmp_path / "card.png"), source="capture")]
+    for name, extra in (("captioned", {}), ("plain", {"captions": False, "titles": False})):
+        (tmp_path / name).mkdir()
+        studio.assemble(tmp_path / name, shots, visual_kind="mixed", formats=("1x1",), size_scale=0.1, **extra)
+        assert not (tmp_path / name / "titles.ass").exists(), name
+
+
+@needs_ffmpeg
+def test_a_film_whose_picture_freezes_for_seconds_fails_its_check(tmp_path: Path) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "color=c=0x2255aa:s=320x180:d=6:r=30", "-pix_fmt", "yuv420p", str(tmp_path / "still.mp4"))
+    (tmp_path / "out").mkdir()
+    made = studio.assemble(tmp_path / "out", [studio.Shot(6, "a", "", str(tmp_path / "still.mp4"))], visual_kind="video",
+                           formats=("1x1",), size_scale=0.1)
+    check = next(c for c in made.checks if c["check"] == "picture keeps moving")
+    assert check["ok"] is False and "holds still" in check["detail"], check

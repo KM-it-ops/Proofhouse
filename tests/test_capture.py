@@ -53,11 +53,15 @@ def test_the_screenshot_command_asks_for_the_frame_size() -> None:
     assert command[-1] == "file:///x.html"
 
 
-def test_a_captured_still_is_shown_whole_not_zoomed_into() -> None:
-    still = studio.shot_command(Path("c.png"), "still", 5, (1920, 1080), Path("o.mp4"))
-    assert not any("zoompan" in part for part in still)
-    assert any("pad=1920:1080" in part for part in still)
-    assert any("zoompan" in part for part in studio.shot_command(Path("g.png"), "image", 5, (1920, 1080), Path("o.mp4")))
+def test_a_captured_still_moves_but_is_always_shown_whole() -> None:
+    push = " ".join(studio.shot_command(Path("c.png"), "still", 5, (1920, 1080), Path("o.mp4"), variant=0))
+    pull = " ".join(studio.shot_command(Path("c.png"), "still", 5, (1920, 1080), Path("o.mp4"), variant=1))
+    assert "zoompan" in push and "boxblur" in push  # it moves, over a soft copy of itself that fills the frame
+    assert push != pull  # neighbouring shots move in different ways
+    assert "-loop" not in push  # a looped single frame is what froze the picture
+    fit = studio.STILL_FIT
+    assert 0.9 <= fit < 1 and fit * (1 + studio.STILL_ZOOM) <= 1.0001  # at the closest point the whole capture is still inside the frame
+    assert "pad=1920:1080" not in push  # bars are gone, the soft copy fills the frame instead
 
 
 def test_without_a_browser_the_error_says_so(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -118,7 +122,7 @@ def _ffmpeg(*args: str) -> None:
 
 @pytest.fixture
 def capture_services(tmp_path: Path) -> dict[str, bytes]:
-    _ffmpeg("-f", "lavfi", "-i", "color=c=0x2255aa:s=320x180", "-frames:v", "1", str(tmp_path / "frame.png"))
+    _ffmpeg("-f", "lavfi", "-i", "testsrc2=s=320x180", "-frames:v", "1", str(tmp_path / "frame.png"))  # a picture with detail, as a real shot has
     templates = [
         {"id": "local-images", "kinds": ["image"], "base_url": "http://localhost:7860", "auth": "none", "unit": "image",
          "submit": {"path": "/img", "body": {"prompt": "{prompt}"}}, "result": {"asset": ["image"], "ext": "png"}},
@@ -150,7 +154,7 @@ def test_capture_and_generated_shots_charge_once_for_media_and_need_allow_comman
 
     def fake_card(command: str, output: str, out_png: Path, **kwargs: object) -> Path:
         out_png.parent.mkdir(parents=True, exist_ok=True)
-        _ffmpeg("-f", "lavfi", "-i", "color=c=0x333333:s=320x180", "-frames:v", "1", str(out_png))
+        _ffmpeg("-f", "lavfi", "-i", "testsrc2=s=320x180", "-frames:v", "1", str(out_png))
         renders.append("card")
         return out_png
 
@@ -235,9 +239,9 @@ def test_a_film_of_captures_only_needs_no_visual_service_and_other_clip_types_ar
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     clip = tmp_path / "bridge.avi"
-    _ffmpeg("-f", "lavfi", "-i", "color=c=0x225588:s=320x180:d=2", "-pix_fmt", "yuv420p", str(clip))
+    _ffmpeg("-f", "lavfi", "-i", "testsrc2=s=320x180:d=2", "-pix_fmt", "yuv420p", str(clip))
     card = tmp_path / "card.png"
-    _ffmpeg("-f", "lavfi", "-i", "color=c=0x333333:s=320x180", "-frames:v", "1", str(card))
+    _ffmpeg("-f", "lavfi", "-i", "testsrc2=s=320x180", "-frames:v", "1", str(card))
 
     def fake_card(command: str, output: str, out_png: Path, **kwargs: object) -> Path:
         out_png.parent.mkdir(parents=True, exist_ok=True)
