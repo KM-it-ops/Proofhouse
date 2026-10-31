@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+
+- Films no longer play as a slideshow. A captured frame (command output, a page) now moves for its whole length: a slow, eased push-in or pull-out that always keeps the whole capture in view, over a blurred, darkened copy of itself that fills the screen. Before, a capture was held perfectly still, so a film could freeze for 5 to 8 seconds at a time. A generated image's push-in now runs the whole shot instead of stopping after about five seconds, and each shot moves a little differently from the one before.
+- When the captions are not burned in, each shot's caption now appears as an animated title (fades in and slides up, then fades out), so the picture shows what the voice is saying. Pass `titles=False` to `assemble` to turn it off.
+
+### Added
+
+- A new check on every render, "picture keeps moving": it fails when the picture holds still for 3 seconds or more, and says where.
+
 ## 0.10.3 - app goals, a zero ceiling and film shots from real captures
 
 ### Added

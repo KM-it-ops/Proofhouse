@@ -106,7 +106,7 @@ def test_a_video_part_without_a_visual_service_is_skipped_with_the_reason(tmp_pa
 
 @pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="FFmpeg not installed")
 def test_a_video_part_is_produced_by_the_studio(tmp_path: Path) -> None:
-    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "color=c=0x334455:s=320x180", "-frames:v", "1",
+    subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "lavfi", "-i", "testsrc2=s=320x180", "-frames:v", "1",
                     str(tmp_path / "f.png")], check=True)
     template = {"id": "local-images", "kinds": ["image"], "base_url": "http://localhost:7860", "auth": "none", "unit": "image",
                 "submit": {"path": "/img", "body": {"prompt": "{prompt}"}}, "result": {"asset": ["image"], "ext": "png"}}
