@@ -27,8 +27,12 @@ dependencies = ["jsonschema>=4.18", "rfc8785==0.1.4"]
 
 [project.optional-dependencies]
 live = ["httpx>=0.27"]
+# Motion graphics and sound for films (`proofhouse host render video`).
+video = ["pillow>=10"]
+# Recording a real app being used, through the installed Chrome or Edge.
+record = ["playwright>=1.40"]
 # Test runner only. Not a runtime dependency; runtime deps stay jsonschema + rfc8785.
-test = ["pytest>=8"]
+test = ["pytest>=8", "pillow>=10", "playwright>=1.40"]
 
 [project.urls]
 Homepage = "https://github.com/KM-it-ops/Proofhouse"
