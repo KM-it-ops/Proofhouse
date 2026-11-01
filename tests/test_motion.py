@@ -157,6 +157,14 @@ def test_callout_dims_everything_except_the_box() -> None:
     assert img.getpixel((40, 340)) < 140  # outside is dimmed
 
 
+def test_callout_box_in_recorded_pixels_lands_where_the_recording_sits() -> None:
+    layer = {"kind": "callout", "box": [0, 0, 480, 270], "spotlight": 0.6,
+             "map": {"size": [960, 540], "box": [960, 540, 960, 540]}}  # recording fills the lower-right quarter
+    img = motion.frame(_scene([layer], base={"kind": "color", "color": "#ffffff"}), 1.5).convert("L")
+    assert img.getpixel((400, 225)) > 220  # the mapped box, 320-480 x 180-270 at this size, stays bright
+    assert img.getpixel((60, 40)) < 140  # the same numbers read as design pixels would be here; dimmed
+
+
 def test_fonts_come_from_a_data_table() -> None:
     table = json.loads(motion.FONTS_FILE.read_text(encoding="utf-8"))
     assert {"ui", "ui_bold", "display", "mono"} <= set(table["roles"])
