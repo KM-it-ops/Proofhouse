@@ -8,7 +8,6 @@ clicked so the motion layer can draw the pointer and the sound layer can add the
 
 from __future__ import annotations
 
-import base64
 import codecs
 import json
 import math
@@ -262,21 +261,24 @@ def record_app(
                 page = browser.new_page(viewport={"width": w, "height": h}, device_scale_factor=scale)
                 page.set_default_timeout(timeout * 1000)
                 page.goto(url, wait_until="load", timeout=timeout * 1000)
-                cdp = page.context.new_cdp_session(page)
 
-                def on_frame(params: dict[str, Any]) -> None:
+                def on_frame(frame: Any) -> None:
                     now = time.time()
-                    stamp = params.get("metadata", {}).get("timestamp")
-                    at = stamp if isinstance(stamp, (int, float)) and abs(stamp - now) < 60 else now
-                    path = frames_dir / f"f{len(frames):05d}.jpg"
-                    path.write_bytes(base64.b64decode(params["data"]))
+                    stamp = frame.get("timestamp")
+                    at = now
+                    if isinstance(stamp, (int, float)):
+                        for unit in (1.0, 1000.0):  # the browser's wall-clock time, in seconds or milliseconds
+                            if abs(stamp / unit - now) < 60:
+                                at = stamp / unit
+                                break
+                    data = frame["data"]
+                    path = frames_dir / f"f{len(frames):05d}.{'png' if data[:4] == b'\x89PNG' else 'jpg'}"
+                    path.write_bytes(data)
                     frames.append((at - t0, path))
-                    cdp.send("Page.screencastFrameAck", {"sessionId": params["sessionId"]})
 
-                cdp.on("Page.screencastFrame", on_frame)
                 t0 = time.time()
-                cdp.send("Page.startScreencast", {"format": "jpeg", "quality": 92, "maxWidth": int(w * scale),
-                                                  "maxHeight": int(h * scale), "everyNthFrame": 1})
+                page.screencast.start(on_frame=on_frame, quality=92,
+                                      size={"width": int(w * scale), "height": int(h * scale)})
                 page.wait_for_timeout(400)
                 pointer = _Pointer(page, clock, (w * 0.55, h * 0.72))
                 for n, step in enumerate(steps, 1):
@@ -288,7 +290,7 @@ def record_app(
                         raise CaptureError(f"step {n} ({step['do']}) failed: {exc}".splitlines()[0]) from exc
                 page.wait_for_timeout(int(tail * 1000))
                 end = clock()
-                cdp.send("Page.stopScreencast")
+                page.screencast.stop()
             finally:
                 browser.close()
     except CaptureError:
