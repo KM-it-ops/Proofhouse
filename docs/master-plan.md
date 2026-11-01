@@ -94,6 +94,10 @@ Since then (branch `feat/video-finishing`, not merged): the engine itself now di
 cleans the voice, dips the music under it and levels the mix to -16 LUFS. That polish used to exist only in the example scripts.
 Tested on a short local film (no model calls, $0). Still not done in the video engine: the voice and music still come only from a
 service or a file you give (nothing is made locally when you have neither), and shots are not timed to the spoken words.
+Since then (branch `feat/video-motion`, not merged): films can be written beat by beat, each beat timed to its spoken words, with
+moving graphics, sound effects, picked cuts and real screen recordings (at most a third of the film); the voice can come from a
+program on your own machine (Kokoro), so a film costs $0. Still not done: music is still a file or a service, the vertical 9:16
+layout of beat films is not fully worked out, and recordings have no `proofhouse` command yet (only `proofhouse.recording`).
 The agent bridge (`proofhouse agent-server`) was added in this run; its API entry is in the OpenAPI fixture.
 
 ## Build order

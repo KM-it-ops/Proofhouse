@@ -10,6 +10,10 @@
 ### Added
 
 - A new check on every render, "picture keeps moving": it fails when the picture holds still for 3 seconds or more, and says where.
+- Films can be written beat by beat (`"beats"` in the `script.json` that `proofhouse render video` reads). Each beat has a picture underneath (a generated clip or image, a moving background, a colour, or a real recording in a window or phone frame), the words it says, moving graphics on top (titles, chips, cards, counters, a callout, a terminal that types and more) timed to those words, sound effects made on your machine, and a cut picked to fit. The music dips under the voice.
+- Real recordings for films: `proofhouse.recording.record_app` drives a browser through clicks, typing and scrolling and saves where the pointer went, so the film draws it; `record_command` and `terminal_timeline` turn a command's real output into a terminal that types it. The home folder and user name are hidden in both.
+- A speech, image, video or music service can be a program on your own machine: a `run` block in `media_providers.json` with the command as a list of words. A film can be voiced for free this way, for example with Kokoro. The program runs without a shell, is found on PATH only (never in the folder you run from), and a filled-in word that starts with `-` is refused rather than passed on as a switch.
+- Two more checks on every beat film: "something happens" (no quiet stretch over 3 seconds, and something happens in at least 85% of the film's seconds) and "real footage share" (recordings fill a third of the film at most).
 
 ## 0.10.3 - app goals, a zero ceiling and film shots from real captures
 
