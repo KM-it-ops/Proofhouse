@@ -272,7 +272,8 @@ def record_app(
                                 at = stamp / unit
                                 break
                     data = frame["data"]
-                    path = frames_dir / f"f{len(frames):05d}.{'png' if data[:4] == b'\x89PNG' else 'jpg'}"
+                    ext = "png" if data[:4] == b"\x89PNG" else "jpg"
+                    path = frames_dir / f"f{len(frames):05d}.{ext}"
                     path.write_bytes(data)
                     frames.append((at - t0, path))
 
