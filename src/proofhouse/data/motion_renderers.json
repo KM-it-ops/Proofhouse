@@ -1,0 +1,6 @@
+{
+  "note": "How scenes become video. 'builtin' draws each frame with Pillow and pipes it to FFmpeg. To plug in another renderer (Remotion, Hyperframes, Blender or anything that reads a scene file), add a line with a command list, never a shell string. Placeholders: {scene}, {out}, {width}, {height}, {fps}, {seconds}. Your own lines go in motion_renderers.json in the Proofhouse home folder.",
+  "renderers": [
+    {"id": "builtin", "name": "Proofhouse built-in (Pillow + FFmpeg)", "command": null}
+  ]
+}

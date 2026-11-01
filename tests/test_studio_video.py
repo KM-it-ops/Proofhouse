@@ -197,11 +197,13 @@ def _loudness(path: Path) -> float:
 
 @needs_ffmpeg
 def test_shots_dissolve_into_each_other_and_the_film_fades_in_and_out_of_black(tmp_path: Path) -> None:
-    _ffmpeg("-f", "lavfi", "-i", "color=c=0xcc2222:s=320x180", "-frames:v", "1", str(tmp_path / "red.png"))
-    _ffmpeg("-f", "lavfi", "-i", "color=c=0x2222cc:s=320x180", "-frames:v", "1", str(tmp_path / "blue.png"))
-    shots = [studio.Shot(2, "a", "one", str(tmp_path / "red.png")), studio.Shot(2, "b", "two", str(tmp_path / "blue.png"))]
+    # red and blue clips with a darker square swinging across them: two still pictures would be a slideshow
+    for name, back, square in (("red", "0xcc2222", "0x881111"), ("blue", "0x2222cc", "0x111188")):
+        _ffmpeg("-filter_complex", f"color=c={back}:s=320x180:r=25:d=3[b];color=c={square}:s=48x48:r=25:d=3[s];"
+                f"[b][s]overlay=x='136+90*sin(t*5)':y=66", "-t", "3", "-pix_fmt", "yuv420p", str(tmp_path / f"{name}.mp4"))
+    shots = [studio.Shot(2, "a", "one", str(tmp_path / "red.mp4")), studio.Shot(2, "b", "two", str(tmp_path / "blue.mp4"))]
     (tmp_path / "out").mkdir()
-    made = studio.assemble(tmp_path / "out", shots, visual_kind="image", formats=("1x1",), size_scale=0.1)
+    made = studio.assemble(tmp_path / "out", shots, visual_kind="video", formats=("1x1",), size_scale=0.1)
     assert made.stopped == "finished", made.stopped
     film = Path(made.renders["1x1"])
     assert studio.probe(film)["seconds"] == pytest.approx(4, abs=0.15)
@@ -324,3 +326,145 @@ def test_a_film_whose_picture_freezes_for_seconds_fails_its_check(tmp_path: Path
                            formats=("1x1",), size_scale=0.1)
     check = next(c for c in made.checks if c["check"] == "picture keeps moving")
     assert check["ok"] is False and "holds still" in check["detail"], check
+
+
+# ---------------------------------------------------------------- storyboard films written by the model
+
+BEATS = {
+    "title": "Proofhouse launch", "music": "upbeat electronic, 120 bpm",
+    "beats": [
+        {"say": "Say what you want.", "base": {"prompt": "a glowing workshop at night"},
+         "layers": [{"kind": "title", "text": "Say what you want", "at": "phrase 1"}], "energy": "mid"},
+        {"say": "Pick any model.", "base": {"prompt": "hands on a keyboard, neon light"},
+         "layers": [{"kind": "chips", "items": ["any", "model"], "at": "start"}]},
+        {"say": "Proofhouse makes it.", "base": {"prompt": "a finished product on a desk"},
+         "layers": [{"kind": "lower_third", "title": "Proofhouse", "at": 0.3}]},
+    ],
+}
+
+
+def _beats_writer(request: live.Request) -> live.Response:
+    return live.Response(200, {"choices": [{"message": {"content": json.dumps(BEATS)}}],
+                               "usage": {"prompt_tokens": 300, "completion_tokens": 200}})
+
+
+@needs_ffmpeg
+def test_a_storyboard_from_the_model_is_voiced_phrase_by_phrase_and_rendered(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.2", str(tmp_path / "phrase.wav"))
+    assets = {**services, "wav": (tmp_path / "phrase.wav").read_bytes()}
+    made = studio.produce(
+        "a hype video for Proofhouse", provider_id="ollama", model="llama3",
+        visual_provider="local-images", visual_model="sdxl", voice_provider="local-voice", voice_model="tts",
+        music_file=services["bed"], seconds=6, formats=("16x9", "9x16"), out_dir=tmp_path / "video", size_scale=0.1,
+        text_transport=_beats_writer, media_transport=_media(assets),
+    )
+    assert made.stopped == "finished", made.stopped
+    assert set(made.renders) == {"16x9", "9x16"}
+    failed = [c for c in made.checks if not c["ok"]]
+    assert failed == [], failed
+    assert {"real footage share", "captions match the script"} <= {c["check"] for c in made.checks}
+    folder = tmp_path / "video"
+    assert sorted(p.name for p in (folder / "shots").iterdir()) == ["beat-01.png", "beat-02.png", "beat-03.png"]
+    assert sorted(p.name for p in (folder / "voice").iterdir()) == ["beat01-01.wav", "beat02-01.wav", "beat03-01.wav"]
+    record = json.loads((folder / "studio.json").read_text(encoding="utf-8"))
+    assert [b["beat"] for b in record["beats"]] == [1, 2, 3]
+    assert record["beats"][1]["phrases"][0] == {"text": "Pick any model.", "start": pytest.approx(record["beats"][1]["phrases"][0]["start"]),
+                                                "seconds": pytest.approx(1.2, abs=0.05), "file": "voice/beat02-01.wav"}
+    starts = [b["start"] for b in record["beats"]]
+    assert starts == sorted(starts) and starts[0] == 0
+    script = json.loads((folder / "script.json").read_text(encoding="utf-8"))  # a re-render needs no voice service
+    assert all("say" not in row for row in script["beats"])
+    assert script["beats"][0]["phrases"] == [{"text": "Say what you want.", "file": "voice/beat01-01.wav"}]
+    assert script["beats"][0]["base"] == {"kind": "image", "file": "shots/beat-01.png"}
+    assert "Pick any model." in (folder / "captions.srt").read_text(encoding="utf-8")
+
+
+@needs_ffmpeg
+def test_a_storyboard_with_words_but_no_voice_service_stops_before_spending(tmp_path: Path, services) -> None:
+    calls: list[str] = []
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        calls.append(request.url)
+        return _media(services)(request)
+
+    made = studio.produce("x", provider_id="ollama", model="llama3", visual_provider="local-images", visual_model="sdxl",
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_beats_writer, media_transport=post)
+    assert "voice service" in made.stopped and calls == [] and made.renders == {}
+
+
+@needs_ffmpeg
+def test_a_storyboard_layer_the_engine_cannot_draw_is_refused_before_any_picture_is_made(tmp_path: Path, services) -> None:
+    bad = {**BEATS, "beats": [{**BEATS["beats"][0], "layers": [{"kind": "hologram", "at": 0}]}]}
+    calls: list[str] = []
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        calls.append(request.url)
+        return _media(services)(request)
+
+    made = studio.produce("x", provider_id="ollama", model="llama3", visual_provider="local-images", visual_model="sdxl",
+                          voice_provider="local-voice", voice_model="tts", seconds=6, formats=("1x1",),
+                          out_dir=tmp_path / "v", size_scale=0.1, media_transport=post,
+                          text_transport=lambda r: live.Response(200, {"choices": [{"message": {"content": json.dumps(bad)}}],
+                                                                        "usage": {"prompt_tokens": 1, "completion_tokens": 1}}))
+    assert made.stopped.startswith("beat 1:") and calls == [], made.stopped
+
+
+def test_a_storyboard_may_only_show_footage_from_the_fact_sheet() -> None:
+    facts = {"product": "Proofhouse", "commands": [{"id": "help", "argv": ["proofhouse", "--help"]}]}
+    rows = studio.beats_from({"beats": [{"say": "Look.", "base": {"ref": "help"}}]}, facts)
+    assert rows[0]["base"] == {"kind": "capture", "ref": "help"}
+    with pytest.raises(studio.StudioError, match="not in the fact sheet"):
+        studio.beats_from({"beats": [{"say": "Look.", "base": {"ref": "secret"}}]}, facts)
+    with pytest.raises(studio.StudioError, match="no beats"):
+        studio.beats_from({"beats": []}, None)
+
+
+# ---------------------------------------------------------------- something happens on screen
+
+DEMO = Path(__file__).resolve().parents[1] / "docs" / "assets" / "proofhouse-demo.mp4"
+
+
+@needs_ffmpeg
+def test_the_readme_hype_film_counts_as_something_happening_all_the_way_through() -> None:
+    # measured: its longest pause is 1.3 s (from 33.7 s) and something happens in 98% of its seconds. A storyboard
+    # cut from stills with a slow camera measured 7.2 s and 61%, and a still film read over a voice 20.1 s and 11%:
+    # both rightly fail.
+    activity = studio.picture_activity(DEMO)
+    assert activity["longest_quiet"] == pytest.approx(1.3, abs=0.2) and activity["longest_quiet"] <= studio.MAX_QUIET
+    assert activity["lively_share"] == pytest.approx(0.98, abs=0.02) and activity["lively_share"] >= studio.MIN_LIVELY
+
+
+@needs_ffmpeg
+def test_a_slow_camera_over_a_still_and_a_long_hold_after_motion_count_as_nothing_happening(tmp_path: Path) -> None:
+    still = tmp_path / "still.png"
+    _ffmpeg("-f", "lavfi", "-i", "testsrc2=s=640x360", "-frames:v", "1", str(still))
+    _ffmpeg("-loop", "1", "-i", str(still), "-vf", "zoompan=z='1+0.0006*on':d=200:s=320x180:fps=25", "-t", "8",
+            "-pix_fmt", "yuv420p", str(tmp_path / "push.mp4"))
+    push = studio.picture_activity(tmp_path / "push.mp4")  # measured 5.9 s and 23%
+    assert push["longest_quiet"] > studio.MAX_QUIET and push["lively_share"] < studio.MIN_LIVELY
+    _ffmpeg("-f", "lavfi", "-t", "4", "-i", "testsrc2=s=640x360:r=25", "-loop", "1", "-t", "4", "-i", str(still),
+            "-filter_complex", "[1:v]fps=25[hold];[0:v][hold]concat=n=2:v=1[v]", "-map", "[v]", "-pix_fmt", "yuv420p",
+            str(tmp_path / "hold.mp4"))
+    hold = studio.picture_activity(tmp_path / "hold.mp4")  # measured 3.9 s from 4.0 s, and 57%
+    assert hold["longest_quiet"] == pytest.approx(3.9, abs=0.2) and hold["quiet_from"] == pytest.approx(4.0, abs=0.2)
+    assert hold["lively_share"] < studio.MIN_LIVELY
+
+
+@needs_ffmpeg
+def test_a_film_that_cannot_be_read_never_counts_as_lively(tmp_path: Path) -> None:
+    (tmp_path / "broken.mp4").write_bytes(b"not a film")
+    activity = studio.picture_activity(tmp_path / "broken.mp4")
+    assert activity["longest_quiet"] > studio.MAX_QUIET and activity["lively_share"] == 0.0
+
+
+@needs_ffmpeg
+def test_a_film_cut_from_stills_fails_the_something_happens_checks(tmp_path: Path) -> None:
+    for name, colour in (("red", "0xcc2222"), ("blue", "0x2222cc")):
+        _ffmpeg("-f", "lavfi", "-i", f"color=c={colour}:s=320x180", "-frames:v", "1", str(tmp_path / f"{name}.png"))
+    shots = [studio.Shot(4, "a", "one", str(tmp_path / "red.png")), studio.Shot(4, "b", "two", str(tmp_path / "blue.png"))]
+    (tmp_path / "out").mkdir()
+    made = studio.assemble(tmp_path / "out", shots, visual_kind="image", formats=("1x1",), size_scale=0.1)
+    failed = {c["check"]: c["detail"] for c in made.checks if not c["ok"]}
+    assert "something happens" in failed and "picture changes every second" in failed, made.checks
+    assert "nothing new on screen for" in failed["something happens"]

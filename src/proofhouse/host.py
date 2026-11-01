@@ -12,7 +12,7 @@ from decimal import Decimal
 from pathlib import Path, PurePosixPath
 from typing import Any
 
-from . import __version__, app_platforms, hosts, make, make_checks, sitecheck, studio
+from . import __version__, app_platforms, hosts, make, make_checks, media, sitecheck, studio
 from . import host_quality
 from .optimize.install_skill import check_frontmatter
 
@@ -685,10 +685,6 @@ def run_render_video(
     if not isinstance(data, dict):
         _print_error(f"script.json in {folder} must be a JSON object")
         return 2
-    raw_shots = data.get("shots")
-    if not isinstance(raw_shots, list) or not raw_shots:
-        _print_error("no shots in script.json")
-        return 2
     unknown = [name for name in formats if name not in studio.FORMATS]
     if unknown:
         _print_error(f"unknown format {', '.join(unknown)}; use {', '.join(studio.FORMATS)}")
@@ -697,6 +693,12 @@ def run_render_video(
         _scan_folder_paths(folder)
     except HostError as exc:
         _print_error(str(exc))
+        return 2
+    if "beats" in data:
+        return _render_beats(folder, data, formats=formats, size_scale=size_scale)
+    raw_shots = data.get("shots")
+    if not isinstance(raw_shots, list) or not raw_shots:
+        _print_error("no shots in script.json")
         return 2
     shots: list[studio.Shot] = []
     for index, raw in enumerate(raw_shots, start=1):
@@ -781,6 +783,10 @@ def run_render_video(
     production.spent_usd = Decimal(0)
     production.calls = []
     studio._write_record(production, production.title or "host video")
+    return _report_render(production)
+
+
+def _report_render(production: studio.Production) -> int:
     failed = [row for row in production.checks if row.get("ok") is not True]
     for row in failed:
         _print_error(f"{row.get('render')}: {row.get('check')} failed ({row.get('detail')})")
@@ -788,3 +794,53 @@ def run_render_video(
         print(f"rendered {name}: {path}")
     print(f"{len(production.checks) - len(failed)} of {len(production.checks)} checks passed")
     return 1 if failed else 0
+
+
+def _render_beats(folder: Path, data: dict[str, Any], *, formats: tuple[str, ...], size_scale: float) -> int:
+    """A storyboard film: each beat's picture, motion graphics and phrases, timed to the voice.
+
+    Phrases without a file are spoken by ``"voice": {"provider", "model", "params"}``, which must be a service on
+    this machine: a host render spends nothing."""
+    music_path: str | None = None
+    music_name = data.get("music_file")
+    if isinstance(music_name, str) and music_name.strip():
+        try:
+            music_path = str(_path_inside(folder, music_name))
+            _require_suffix(music_name, _SOUND_SUFFIXES, "music")
+        except HostError as exc:
+            _print_error(str(exc))
+            return 2
+        if not Path(music_path).is_file():
+            _print_error(f"music file not found: {music_name}")
+            return 2
+    speak = None
+    spec = data.get("voice")
+    if spec is not None:
+        if not (isinstance(spec, dict) and isinstance(spec.get("provider"), str) and isinstance(spec.get("model"), str)
+                and isinstance(spec.get("params", {}), dict)):
+            _print_error('voice must be {"provider": "...", "model": "...", "params": {...}}')
+            return 2
+        root = folder.resolve()
+
+        def speak(text: str, name: str) -> Path:
+            result = media.generate("speech", spec["provider"], spec["model"], prompt=text, out=root / "voice" / name,
+                                    params=spec.get("params", {}))
+            if result.status != "success":
+                raise studio.StudioError(f"voice: {result.message}")
+            return Path(str(result.path))
+
+    production = studio.Production(folder.resolve())
+    production.title = str(data.get("title", "")).strip()
+    production.music_brief = str(data.get("music", "")).strip()
+    try:
+        studio.assemble_beats(folder.resolve(), data, formats=formats, size_scale=size_scale, speak=speak,
+                              music_file=music_path, production=production)
+    except OSError as exc:
+        _print_error(f"could not render in {folder}: {exc} (a leftover 'work' folder from an earlier run must be removed)")
+        return 2
+    if production.stopped != "finished":
+        _print_error(production.stopped)
+        return 2
+    production.spent_usd = Decimal(0)
+    studio._write_record(production, production.title or "host video")
+    return _report_render(production)

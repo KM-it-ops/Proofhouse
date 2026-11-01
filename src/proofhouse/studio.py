@@ -25,43 +25,54 @@ renders, and ``studio.json`` with every call, cost, FFmpeg command and check.
 from __future__ import annotations
 
 import json
+import math
 import re
 import shutil
 import subprocess
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any
+from typing import Any, Callable
 
-from . import __version__, capture, live, media, providers
+from . import __version__, capture, live, media, motion, providers, sound, storyboard
 
 FORMATS = {"16x9": (1920, 1080), "9x16": (1080, 1920), "1x1": (1080, 1080)}
 FPS = 30
 
-_SCRIPT = (
-    "You are a video producer. Plan a finished video for the brief below, about {seconds} seconds long. "
+_BEATS = (
     "Reply with JSON only, in this shape: "
-    '{{"title": "...", "voiceover": "the full narration, spoken naturally", '
-    '"shots": [{{"seconds": 4, "visual": "a detailed prompt for an image or video model: subject, setting, camera, '
-    'light, style", "caption": "the exact words shown on screen (short)"}}], "music": "a prompt for the music bed: '
-    'genre, mood, tempo"}}. The shots must add up to about {seconds} seconds; use 4 to 8 shots.\n\nBRIEF:\n{brief}'
+    '{{"title": "...", "music": "a prompt for the music bed: genre, mood, tempo", "beats": [{{'
+    '"say": "the words spoken over this beat: short phrases, plain words, each phrase ending with . ! or ?", '
+    '"base": {base}, '
+    '"layers": [{{"kind": "title", "text": "two to five words", "at": "phrase 1"}}], "energy": "mid"}}]}}. '
+    "Layers are motion graphics drawn over the picture. Each has a kind and an at: seconds into the beat, or "
+    '"start", "phrase N" or "phrase N end", with an optional + or - seconds. The kinds: title {{"text"}}, '
+    'label {{"text"}}, chips {{"items": ["short", "words"]}}, cards {{"items": ["short titles"]}}, '
+    'counter {{"to": a number}}, lower_third {{"title"}}. Energy is low, mid or high and sets the pace of the joins. '
+    "Write 5 to 10 beats of one or two phrases each, one flowing passage across them, no slogans or lists. "
+    "Something new must appear on screen at least every 3 seconds. The words must fit about {seconds} seconds "
+    "spoken."
+)
+
+_SCRIPT = (
+    "You are a video producer, film director and motion designer. Plan a finished, produced film for the brief below, about "
+    "{seconds} seconds long, as a storyboard of beats. "
+    + _BEATS.replace("{base}", '{{"prompt": "a detailed prompt for an image or video model: subject, setting, '
+                               'camera move, light, style; no text in the picture"}}')
+    + "\n\nBRIEF:\n{brief}"
 )
 
 _SCRIPT_FACTS = (
-    "You are a video producer. Plan a finished video for the brief below, about {seconds} seconds long, "
-    "for the product {product}.\n\n"
+    "You are a video producer, film director and motion designer. Plan a finished, produced film for the brief below, about "
+    "{seconds} seconds long, for the product {product}, as a storyboard of beats.\n\n"
     "PRODUCT SUMMARY:\n{summary}\n\n"
     "FACTS ABOUT THE PRODUCT:\n{facts_block}\n\n"
-    "REAL SHOTS YOU CAN USE (each shot must use source capture with ref set to one of these ids, "
-    "or source generate with a visual prompt):\n{capture_list}\n\n"
-    "Reply with JSON only, in this shape: "
-    '{{"title": "...", "voiceover": "the full narration for speech: write in short phrases, plain words, '
-    "one flowing passage, a beat between ideas, no slogans or lists, fitting about {seconds} seconds spoken\", "
-    '"shots": [{{"seconds": 4, "source": "capture", "ref": "<id from the list>", "caption": "on-screen words"}}, '
-    '{{"seconds": 4, "source": "generate", "visual": "a detailed prompt about the actual product subject: '
-    'setting, camera, light, style; no stock-footage metaphors; no text in the image", "caption": "..."}}], '
-    '"music": "genre, mood, tempo"}}. Use only capture refs from the list above. '
-    "The shots must add up to about {seconds} seconds; use 4 to 8 shots.\n\nBRIEF:\n{brief}"
+    "REAL PRODUCT FOOTAGE YOU CAN SHOW (a beat's base is either {{\"ref\": \"<one of these ids>\"}}, or "
+    "{{\"prompt\": \"...\"}} for a generated picture). Show real footage only where it proves a point, in a third "
+    "of the film at most:\n{capture_list}\n\n"
+    + _BEATS.replace("{base}", '{{"prompt": "a detailed prompt about the actual product subject: setting, camera '
+                               'move, light, style; no stock-footage metaphors; no text in the picture"}}')
+    + " Use only footage ids from the list above.\n\nBRIEF:\n{brief}"
 )
 
 
@@ -94,6 +105,7 @@ class Production:
     commands: list[list[str]] = field(default_factory=list)
     spent_usd: Decimal = Decimal(0)
     stopped: str = "finished"
+    beats: list[dict[str, Any]] = field(default_factory=list)  # a storyboard film: each beat as timed
 
 
 class _Budget:
@@ -273,6 +285,44 @@ def plan_from(data: dict[str, Any], seconds: int, facts: dict[str, Any] | None =
     return str(data.get("title", "")).strip(), str(data.get("voiceover", "")).strip(), str(data.get("music", "")).strip(), shots
 
 
+def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    """The storyboard rows from a model's beats plan, checked before anything is spent on them.
+
+    A base with a prompt is generated, a base with a ref is real footage from the fact sheet, and a beat with
+    neither stands on a moving background. Everything else is checked the way the storyboard and the motion
+    graphics will read it, so a bad plan stops here, not after the pictures and the voice are paid for."""
+    lookup = _facts_lookup(facts) if facts else {}
+    rows = data.get("beats")
+    if not isinstance(rows, list) or not rows or not all(isinstance(r, dict) for r in rows):
+        raise StudioError("the script has no beats")
+    out = []
+    for number, raw in enumerate(rows, start=1):
+        row = {k: v for k, v in raw.items() if k in ("say", "layers", "sounds", "cut", "energy", "hold")}
+        base = raw.get("base") or {}
+        if not isinstance(base, dict):
+            raise StudioError(f"beat {number}: base must be an object with a prompt or a ref")
+        if isinstance(base.get("ref"), str) and base["ref"].strip():
+            if base["ref"].strip() not in lookup:
+                raise StudioError(f"beat {number}: footage ref {base['ref'].strip()!r} is not in the fact sheet")
+            row["base"] = {"kind": "capture", "ref": base["ref"].strip()}
+        elif isinstance(base.get("prompt"), str) and base["prompt"].strip():
+            row["base"] = {"kind": "generate", "prompt": base["prompt"].strip()}
+        else:
+            row["base"] = {"kind": "living"}
+        out.append(row)
+    dry = [{**row, "base": {"kind": "living"}} for row in out]
+    try:
+        beats = storyboard.parse(dry, Path.cwd())
+        for beat in beats:
+            layers = [{**lay, "at": 0, **({"until": 1} if "until" in lay else {})} for lay in beat.layers]
+            motion.check_scene({"size": [64, 64], "seconds": 1, "layers": layers})
+    except storyboard.StoryboardError as exc:
+        raise StudioError(str(exc)) from exc
+    except motion.MotionError as exc:
+        raise StudioError(f"beat {beat.number}: {exc}") from exc
+    return out
+
+
 def srt(shots: list[Shot]) -> str:
     def stamp(t: int) -> str:
         return f"{t // 3600:02d}:{t // 60 % 60:02d}:{t % 60:02d},000"
@@ -289,6 +339,11 @@ IMAGE_ZOOM = 0.12
 STILL_ZOOM = 0.10
 STILL_FIT = 1 / (1 + STILL_ZOOM)  # a capture is shown this big, so the camera at its closest still has all of it in view
 MAX_HOLD = 3.0  # a picture that stays frozen this long (seconds) is a slideshow, not a film
+# Something happens: a patch of the picture (1/40 by 1/22 of the frame) changes sharply between two looks 0.1 s apart,
+# as when a title lands, a cut lands or a hand moves. A slow camera drift over a still never counts.
+EVENT_LEVEL = 16  # mean brightness change of one patch, 0-255, that counts as something happening
+MAX_QUIET = 3.0  # seconds a film may go with nothing happening
+MIN_LIVELY = 0.85  # share of the film's one-second windows in which something happens
 
 # how the camera moves on a capture: (zooms in?, sideways lean 0..1, vertical lean 0..1); neighbouring shots differ
 _CAMERA_MOVES = ((True, 0.5, 0.5), (False, 0.5, 0.5), (True, 0.0, 0.3), (False, 1.0, 0.7))
@@ -479,6 +534,55 @@ def frozen_stretches(path: Path) -> list[tuple[float, float]]:
     return list(zip(starts, lengths))
 
 
+def picture_activity(path: Path) -> dict[str, float]:
+    """How often something happens on screen: the longest quiet stretch (seconds, and where it starts) and the
+    share of the film's seconds in which something happens. Looks ten times a second, at patches of the frame."""
+    cols, rows = 40, 22
+    run = subprocess.run(["ffmpeg", "-v", "error", "-i", str(path), "-map", "0:v:0", "-vf",
+                          f"fps=10,scale=320:180,format=gray,tblend=all_mode=difference,scale={cols}:{rows}:flags=area",
+                          "-f", "rawvideo", "-pix_fmt", "gray", "-"], capture_output=True, check=False)
+    raw, step = run.stdout, cols * rows
+    events = [max(raw[i:i + step]) > EVENT_LEVEL for i in range(0, len(raw) - step + 1, step)]
+    if not events:  # FFmpeg could not read the picture, so nothing was seen to happen
+        return {"longest_quiet": math.inf, "quiet_from": 0.0, "lively_share": 0.0}
+    quiet = longest = longest_at = 0
+    for index, event in enumerate(events):
+        quiet = 0 if event else quiet + 1
+        if quiet > longest:
+            longest, longest_at = quiet, index + 1 - quiet
+    # every one-second window, sliding a tenth at a time, so where the film's seconds happen to start never matters
+    seconds = [any(events[i:i + 10]) for i in range(max(1, len(events) - 9))]
+    return {"longest_quiet": longest / 10, "quiet_from": longest_at / 10, "lively_share": sum(seconds) / len(seconds)}
+
+
+def _render_checks(name: str, final: Path, total: float, size: tuple[int, int], sound: bool,
+                   tolerance: float) -> list[dict[str, Any]]:
+    """Measure one finished render: its length, frame size, sound, that the picture never stands still, and
+    that something keeps happening on screen."""
+    measured = probe(final)
+    holds = frozen_stretches(final)
+    longest = max(holds, key=lambda stretch: stretch[1], default=None)
+    still = longest is not None and longest[1] >= MAX_HOLD
+    activity = picture_activity(final)
+    return [
+        {"render": name, "check": "length", "ok": abs(measured["seconds"] - total) <= tolerance,
+         "detail": f"{measured['seconds']:.1f}s of {total:g}s"},
+        {"render": name, "check": "frame size", "ok": (measured["width"], measured["height"]) == size,
+         "detail": f"{measured['width']}x{measured['height']}"},
+        {"render": name, "check": "sound", "ok": measured["audio"] == sound,
+         "detail": "voice/music present" if measured["audio"] else "silent"},
+        {"render": name, "check": "picture keeps moving", "ok": not still,
+         "detail": (f"holds still for {longest[1]:.1f}s from {longest[0]:.1f}s" if still else
+                    f"never holds still for {MAX_HOLD:g}s or more")},
+        {"render": name, "check": "something happens", "ok": activity["longest_quiet"] <= MAX_QUIET,
+         "detail": (f"nothing new on screen for {activity['longest_quiet']:.1f}s from {activity['quiet_from']:.1f}s "
+                    f"({MAX_QUIET:g}s at most)" if math.isfinite(activity["longest_quiet"])
+                    else "the picture could not be read")},
+        {"render": name, "check": "picture changes every second", "ok": activity["lively_share"] >= MIN_LIVELY,
+         "detail": f"something happens in {activity['lively_share']:.0%} of its seconds ({MIN_LIVELY:.0%} at least)"},
+    ]
+
+
 def _run(cmd: list[str], cwd: Path, production: Production) -> None:
     production.commands.append(cmd)
     done = subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, check=False)
@@ -551,17 +655,8 @@ def produce(
         figure = (reply.cost or {}).get("usd")
         budget.charge(figure if reply.status != "refused" else 0)
         record("script", reply, figure)
-        title, narration, music_brief, shots = plan_from(_json_object(reply.output_text), seconds, facts)
-        production.title, production.voiceover, production.music_brief, production.shots = title, narration, music_brief, shots
-        (out_dir / "script.json").write_text(json.dumps({"title": title, "voiceover": narration, "music": music_brief,
-                                                          "shots": [vars(s) for s in shots]}, indent=2) + "\n", encoding="utf-8")
-
-        needs_generated = any(s.source == "generate" for s in shots)
-        if needs_generated and (not visual_provider or not visual_model):
-            raise StudioError("generated shots need --visual-provider and --visual-model (see `proofhouse media list`)")
+        data = _json_object(reply.output_text)
         lookup = _facts_lookup(facts) if facts else {}
-        has_capture = any(s.source == "capture" for s in shots)
-        assemble_kind = "mixed" if has_capture else visual_kind
 
         def make_media(kind: str, service: str, model_id: str, prompt: str, target: Path, params: dict[str, Any]) -> str:
             result = media.generate(kind, service, model_id, prompt=prompt, out=target, params=params,
@@ -572,28 +667,83 @@ def produce(
             record(f"{kind}: {prompt[:40]}", result, figure)
             return str(result.path)
 
+        def capture_still(ref: str | None, target: Path) -> str:
+            item = lookup.get(ref or "")
+            if item is None:
+                raise StudioError(f"capture ref {ref!r} is not in the fact sheet")
+            try:
+                if item["kind"] == "command":
+                    if not allow_commands:
+                        raise StudioError(
+                            "command capture shots need --allow-commands (running the commands in the fact sheet on this machine)"
+                        )
+                    cwd = Path(item["cwd"]) if item.get("cwd") else Path.cwd()
+                    output = capture.run_command(item["argv"], cwd=cwd)
+                    cmd_line = item.get("display") or " ".join(item["argv"])
+                    return str(capture.render_card(cmd_line, output, target.with_suffix(".png"),
+                                                   redact=capture.private_text()))
+                return str(capture.render_page(item["url"], target.with_suffix(".png")))
+            except capture.CaptureError as exc:
+                raise StudioError(str(exc)) from exc
+
+        if "beats" in data:
+            board = beats_from(data, facts)
+            production.title, production.music_brief = str(data.get("title", "")).strip(), str(data.get("music", "")).strip()
+            script = {"title": production.title, "music": production.music_brief, "beats": board}
+            (out_dir / "script.json").write_text(json.dumps(script, indent=2) + "\n", encoding="utf-8")
+            if any(row["base"]["kind"] == "generate" for row in board) and (not visual_provider or not visual_model):
+                raise StudioError("generated pictures need --visual-provider and --visual-model (see `proofhouse media list`)")
+            if any(row.get("say") for row in board) and not voice_provider:
+                raise StudioError("a film with words needs a voice service to speak them (--voice-provider)")
+            (out_dir / "shots").mkdir()
+            for number, row in enumerate(board, start=1):
+                base, target = row["base"], out_dir / "shots" / f"beat-{number:02d}"
+                if base["kind"] == "capture":
+                    file = capture_still(base["ref"], target)
+                    row["base"] = {"kind": "capture", "file": Path(file).relative_to(out_dir).as_posix()}
+                elif base["kind"] == "generate":
+                    words = len(str(row.get("say", "")).split())
+                    params = ({"seconds": max(2, min(10, math.ceil(words / 2.6 + 1)))} if visual_kind == "video"
+                              else {"size": "1792x1024"})
+                    file = make_media(visual_kind, visual_provider, visual_model, base["prompt"], target, params)
+                    row["base"] = {"kind": visual_kind, "file": Path(file).relative_to(out_dir).as_posix()}
+            if music_file is not None:
+                production.music_file = str(shutil.copy2(music_file, out_dir / f"music{music_file.suffix}"))
+            elif music_provider and production.music_brief:
+                production.music_file = make_media("music", music_provider, music_model or "", production.music_brief,
+                                                   out_dir / "music", {"seconds": seconds})
+
+            def speak(text: str, name: str) -> Path:
+                return Path(make_media("speech", voice_provider or "", voice_model or "", text, out_dir / "voice" / name,
+                                       {"voice": voice} if voice else {}))
+
+            production = assemble_beats(out_dir, script, formats=formats, size_scale=size_scale, captions=captions,
+                                        speak=speak, music_file=production.music_file, production=production)
+            spoken = {b["beat"]: b["phrases"] for b in production.beats}
+            for number, row in enumerate(board, start=1):  # keep the spoken files, so a re-render need not speak again
+                if number in spoken and row.pop("say", None) is not None:
+                    row["phrases"] = [{"text": p["text"], "file": p["file"]} for p in spoken[number]]
+            (out_dir / "script.json").write_text(json.dumps(script, indent=2) + "\n", encoding="utf-8")
+            production.spent_usd = budget.spent
+            _write_record(production, brief)
+            return production
+
+        title, narration, music_brief, shots = plan_from(data, seconds, facts)
+        production.title, production.voiceover, production.music_brief, production.shots = title, narration, music_brief, shots
+        (out_dir / "script.json").write_text(json.dumps({"title": title, "voiceover": narration, "music": music_brief,
+                                                          "shots": [vars(s) for s in shots]}, indent=2) + "\n", encoding="utf-8")
+
+        needs_generated = any(s.source == "generate" for s in shots)
+        if needs_generated and (not visual_provider or not visual_model):
+            raise StudioError("generated shots need --visual-provider and --visual-model (see `proofhouse media list`)")
+        has_capture = any(s.source == "capture" for s in shots)
+        assemble_kind = "mixed" if has_capture else visual_kind
+
         (out_dir / "shots").mkdir()
         for index, shot in enumerate(shots, start=1):
             target = out_dir / "shots" / f"shot-{index:02d}"
             if shot.source == "capture":
-                item = lookup.get(shot.ref or "")
-                if item is None:
-                    raise StudioError(f"capture ref {shot.ref!r} is not in the fact sheet")
-                try:
-                    if item["kind"] == "command":
-                        if not allow_commands:
-                            raise StudioError(
-                                "command capture shots need --allow-commands (running the commands in the fact sheet on this machine)"
-                            )
-                        cwd = Path(item["cwd"]) if item.get("cwd") else Path.cwd()
-                        output = capture.run_command(item["argv"], cwd=cwd)
-                        cmd_line = item.get("display") or " ".join(item["argv"])
-                        shot.file = str(capture.render_card(cmd_line, output, target.with_suffix(".png"),
-                                                            redact=capture.private_text()))
-                    else:
-                        shot.file = str(capture.render_page(item["url"], target.with_suffix(".png")))
-                except capture.CaptureError as exc:
-                    raise StudioError(str(exc)) from exc
+                shot.file = capture_still(shot.ref, target)
             else:
                 params = {"seconds": shot.seconds} if visual_kind == "video" else {"size": "1792x1024"}
                 shot.file = make_media(visual_kind, visual_provider, visual_model, shot.visual, target, params)
@@ -690,25 +840,100 @@ def assemble(
                                has_titles),
                  out_dir, production)
             production.renders[name] = str(final)
-            measured = probe(final)
-            holds = frozen_stretches(final)
-            longest = max(holds, key=lambda stretch: stretch[1], default=None)
-            still = longest is not None and longest[1] >= MAX_HOLD
-            production.checks += [
-                {"render": name, "check": "length", "ok": abs(measured["seconds"] - total) <= max(1.0, total * 0.05),
-                 "detail": f"{measured['seconds']:.1f}s of {total}s"},
-                {"render": name, "check": "frame size", "ok": (measured["width"], measured["height"]) == size,
-                 "detail": f"{measured['width']}x{measured['height']}"},
-                {"render": name, "check": "sound", "ok": measured["audio"] == bool(production.voice_file or production.music_file),
-                 "detail": "voice/music present" if measured["audio"] else "silent"},
-                {"render": name, "check": "picture keeps moving", "ok": not still,
-                 "detail": (f"holds still for {longest[1]:.1f}s from {longest[0]:.1f}s" if still else
-                            f"never holds still for {MAX_HOLD:g}s or more")},
-            ]
+            production.checks += _render_checks(name, final, total, size, bool(production.voice_file or production.music_file),
+                                                max(1.0, total * 0.05))
         production.checks.append({"render": "all", "check": "captions match the script",
                                   "ok": srt(shots) == (out_dir / "captions.srt").read_text(encoding="utf-8"),
                                   "detail": f"{sum(1 for s in shots if s.caption)} captions"})
     except StudioError as exc:
+        production.stopped = str(exc)
+    shutil.rmtree(work, ignore_errors=True)
+    return production
+
+
+def _unvoiced(text: str, name: str) -> Path:
+    raise StudioError(f"phrase {name} ({text[:40]!r}) has no voice file; give it one, or name a voice service to speak it")
+
+
+def _beat_record(beat: storyboard.Beat, root: Path) -> dict[str, Any]:
+    def name(path: Any) -> str | None:
+        if not path:
+            return None
+        path = Path(path)
+        return path.relative_to(root).as_posix() if path.is_relative_to(root) else path.name
+
+    return {"beat": beat.number, "start": round(beat.start, 3), "seconds": round(beat.span, 3), "cut": beat.cut,
+            "energy": beat.energy, "real": beat.real, "base": beat.base["kind"], "file": name(beat.base.get("file")),
+            "phrases": [{"text": p.text, "start": round(p.start, 3), "seconds": round(p.seconds, 3), "file": name(p.file)}
+                        for p in beat.phrases]}
+
+
+def assemble_beats(
+    out_dir: Path,
+    board: Any,
+    *,
+    formats: tuple[str, ...],
+    size_scale: float = 1.0,
+    captions: bool = True,
+    speak: Callable[[str, str], Path] | None = None,
+    music_file: str | None = None,
+    production: Production | None = None,
+) -> Production:
+    """Make a film from a storyboard of beats, every file in it named inside ``out_dir``.
+
+    Each phrase is spoken (``speak(text, name)``, for phrases with no file) and measured, and the beats are timed to
+    the words. Then, for each format, every beat's motion scene is rendered, the beats are joined with their
+    transitions, the sound design is laid on its own track, music and sounds dip under every line, captions are
+    burned in, and the render is measured.
+    """
+    if production is None:
+        production = Production(out_dir)
+    else:
+        production.folder = out_dir
+    production.music_file = music_file
+    work = out_dir / "work"
+    work.mkdir()
+    try:
+        beats = storyboard.parse(board, out_dir)
+        storyboard.voice(beats, speak or _unvoiced)
+        total = storyboard.time_beats(beats)
+        share = storyboard.check_mix(beats, total)
+        production.beats = [_beat_record(b, out_dir) for b in beats]
+        production.voiceover = " ".join(p.text for b in beats for p in b.phrases)
+        spans = storyboard.speech_spans(beats)
+        text = storyboard.captions(beats)
+        (out_dir / "captions.srt").write_text(text, encoding="utf-8")
+        voice_cmd = storyboard.voice_command(beats, total, out_dir / "voice.wav")
+        if voice_cmd:
+            _run(voice_cmd, out_dir, production)
+            production.voice_file = str(out_dir / "voice.wav")
+        for name in formats:
+            w, h = FORMATS[name]
+            size = (int(w * size_scale) // 2 * 2, int(h * size_scale) // 2 * 2)
+            planned = storyboard.scenes(beats, size)
+            clips = []
+            for beat, sc in zip(beats, planned):
+                clips.append(motion.render(sc, work / f"{name}-beat-{beat.number:02d}.mp4"))
+            joined = clips[0]
+            if len(clips) > 1:
+                joined = work / f"{name}-joined.mp4"
+                _run(storyboard.join_command(clips, beats, joined), work, production)
+            effects = sound.mix(storyboard.sound_events(beats, planned), total, work / f"{name}-sounds.wav")
+            final = out_dir / f"video-{name}.mp4"
+            burn = f"subtitles=captions.srt:force_style='{caption_style(size)}'" if captions and text else ""
+            _run(storyboard.mix_command(joined, Path(production.voice_file) if production.voice_file else None,
+                                        Path(music_file) if music_file else None, effects, total, spans, final,
+                                        loudness=LOUDNESS, picture_filter=burn), out_dir, production)
+            production.renders[name] = str(final)
+            production.checks += _render_checks(name, final, total, size, True, 0.1)
+        production.checks += [
+            {"render": "all", "check": "real footage share", "ok": share <= storyboard.REAL_SHARE + 1e-9,
+             "detail": f"{share:.0%} of the film is real product footage (a third at most)"},
+            {"render": "all", "check": "captions match the script",
+             "ok": text == (out_dir / "captions.srt").read_text(encoding="utf-8"),
+             "detail": f"{sum(len(b.phrases) for b in beats)} captions"},
+        ]
+    except (StudioError, storyboard.StoryboardError, motion.MotionError, sound.SoundError) as exc:
         production.stopped = str(exc)
     shutil.rmtree(work, ignore_errors=True)
     return production
@@ -723,6 +948,7 @@ def _write_record(production: Production, brief: str) -> None:
         "stopped": production.stopped,
         "spent_usd_estimated": format(production.spent_usd, "f"),
         "shots": [vars(s) for s in production.shots],
+        "beats": production.beats,
         "voice_file": production.voice_file,
         "music_file": production.music_file,
         "renders": production.renders,

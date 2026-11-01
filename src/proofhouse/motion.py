@@ -1102,6 +1102,11 @@ def _draw_callout(st: _State, layer: dict, dest: Any, t: float, local: float, fa
     u = st.u
     pad = layer.get("pad", 10)
     x, y, w, h = _box(layer, None, u)
+    if layer.get("map"):  # the box is in recorded page pixels; place it where the recording sits
+        to_px = _mapper(layer, u)
+        bx, by, bw, bh = layer["box"]
+        (x, y), (x1, y1) = to_px(bx, by), to_px(bx + bw, by + bh)
+        w, h = x1 - x, y1 - y
     x, y, w, h = x - pad * u, y - pad * u, w + 2 * pad * u, h + 2 * pad * u
     r = layer.get("radius", 16) * u
     accent = rgb(layer.get("accent_color", "accent"))
@@ -1121,7 +1126,7 @@ def _draw_callout(st: _State, layer: dict, dest: Any, t: float, local: float, fa
         ls = _spring_at(cl, SPRINGS["pill"], st.fps)
         if ls > 0:
             img, m, cw, ch = _chip(str(layer["label"]), _px(26 * u), True, u)
-            ly = y - 12 * u - ch if layer["box"][1] - pad >= 80 else y + h + 12 * u
+            ly = y - 12 * u - ch if y / u >= 80 else y + h + 12 * u
             dx, dy, sc, op = _enter("pop-rise", ls, cl)
             mx, my = x + cw / 2, ly + ch / 2
             _place(dest, img, m + cw / 2, m + ch / 2, mx, my, mx, my, dx * u, dy * u, sc, op * fade)
@@ -1353,6 +1358,17 @@ def _duration(path: str) -> float | None:
         run = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0",
                               str(path)], capture_output=True, text=True, timeout=60, check=False)
         return float(run.stdout.strip())
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        return None
+
+
+def _video_size(path: str) -> tuple[int, int] | None:
+    try:
+        done = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v:0", "-show_entries",
+                               "stream=width,height", "-of", "csv=p=0", str(path)],
+                              capture_output=True, text=True, timeout=30)
+        w, h = done.stdout.strip().split(",")[:2]
+        return int(w), int(h)
     except (OSError, ValueError, subprocess.TimeoutExpired):
         return None
 
@@ -1731,6 +1747,50 @@ def frame(scene: dict, t: float) -> Any:
         return st.draw(t)
     finally:
         st.close()
+
+
+_WHOOSH_ENTERS = ("left", "right", "rise", "drop", "zoom")
+
+
+def events(scene: dict) -> list[tuple[float, str]]:
+    """The moments in a scene that deserve a sound, as (seconds, kind), in time order.
+
+    Typed characters tick, cursor clicks click, items that spring in pop, a title lands with a hit, and a wipe,
+    a lower third or a picture sliding in whooshes. The kinds are the ones the sound kit makes.
+    """
+    scene = check_scene(scene)
+    out: list[tuple[float, str]] = []
+    for index, layer in enumerate(scene["layers"]):
+        if layer.get("quiet"):
+            continue
+        kind = layer["kind"]
+        at = layer.get("at", 0.0)
+        enter = layer.get("enter", _ENTER[kind])
+        if kind == "title":
+            if enter == "type":
+                text = layer["text"]
+                times = char_times(text, layer.get("cps", 16), seed=index)[:-1]
+                out += [(at + k, "tick") for k, ch in zip(times, text) if not ch.isspace()]
+            else:
+                out.append((at, "hit"))
+        elif kind in ("chips", "cards"):
+            stagger = layer.get("stagger", 0.08 if kind == "chips" else 0.1)
+            out += [(at + i * stagger, "pop") for i in range(len(layer["items"]))]
+        elif kind in ("label", "callout", "panel"):
+            out.append((at, "pop"))
+        elif kind == "counter":
+            out.append((at + layer.get("duration", 1.2), "pop"))
+        elif kind == "cursor":
+            out += [(at + c["t"], "click") for c in layer.get("clicks", [])]
+        elif kind == "terminal":
+            tl = layer["timeline"]
+            out += [(at + k, "tick") for k in _keys(tl)]
+            out += [(at + o["at"], "pop") for o in tl.get("output", []) if o["text"].strip()]
+        elif kind in ("wipe", "lower_third") or (kind in ("video", "image") and enter in _WHOOSH_ENTERS):
+            out.append((at, "whoosh"))
+        elif kind == "link":
+            out.append((at, "tick"))
+    return sorted((round(t, 3), k) for t, k in out if 0 <= t < scene["seconds"])
 
 
 # --- rendering --------------------------------------------------------------------------------------
