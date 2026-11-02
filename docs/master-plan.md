@@ -302,9 +302,29 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
    - **Delivery for the target:** the rule, skill or agent comes out in that tool's format and the install
      line names that tool. When the target can be reached as a provider (for example the free agent bridge
      `agent-claude`), each version is also tried on it (`--try-on`); otherwise the record says it was not.
-   - **Scripts and AI apps:** with no terminal, `make` writes the questions and an answers template into the
+   - **Scripts and AI apps:** with no terminal and `--for` given, `make` writes the questions and an answers template into the
      folder and stops; running it again with `--answers` continues. Everything asked and answered is kept in
      `record.json`.
+7. **Every make, every kind, the same way (owner's direction, 2026-11-02).** Step 6 covered text kinds only.
+   Three gaps are left, each fixed in its own branch and pull request:
+   - **7a. Sites, apps and launches ask first.** Today they go straight to building (`make.py`
+     `interviewing` leaves out site and app; the CLI never builds an interviewer for them; `launch` has none).
+     They get the same interview, say-back and target question. Here the target is where it will live and
+     run: a deploy target for a site, the platforms for an app, and for a launch each part's target. The
+     answers and agreed summary feed the writer, the existing build-and-check loop and the judge, and the
+     result is scored against them. For a launch, one interview covers the goal and only the questions
+     specific to a part are asked per part.
+   - **7b. Every run asks.** A run with no terminal and no `--for` now pauses like any other: it writes the
+     questions, including which tool or model it is for, into the folder with an answers template and
+     stops. It no longer prints a tip and makes the thing blind. `--answers` resumes and `--preset` fills
+     answers ahead. Nothing goes round the interview without saying so in the record.
+   - **7c. Media through the same front door.** `make --kind video|image|voice|music` (and any media kind
+     learned or added as data) runs the full loop: interview (purpose, audience, length, look, voice, music,
+     where it will be shown), say-back, target (which service and model, any provider in
+     `media_providers.json`, local programs included; an unknown one is learned, not refused), make, check,
+     judge, improve, keep every version, deliver in the shapes asked for. Video builds on the beat-film
+     engine in PR #96 (`feat/video-motion`) rather than beside it. `generate` stays as the one-shot
+     command. Every paid call goes through the spending limit.
 
 ## What is left (updated 2026-10-27)
 
