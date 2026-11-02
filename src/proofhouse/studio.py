@@ -525,6 +525,13 @@ def probe(path: Path) -> dict[str, Any]:
             "height": video.get("height"), "audio": any(s.get("codec_type") == "audio" for s in data.get("streams", []))}
 
 
+def convert(args: list[str]) -> bool:
+    """Run FFmpeg once on local files (a still resized, a sound re-encoded); True when it finished."""
+    if shutil.which("ffmpeg") is None:
+        return False
+    return subprocess.run(["ffmpeg", "-y", "-loglevel", "error", *args], capture_output=True, check=False).returncode == 0
+
+
 def frozen_stretches(path: Path) -> list[tuple[float, float]]:
     """Every stretch of a film where the picture does not change for a second or more, as (start, seconds)."""
     run = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-map", "0:v:0", "-vf",

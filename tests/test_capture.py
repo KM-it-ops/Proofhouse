@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from proofhouse import capture, cli, live, media, sitecheck, studio
+from proofhouse import capture, cli, live, make_media, media, sitecheck, studio
 
 FACTS = {
     "product": "Proofhouse",
@@ -212,9 +212,23 @@ def test_the_video_command_hands_facts_and_allow_commands_over_once_and_needs_no
         seen.update(kwargs)
         return studio.Production(tmp_path / "out")
 
+    def writer(request: live.Request) -> live.Response:  # a text model for the interview, the plan and the judge
+        text = " ".join(m["content"] for m in json.loads(request.body_bytes)["messages"])
+        content = ('{"prompt": "a launch film", "shapes": ["16x9"]}' if text.startswith("You plan a") else
+                   '{"score": 9, "missing": [], "fix": ""}' if text.startswith("You judge media") else
+                   "- a launch film" if text.startswith("You are about to") else "{}")
+        return live.Response(200, {"choices": [{"message": {"content": content}}],
+                                   "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+
+    real = make_media.make_media
+    monkeypatch.setattr(make_media, "make_media", lambda *a, **k: real(*a, **{**k, "transport": writer}))
     monkeypatch.setattr(studio, "produce", fake_produce)
+    ahead = tmp_path / "ahead.json"
+    ahead.write_text(json.dumps({"for": "openai-speech/tts-1", "answers": {"goal": "a launch film"}, "confirmed": True}),
+                     encoding="utf-8")
     code = cli.main(["make", "a launch film", "--kind", "video", "--provider", "ollama", "--model", "m",
-                     "--facts", str(facts_path), "--allow-commands", "--out", str(tmp_path / "out")])
+                     "--facts", str(facts_path), "--allow-commands", "--answers", str(ahead), "--max-cost-usd", "1",
+                     "--out", str(tmp_path / "out")])
     assert seen, "the command never reached produce"  # it used to crash, then refuse a capture-only film for want of a visual service
     assert code == 7  # the fake made no renders
     assert seen["allow_commands"] is True
