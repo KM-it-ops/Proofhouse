@@ -23,6 +23,12 @@ class ScriptedModel:
         if prompt.startswith("You judge AI work"):
             self.judged.append(prompt)
             content = json.dumps({"score": self.scores.pop(0), "missing": [], "fix": "fix checks"})
+        elif prompt.startswith("Proofhouse is about to write"):
+            content = json.dumps({"name": "Claude Code", "guide": "Keep it short and literal.", "sources": ["https://example.org/docs"]})
+        elif prompt.startswith("You are an expert prompt engineer. You generate"):
+            content = json.dumps([{"id": "must", "text": "What must it always do?", "type": "text"}])
+        elif prompt.startswith("You are about to write a"):
+            content = "- What it is: understood"
         else:
             reply = self.replies.pop(0)
             content = reply if isinstance(reply, str) else json.dumps(reply)
@@ -34,6 +40,13 @@ def made(tmp_path: Path, kind: str, model: ScriptedModel, rounds: int = 1, allow
     make.make(f"a useful {kind}", provider_id="ollama", model="m", kind=kind, rounds=rounds,
               out_dir=tmp_path / "out", transport=model, allow_commands=allow)
     return tmp_path / "out"
+
+
+def answered(tmp_path: Path) -> list[str]:
+    """CLI arguments that answer the interview from a file, the way the owner would after a pause."""
+    answers = tmp_path / "answers.json"
+    answers.write_text(json.dumps({"for": "Claude Code", "answers": {"must": "be safe"}, "confirmed": True}), encoding="utf-8")
+    return ["--answers", str(answers)]
 
 
 def checks(folder: Path, version: int = 1) -> list[dict[str, object]]:
@@ -74,7 +87,7 @@ def test_made_rule_line_names_the_real_file(tmp_path: Path, monkeypatch: pytest.
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "outside-home"))
     monkeypatch.setattr(live, "_httpx_post", ScriptedModel([{"name": "safe-edits", "content": "# Safe edits\nRead first.\n"}]))
     code = cli.main(["make", "a rule", "--kind", "rule", "--provider", "ollama", "--model", "m", "--rounds", "1",
-                     "--out", str(tmp_path / "out")])
+                     "--out", str(tmp_path / "out"), *answered(tmp_path)])
     out = capsys.readouterr().out
     assert code == 0 and "<rule-name>" not in out
     assert any(line.startswith("rule file: ") and line.endswith("safe-edits.md") for line in out.splitlines())
@@ -310,7 +323,7 @@ def test_unwritten_mcp_is_not_reported_as_made(tmp_path: Path, monkeypatch: pyte
     # A local model returned prose instead of the JSON spec: the judge still scored it 8, but nothing was written.
     monkeypatch.setattr(live, "_httpx_post", ScriptedModel(["Here is your server: it returns the time."], [8]))
     code = cli.main(["make", "an MCP server that returns the time", "--kind", "mcp", "--provider", "ollama",
-                     "--model", "m", "--rounds", "1", "--out", str(tmp_path / "out")])
+                     "--model", "m", "--rounds", "1", "--out", str(tmp_path / "out"), *answered(tmp_path)])
     out = capsys.readouterr().out
     assert checks(tmp_path / "out")[0] == {"check": "mcp written", "ok": False,
                                             "detail": checks(tmp_path / "out")[0]["detail"]}
@@ -334,7 +347,7 @@ def test_made_line_says_how_many_checks_passed(tmp_path: Path, monkeypatch: pyte
     monkeypatch.setattr(live, "_httpx_post", ScriptedModel(
         [{"name": "tiny-server", "command": "python", "args": ["server.py"], "files": {"server.py": SERVER}}]))
     code = cli.main(["make", "a useful mcp", "--kind", "mcp", "--provider", "ollama", "--model", "m", "--rounds", "1",
-                     "--allow-commands", "--out", str(tmp_path / "out")])
+                     "--allow-commands", "--out", str(tmp_path / "out"), *answered(tmp_path)])
     assert code == 0 and "made: version 1 (judge score 9/10; 1 of 1 checks passed)" in capsys.readouterr().out
 
 

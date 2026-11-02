@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from proofhouse import addons, app_platforms, cli, deploy, hosts, learn, learn_catalog, live, make, make_checks, media, providers, spend, train
+from proofhouse import addons, app_platforms, cli, deploy, hosts, learn, learn_catalog, live, live_cli, make, make_checks, media, providers, spend, train
 from proofhouse.optimize import install_skill
 
 WEB = {"index.html": "<!doctype html><html><body><h1>App</h1></body></html>"}
@@ -974,7 +974,7 @@ def test_cli_learns_an_unknown_platform(tmp_path: Path, monkeypatch: pytest.Monk
     assert learn_catalog.learned_raw("app_platforms", "gadget-os")["approved"] is False
     assert not (tmp_path / "out").exists()
     assert cli.main(["addons", "approve", "learned", "gadget-os"]) == 0
-    assert cli.main(args) == 0 and "waiting for your answers" in capsys.readouterr().out  # an app asks first now
+    assert cli.main(args) == live_cli.EXIT_WAITING and "waiting for your answers" in capsys.readouterr().out  # an app asks first now
     answers = tmp_path / "out" / "answers.json"
     filled = json.loads(answers.read_text(encoding="utf-8"))
     assert filled["for"] == "gadget-os"

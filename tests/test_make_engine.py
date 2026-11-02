@@ -28,6 +28,10 @@ class ScriptedModel:
             role, content = "test input", "A customer asks for a refund on order 42."
         elif text.startswith("You judge AI work"):
             role, content = "judge", json.dumps({"score": self.scores.pop(0), "missing": ["tone"], "fix": "be warmer"})
+        elif text.startswith("You are an expert prompt engineer. You generate"):
+            role, content = "questions", json.dumps([{"id": "must", "text": "What must it always do?", "type": "text"}])
+        elif text.startswith("You are about to write a"):
+            role, content = "say back", "- What it is: a refund prompt"
         elif text.startswith("Improve the"):
             role, content = "revise", self._artifact(len([c for c in self.calls if c == "revise"]) + 2)
         else:
@@ -117,7 +121,10 @@ def test_a_judge_that_does_not_answer_in_json_does_not_crash_the_run(tmp_path: P
 def test_cli_make_prints_where_everything_is(tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch) -> None:
     model = ScriptedModel([9])
     monkeypatch.setattr(live, "_httpx_post", model)
-    code = cli.main(["make", "a refund prompt", "--provider", "ollama", "--model", "m", "--out", str(tmp_path / "o")])
+    answers = tmp_path / "answers.json"
+    answers.write_text(json.dumps({"for": "Claude Code", "answers": {"must": "be warm"}, "confirmed": True}), encoding="utf-8")
+    code = cli.main(["make", "a refund prompt", "--provider", "ollama", "--model", "m", "--out", str(tmp_path / "o"),
+                     "--answers", str(answers)])
     out = capsys.readouterr().out
     assert code == 0 and "made: version 1 (judge score 9/10)" in out and str(tmp_path / "o") in out
 

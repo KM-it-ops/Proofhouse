@@ -11,7 +11,7 @@ from pathlib import Path
 import pytest
 
 import proofhouse
-from proofhouse import cli, launch, live, media
+from proofhouse import cli, launch, live, live_cli, media
 
 SITE = {"index.html": '<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width">'
                       "<title>Brew</title></head><body><h1>Brew</h1></body></html>"}
@@ -31,6 +31,10 @@ class Team:
         text = " ".join(m["content"] for m in json.loads(request.body_bytes)["messages"])
         if text.startswith("You plan product launches"):
             role, content = "plan", json.dumps(self.plan)
+        elif text.startswith("You are an expert prompt engineer. You generate"):
+            role, content = "questions", json.dumps([{"id": "must", "text": "What must it always do?", "type": "text"}])
+        elif text.startswith("You are about to write a"):
+            role, content = "say back", "- What it is: a launch part"
         elif text.startswith("You judge AI work"):
             role, content = "judge", json.dumps({"score": 9, "missing": [], "fix": ""})
         elif text.startswith("You build excellent websites"):
@@ -126,7 +130,18 @@ def test_a_video_part_is_produced_by_the_studio(tmp_path: Path) -> None:
 def test_the_command_runs_a_launch(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     monkeypatch.setenv("PROOFHOUSE_BROWSER", str(tmp_path / "no-browser"))
     monkeypatch.setattr(live, "_httpx_post", Team(PLAN))
-    code = cli.main(["make", "launch Brew", "--kind", "launch", "--parts", "copy,agent", "--provider", "ollama", "--model", "m",
-                     "--out", str(tmp_path / "l")])
+    base = ["make", "launch Brew", "--kind", "launch", "--parts", "copy,agent", "--provider", "ollama", "--model", "m",
+            "--out", str(tmp_path / "l")]
+    code = cli.main(base)
+    for _ in range(4):  # the whole goal asks first, then each part; fill in every answers file that is waiting
+        assert code == live_cli.EXIT_WAITING
+        waiting = [Path(line.split("fill in ")[1].split(", then")[0]) for line in capsys.readouterr().out.splitlines()
+                   if line.startswith("fill in ")]
+        assert waiting
+        for path in waiting:
+            path.write_text(json.dumps({"for": "Claude Code", "answers": {"must": "be warm"}, "confirmed": True}), encoding="utf-8")
+        code = cli.main([*base, "--answers", str(waiting[0])])
+        if code == 0:
+            break
     out = capsys.readouterr().out
     assert code == 0 and "copy" in out and "agent" in out and "README.md" in out

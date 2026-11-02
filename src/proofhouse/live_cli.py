@@ -15,6 +15,7 @@ from . import launch, live, make, providers, spend, studio
 EXIT_OK = 0
 EXIT_USAGE = 2
 EXIT_REFUSED = 7
+EXIT_WAITING = 9
 
 
 def _fail(message: str) -> int:
@@ -228,12 +229,7 @@ def _choose_interviewer(args: argparse.Namespace, *, launching: bool = False) ->
         show = (lambda text: print(text, end="", file=sys.stderr, flush=True)) if args.json else (
             lambda text: print(text, end="", flush=True))
         return mi.TerminalInterviewer(input, show, None if launching else for_target, args.kind), out
-    if for_target:
-        return mi.FileInterviewer(None, for_target), out
-    if not launching:
-        print(f"tip: pass --for <{mi._ask_for(args.kind)}> to be asked a few questions first, so it comes out right",
-              file=sys.stderr)
-    return None, out
+    return mi.FileInterviewer(None, for_target), out
 
 
 def _cmd_make_launch(args: argparse.Namespace) -> int:
@@ -259,7 +255,7 @@ def _cmd_make_launch(args: argparse.Namespace) -> int:
             print(f"fill in {path}, then run the same command again with --answers {path}")
         print(f"everything is in {made.folder} (start with README.md)")
     if made.waiting:
-        return EXIT_OK
+        return EXIT_WAITING
     return EXIT_OK if made.parts and all(p.status == "made" for p in made.parts) else EXIT_REFUSED
 
 
@@ -305,7 +301,7 @@ def _cmd_make(args: argparse.Namespace) -> int:
         else:
             print(f"waiting for your answers: {', '.join(str(p) for p in made.waiting)}")
             print(f"fill in answers.json, then run: {again}")
-        return EXIT_OK
+        return EXIT_WAITING
     summary = {
         "folder": str(made.folder),
         "kind": made.kind,
