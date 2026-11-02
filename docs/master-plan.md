@@ -49,6 +49,7 @@ How it behaves everywhere:
 | Run any prompt on any provider; compare many models on one job | works |
 | Make prompts, skills, agents, copy | works (host mode: examples for prompt, copy, app, rule, agent, skill, hook, site, mcp) |
 | Interview first for text kinds: asks its questions, says back what it understood, asks which AI tool or model it is for, then makes it in that tool's format and tries it there when it can | works (terminal or an answers file; an unknown tool is researched, not refused) |
+| Interview first for sites, apps and launches: where it will be published or which platforms, a few questions, a say-back, then build and check against the answers | works (terminal or an answers file; a launch asks shared questions once, then per part) |
 | Make rules, MCP servers, hooks (each one tried for real before delivery) | works |
 | Make websites and put them online (Netlify, Vercel, Cloudflare, Surge, or any target added) | works |
 | Make apps for every platform | works; native builds proven on all six platforms ([run](https://github.com/KM-it-ops/Proofhouse/actions/runs/39161715167)) |
@@ -94,6 +95,7 @@ opened and checked), and shown to a stranger (not done yet; it waits on the owne
 | Website | yes | 6/10, 7 of 7 checks, opened and shot on desktop and phone; a real Vercel deploy answered HTTP 200 | no |
 | App | yes | 4/10, 46 of 52 checks passed | no |
 | Launch (site, copy, prompt from one goal) | yes | site 8/10, copy 8/10, prompt 10/10 | no |
+| Site and app asking first (step 7a) | yes | run live 2026-11-02 through the agent bridge, answered from files: site for Netlify 9/10, 7 of 7 checks; app for PWA only 8/10, 22 of 23 checks (the one left is "nothing to build"); the answers show up in both | no |
 | Loop | yes | broken code fixed in 2 rounds, 4 of 4 tests pass, run again by hand | no |
 | Video engine | yes | two finished films with voice, music and burned-in captions, in three shapes (60 s and 45 s) | no |
 | Another provider (the Claude and Grok agent bridges, Ollama) | yes | not run live | no |
@@ -314,6 +316,11 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      answers and agreed summary feed the writer, the existing build-and-check loop and the judge, and the
      result is scored against them. For a launch, one interview covers the goal and only the questions
      specific to a part are asked per part.
+     **Done (branch `feat/make-interview-site-app`).** A site is asked where it will be published (the
+     deploy list), an app which platforms (`app_platforms.json`; `--platform` answers it), and a launch
+     asks the shared questions once and then each part only its own. An unknown place is learned, not
+     refused; a learned platform still needs `proofhouse addons approve learned <id>` before anything is
+     built for it, because platforms carry build commands. Pause and resume work through `--answers`.
    - **7b. Every run asks.** A run with no terminal and no `--for` now pauses like any other: it writes the
      questions, including which tool or model it is for, into the folder with an answers template and
      stops. It no longer prints a tip and makes the thing blind. `--answers` resumes and `--preset` fills

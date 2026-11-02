@@ -1,7 +1,9 @@
-"""Before make writes a prompt, skill, agent, rule or any other text kind, it interviews you.
+"""Before make writes a prompt, skill, agent, rule, site, app or any other kind, it interviews you.
 
-1. Which AI tool or model is it for? Known tools come from the host list (``hosts.json``), known models
-   from the model registry. Anything else is researched by your model and learned, never refused.
+1. Where is it for? For text kinds, an AI tool or model: known tools come from the host list (``hosts.json``),
+   known models from the model registry. For a site, where it will be published (the deploy list); for an app,
+   the platforms it runs on (the platform list). Anything else is researched by your model and learned, never
+   refused.
 2. Questions: the framework's clarify step (``packets.clarify_packet``), told how that tool or model
    wants the thing written.
 3. Say-back: the model says in plain words what it understood, and you confirm or correct it.
@@ -20,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from . import hosts, learn, learn_catalog
+from . import app_platforms, deploy, hosts, learn, learn_catalog
 from .optimize import packets
 from .optimize.model_notes import FALLBACK_ID, ResolvedNotes, prompt_notes, proofhouse_home, resolve_model_notes
 from .optimize.registry import find_model, load_registry
@@ -60,10 +62,27 @@ _SAY_BACK = (
     "jargon: if a technical term is needed, put it in brackets after the plain words. Output only the bullet points."
     "\n\n{brief}"
 )
+_SAY_BACK_PLACE = (
+    "You are about to write a {kind}{where}. Before writing anything, say back in plain everyday words what you "
+    "understood, so the owner can correct it. Use short bullet points under these headings: What it is; Who or what "
+    "uses it; What it must do; What it must not do; Where it will live; What I am assuming. Under 150 words. No "
+    "jargon: if a technical term is needed, put it in brackets after the plain words. Output only the bullet points."
+    "\n\n{brief}"
+)
+_PLACE_NOTE = (
+    "\n\nHere the thing being made is a {kind} {where}: ask what you need to make an excellent {kind} for that, "
+    "using what is known about it below.\n\nWHAT IS KNOWN:\n{guide}"
+)
+_SHARED_NOTE = "\n\nThe owner already answered these for the whole launch. Do not ask them again:\n{shared}"
+_PLACE_SORTS = ("deploy", "platform", "launch")
 
 
 class InterviewError(Exception):
     """The interview cannot go on (no tool or model named, a bad answers file)."""
+
+
+class Refused(InterviewError):
+    """The answer names something that must be approved first; nothing is asked or made until it is."""
 
 
 class Paused(Exception):
@@ -111,7 +130,7 @@ class ToolTarget:
     entered: str
     id: str
     name: str
-    sort: str  # "tool" (people work in it) or "model" (called directly)
+    sort: str  # "tool" (people work in it), "model" (called directly), "deploy", "platform" or "launch"
     guide: str
     guide_source: str
     learned_by: str | None = None  # set when a model researched the guide and nobody has reviewed it
@@ -136,13 +155,15 @@ class Interview:
     understood: str | None = None
     corrections: list[str] = field(default_factory=list)
     confirmed: bool = False
+    shared: str = ""  # what the owner told us for the whole launch this part belongs to
 
     def brief(self) -> str:
         """What make writes, judges and revises against: the request plus everything the interview found."""
         parts = [f"REQUEST:\n{self.request}"]
         if self.target is not None:
-            sort = "an AI tool people work in" if self.target.sort == "tool" else "an AI model called directly"
-            parts.append(f"MADE FOR: {self.target.name} ({sort})")
+            parts.append(f"MADE FOR: {_made_for(self.target)}")
+        if self.shared:
+            parts.append(f"WHAT THE OWNER TOLD US FOR THE WHOLE LAUNCH:\n{self.shared}")
         if self.entries:
             parts.append("WHAT THE OWNER TOLD US:\n" + packets.format_answered_entries(self.entries))
         if self.confirmed and self.understood:
@@ -151,8 +172,9 @@ class Interview:
             parts.append("CORRECTIONS FROM THE OWNER (these win over everything above):\n"
                          + "\n".join(f"- {c}" for c in self.corrections))
         if self.target is not None and self.target.guide:
-            parts.append(f"HOW {self.target.name.upper()} WANTS A {self.kind.upper()} WRITTEN "
-                         f"(from {self.target.guide_source}):\n{self.target.guide}")
+            heading = f"HOW {self.target.name.upper()} WANTS A {self.kind.upper()} WRITTEN" \
+                if self.target.sort in ("tool", "model") else f"WHAT IS KNOWN ABOUT {self.target.name.upper()}"
+            parts.append(f"{heading} (from {self.target.guide_source}):\n{self.target.guide}")
         return "\n\n".join(parts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -161,7 +183,7 @@ class Interview:
             "target": self.target.to_dict() if self.target else None,
             "questions": [q.to_dict() for q in self.questions], "questions_from": self.questions_from,
             "entries": [list(e) for e in self.entries], "answered": self.answered, "understood": self.understood,
-            "corrections": list(self.corrections), "confirmed": self.confirmed,
+            "corrections": list(self.corrections), "confirmed": self.confirmed, "shared": self.shared,
         }
 
     @classmethod
@@ -173,7 +195,48 @@ class Interview:
             [Question.from_dict(q) for q in data.get("questions") or []], data.get("questions_from", "model"),
             [(str(a), str(b)) for a, b in data.get("entries") or []], bool(data.get("answered")),
             data.get("understood"), list(data.get("corrections") or []), bool(data.get("confirmed")),
+            str(data.get("shared") or ""),
         )
+
+
+def _made_for(target: ToolTarget) -> str:
+    if target.sort == "deploy":
+        return f"{target.name} (where the site will be published)"
+    if target.sort == "platform":
+        return f"{target.name} (the platforms the app runs on)"
+    if target.sort == "launch":
+        return target.name
+    return f"{target.name} ({'an AI tool people work in' if target.sort == 'tool' else 'an AI model called directly'})"
+
+
+def _where(target: ToolTarget) -> str:
+    """The target in a phrase that follows the kind: 'to be published on Netlify'."""
+    if target.sort == "deploy":
+        return f"to be published on {target.name}"
+    if target.sort == "platform":
+        return f"that runs on {target.name}"
+    return ""
+
+
+def target_question(kind: str) -> str:
+    """The question that asks where the thing is for, with examples read from the lists, not written in code."""
+    if kind == "site":
+        return f"Where will the site be published? (for example: {', '.join(deploy.all_targets())})"
+    if kind == "app":
+        return f"Which platforms should the app run on? (for example: {', '.join(app_platforms.all_platforms())})"
+    return "Which AI tool or model is this for? (for example Claude Code, Cursor, Codex, or a model name)"
+
+
+def shared_text(iv: Interview) -> str:
+    """What the owner told us, and the understanding they confirmed, to hand on to the parts of a launch."""
+    parts = []
+    if iv.entries:
+        parts.append(packets.format_answered_entries(iv.entries))
+    if iv.corrections:
+        parts.append("Corrections (these win):\n" + "\n".join(f"- {c}" for c in iv.corrections))
+    if iv.confirmed and iv.understood:
+        parts.append(f"Understanding the owner confirmed:\n{iv.understood}")
+    return "\n\n".join(parts)
 
 
 class Interviewer(Protocol):
@@ -325,12 +388,94 @@ def _general(entered: str, key: str, name: str, sort: str) -> ToolTarget:
                       "Proofhouse's general notes (nothing specific was found)", None)
 
 
+def _ask_for(kind: str) -> str:
+    return {"site": "where the site will be published", "app": "which platforms the app should run on"}.get(
+        kind, "which AI tool or model this is for")
+
+
+def _by_key(entries: dict[str, dict[str, Any]], key: str) -> str | None:
+    for entry_id, entry in entries.items():
+        if key in (_key(entry_id), _key(str(entry.get("name") or ""))):
+            return entry_id
+    return None
+
+
+def _deploy_target(entered: str, key: str, ask: Ask, learned_by: str) -> ToolTarget:
+    """Where a site will be published: the deploy list first, then learned. Make never deploys, so it only shapes the guide."""
+    found = _by_key(deploy.all_targets(), key)
+    if found is None:
+        plain = learn_catalog.plain_service_id(key)
+        if plain is None:
+            raise InterviewError(f"{entered!r} is not a plain name for a place to publish; try its short name")
+        try:
+            learn_catalog.ensure_deploy(plain, None, lambda prompt: ask("research", prompt))
+        except learn.LearnError as exc:
+            raise InterviewError(f"could not learn how to publish on {entered}: {exc}") from None
+        found = _by_key(deploy.all_targets(), plain)
+        if found is None:
+            raise InterviewError(f"could not learn how to publish on {entered}")
+    entry = deploy.all_targets()[found]
+    learned = learn_catalog.is_learned(entry)
+    guide = (f"{entry.get('name') or found} is published with the tool {entry.get('tool')}. "
+             f"Install: {entry.get('install')}. Command: {' '.join(str(w) for w in entry.get('command') or [])}")
+    return ToolTarget(entered, found, str(entry.get("name") or found), "deploy", guide[:_GUIDE_LIMIT],
+                      "learned (named by a model, not checked)" if learned else "the deploy list",
+                      learned_by if learned else None)
+
+
+def _unknown_platform(piece: str) -> str:
+    return f"unknown platform: {piece.strip()}; known: {', '.join(sorted(app_platforms.all_platforms()))}"
+
+
+def _platform_target(entered: str, ask: Ask, learned_by: str) -> ToolTarget:
+    """The platforms an app runs on: each from the platform list, or learned (make waits for approval before using it)."""
+    ids: list[str] = []
+    for piece in re.split(r",|\+|\s+and\s+", entered, flags=re.I):
+        key = _key(piece)
+        if not key:
+            continue
+        found = _by_key(app_platforms.all_platforms(), key)
+        if found is None:
+            plain = learn_catalog.plain_platform_id(key)
+            if plain is None:
+                raise InterviewError(f"{piece.strip()!r} is not a plain platform name")
+            try:
+                learn_catalog.ensure_platform(plain, None, lambda prompt: ask("research", prompt))
+            except learn.LearnError:
+                raise InterviewError(_unknown_platform(piece)) from None
+            found = _by_key(app_platforms.all_platforms(), plain)
+            if found is None:
+                raise InterviewError(_unknown_platform(piece))
+        if found not in ids:
+            ids.append(found)
+    if not ids:
+        raise InterviewError(f"say {_ask_for('app')}")
+    catalog = app_platforms.all_platforms()
+    names, guides, learned = [], [], False
+    for platform_id in ids:
+        entry = catalog[platform_id]
+        pending = learn_catalog.unapproved("app_platforms", platform_id, entry)
+        if pending:  # stop before the questions: a learned platform carries build commands and waits for approval
+            raise Refused(learn_catalog.refusal_message(
+                pending, thing=f"Platform {platform_id}", command=f"{learn_catalog.APPROVE_CMD} {platform_id}"))
+        names.append(str(entry.get("name") or platform_id))
+        learned = learned or learn_catalog.is_learned(entry)
+        guides.append(f"{names[-1]}: shell {entry.get('shell')}. {entry.get('write')}")
+    return ToolTarget(entered, "+".join(ids), ", ".join(names), "platform", "\n".join(guides)[:_GUIDE_LIMIT],
+                      "learned (named by a model, not checked)" if learned else "the platform list",
+                      learned_by if learned else None)
+
+
 def find_target(entered: str, kind: str, ask: Ask, *, learned_by: str) -> ToolTarget:
     """Known tools first, then known models, then what was learned before; anything else is researched now."""
     entered = entered.strip()
     key = _key(entered)
     if not key:
-        raise InterviewError("say which AI tool or model this is for")
+        raise InterviewError(f"say {_ask_for(kind)}")
+    if kind == "site":
+        return _deploy_target(entered, key, ask, learned_by)
+    if kind == "app":
+        return _platform_target(entered, ask, learned_by)
     host = _known_host(key)
     if host is not None:
         found = _host_target(entered, *host, kind)
@@ -379,8 +524,16 @@ def _notes_for(target: ToolTarget) -> ResolvedNotes:
 
 def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], str]:
     assert iv.target is not None
-    packet = packets.clarify_packet(f"Make a {iv.kind} for {iv.target.name}. {iv.request}", _notes_for(iv.target), preset, False)
-    system = packet.system + _KIND_NOTE.format(kind=iv.kind, name=iv.target.name)
+    target = iv.target
+    where = _where(target)
+    objective = f"Make a {iv.kind} {where}. {iv.request}" if where else f"Make a {iv.kind} for {target.name}. {iv.request}"
+    packet = packets.clarify_packet(objective, _notes_for(target), preset, False)
+    if target.sort in _PLACE_SORTS:
+        system = packet.system + _PLACE_NOTE.format(kind=iv.kind, where=where or f"({target.name})", guide=target.guide)
+    else:
+        system = packet.system + _KIND_NOTE.format(kind=iv.kind, name=target.name)
+    if iv.shared:
+        system += _SHARED_NOTE.format(shared=iv.shared)
     for user in (packet.user, packet.user + "\n\nReply with the JSON array only, nothing else."):
         try:
             return parse_questions(ask("questions", system, user)), "model"
@@ -391,7 +544,11 @@ def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], st
 
 def _say_back(iv: Interview, ask: Ask) -> str:
     assert iv.target is not None
-    reply = (ask("say back", _SAY_BACK.format(kind=iv.kind, name=iv.target.name, brief=iv.brief())) or "").strip()
+    if iv.target.sort in _PLACE_SORTS:
+        prompt = _SAY_BACK_PLACE.format(kind=iv.kind, where=(" " + _where(iv.target)).rstrip(), brief=iv.brief())
+    else:
+        prompt = _SAY_BACK.format(kind=iv.kind, name=iv.target.name, brief=iv.brief())
+    reply = (ask("say back", prompt) or "").strip()
     return reply or "\n".join(f"- {q}: {a}" for q, a in iv.entries) or f"- {iv.request}"
 
 
@@ -475,8 +632,9 @@ class FileInterviewer:
 class TerminalInterviewer:
     """Asks in the terminal. Enter skips a question; at the say-back, Enter accepts and any other text corrects."""
 
-    def __init__(self, read: Callable[[], str], write: Callable[[str], None], for_target: str | None = None) -> None:
-        self.read, self.write, self.for_target = read, write, for_target
+    def __init__(self, read: Callable[[], str], write: Callable[[str], None], for_target: str | None = None,
+                 kind: str = "") -> None:
+        self.read, self.write, self.for_target, self.kind = read, write, for_target, kind
 
     def _line(self, prompt: str) -> str:
         self.write(prompt)
@@ -489,11 +647,10 @@ class TerminalInterviewer:
         if self.for_target:
             return self.for_target
         for _ in range(3):
-            entered = self._line("Which AI tool or model is this for? (for example Claude Code, Cursor, Codex, "
-                                 "or a model name): ")
+            entered = self._line(target_question(self.kind) + ": ")
             if entered:
                 return entered
-        raise InterviewError("say which AI tool or model this is for (--for)")
+        raise InterviewError(f"say {_ask_for(self.kind)} (--for)")
 
     def answers(self, questions: list[Question]) -> dict[str, str] | None:
         self.write("\nA few questions so it comes out right. Press Enter to skip one.\n")
@@ -549,9 +706,9 @@ def load(folder: Path) -> tuple[Interview, list[dict[str, Any]], str] | None:
 def questions_markdown(iv: Interview) -> str:
     lines = [f"# Questions before making: {iv.request}", ""]
     if iv.target is None:
-        lines += ["Which AI tool or model is this for? Put it in answers.json as \"for\" (or pass --for).", ""]
+        lines += [f"{target_question(iv.kind)} Put it in answers.json as \"for\" (or pass --for).", ""]
         return "\n".join(lines)
-    lines += [f"Made for: {iv.target.name}", ""]
+    lines += [f"Made for: {_made_for(iv.target)}", ""]
     for n, q in enumerate(iv.questions, 1):
         lines.append(f"{n}. **{q.id}**: {q.text}")
         if q.options:
