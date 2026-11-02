@@ -16,6 +16,12 @@ Kinds:
   A new kind is researched by your model first and saved as a learned kind
   (``learn.py``), then made like the others; it is never refused for being new.
 
+For a prompt, skill, agent, rule or any other text kind, make first interviews you when it is given an
+interviewer (``make_interview.py``): which AI tool or model it is for, the questions it needs answered, and
+a say-back you confirm or correct. The answers become the brief everything is written and judged against,
+and the result is written in the form that tool wants. With ``try_on`` (or a local agent provider for that
+tool, ``agent-<tool>``), each version is also tried on the tool itself.
+
 Everything lands in one folder: every version, every test output, every score,
 and every call's tokens and estimated cost (``record.json``), plus the best
 version (``final.md``, or the skill folder). The judge is a model, so its score
@@ -73,7 +79,8 @@ _WRITE = {
         "'description: <one line saying when to use it>', then the agent's instructions. Output only the file content."
     ),
     "rule": (
-        "Write a standing Markdown instruction for an AI coding tool that fulfills the request. No frontmatter is needed. "
+        "Write a standing Markdown instruction for an AI coding tool that fulfills the request. No frontmatter is needed "
+        "unless the tool it is for wants it. "
         'Reply with JSON only: {"name": "lowercase-hyphenated-name", "content": "complete Markdown rule"}.'
     ),
     "mcp": (
@@ -103,6 +110,17 @@ _REVISE = (
     "Improve the {kind} below so it fully achieves the request. Fix this first: {fix}\n"
     "Also missing: {missing}\nOutput only the improved {kind}, nothing else.{form}\n\nREQUEST:\n{request}\n\nCURRENT {upper}:\n{current}"
 )
+_FOR_TARGET = (
+    "\n\nThis {kind} is for {name}. Follow how {name} wants a {kind} written (in the brief below), but keep the reply "
+    "shape asked for above. Use everything the owner said in the brief; their corrections win."
+)
+_TASK_INPUT = (
+    "Write one realistic task that someone using {name} would give it, where the {kind} below should guide the work. "
+    "Put everything the task needs inside it (paste any file, diff, log or page it works on), because the tool may "
+    "not be able to run commands or open files. Output only that task.\n\n{upper}:\n{text}"
+)
+# Kinds that can be handed to a tool as its instructions and tried there.
+TRY_ON_KINDS = ("prompt", "skill", "agent", "rule")
 _SUBJECT = {"skill": "SKILL.md", "agent": "SUBAGENT FILE", "copy": "COPY"}
 _SITE_FORM = ' Reply with the complete site again as JSON only: {"files": {"index.html": "...", ...}}.'
 _JSON_FORM = {
@@ -148,6 +166,11 @@ class MakeResult:
     calls: list[Call] = field(default_factory=list)
     # The kind's entry when this make researched and learned it (learn.py); ``None`` otherwise.
     learned: dict[str, Any] | None = None
+    # The interview's files when it paused for answers; nothing was made yet (make_interview.py).
+    waiting: list[Path] | None = None
+    interview: Any = None
+    tried_on: str | None = None
+    tried_on_note: str | None = None
 
 
 def _slug(text: str) -> str:
@@ -236,8 +259,12 @@ def make(
     transport: live.Transport | None = None,
     allow_commands: bool = False,
     platforms: list[str] | None = None,
+    interviewer: Any = None,
+    preset: str = "balanced",
+    try_on: str | None = None,
 ) -> MakeResult:
     from . import addons, learn
+    from . import make_interview as mi
 
     extra = {} if kind in KINDS else addons.make_kinds()
     if kind not in KINDS and kind not in extra:
@@ -269,25 +296,44 @@ def make(
     profile = providers.find(provider_id)
     if profile is None:
         raise MakeError(f"no provider named {provider_id!r}; see `proofhouse providers list`")
-    if max_cost_usd is None and not profile.local:
+    tester = _try_on_profile(try_on) if try_on else None
+    local = profile.local and (tester is None or tester[0].local)
+    if max_cost_usd is None and not local:
         raise MakeError("name a spending limit for the whole make (--max-cost-usd)")
     try:
-        budget = Budget(max_cost_usd, profile.local)
+        budget = Budget(max_cost_usd, local)
     except InvalidOperation:
         raise MakeError("--max-cost-usd must be a decimal such as 0.50") from None
 
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = out_dir or Path.cwd() / f"make-{_slug(request)}-{stamp}"
-    if folder.exists():
-        raise MakeError(f"{folder} already exists; pick a new folder with --out, or remove it first")
     result = MakeResult(folder, kind, "rounds used up", None, None, Decimal(0))
+    interviewing = interviewer is not None and kind not in ("site", "app")
+    interview = None
+    # An interview that paused for answers goes on in its own folder: same request, same kind, nothing made yet.
+    if interviewing and (folder / "interview.json").is_file() and not (folder / "record.json").exists():
+        try:
+            saved = mi.load(folder)
+        except mi.InterviewError as exc:
+            raise MakeError(str(exc)) from None
+        assert saved is not None
+        interview, calls, spent = saved
+        if interview.request != request or interview.kind != kind:
+            raise MakeError(f"{folder} holds an interview for another request or kind; pick a new folder with --out")
+        result.calls = [Call(**c) for c in calls]
+        budget.spent = Decimal(spent)
+        budget.left -= budget.spent
+    elif folder.exists():
+        raise MakeError(f"{folder} already exists; pick a new folder with --out, or remove it first")
 
-    def call(role: str, prompt: str, input_text: str | None = None) -> str | None:
+    def call(role: str, prompt: str, input_text: str | None = None, on: tuple[Any, str] | None = None,
+             soft: bool = False) -> str | None:
         limit = budget.for_next_call()
         if limit == "0":
             raise _Stop("spending limit reached")
+        where, which = on or (profile, model)
         reply = live.run_prompt(
-            profile.id, model, prompt=prompt, input_text=input_text,
+            where.id, which, prompt=prompt, input_text=input_text,
             max_output_tokens=max_output_tokens, max_cost_usd=limit, transport=transport,
         )
         cost = reply.cost or {}
@@ -296,6 +342,9 @@ def make(
         if reply.code == "PHC-COST-0001":
             raise _Stop("spending limit reached")
         if reply.status != "success":
+            if soft:  # a try on the target tool that could not reach it does not stop the make
+                result.tried_on_note = f"could not try it on {where.id}/{which}: {reply.message}"
+                return None
             raise _Stop(f"{reply.message}")
         return reply.output_text
 
@@ -321,7 +370,25 @@ def make(
                 if pending:
                     raise MakeError(learn_catalog.refusal_message(
                         pending, thing=f"Platform {platform_id}", command=f"{learn_catalog.APPROVE_CMD} {platform_id}"))
-        folder.mkdir(parents=True, exist_ok=False)
+        folder.mkdir(parents=True, exist_ok=interview is not None)
+        if interviewing:
+            interview = interview or mi.Interview(request, kind)
+            try:
+                mi.run(interview, interviewer, call, preset=preset, learned_by=f"{profile.id}/{model}")
+            except mi.Paused as paused:
+                mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
+                result.waiting = mi.write_pause(folder, interview, paused.stage)
+                result.stopped, result.interview, result.spent_usd = "waiting for your answers", interview, budget.spent
+                return result
+            except (mi.InterviewError, ValueError) as exc:
+                mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
+                raise MakeError(str(exc)) from None
+            mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
+            result.interview = interview
+            if tester is None and kind in TRY_ON_KINDS and interview.target and interview.target.sort == "tool":
+                tester = _agent_for(interview.target.id)
+        if tester is not None and kind in TRY_ON_KINDS:
+            result.tried_on = f"{tester[0].id}/{tester[1]}"
         if learning:
             try:
                 result.learned = learn.learn(kind, lambda prompt: call("research", prompt), learned_by=f"{profile.id}/{model}")
@@ -330,26 +397,47 @@ def make(
             extra = {**extra, kind: {**result.learned, "addon": learn.LEARNED_PACK}}
         writer = _WRITE[kind] if kind in _WRITE else extra[kind]["write"]
         label = _SUBJECT.get(kind) or str(extra.get(kind, {}).get("subject") or kind.upper())
-        current = _strip_fences(call("write", writer, request) or "")
+        brief = request
+        made_for = interview.target if interview is not None else None
+        if interview is not None and made_for is not None:
+            brief = interview.brief()
+            writer += _FOR_TARGET.format(kind=kind, name=made_for.name)
+        rule_host = made_for.id if kind == "rule" and made_for is not None and made_for.sort == "tool" else None
+        trying = tester if kind in TRY_ON_KINDS else None
+        tool = made_for.name if made_for is not None else (f"{trying[0].id}/{trying[1]}" if trying else "")
+        current = _strip_fences(call("write", writer, brief) or "")
         if kind == "prompt" and test_input is None:
             test_input = _strip_fences(call("test input", _TEST_INPUT.format(prompt=current)) or "")
+        task: str | None = None
         for version in range(1, rounds + 1):
             if not current:
                 raise _Stop("the model returned nothing to work with")
             output = None
             if kind == "prompt":
-                output = call("try", current, test_input or "")
-                subject = f"PROMPT:\n{current}\n\nTEST INPUT:\n{test_input}\n\nOUTPUT IT PRODUCED:\n{output}"
+                output = call("try", current, test_input or "", on=trying, soft=trying is not None)
+                where = f" ON {tool.upper()}" if trying is not None and output is not None else ""
+                subject = f"PROMPT:\n{current}\n\nTEST INPUT:\n{test_input}\n\nOUTPUT IT PRODUCED{where}:\n{output}"
             elif kind == "app":
                 output, subject = _try_app(current, request, folder / f"v{version}", chosen, catalog,
                                            allow_commands, call)
             elif kind == "site":
                 output, subject = _try_site(current, folder / f"v{version}")
             elif kind in ("rule", "mcp", "hook"):
-                output, subject = _try_new_kind(kind, current, request, folder / f"v{version}", allow_commands)
+                output, subject = _try_new_kind(kind, current, request, folder / f"v{version}", allow_commands,
+                                                host=rule_host)
             else:
                 subject = f"{label}:\n{current}"
-            score, missing, fix = _judgement(call("judge", _JUDGE.format(request=request, subject=subject)))
+            if trying is not None and kind != "prompt" and result.tried_on_note is None:
+                instructions = _rule_content(current) if kind == "rule" else current
+                if task is None:
+                    task = _strip_fences(call("task", _TASK_INPUT.format(
+                        name=tool, kind=kind, upper=kind.upper(), text=instructions)) or "")
+                did = call("try", instructions, task, on=trying, soft=True)
+                if did is not None:
+                    if kind != "rule":
+                        output = did
+                    subject += f"\n\nTRIED ON {tool.upper()} WITH THIS TASK:\n{task}\n\nWHAT IT DID:\n{did}"
+            score, missing, fix = _judgement(call("judge", _JUDGE.format(request=brief, subject=subject)))
             result.rounds.append(Round(version, current, output, score, missing, fix))
             if kind not in ("site", "app", "rule", "mcp", "hook"):
                 (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
@@ -361,7 +449,7 @@ def make(
             current = _strip_fences(call("revise", _REVISE.format(
                 kind=kind, upper=kind.upper(), fix=fix or "make it fully meet the request",
                 form=_SITE_FORM if kind in ("site", "app") else _JSON_FORM.get(kind, ""),
-                missing="; ".join(missing) or "nothing listed", request=request, current=current,
+                missing="; ".join(missing) or "nothing listed", request=brief, current=current,
             ) + (f"\nCHECK FAILURES FROM THIS ROUND:\n{subject}" if kind == "app" else "")) or "")
     except _Stop as stop:
         result.stopped = str(stop)
@@ -389,6 +477,29 @@ def make(
 
 class _Stop(Exception):
     pass
+
+
+def _try_on_profile(value: str) -> tuple[Any, str]:
+    """``PROVIDER/MODEL`` (or a bare provider, model ``default``) that each version is tried on."""
+    provider_id, _, which = value.strip().partition("/")
+    found = providers.find(provider_id)
+    if found is None:
+        raise MakeError(f"no provider named {provider_id!r} to try it on; see `proofhouse providers list`")
+    return found, which.strip() or "default"
+
+
+def _agent_for(tool_id: str) -> tuple[Any, str] | None:
+    """The local agent bridge for a tool, when you have added one (``proofhouse agent-server``)."""
+    found = providers.find(f"agent-{tool_id}")
+    return (found, "default") if found is not None and found.local else None
+
+
+def _rule_content(text: str) -> str:
+    try:
+        content = make_checks.parse_json(text).get("content")
+    except ValueError:
+        return text
+    return content if isinstance(content, str) and content.strip() else text
 
 
 def _site_files(text: str) -> dict[str, str]:
@@ -597,13 +708,14 @@ def _deliver_app(folder: Path, version: int, chosen: list[str], catalog: dict[st
     (folder / "README.md").write_text("\n".join(lines), encoding="utf-8")
 
 
-def _try_new_kind(kind: str, text: str, request: str, version_dir: Path, allow_commands: bool) -> tuple[str, str]:
+def _try_new_kind(kind: str, text: str, request: str, version_dir: Path, allow_commands: bool,
+                  host: str | None = None) -> tuple[str, str]:
     version_dir.mkdir(parents=True, exist_ok=True)
     names: list[str] = []
     try:
         if kind == "rule":
-            name, checks = make_checks.rule(text, request, version_dir)
-            names = [f"{name}.md"]
+            name, checks = make_checks.rule(text, request, version_dir, host=host)
+            names = [f"{name}{make_checks.rule_suffix(host)}"]
         else:
             data = make_checks.parse_json(text)
             names = make_checks.write_files(data.get("files"), version_dir / kind)
@@ -622,8 +734,9 @@ def _try_new_kind(kind: str, text: str, request: str, version_dir: Path, allow_c
 def _deliver_new_kind(folder: Path, kind: str, text: str, request: str, version: int) -> None:
     source = folder / f"v{version}"
     if kind == "rule":
-        for path in source.glob("*.md"):
-            shutil.copy2(path, folder / path.name)
+        for path in source.iterdir():
+            if path.is_file() and path.name != "checks.json":
+                shutil.copy2(path, folder / path.name)
         return
     if not (source / kind).is_dir():
         return
@@ -708,4 +821,9 @@ def _write_record(
         record["kind_from"] = {key: kind_entry[key] for key in (
             "addon", "what_it_is", "sources", "sources_note", "learned_by", "learned_at") if key in kind_entry}
         record["kind_from"]["learned_this_run"] = result.learned is not None
+    if result.interview is not None:
+        record["interview"] = result.interview.to_dict()
+    if result.tried_on is not None:
+        record["tried_on"] = result.tried_on
+        record["tried_on_note"] = result.tried_on_note
     (folder / "record.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")

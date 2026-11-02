@@ -1180,8 +1180,16 @@
                     "description": "Start made MCP, hook or app build commands to check them; for --kind video with --facts, run the commands in the fact sheet on this machine. Model-written code runs with your rights; not a sandbox.",
                     "type": "boolean"
                   },
+                  "answers": {
+                    "description": "A JSON answers file: {\"for\": ..., \"answers\": {id: answer}, \"confirmed\": true, \"correction\": ...}; a paused make writes one to fill in.",
+                    "type": "string"
+                  },
                   "facts": {
                     "description": "Product fact sheet JSON for real capture shots and a fact-based script.",
+                    "type": "string"
+                  },
+                  "for": {
+                    "description": "The AI tool or model it is for (Claude Code, Cursor, Codex, a model name, or any other); turns on the interview without a terminal.",
                     "type": "string"
                   },
                   "formats": {
@@ -1238,6 +1246,15 @@
                     },
                     "type": "array"
                   },
+                  "preset": {
+                    "description": "How many questions to ask (default balanced).",
+                    "enum": [
+                      "efficient",
+                      "balanced",
+                      "thorough"
+                    ],
+                    "type": "string"
+                  },
                   "provider": {
                     "description": "Provider id (see `proofhouse providers list`).",
                     "type": "string"
@@ -1257,6 +1274,10 @@
                   "target": {
                     "description": "Stop when the judge scores this (0-10, default 9).",
                     "type": "integer"
+                  },
+                  "try-on": {
+                    "description": "PROVIDER/MODEL to try each version on (default: the tool's local agent bridge, agent-<tool>, when you added one).",
+                    "type": "string"
                   },
                   "visual-kind": {
                     "description": "Shots as images (animated) or video clips.",
