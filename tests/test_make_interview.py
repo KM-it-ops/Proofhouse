@@ -394,3 +394,23 @@ def test_the_try_on_task_carries_what_it_works_on(tmp_path: Path) -> None:
     make.make("x", provider_id="ollama", model="m", kind="skill", out_dir=tmp_path / "o", transport=model,
               interviewer=Answers("Claude Code", {}, [True]))
     assert "paste any file, diff, log or page it works on" in model.seen["task"]
+
+
+def test_a_tool_without_its_shell_is_tried_as_a_trial_and_the_skill_is_not_tuned_to_it(tmp_path: Path) -> None:
+    assert cli.main(["providers", "add", "agent-claude", "--base-url", "http://127.0.0.1:11801/v1"]) == 0
+    model = Owner([5, 9])
+    make.make("x", provider_id="ollama", model="m", kind="skill", out_dir=tmp_path / "o", transport=model,
+              interviewer=Answers("Claude Code", {}, [True]))
+    assert model.seen["try"].endswith("take what is pasted above as its output. Where the skill says to run "
+                                      "something or make a change, say in one line what you would do, then carry "
+                                      "on to the end the way the skill says. Do not talk about this trial, this "
+                                      "session or its folder.)")
+    assert "do not mark it down for commands it could not run" in model.seen["judge"]
+    assert "do not ask the skill to handle pasted input or a missing repository" in model.seen["judge"]
+    assert "Do not add anything about the trial run" in model.seen["revise"]
+
+
+def test_without_a_trial_the_judge_and_revise_get_no_trial_note(tmp_path: Path) -> None:
+    model = Owner([5, 9])
+    make.make("x", provider_id="ollama", model="m", kind="skill", out_dir=tmp_path / "o", transport=model)
+    assert "could not run" not in model.seen["judge"] and "trial run" not in model.seen["revise"]

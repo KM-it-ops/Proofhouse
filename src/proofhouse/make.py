@@ -108,7 +108,24 @@ _JUDGE = (
 )
 _REVISE = (
     "Improve the {kind} below so it fully achieves the request. Fix this first: {fix}\n"
-    "Also missing: {missing}\nOutput only the improved {kind}, nothing else.{form}\n\nREQUEST:\n{request}\n\nCURRENT {upper}:\n{current}"
+    "Also missing: {missing}\n{trial}Output only the improved {kind}, nothing else.{form}\n\nREQUEST:\n{request}\n\nCURRENT {upper}:\n{current}"
+)
+# A tool tried without its shell would otherwise say "I can't run that here", the judge would mark the made
+# thing down for it, and the next version would be tuned to the trial instead of to real use.
+_TRY_AS = (
+    "\n\n(This is a trial run. If you cannot run a command or open a file, take what is pasted above as its "
+    "output. Where the {kind} says to run something or make a change, say in one line what you would do, then "
+    "carry on to the end the way the {kind} says. Do not talk about this trial, this session or its folder.)"
+)
+_JUDGE_TRIED = (
+    "\n\nThe tool may not have been able to run commands or open files, so the task pastes in what it would have "
+    "read for itself. Judge whether the {kind} led it to the right work; do not mark it down for commands it "
+    "could not run, and do not ask the {kind} to handle pasted input or a missing repository. The fix must be a "
+    "change to the {kind} that helps in real use, not to this one reply."
+)
+_REVISE_TRIED = (
+    "Do not add anything about the trial run (a pasted task, a session without tools, a missing repository): "
+    "the {kind} is for real use.\n"
 )
 _FOR_TARGET = (
     "\n\nThis {kind} is for {name}. Follow how {name} wants a {kind} written (in the brief below), but keep the reply "
@@ -409,6 +426,7 @@ def make(
         if kind == "prompt" and test_input is None:
             test_input = _strip_fences(call("test input", _TEST_INPUT.format(prompt=current)) or "")
         task: str | None = None
+        tried = False
         for version in range(1, rounds + 1):
             if not current:
                 raise _Stop("the model returned nothing to work with")
@@ -432,11 +450,13 @@ def make(
                 if task is None:
                     task = _strip_fences(call("task", _TASK_INPUT.format(
                         name=tool, kind=kind, upper=kind.upper(), text=instructions)) or "")
-                did = call("try", instructions, task, on=trying, soft=True)
+                did = call("try", instructions, task + _TRY_AS.format(kind=kind), on=trying, soft=True)
                 if did is not None:
                     if kind != "rule":
                         output = did
                     subject += f"\n\nTRIED ON {tool.upper()} WITH THIS TASK:\n{task}\n\nWHAT IT DID:\n{did}"
+                    subject += _JUDGE_TRIED.format(kind=kind)
+                    tried = True
             score, missing, fix = _judgement(call("judge", _JUDGE.format(request=brief, subject=subject)))
             result.rounds.append(Round(version, current, output, score, missing, fix))
             if kind not in ("site", "app", "rule", "mcp", "hook"):
@@ -450,6 +470,7 @@ def make(
                 kind=kind, upper=kind.upper(), fix=fix or "make it fully meet the request",
                 form=_SITE_FORM if kind in ("site", "app") else _JSON_FORM.get(kind, ""),
                 missing="; ".join(missing) or "nothing listed", request=brief, current=current,
+                trial=_REVISE_TRIED.format(kind=kind) if tried else "",
             ) + (f"\nCHECK FAILURES FROM THIS ROUND:\n{subject}" if kind == "app" else "")) or "")
     except _Stop as stop:
         result.stopped = str(stop)
