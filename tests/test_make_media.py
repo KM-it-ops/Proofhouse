@@ -5,6 +5,7 @@ import json
 import shutil
 import subprocess
 import sys
+from decimal import Decimal
 from pathlib import Path
 
 import pytest
@@ -329,3 +330,120 @@ def test_a_media_kind_added_as_data_is_made_like_the_built_in_kind_it_names(tmp_
                                  interviewer=Answers("my-painter", {}, [True]), transport=model)
     assert made.best_version == 1 and made.delivered
     assert "readable from across a room" in model.seen["plan"][0]
+
+
+# --- a film or a delivery that is only partly made is not passed off as made -----------------------------
+
+def _partial_produce(stopped: str):
+    def produce(brief: str, **kwargs):
+        out = kwargs["out_dir"]
+        out.mkdir(parents=True, exist_ok=False)
+        first = kwargs["formats"][0]
+        (out / f"film-{first}.mp4").write_bytes(b"film")
+        return studio.Production(out, title="Fox", renders={first: str(out / f"film-{first}.mp4")}, stopped=stopped,
+                                 checks=[{"ok": True, "render": first, "check": "plays", "detail": ""}])
+    return produce
+
+
+def test_a_film_missing_a_shape_it_was_asked_for_fails_its_checks_and_is_not_delivered(
+        tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(studio, "produce", _partial_produce("the 9x16 render failed"))
+    made = make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter, my-voice", {}, [True]), transport=Director(scores=[10]),
+                                 rounds=1, shapes=["16x9", "9x16"])
+    assert made.best_version is None and made.delivered == {}
+    checks = _record(tmp_path / "o")["versions"][0]["checks"]
+    assert any(not c["ok"] and "9x16" in c["detail"] for c in checks)
+
+
+def test_a_studio_that_hits_the_spending_limit_stops_the_make(tmp_path: Path, programs: None,
+                                                              monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(studio, "produce", _partial_produce("spending limit reached"))
+    model = Director(scores=[3, 3, 3])
+    made = make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter, my-voice", {}, [True]), transport=model, rounds=3,
+                                 shapes=["16x9", "9x16"])
+    assert made.stopped == "spending limit reached"
+    assert model.calls.count("plan") == 1  # no more paid planning once the limit is hit
+    assert (tmp_path / "o" / "v1" / "plan.json").is_file()
+
+
+@needs_ffmpeg
+def test_a_shape_that_could_not_be_delivered_is_named(tmp_path: Path, programs: None,
+                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+    real = studio.convert
+    monkeypatch.setattr(studio, "convert", lambda args: False if "9x16" in str(args[-1]) else real(args))
+    made = make_media.make_media("a fox", kind="image", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter", {}, [True]), transport=Director(scores=[9]),
+                                 shapes=["16x9", "9x16"])
+    assert set(made.delivered or {}) == {"16x9"} and made.undelivered == ["9x16"]
+    assert _record(tmp_path / "o")["undelivered"] == ["9x16"]
+
+
+@pytest.mark.parametrize("missing, code", [([], live_cli.EXIT_OK), (["9x16"], live_cli.EXIT_REFUSED)])
+def test_the_command_says_plainly_when_the_judge_gave_no_score_or_a_shape_is_missing(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], missing: list[str],
+        code: int) -> None:
+    finished = make.MakeResult(tmp_path / "o", "image", "rounds used up", 1, None, Decimal(0),
+                               delivered={"16x9": "delivered/image-16x9.png"}, undelivered=missing)
+    monkeypatch.setattr(make_media, "make_media", lambda *a, **k: finished)
+    assert cli.main(["make", "a fox", "--kind", "image", "--provider", "ollama", "--model", "m", "--for", "my-painter",
+                     "--out", str(tmp_path / "o")]) == code
+    out = capsys.readouterr().out
+    assert "None/10" not in out and "not judged" in out
+    if missing:
+        assert "not delivered: 9x16" in out
+
+
+# --- a launch's video part asks first like every other part ------------------------------------------------
+
+class LaunchDirector(Director):
+    def __call__(self, request: live.Request) -> live.Response:
+        text = " ".join(m["content"] for m in json.loads(request.body_bytes)["messages"])
+        if text.startswith("You plan product launches"):
+            self.calls.append("launch plan")
+            content = json.dumps({"name": "Brew", "parts": [{"kind": "video", "brief": "a hype video for the cold brew"}]})
+            return live.Response(200, {"choices": [{"message": {"content": content}}],
+                                       "usage": {"prompt_tokens": 10, "completion_tokens": 5}})
+        return super().__call__(request)
+
+
+def test_a_launch_video_part_is_interviewed_and_made_through_the_media_loop(tmp_path: Path, programs: None,
+                                                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import launch
+
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    folder = tmp_path / "l"
+    result = launch.run_launch("launch our cold brew", provider_id="ollama", model="m", out_dir=folder,
+                               transport=LaunchDirector(scores=[9, 9]),
+                               interviewer=Answers("", {"must": "say launch day is Friday"}, [True]),
+                               part_interviewer=lambda part, where: Answers("my-painter, my-voice", {"must": "show ice"}, [True]))
+    assert [p.status for p in result.parts] == ["made"], result.parts
+    assert seen and seen[0]["out_dir"] == folder / "01-video" / "v1"
+    assert "show ice" in seen[0]["brief"] and "say launch day is Friday" in seen[0]["brief"]
+    assert _record(folder / "01-video")["delivered"]
+
+
+def test_a_launch_video_part_with_no_answers_yet_pauses_for_them(tmp_path: Path, programs: None,
+                                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import launch
+
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    folder = tmp_path / "l"
+    result = launch.run_launch("launch our cold brew", provider_id="ollama", model="m", out_dir=folder,
+                               transport=LaunchDirector(), interviewer=Answers("", {}, [True]),
+                               part_interviewer=lambda part, where: mi.FileInterviewer(None, "my-painter, my-voice"))
+    assert [p.status for p in result.parts] == ["waiting"] and seen == []
+    assert folder / "01-video" / "answers.json" in result.waiting
+
+
+def test_a_launch_that_answers_from_files_names_the_video_services_from_its_flags(tmp_path: Path, programs: None) -> None:
+    from proofhouse import launch
+
+    where = tmp_path / "01-video"
+    asking = launch._asker(mi.FileInterviewer(None), None, launch.Part("video", "a film"), where, 1,
+                           make_media.video_target({"visual_provider": "my-painter", "visual_model": "local",
+                                                    "voice_provider": "my-voice"}))
+    assert isinstance(asking, mi.FileInterviewer) and asking.for_target == "visuals: my-painter/local, voice: my-voice"

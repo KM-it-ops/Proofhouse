@@ -88,6 +88,16 @@ def roles(target: mi.ToolTarget) -> dict[str, dict[str, str]]:
     return found
 
 
+def video_target(video: dict[str, Any]) -> str | None:
+    """The services the video options name, in the words the interview reads (the way --platform feeds an app)."""
+    found = []
+    for role in ("visual", "voice", "music"):
+        provider, model = video.get(f"{role}_provider"), video.get(f"{role}_model")
+        if provider:
+            found.append(f"{'visuals' if role == 'visual' else role}: {provider}" + (f"/{model}" if model else ""))
+    return ", ".join(found) or None
+
+
 def _checks_text(checks: list[dict[str, Any]]) -> str:
     return "\n".join(f"- {c['check']}: {'passed' if c['ok'] else 'FAILED'} ({c['detail']})" for c in checks) or "- (no checks ran)"
 
@@ -172,6 +182,7 @@ def make_media(
     media_get: Any = None,
     video: dict[str, Any] | None = None,
     shapes: list[str] | None = None,
+    shared: str = "",
 ) -> make.MakeResult:
     entry = media_kinds().get(kind)
     if entry is None:
@@ -234,7 +245,7 @@ def make_media(
     parts: dict[str, dict[str, str]] = {}
     try:
         folder.mkdir(parents=True, exist_ok=interview is not None)
-        interview = interview or mi.Interview(request, kind)
+        interview = interview or mi.Interview(request, kind, shared=shared)
         try:
             mi.run(interview, interviewer, call, preset=preset, learned_by=f"{profile.id}/{model}")
         except mi.Paused as paused:
@@ -276,15 +287,17 @@ def make_media(
                 wanted = shapes or _shapes(plan.get("shapes"), allowed) or (list(studio.FORMATS) if made == "image" else ["mp3"])
             version["shapes"] = wanted
             versions.append(version)
-            if made == "video":
-                _render_video(folder, vdir, version, parts, brief, previous, plan, wanted, budget,
-                              provider_id=profile.id,
-                              model=model, video=video, transport=transport, media_transport=media_transport,
-                              media_get=media_get)
-            else:
-                _render_one(folder, vdir, version, made, parts, plan, budget, media_transport, media_get)
-            vdir.mkdir(parents=True, exist_ok=True)
-            (vdir / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
+            try:
+                if made == "video":
+                    _render_video(folder, vdir, version, parts, brief, previous, plan, wanted, budget,
+                                  provider_id=profile.id,
+                                  model=model, video=video, transport=transport, media_transport=media_transport,
+                                  media_get=media_get)
+                else:
+                    _render_one(folder, vdir, version, made, parts, plan, budget, media_transport, media_get)
+            finally:  # the plan is kept even when the spending limit stops this version part way
+                vdir.mkdir(parents=True, exist_ok=True)
+                (vdir / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
             version["checks_ok"] = bool(version["checks"]) and all(c["ok"] for c in version["checks"])
             if version["files"] or version["checks_ok"]:
                 subject = (f"REQUEST AND WHAT THE OWNER TOLD US:\n{brief}\n\nPLAN:\n{json.dumps(plan, indent=2)}\n\n"
@@ -308,6 +321,7 @@ def make_media(
         result.best_version, result.best_score = best["version"], best["score"]
         delivered = _deliver(folder, made, "voice" if made == "speech" else made, best, best["shapes"],
                              best.get("renders") or {})
+        result.undelivered = [shape for shape in best["shapes"] if shape not in delivered]
     result.delivered, result.spent_usd = delivered, budget.spent
     who = ("terminal" if isinstance(interviewer, mi.TerminalInterviewer) else
            "answers file" if isinstance(interviewer, mi.FileInterviewer) else "caller")
@@ -409,9 +423,15 @@ def _render_video(folder: Path, vdir: Path, version: dict[str, Any], parts: dict
     version["files"] = [_rel(folder, p) for p in made.renders.values()]
     version["checks"] = [{"check": f"{c.get('render', '')} {c['check']}".strip(), "ok": bool(c["ok"]), "detail": str(c.get("detail", ""))}
                          for c in made.checks]
+    missing = [shape for shape in wanted if shape not in made.renders]
     if not made.renders:
         version["checks"].append({"check": "made", "ok": False, "detail": f"the studio made no film ({made.stopped})"})
+    elif missing or made.stopped != "finished":
+        version["checks"].append({"check": "made", "ok": False,
+                                  "detail": f"the studio did not finish: {', '.join(missing) or 'no shape'} missing ({made.stopped})"})
     version["renders"] = dict(made.renders)
+    if "spending limit" in made.stopped:
+        raise make._Stop("spending limit reached")
     return dict(made.renders)
 
 
@@ -445,6 +465,7 @@ def _write_record(folder: Path, request: str, kind: str, provider_id: str, model
         "best_version": result.best_version,
         "best_score": result.best_score,
         "delivered": delivered,
+        "undelivered": result.undelivered,
         "not_judged": _not_judged(made),
         "spent_usd": format(result.spent_usd, "f"),
         "calls": [vars(c) for c in result.calls],

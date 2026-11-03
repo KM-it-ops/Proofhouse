@@ -346,7 +346,10 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      `v<n>/plan.json` and only the best version that passed every check is delivered into `delivered/`.
      The record says what the judge could not see or hear (`not_judged`). image, voice and music are now
      reserved kinds, so a learned kit or add-on cannot take them over. A paused run prints a command to
-     run again that keeps the length, shapes and other choices given. Still open: a kind nobody taught
+     run again that keeps the length, shapes and other choices given. A film missing a shape it was asked
+     for fails its checks; a studio stopped by the spending limit stops the whole make; a shape that could
+     not be delivered is named (`undelivered`) and the run exits 7. A launch's video part is now
+     interviewed and made through this same loop. Still open: a kind nobody taught
      (such as "podcast") is not learned as a media kind yet.
 
 ## What is left (updated 2026-10-27)

@@ -274,7 +274,10 @@ def _make_parts(result: Launch, goal: str, profile: Any, model: str, max_cost_us
         if left is not None:
             left = format(Decimal(left) + counted, "f")
         try:
-            if part.kind == "video":
+            if part.kind == "video" and interviewer is not None:
+                _make_media_part(result, part, where, number, profile.id, model, left, rounds, target, video or {},
+                                 transport, media_transport, media_get, interviewer, part_interviewer, shared, preset)
+            elif part.kind == "video":
                 _make_video(part, where, profile.id, model, left, video or {}, transport, media_transport, media_get)
             else:
                 asking = _asker(interviewer, part_interviewer, part, where, number) if interviewer is not None else None
@@ -306,17 +309,41 @@ def _make_parts(result: Launch, goal: str, profile: Any, model: str, max_cost_us
 
 
 def _asker(interviewer: Any, part_interviewer: Callable[[Part, Path], Any] | None, part: Part, where: Path,
-           number: int) -> Any:
+           number: int, for_target: str | None = None) -> Any:
     """Who answers for this part: the caller's choice, its own answers file, or the terminal that is already open."""
     if part_interviewer is not None:
         return part_interviewer(part, where)
     if isinstance(interviewer, mi.FileInterviewer):
         answers = where / "answers.json"
-        return mi.FileInterviewer(answers if answers.is_file() else None)
+        return mi.FileInterviewer(answers if answers.is_file() else None, for_target)
     getattr(interviewer, "write", print)(f"\nPart {number}: the {part.kind}\n")
     if hasattr(interviewer, "kind"):
         interviewer.kind = part.kind
     return interviewer
+
+
+def _make_media_part(result: Launch, part: Part, where: Path, number: int, provider_id: str, model: str,
+                     limit: str | None, rounds: int, target: int, video: dict[str, Any], transport: Any,
+                     media_transport: Any, media_get: Any, interviewer: Any,
+                     part_interviewer: Callable[[Part, Path], Any] | None, shared: str, preset: str) -> None:
+    """A video part is interviewed, made, checked, judged and improved like a video made on its own."""
+    from . import make_media
+
+    asking = _asker(interviewer, part_interviewer, part, where, number, make_media.video_target(video))
+    formats = [f for f in video.get("formats") or () if f]
+    made = make_media.make_media(part.brief, kind="video", provider_id=provider_id, model=model, max_cost_usd=limit,
+                                 rounds=rounds, target=target, out_dir=where, interviewer=asking, preset=preset,
+                                 transport=transport, media_transport=media_transport, media_get=media_get,
+                                 video=video, shapes=formats or None, shared=shared)
+    part.spent_usd = made.spent_usd
+    if made.waiting is not None:
+        part.status, part.detail = "waiting", "waiting for your answers"
+        result.waiting.append(where / "answers.json")
+        return
+    score = "not judged" if made.best_score is None else f"judge score {made.best_score}/10"
+    part.status = "made" if made.best_version and made.delivered else "not made"
+    part.detail = (f"version {made.best_version}, {score}" if made.best_version else "nothing usable") \
+        + f"; stopped: {made.stopped}"
 
 
 def _make_video(part: Part, where: Path, provider_id: str, model: str, limit: str | None, video: dict[str, Any],

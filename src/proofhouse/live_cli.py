@@ -169,13 +169,9 @@ def _cmd_run(args: argparse.Namespace) -> int:
 
 def _media_target_text(args: argparse.Namespace) -> str | None:
     """The services the video flags name, in the words the interview reads (the way --platform feeds an app)."""
-    found = []
-    for role, provider, model in (("visuals", args.visual_provider, args.visual_model),
-                                  ("voice", args.voice_provider, args.voice_model),
-                                  ("music", args.music_provider, args.music_model)):
-        if provider:
-            found.append(f"{role}: {provider}" + (f"/{model}" if model else ""))
-    return ", ".join(found) or None
+    from . import make_media
+
+    return make_media.video_target(vars(args))
 
 
 def _cmd_make_media(args: argparse.Namespace) -> int:
@@ -234,15 +230,18 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps({"folder": str(made.folder), "kind": made.kind, "stopped": made.stopped,
                           "best_version": made.best_version, "best_score": made.best_score, "versions": len(made.rounds),
-                          "delivered": delivered, "spent_usd_estimated": format(made.spent_usd, "f")}, sort_keys=True))
+                          "delivered": delivered, "undelivered": made.undelivered, "spent_usd_estimated": format(made.spent_usd, "f")}, sort_keys=True))
     else:
-        best = f"version {made.best_version} (judge score {made.best_score}/10)" if made.best_version else "nothing usable"
+        score = "not judged" if made.best_score is None else f"judge score {made.best_score}/10"
+        best = f"version {made.best_version} ({score})" if made.best_version else "nothing usable"
         print(f"made: {best}; stopped: {made.stopped}")
         for path in delivered.values():
             print(f"  {path}")
+        if made.undelivered:
+            print(f"not delivered: {', '.join(made.undelivered)} (the file could not be made in that shape)")
         print(f"spent about ${format(made.spent_usd, 'f')} over {len(made.calls)} calls; every version is in {made.folder}")
         print("the judge read the plan and the file checks; it did not see or hear the result itself")
-    return EXIT_OK if delivered else EXIT_REFUSED
+    return EXIT_OK if delivered and not made.undelivered else EXIT_REFUSED
 
 
 def _video_options(args: argparse.Namespace) -> dict:
