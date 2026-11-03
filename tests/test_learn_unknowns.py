@@ -963,7 +963,10 @@ def test_a_learned_skill_folder_on_a_shipped_host_needs_approval(tmp_path: Path,
 
 
 def test_cli_learns_an_unknown_platform(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
-    _offline(monkeypatch, {"Proofhouse wraps working apps": PLATFORM})
+    _offline(monkeypatch, {"Proofhouse wraps working apps": PLATFORM,
+                           "You are an expert prompt engineer. You generate": [
+                               {"group": "Basics", "questions": [{"id": "must", "text": "What must it do?", "type": "text"}]}],
+                           "You are about to write a": "- What it is: an app for Gadget OS"})
     args = ["make", "an app", "--kind", "app", "--platform", "gadget-os", "--provider", "ollama", "--model", "m",
             "--max-cost-usd", "1", "--allow-commands", "--out", str(tmp_path / "out")]
     code = cli.main(args)
@@ -971,7 +974,12 @@ def test_cli_learns_an_unknown_platform(tmp_path: Path, monkeypatch: pytest.Monk
     assert learn_catalog.learned_raw("app_platforms", "gadget-os")["approved"] is False
     assert not (tmp_path / "out").exists()
     assert cli.main(["addons", "approve", "learned", "gadget-os"]) == 0
-    assert cli.main(args) == 0
+    assert cli.main(args) == 0 and "waiting for your answers" in capsys.readouterr().out  # an app asks first now
+    answers = tmp_path / "out" / "answers.json"
+    filled = json.loads(answers.read_text(encoding="utf-8"))
+    assert filled["for"] == "gadget-os"
+    answers.write_text(json.dumps({**filled, "answers": {"must": "track refunds"}, "confirmed": True}), encoding="utf-8")
+    assert cli.main([*args, "--answers", str(answers)]) == 0
     assert (tmp_path / "out" / "gadget-os" / "setup.json").is_file()
 
 

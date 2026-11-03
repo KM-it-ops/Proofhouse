@@ -16,10 +16,10 @@ Kinds:
   A new kind is researched by your model first and saved as a learned kind
   (``learn.py``), then made like the others; it is never refused for being new.
 
-For a prompt, skill, agent, rule or any other text kind, make first interviews you when it is given an
-interviewer (``make_interview.py``): which AI tool or model it is for, the questions it needs answered, and
-a say-back you confirm or correct. The answers become the brief everything is written and judged against,
-and the result is written in the form that tool wants. With ``try_on`` (or a local agent provider for that
+For every kind, make first interviews you when it is given an interviewer (``make_interview.py``): which AI
+tool or model it is for (for a site, where it will be published; for an app, the platforms it runs on), the
+questions it needs answered, and a say-back you confirm or correct. The answers become the brief everything
+is written and judged against, and the result is written in the form that tool wants. With ``try_on`` (or a local agent provider for that
 tool, ``agent-<tool>``), each version is also tried on the tool itself.
 
 Everything lands in one folder: every version, every test output, every score,
@@ -130,6 +130,10 @@ _REVISE_TRIED = (
 _FOR_TARGET = (
     "\n\nThis {kind} is for {name}. Follow how {name} wants a {kind} written (in the brief below), but keep the reply "
     "shape asked for above. Use everything the owner said in the brief; their corrections win."
+)
+_FOR_PLACE = (
+    "\n\nThis {kind} is for {name}. Use what the brief below says about it, but keep the reply shape asked for "
+    "above. Use everything the owner said in the brief; their corrections win."
 )
 _TASK_INPUT = (
     "Write one realistic task that someone using {name} would give it, where the {kind} below should guide the work. "
@@ -279,6 +283,7 @@ def make(
     interviewer: Any = None,
     preset: str = "balanced",
     try_on: str | None = None,
+    shared: str = "",
 ) -> MakeResult:
     from . import addons, learn
     from . import make_interview as mi
@@ -307,9 +312,10 @@ def make(
             raise MakeError("choose at least one platform")
         from . import learn_catalog
 
-        for platform_id in chosen:
-            if learn_catalog.plain_platform_id(platform_id) is None:
-                raise MakeError(f"{platform_id!r} is not a plain platform name")
+        if platforms is not None:
+            for platform_id in chosen:
+                if learn_catalog.plain_platform_id(platform_id) is None:
+                    raise MakeError(f"{platform_id!r} is not a plain platform name")
     profile = providers.find(provider_id)
     if profile is None:
         raise MakeError(f"no provider named {provider_id!r}; see `proofhouse providers list`")
@@ -325,7 +331,7 @@ def make(
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = out_dir or Path.cwd() / f"make-{_slug(request)}-{stamp}"
     result = MakeResult(folder, kind, "rounds used up", None, None, Decimal(0))
-    interviewing = interviewer is not None and kind not in ("site", "app")
+    interviewing = interviewer is not None
     interview = None
     # An interview that paused for answers goes on in its own folder: same request, same kind, nothing made yet.
     if interviewing and (folder / "interview.json").is_file() and not (folder / "record.json").exists():
@@ -367,6 +373,36 @@ def make(
 
     current: str | None = None
     try:
+        folder.mkdir(parents=True, exist_ok=interview is not None)
+        if interviewing:
+            interview = interview or mi.Interview(request, kind, shared=shared)
+            try:
+                mi.run(interview, interviewer, call, preset=preset, learned_by=f"{profile.id}/{model}")
+            except mi.Paused as paused:
+                mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
+                result.waiting = mi.write_pause(folder, interview, paused.stage)
+                result.stopped, result.interview, result.spent_usd = "waiting for your answers", interview, budget.spent
+                return result
+            except mi.Refused as exc:  # nothing was asked or made: leave no folder behind
+                try:
+                    folder.rmdir()
+                except OSError:
+                    pass
+                raise MakeError(str(exc)) from None
+            except (mi.InterviewError, ValueError) as exc:
+                mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
+                raise MakeError(str(exc)) from None
+            except _Stop:
+                named = getattr(interviewer, "for_target", None)
+                if kind == "app" and interview.target is None and named:  # learning the platform is what failed
+                    raise MakeError(f"unknown platform: {named}; known: {', '.join(sorted(catalog))}") from None
+                raise
+            mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
+            result.interview = interview
+            if tester is None and kind in TRY_ON_KINDS and interview.target and interview.target.sort == "tool":
+                tester = _agent_for(interview.target.id)
+            if kind == "app" and interview.target is not None and interview.target.sort == "platform":
+                chosen = interview.target.id.split("+")
         if kind == "app":
             from . import learn_catalog
 
@@ -387,23 +423,6 @@ def make(
                 if pending:
                     raise MakeError(learn_catalog.refusal_message(
                         pending, thing=f"Platform {platform_id}", command=f"{learn_catalog.APPROVE_CMD} {platform_id}"))
-        folder.mkdir(parents=True, exist_ok=interview is not None)
-        if interviewing:
-            interview = interview or mi.Interview(request, kind)
-            try:
-                mi.run(interview, interviewer, call, preset=preset, learned_by=f"{profile.id}/{model}")
-            except mi.Paused as paused:
-                mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
-                result.waiting = mi.write_pause(folder, interview, paused.stage)
-                result.stopped, result.interview, result.spent_usd = "waiting for your answers", interview, budget.spent
-                return result
-            except (mi.InterviewError, ValueError) as exc:
-                mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
-                raise MakeError(str(exc)) from None
-            mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
-            result.interview = interview
-            if tester is None and kind in TRY_ON_KINDS and interview.target and interview.target.sort == "tool":
-                tester = _agent_for(interview.target.id)
         if tester is not None and kind in TRY_ON_KINDS:
             result.tried_on = f"{tester[0].id}/{tester[1]}"
         if learning:
@@ -418,7 +437,8 @@ def make(
         made_for = interview.target if interview is not None else None
         if interview is not None and made_for is not None:
             brief = interview.brief()
-            writer += _FOR_TARGET.format(kind=kind, name=made_for.name)
+            writer += (_FOR_PLACE if made_for.sort in ("deploy", "platform") else _FOR_TARGET).format(
+                kind=kind, name=made_for.name)
         rule_host = made_for.id if kind == "rule" and made_for is not None and made_for.sort == "tool" else None
         trying = tester if kind in TRY_ON_KINDS else None
         tool = made_for.name if made_for is not None else (f"{trying[0].id}/{trying[1]}" if trying else "")
@@ -436,8 +456,8 @@ def make(
                 where = f" ON {tool.upper()}" if trying is not None and output is not None else ""
                 subject = f"PROMPT:\n{current}\n\nTEST INPUT:\n{test_input}\n\nOUTPUT IT PRODUCED{where}:\n{output}"
             elif kind == "app":
-                output, subject = _try_app(current, request, folder / f"v{version}", chosen, catalog,
-                                           allow_commands, call)
+                output, subject = _try_app(current, brief, folder / f"v{version}", chosen, catalog,
+                                           allow_commands, call, _slug(request))
             elif kind == "site":
                 output, subject = _try_site(current, folder / f"v{version}")
             elif kind in ("rule", "mcp", "hook"):
@@ -609,7 +629,7 @@ def _try_site(text: str, version_dir: Path) -> tuple[str, str]:
 
 def _try_app(
     text: str, request: str, version_dir: Path, chosen: list[str], catalog: dict[str, dict[str, Any]],
-    allow_commands: bool, call: Callable[[str, str, str | None], str | None],
+    allow_commands: bool, call: Callable[[str, str, str | None], str | None], name: str = "",
 ) -> tuple[str, str]:
     _, site_subject = _try_site(text, version_dir)
     checks: list[dict[str, Any]] = json.loads((version_dir / "checks.json").read_text(encoding="utf-8"))
@@ -669,7 +689,7 @@ def _try_app(
             platform_checks = app_platforms.static_checks(destination, entry)
             if entry["checks"].get("site"):
                 platform_checks.extend(sitecheck.check_site(destination / web, version_dir / f"screenshots-{platform_id}"))
-            platform_checks.append(app_platforms.build_check(destination, entry, allow_commands, _slug(request)))
+            platform_checks.append(app_platforms.build_check(destination, entry, allow_commands, name or _slug(request)))
         except (sitecheck.SiteError, ValueError, OSError) as exc:
             names = []
             platform_checks = [{"check": f"{platform_id} written", "ok": False, "detail": str(exc)}]

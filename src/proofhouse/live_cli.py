@@ -206,23 +206,60 @@ def _video_options(args: argparse.Namespace) -> dict:
             "allow_commands": bool(getattr(args, "allow_commands", False))}
 
 
+def _choose_interviewer(args: argparse.Namespace, *, launching: bool = False) -> tuple[object | None, Path | None]:
+    """Who answers the interview (a file, the terminal, or nobody yet) and the folder of a paused make to go on in."""
+    from . import make_interview as mi
+    from .optimize.cli import _stdin_is_terminal
+
+    out = Path(args.out) if args.out else None
+    for_target = args.for_target
+    if not for_target and args.kind == "app" and args.platform:
+        for_target = ", ".join(args.platform)
+    if args.answers:
+        interviewer: object = mi.FileInterviewer(Path(args.answers), for_target)
+        paused = Path(args.answers).resolve().parent
+        if out is None:  # go on with the make (or the launch) it answers
+            for folder in (paused, paused.parent) if launching else (paused,):
+                if (folder / ("launch.json" if launching else "interview.json")).is_file():
+                    out = folder
+                    break
+        return interviewer, out
+    if _stdin_is_terminal():
+        show = (lambda text: print(text, end="", file=sys.stderr, flush=True)) if args.json else (
+            lambda text: print(text, end="", flush=True))
+        return mi.TerminalInterviewer(input, show, None if launching else for_target, args.kind), out
+    if for_target:
+        return mi.FileInterviewer(None, for_target), out
+    if not launching:
+        print(f"tip: pass --for <{mi._ask_for(args.kind)}> to be asked a few questions first, so it comes out right",
+              file=sys.stderr)
+    return None, out
+
+
 def _cmd_make_launch(args: argparse.Namespace) -> int:
+    from . import make_interview as mi
+
     parts = tuple(p.strip() for p in args.parts.split(",") if p.strip()) if args.parts else None
     try:
+        interviewer, out = _choose_interviewer(args, launching=True)
         made = launch.run_launch(args.request, provider_id=args.provider, model=args.model, parts=parts,
                                  max_cost_usd=args.max_cost_usd, rounds=args.rounds, target=args.target,
-                                 video=_video_options(args), out_dir=Path(args.out) if args.out else None)
-    except (launch.LaunchError, providers.ProviderError, OSError) as exc:
+                                 video=_video_options(args), out_dir=out, interviewer=interviewer, preset=args.preset)
+    except (launch.LaunchError, mi.InterviewError, providers.ProviderError, OSError) as exc:
         return _fail(str(exc))
     if args.json:
         print(json.dumps({"folder": str(made.folder), "name": made.name, "stopped": made.stopped,
-                          "spent_usd_estimated": format(made.spent_usd, "f"), "parts": [p.to_dict() for p in made.parts]},
-                         sort_keys=True))
+                          "spent_usd_estimated": format(made.spent_usd, "f"), "parts": [p.to_dict() for p in made.parts],
+                          "waiting": [str(p) for p in made.waiting]}, sort_keys=True))
     else:
         print(f"{made.name or 'launch'}: {made.stopped}; spent about ${format(made.spent_usd, 'f')}")
         for part in made.parts:
             print(f"  {part.kind:<7} {part.status:<9} {made.folder / part.folder}  {part.detail}")
+        for path in made.waiting:
+            print(f"fill in {path}, then run the same command again with --answers {path}")
         print(f"everything is in {made.folder} (start with README.md)")
+    if made.waiting:
+        return EXIT_OK
     return EXIT_OK if made.parts and all(p.status == "made" for p in made.parts) else EXIT_REFUSED
 
 
@@ -232,27 +269,9 @@ def _cmd_make(args: argparse.Namespace) -> int:
     if args.kind == "launch":
         return _cmd_make_launch(args)
     from . import make_interview as mi
-    from .optimize.cli import _stdin_is_terminal
 
-    out = Path(args.out) if args.out else None
-    interviewer: object | None = None
     try:
-        if args.kind in ("site", "app"):
-            pass
-        elif args.answers:
-            interviewer = mi.FileInterviewer(Path(args.answers), args.for_target)
-            paused = Path(args.answers).resolve().parent
-            if out is None and (paused / "interview.json").is_file():  # go on with the make it answers
-                out = paused
-        elif _stdin_is_terminal():
-            show = (lambda text: print(text, end="", file=sys.stderr, flush=True)) if args.json else (
-                lambda text: print(text, end="", flush=True))
-            interviewer = mi.TerminalInterviewer(input, show, args.for_target)
-        elif args.for_target:
-            interviewer = mi.FileInterviewer(None, args.for_target)
-        else:
-            print("tip: pass --for <tool or model> to be asked a few questions first, so it comes out right",
-                  file=sys.stderr)
+        interviewer, out = _choose_interviewer(args)
     except mi.InterviewError as exc:
         return _fail(str(exc))
     try:
@@ -386,7 +405,7 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make.add_argument("--allow-commands", action="store_true",
                         help="Start made MCP, hook or app build commands to check them; for --kind video with --facts, "
                              "run the commands in the fact sheet on this machine. Model-written code runs with your rights; not a sandbox.")
-    talk = p_make.add_argument_group("the interview (every kind but site and app)")
+    talk = p_make.add_argument_group("the interview (where it is for, then a few questions)")
     talk.add_argument("--for", dest="for_target", default=None,
                       help="The AI tool or model it is for (Claude Code, Cursor, Codex, a model name, or any other); "
                            "turns on the interview without a terminal.")
