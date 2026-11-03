@@ -29,6 +29,7 @@ _SAFE_PART = re.compile(r"[A-Za-z0-9_./:=@+,-]+")
 _SAFE_COMMAND = re.compile(r"(\./)?[A-Za-z0-9_+][A-Za-z0-9_.+-]*")
 _SCRIPT_SUFFIX = re.compile(r"\.[A-Za-z][A-Za-z0-9]*")
 _BARE = re.compile(r"[A-Za-z0-9_./:=+-]+")
+_RULE_SUFFIX = re.compile(r"\.[A-Za-z0-9]{1,10}")
 NOT_ALLOWED = "not checked: add --allow-commands to start it (it runs model-written code with your rights)"
 # Written install text never holds this machine's folder layout; the reader fills the placeholder in.
 HERE = "<this-folder>"
@@ -96,7 +97,29 @@ def _throwaway_home(home: Path, phome: Path) -> Iterator[None]:
                 os.environ[name] = value
 
 
-def rule(text: str, request: str, folder: Path) -> tuple[str, list[dict[str, Any]]]:
+def rule_suffix(host_id: str | None) -> str:
+    """The file ending a tool wants for one rule file, read from its place in the host list (.mdc for Cursor)."""
+    spec = hosts.all_hosts().get(host_id or "", {}).get("rule")
+    if not isinstance(spec, dict) or spec.get("format") != "file":
+        return ".md"
+    for key in ("project", "user"):
+        template = spec.get(key)
+        if isinstance(template, str) and "{name}" in template:
+            suffix = template.rsplit("{name}", 1)[1]
+            if _RULE_SUFFIX.fullmatch(suffix):
+                return suffix
+    return ".md"
+
+
+def _with_frontmatter(name: str, content: str, suffix: str) -> str:
+    if suffix == ".mdc" and not content.startswith("---"):
+        return f"---\ndescription: {name}\nalwaysApply: true\n---\n{content}"
+    return content
+
+
+def rule(text: str, request: str, folder: Path, host: str | None = None) -> tuple[str, list[dict[str, Any]]]:
+    """Write the rule in the file form ``host`` wants (every known tool when ``host`` is None) and try installing it."""
+    from . import learn_catalog
     from .make import _slug
 
     name = _slug(request)
@@ -107,8 +130,10 @@ def rule(text: str, request: str, folder: Path) -> tuple[str, list[dict[str, Any
         value = None
     if value is not None and isinstance(value.get("name"), str) and isinstance(value.get("content"), str):
         name, content = hosts.check_name(value["name"]), value["content"]
+    suffix = rule_suffix(host)
+    outer = hosts.all_hosts().get(host) if host else None
     folder.mkdir(parents=True, exist_ok=True)
-    (folder / f"{name}.md").write_text(content.rstrip("\n") + "\n", encoding="utf-8")
+    (folder / f"{name}{suffix}").write_text(_with_frontmatter(name, content, suffix).rstrip("\n") + "\n", encoding="utf-8")
     checks: list[dict[str, Any]] = []
     # In the system temp folder, not beside the rule: a deep made folder pushes the install record's temporary
     # file past Windows' 260-character path limit.
@@ -121,7 +146,7 @@ def rule(text: str, request: str, folder: Path) -> tuple[str, list[dict[str, Any
         with _throwaway_home(home, phome):
             for host_id, spec in hosts.all_hosts().items():
                 rule_spec = spec.get("rule")
-                if not isinstance(rule_spec, dict):
+                if not isinstance(rule_spec, dict) or (host is not None and host_id != host):
                     continue
                 target: hosts.Target | None = None
                 before: bytes | None = None
@@ -131,9 +156,7 @@ def rule(text: str, request: str, folder: Path) -> tuple[str, list[dict[str, Any
                         target.path.parent.mkdir(parents=True, exist_ok=True)
                         target.path.write_text("Existing project instructions.\n", encoding="utf-8")
                     before = target.path.read_bytes() if target.path.exists() else None
-                    installed = content
-                    if target.format == "file" and target.path.suffix == ".mdc" and not content.startswith("---"):
-                        installed = f"---\ndescription: {name}\nalwaysApply: true\n---\n{content}"
+                    installed = _with_frontmatter(name, content, target.path.suffix) if target.format == "file" else content
                     hosts.install(target, installed)
                     hosts.uninstall(target)
                     after = target.path.read_bytes() if target.path.exists() else None
@@ -143,6 +166,14 @@ def rule(text: str, request: str, folder: Path) -> tuple[str, list[dict[str, Any
                     ok, detail = False, str(exc)
                 checks.append({"check": f"{host_id} rule install/uninstall", "host": host_id, "ok": ok, "detail": detail,
                                "path": str(target.path.relative_to(root)) if target and target.path.is_relative_to(root) else None})
+    if host is not None and not checks:
+        if not isinstance(outer, dict) or not isinstance(outer.get("rule"), dict):
+            detail = f"not checked: {host} has no place for rules in the host list"
+        else:
+            detail = f"not checked: {host} is defined in your Proofhouse home, which this offline check leaves out"
+            if learn_catalog.unapproved("hosts", host, outer):
+                detail += f"; approve it first: {learn_catalog.APPROVE_CMD} {host}"
+        checks.append({"check": f"{host} rule install/uninstall", "host": host, "ok": None, "detail": detail, "path": None})
     return name, checks
 
 

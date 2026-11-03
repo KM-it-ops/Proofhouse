@@ -30,7 +30,16 @@ How it behaves everywhere:
   official release pages, then records what it found.
 - **One front door:** the `proofhouse` command.
 - **Every paid call goes through the spending limit** (`spend.send_within_ceiling`).
-- **Every make runs the same loop:** write, try it for real, judge, revise, keep every version.
+- **Make starts by working out what you mean (owner's correction, 2026-11-01).** The core of Proofhouse
+  is writing prompts and other instructions for you, well. So for a prompt, skill, agent, rule or any other
+  text kind, `make` first asks the questions it needs answered (the interview), then says back in plain
+  words what it understood so you can correct it (the reverse prompt), then asks which AI tool or model the
+  result is for. It writes for that tool: its file format and where the file lives (a rule is `CLAUDE.md`
+  for Claude Code, `.cursor/rules/*.mdc` for Cursor, `AGENTS.md` for Codex; a skill is that tool's skill
+  format) and that tool's own prompting habits. A tool or model it does not know is researched and
+  learned, never refused. Scripts and AI apps answer from a file (`--answers`, `--for`) instead.
+- **Every make runs the same loop:** (for text kinds, interview first), write, try it for real, judge,
+  revise, keep every version.
 - **Checks and comparing versions are one feature of the record,** not the product.
 
 ## Where it stands
@@ -39,6 +48,7 @@ How it behaves everywhere:
 |------|-------|
 | Run any prompt on any provider; compare many models on one job | works |
 | Make prompts, skills, agents, copy | works (host mode: examples for prompt, copy, app, rule, agent, skill, hook, site, mcp) |
+| Interview first for text kinds: asks its questions, says back what it understood, asks which AI tool or model it is for, then makes it in that tool's format and tries it there when it can | works (terminal or an answers file; an unknown tool is researched, not refused) |
 | Make rules, MCP servers, hooks (each one tried for real before delivery) | works |
 | Make websites and put them online (Netlify, Vercel, Cloudflare, Surge, or any target added) | works |
 | Make apps for every platform | works; native builds proven on all six platforms ([run](https://github.com/KM-it-ops/Proofhouse/actions/runs/39161715167)) |
@@ -273,6 +283,48 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      broke, what held and what each cost, are in [stage3/hard-cases.md](stage3/hard-cases.md). Every real
      break is fixed with its failing test first.
      - Status: DONE. 82 cases across all 41 commands: 82 held, 0 broke, $0 spent. The first run broke 18; 9 were real defects, now fixed test-first (4e04676, d338472, d530ff4), 9 were wrong expectations. Findings in [stage3/findings.md](stage3/findings.md). Independent end review (Codex) done; its fixes are in the same findings file.
+
+6. **Interview first (owner's correction, 2026-11-01).** Since `make` became the front door (PR #57) it wrote
+   from one sentence, asked nothing and wrote for no tool in particular. That dropped the core of the
+   product. `make` for text kinds (prompt, skill, agent, rule, copy, MCP server, hook, and add-on or learned
+   kinds) now starts with the existing question engine (the framework's `generateQuestions`, used by
+   `proofhouse case`), not a second one:
+   - **Interview:** the questions for this request, asked one at a time on a terminal (pick a number, type
+     an answer, or press Enter to let the model decide); follow-up questions appear only when an earlier
+     answer calls for them.
+   - **Say-back:** a short plain summary of what it understood; you accept it or correct it, and the
+     correction is folded in.
+   - **Target tool:** which AI tool or model the result is for (`--for`, or asked). Known tools come from the
+     coding-tool host list (`hosts.json`), which now also carries how each tool wants a rule, skill, agent
+     or prompt written; known models come from the model list. Anything else is researched by the writing
+     model and saved like other learned entries. The writer, the judge and the reviser all see the answers,
+     the agreed summary and the target's format and habits.
+   - **Delivery for the target:** the rule, skill or agent comes out in that tool's format and the install
+     line names that tool. When the target can be reached as a provider (for example the free agent bridge
+     `agent-claude`), each version is also tried on it (`--try-on`); otherwise the record says it was not.
+   - **Scripts and AI apps:** with no terminal and `--for` given, `make` writes the questions and an answers template into the
+     folder and stops; running it again with `--answers` continues. Everything asked and answered is kept in
+     `record.json`.
+7. **Every make, every kind, the same way (owner's direction, 2026-11-02).** Step 6 covered text kinds only.
+   Three gaps are left, each fixed in its own branch and pull request:
+   - **7a. Sites, apps and launches ask first.** Today they go straight to building (`make.py`
+     `interviewing` leaves out site and app; the CLI never builds an interviewer for them; `launch` has none).
+     They get the same interview, say-back and target question. Here the target is where it will live and
+     run: a deploy target for a site, the platforms for an app, and for a launch each part's target. The
+     answers and agreed summary feed the writer, the existing build-and-check loop and the judge, and the
+     result is scored against them. For a launch, one interview covers the goal and only the questions
+     specific to a part are asked per part.
+   - **7b. Every run asks.** A run with no terminal and no `--for` now pauses like any other: it writes the
+     questions, including which tool or model it is for, into the folder with an answers template and
+     stops. It no longer prints a tip and makes the thing blind. `--answers` resumes and `--preset` fills
+     answers ahead. Nothing goes round the interview without saying so in the record.
+   - **7c. Media through the same front door.** `make --kind video|image|voice|music` (and any media kind
+     learned or added as data) runs the full loop: interview (purpose, audience, length, look, voice, music,
+     where it will be shown), say-back, target (which service and model, any provider in
+     `media_providers.json`, local programs included; an unknown one is learned, not refused), make, check,
+     judge, improve, keep every version, deliver in the shapes asked for. Video builds on the beat-film
+     engine in PR #96 (`feat/video-motion`) rather than beside it. `generate` stays as the one-shot
+     command. Every paid call goes through the spending limit.
 
 ## What is left (updated 2026-10-27)
 

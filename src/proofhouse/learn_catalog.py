@@ -28,6 +28,8 @@ _LIST_LIMIT = 50
 _URLISH = re.compile(r"[A-Za-z][A-Za-z0-9+.-]*://\S+")
 
 _HOST_ID = re.compile(r"[a-z0-9][a-z0-9-]{0,63}")
+# What a learned host may say about how it wants each kind written.
+GUIDE_KINDS = ("skill", "agent", "rule", "prompt")
 _PLATFORM_ID = re.compile(r"[a-z0-9][a-z0-9._-]*")
 
 
@@ -226,12 +228,16 @@ _PLATFORM_RESEARCH = (
 )
 
 _HOST_RESEARCH = (
-    "Proofhouse installs agents, rules and skills into many coding tools and AI workspaces. Someone asked for host "
-    "{host_id}, which Proofhouse does not know yet. Research where that tool keeps skills and project rules on disk. "
+    "Proofhouse installs agents, rules and skills into many coding tools and AI workspaces, written the way each tool "
+    "wants them. Someone asked for host {host_id}, which Proofhouse does not know yet. Research where that tool keeps "
+    "skills and project rules on disk, and how it wants a skill, an agent and a rule written. "
     "Reply with JSON only: "
     '{"what_it_is": "<one or two sentences>", "name": "<display name>", "skills_folder": "<folder under the home '
     'directory, such as .cursor>", "start_hint": "<where the user starts a session>", '
-    '"rule": {"user": "~/.tool/AGENTS.md", "format": "md-block"}, "sources": ["https://..."]}'
+    '"rule": {"user": "~/.tool/AGENTS.md", "format": "md-block"}, '
+    '"guides": {"skill": "<how this tool wants a skill written: the file, any frontmatter and what the body holds>", '
+    '"agent": "<the same for an agent>", "rule": "<the same for a rule>"}, "sources": ["https://..."]} '
+    "Leave out any guide for something the tool does not have."
 )
 
 _DEPLOY_RESEARCH = (
@@ -598,6 +604,11 @@ def parse_host(host_id: str, answer: str | None, *, learned_by: str) -> dict[str
     for key in ("rule", "agent", "mcp", "note", "skills_folder", "start_hint"):
         if key in data:
             entry[key] = _only_known("hosts", key, data[key]) if key in ("rule", "agent", "mcp") else data[key]
+    guides = data.get("guides")
+    if isinstance(guides, dict):
+        kept = {kind: text.strip() for kind, text in guides.items() if kind in GUIDE_KINDS and isinstance(text, str) and text.strip()}
+        if kept:
+            entry["guides"] = kept
     _finish(entry, data, learned_by=learned_by)
     if not _host_paths_ok(entry):
         raise LearnError("the model named paths that are not allowed")
@@ -770,7 +781,8 @@ def ensure_platform(platform_id: str, research: Research | None, ask: Callable[[
         learn_with_model("app_platforms", named, "id", prompt, parse_platform, research)  # type: ignore[arg-type]
 
 
-def ensure_host(host_id: str, research: Research | None, ask: Callable[[str], str | None] | None = None) -> None:
+def ensure_host(host_id: str, research: Research | None, ask: Callable[[str], str | None] | None = None,
+                *, learned_by: str = "unknown") -> None:
     from . import hosts
 
     named = plain_host_id(host_id)
@@ -782,7 +794,7 @@ def ensure_host(host_id: str, research: Research | None, ask: Callable[[str], st
         raise _need_model(f"host {named}")
     prompt = _HOST_RESEARCH.replace("{host_id}", named)
     if ask is not None:
-        _learn("hosts", named, "id", prompt, parse_host, ask, learned_by="unknown")
+        _learn("hosts", named, "id", prompt, parse_host, ask, learned_by=learned_by)
     else:
         learn_with_model("hosts", named, "id", prompt, parse_host, research)  # type: ignore[arg-type]
 

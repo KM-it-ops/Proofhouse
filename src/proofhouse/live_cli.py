@@ -231,6 +231,30 @@ def _cmd_make(args: argparse.Namespace) -> int:
         return _cmd_make_video(args)
     if args.kind == "launch":
         return _cmd_make_launch(args)
+    from . import make_interview as mi
+    from .optimize.cli import _stdin_is_terminal
+
+    out = Path(args.out) if args.out else None
+    interviewer: object | None = None
+    try:
+        if args.kind in ("site", "app"):
+            pass
+        elif args.answers:
+            interviewer = mi.FileInterviewer(Path(args.answers), args.for_target)
+            paused = Path(args.answers).resolve().parent
+            if out is None and (paused / "interview.json").is_file():  # go on with the make it answers
+                out = paused
+        elif _stdin_is_terminal():
+            show = (lambda text: print(text, end="", file=sys.stderr, flush=True)) if args.json else (
+                lambda text: print(text, end="", flush=True))
+            interviewer = mi.TerminalInterviewer(input, show, args.for_target)
+        elif args.for_target:
+            interviewer = mi.FileInterviewer(None, args.for_target)
+        else:
+            print("tip: pass --for <tool or model> to be asked a few questions first, so it comes out right",
+                  file=sys.stderr)
+    except mi.InterviewError as exc:
+        return _fail(str(exc))
     try:
         test_input = _read_text(None, args.input_file, "input")
         made = make.make(
@@ -242,12 +266,27 @@ def _cmd_make(args: argparse.Namespace) -> int:
             rounds=args.rounds,
             target=args.target,
             test_input=test_input,
-            out_dir=Path(args.out) if args.out else None,
+            out_dir=out,
             allow_commands=args.allow_commands,
             platforms=args.platform,
+            interviewer=interviewer,
+            preset=args.preset,
+            try_on=args.try_on,
         )
-    except (make.MakeError, providers.ProviderError, OSError) as exc:
+    except (make.MakeError, mi.InterviewError, providers.ProviderError, OSError) as exc:
         return _fail(str(exc))
+    if made.waiting is not None:
+        again = f"proofhouse make {args.request!r} --kind {args.kind} --provider {args.provider} --model {args.model}"
+        if args.max_cost_usd:
+            again += f" --max-cost-usd {args.max_cost_usd}"
+        again += f" --answers {made.folder / 'answers.json'}"
+        if args.json:
+            print(json.dumps({"folder": str(made.folder), "kind": made.kind, "stopped": made.stopped,
+                              "waiting": [str(p) for p in made.waiting], "next": again}, sort_keys=True))
+        else:
+            print(f"waiting for your answers: {', '.join(str(p) for p in made.waiting)}")
+            print(f"fill in answers.json, then run: {again}")
+        return EXIT_OK
     summary = {
         "folder": str(made.folder),
         "kind": made.kind,
@@ -258,6 +297,11 @@ def _cmd_make(args: argparse.Namespace) -> int:
         "calls": len(made.calls),
         "spent_usd_estimated": format(made.spent_usd, "f"),
     }
+    if made.interview is not None and made.interview.target is not None:
+        summary["made_for"] = made.interview.target.name
+    if made.tried_on is not None:
+        summary["tried_on"] = made.tried_on
+        summary["tried_on_note"] = made.tried_on_note
     if made.learned is not None:
         summary["learned"] = {key: made.learned[key] for key in ("kind", "what_it_is", "sources", "sources_note")}
     if args.json:
@@ -272,7 +316,10 @@ def _cmd_make(args: argparse.Namespace) -> int:
             print(f"learned a new kind, {made.kind}: {made.learned['what_it_is']}")
             print(f"  saved in {learn.pack_path()}; sources the model named ({learn.SOURCES_NOTE}): "
                   f"{', '.join(made.learned['sources']) or 'none'}")
-        print(f"made: {best}; stopped: {made.stopped}")
+        made_for = summary.get("made_for")
+        print(f"made: {best}; stopped: {made.stopped}" + (f"; made for {made_for}" if made_for else ""))
+        if made.tried_on is not None:
+            print(f"tried on {made.tried_on}" + (f" ({made.tried_on_note})" if made.tried_on_note else ""))
         print(f"spent about ${summary['spent_usd_estimated']} over {len(made.calls)} calls; everything is in {made.folder}")
         if made.kind == "skill" and made.best_version:
             print(f"install it: proofhouse install-skill --bundle {made.folder}/<skill-name>")
@@ -280,11 +327,19 @@ def _cmd_make(args: argparse.Namespace) -> int:
             print(f"open it: {made.folder}/site/index.html  (screenshots and checks are in {made.folder}/v{made.best_version})")
         if made.kind == "app" and made.best_version:
             print(f"app and build instructions: {made.folder}/README.md")
+        made_for = made.interview.target if made.interview is not None else None
+        host = made_for.id if made_for is not None and made_for.sort == "tool" else "claude"
         if made.kind == "agent" and made.best_version:
-            print(f"install it: proofhouse install agent {made.folder}/<agent-name>.md --into claude")
+            print(f"install it: proofhouse install agent {made.folder}/<agent-name>.md --into {host}")
         if made.kind == "rule" and made.best_version:
-            rule_file = next(iter(sorted(made.folder.glob("*.md"))), None)
+            rule_file = next(iter(sorted(p for p in [*made.folder.glob("*.md"), *made.folder.glob("*.mdc")]
+                                          if p.name not in mi.INTERVIEW_FILES)), None)
             print(f"rule file: {rule_file or made.folder / '<rule-name>.md'}")
+            from . import hosts
+
+            place = (hosts.all_hosts().get(host) or {}).get("rule") or {}
+            project = "" if place.get("user") else " --project <your project folder>"
+            print(f"install it: proofhouse install rule {rule_file or made.folder / '<rule-name>.md'} --into {host}{project}")
         if made.kind == "mcp" and made.best_version:
             print(f"server: {made.folder}/mcp; install line: {made.folder}/INSTALL-MCP.txt")
         if made.kind == "hook" and made.best_version:
@@ -331,6 +386,18 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make.add_argument("--allow-commands", action="store_true",
                         help="Start made MCP, hook or app build commands to check them; for --kind video with --facts, "
                              "run the commands in the fact sheet on this machine. Model-written code runs with your rights; not a sandbox.")
+    talk = p_make.add_argument_group("the interview (every kind but site and app)")
+    talk.add_argument("--for", dest="for_target", default=None,
+                      help="The AI tool or model it is for (Claude Code, Cursor, Codex, a model name, or any other); "
+                           "turns on the interview without a terminal.")
+    talk.add_argument("--answers", default=None,
+                      help="A JSON answers file: {\"for\": ..., \"answers\": {id: answer}, \"confirmed\": true, "
+                           "\"correction\": ...}; a paused make writes one to fill in.")
+    talk.add_argument("--preset", default="balanced", choices=("efficient", "balanced", "thorough"),
+                      help="How many questions to ask (default balanced).")
+    talk.add_argument("--try-on", default=None,
+                      help="PROVIDER/MODEL to try each version on (default: the tool's local agent bridge, "
+                           "agent-<tool>, when you added one).")
     p_make.add_argument("--json", action="store_true", help="Emit a JSON summary.")
     p_make.set_defaults(func=_cmd_make)
 

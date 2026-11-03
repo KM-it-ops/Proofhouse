@@ -1,25 +1,46 @@
 {
   "schema": "proofhouse.hosts/v1",
-  "note": "Where each tool keeps agents, rules and MCP servers. ~ is your home folder, {project} the --project folder, {name} the item's name. Add or override any tool in PROOFHOUSE_HOME/hosts.json.",
+  "note": "Where each tool keeps agents, rules and MCP servers, and how it wants each written (guides, taken from the tool's own docs in guide_sources). ~ is your home folder, {project} the --project folder, {name} the item's name. Add or override any tool in PROOFHOUSE_HOME/hosts.json.",
   "hosts": [
     {
       "id": "claude",
       "name": "Claude Code",
+      "aliases": ["claude code", "claude-code"],
       "agent": {"user": "~/.claude/agents/{name}.md", "project": "{project}/.claude/agents/{name}.md", "format": "file"},
       "rule": {"user": "~/.claude/CLAUDE.md", "project": "{project}/CLAUDE.md", "format": "md-block"},
-      "mcp": {"project": "{project}/.mcp.json", "format": "json-mcp"}
+      "mcp": {"project": "{project}/.mcp.json", "format": "json-mcp"},
+      "guides": {
+        "skill": "A Claude Code skill is a folder holding SKILL.md, in ~/.claude/skills/<name>/ (every project) or .claude/skills/<name>/ (one project). SKILL.md starts on its first line with YAML frontmatter between --- lines. name: lowercase letters, numbers and hyphens. description: what the skill does and when to use it, key use first; Claude reads it to decide when to load the skill, and description plus when_to_use is cut off at 1,536 characters. Optional fields include allowed-tools (tools it may use without asking), disable-model-invocation, user-invocable, paths, model, effort and context: fork (run it in its own subagent). The body is standing instructions Claude follows whenever the skill is in use: concise, concrete steps and checks, not a one-off task. Keep SKILL.md under 500 lines; put long reference material in other files in the same folder and link them from SKILL.md. Test it with realistic prompts.",
+        "agent": "A Claude Code subagent is one Markdown file in ~/.claude/agents/ (every project) or .claude/agents/ (one project). It starts with YAML frontmatter between --- lines; name (lowercase letters and hyphens) and description are required. Claude reads the description to decide when to hand work to the subagent, so say exactly when to use it; the words 'use proactively' encourage Claude to use it on its own. Optional fields include tools (an allowlist; leave it out to inherit every tool), disallowedTools, model (sonnet, opus, haiku, a full model id, or inherit), permissionMode, maxTurns, skills, mcpServers, hooks, memory, background, effort, isolation and color. Unknown fields are ignored. The Markdown body is the subagent's whole system prompt: it does not get Claude Code's own system prompt or the project's rules, so state the role, the steps, the limits and what to report back. Give it only the tools the job needs.",
+        "rule": "Claude Code reads standing instructions from CLAUDE.md: CLAUDE.md in the project folder for one project, ~/.claude/CLAUDE.md for every project. It is loaded at the start of every session as context; it guides Claude but is not enforced. Write plain Markdown with no frontmatter. Keep the whole file under 200 lines: longer files use more context and are followed less well. Be specific and checkable ('Use 2-space indentation', not 'Format code nicely'). Group related instructions under headings and bullet points. Never contradict another instruction: when two conflict, Claude may follow either one. Rules that apply only to some files can go in .claude/rules/ instead."
+      },
+      "guide_sources": [
+        "https://code.claude.com/docs/en/skills",
+        "https://code.claude.com/docs/en/sub-agents",
+        "https://code.claude.com/docs/en/memory"
+      ]
     },
     {
       "id": "cursor",
       "name": "Cursor",
+      "aliases": ["cursor agent"],
       "rule": {"project": "{project}/.cursor/rules/{name}.mdc", "format": "file"},
-      "mcp": {"user": "~/.cursor/mcp.json", "project": "{project}/.cursor/mcp.json", "format": "json-mcp"}
+      "mcp": {"user": "~/.cursor/mcp.json", "project": "{project}/.cursor/mcp.json", "format": "json-mcp"},
+      "guides": {
+        "rule": "A Cursor project rule is one .mdc file in .cursor/rules/ (a plain .md file there is ignored). It starts with frontmatter between --- lines holding three keys: description (what the rule is for; the agent reads it to decide when to apply the rule), globs (comma-separated file patterns such as src/**/*.ts) and alwaysApply (true or false). Pick one way to apply it: alwaysApply: true for every chat; a description with alwaysApply: false so the agent applies it when it is relevant; globs so it applies when matching files are involved; or none of these so it applies only when someone @-mentions it. After the frontmatter, write the rule in Markdown. Keep each rule under 500 lines, and split a big one into several focused rules. Be concrete: give examples, refer to real files in the project instead of pasting them in, and avoid vague guidance. Cursor also reads AGENTS.md."
+      },
+      "guide_sources": ["https://cursor.com/docs/context/rules"]
     },
     {
       "id": "codex",
       "name": "Codex",
+      "aliases": ["openai codex", "codex cli"],
       "rule": {"user": "~/.codex/AGENTS.md", "project": "{project}/AGENTS.md", "format": "md-block"},
-      "mcp": {"user": "~/.codex/config.toml", "format": "toml-block"}
+      "mcp": {"user": "~/.codex/config.toml", "format": "toml-block"},
+      "guides": {
+        "rule": "Codex reads AGENTS.md: plain Markdown with no required fields, at the root of the project (or ~/.codex/AGENTS.md for every project). AGENTS.md files in sub-folders are allowed, and the one closest to the file being worked on wins. Write it for an agent, not a person. Useful sections: a project overview, build and test commands, code style, testing instructions, security notes and pull request guidelines. Give exact commands the agent can run and checks it can verify. The same file is read by many other agents, among them Cursor, Gemini CLI, GitHub Copilot's coding agent, Jules, Aider, Zed and Windsurf."
+      },
+      "guide_sources": ["https://agents.md"]
     },
     {
       "id": "grok-bot",
