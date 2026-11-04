@@ -244,7 +244,8 @@ def target_question(kind: str) -> str:
 
     if kind in make_media.media_kinds():
         needs = make_media.service_kinds(kind)
-        found = [pid for pid, p in media.all_media_providers().items() if needs & set(p.kinds)]
+        listed = [(pid, p) for pid, p in media.all_media_providers().items() if needs & set(p.kinds)]
+        found = [pid for pid, p in sorted(listed, key=lambda e: e[1].origin == "shipped")]  # your own first
         return (f"Which service makes it? Name it as service or service/model, such as {', '.join(found[:8])}"
                 + (" (for a video you can name several, such as 'visuals: a, voice: b, music: c')" if kind == "video" else ""))
     return "Which AI tool or model is this for? (for example Claude Code, Cursor, Codex, or a model name)"

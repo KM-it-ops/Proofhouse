@@ -3,6 +3,20 @@
   "note": "Request templates for image, video, speech and music services. {model}, {prompt} and the other placeholders are filled in at call time. Check them against each provider's docs; add or override any service in PROOFHOUSE_HOME/media_providers.json.",
   "providers": [
     {
+      "id": "local-music",
+      "name": "Music bed made on this machine",
+      "kinds": ["music"],
+      "unit": "request",
+      "run": {"command": ["@python", "-m", "proofhouse.local_music", "--seconds", "{seconds}", "--out", "{out}"], "stdin": "{prompt}", "ext": "wav", "timeout": 600}
+    },
+    {
+      "id": "local-voice",
+      "name": "Voice from this machine's speech engine",
+      "kinds": ["speech"],
+      "unit": "request",
+      "run": {"command": ["@python", "-m", "proofhouse.local_voice", "--voice", "{voice}", "--out", "{out}"], "stdin": "{prompt}", "ext": "wav", "timeout": 600}
+    },
+    {
       "id": "openai-images",
       "name": "OpenAI images",
       "kinds": ["image"],
