@@ -380,6 +380,9 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      itself. Not yet enlarged in 9:16: the lower-third plate, the callout's label and the words inside cards.
    - **8e. Front door details.** The interview record names `--for` and presets correctly, and
      `docs/usage.md` covers the media interview and exit 9.
+     **Done.** `interview_from` names the answers file, the terminal, a launch or the caller, and the flag
+     that named the tool (`--for`, `--platform` or the service flags); the record keeps `interview_preset`.
+     A media part made inside a launch now records "launch", as text parts already did.
 
 ## What is left (updated 2026-10-27)
 

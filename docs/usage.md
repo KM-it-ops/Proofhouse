@@ -112,6 +112,16 @@ proofhouse make "a skill that reviews pull requests for security issues" --kind 
 
 `--kind rule` makes a Markdown instruction and checks installation and clean removal in every rule-capable host using throwaway settings. `--kind mcp` makes a stdio server and checks its `initialize` and `tools/list` replies; the best folder includes an exact install line. `--kind hook` makes a command hook, runs it on a sample event, and includes a Claude Code settings snippet. Each version keeps `checks.json`; generated commands run with a limited environment and a timeout.
 
+#### The questions first
+
+Every `make` starts with a short interview before anything is written: which tool or model it is for, a few questions so it comes out right, then what it understood, for you to accept or correct. In a terminal it asks you there. With no terminal (an agent, a script, CI) it writes `questions.md` and `answers.json` in the output folder, prints the command to run next, and exits with code 9 (waiting for your answers, not a failure). Fill in `answers.json` and run that command:
+
+```json
+{"for": "Claude Code", "answers": {"must": "check the order number"}, "confirmed": true}
+```
+
+`--for` answers the first question ahead of time, and `--answers <file>` answers the rest, so a make can run in one go. `--preset` sets how deep the questions go. For images, video, voice and music the first question is which service makes it (`service` or `service/model`); for a video, the service flags (such as `--voice-provider`) answer it. The record (`record.json`) keeps the interview, the preset and where each answer came from (`interview_from`, such as `answers file; the tool from --for`).
+
 Put it online when you say so, with the hosting service's own tool (signed in your usual way):
 
 ```bash

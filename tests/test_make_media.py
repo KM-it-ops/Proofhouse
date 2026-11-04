@@ -244,7 +244,7 @@ def test_a_voice_is_checked_for_sound_and_delivered_as_the_file_types_asked_for(
     out = capsys.readouterr().out
     assert code == live_cli.EXIT_OK, out
     record = _record(folder)
-    assert record["interview_from"] == "answers file"
+    assert record["interview_from"] == "answers file" and record["interview_preset"] == "balanced"
     assert {c["check"] for c in record["versions"][0]["checks"]} >= {"has sound", "length"}
     assert "SOUND, MEASURED" in model.seen["judge"][0] and "LUFS" in model.seen["judge"][0]  # it reads the sound, measured
     sound = record["versions"][0]["judged_on"]["sound"]

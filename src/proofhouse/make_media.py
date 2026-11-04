@@ -338,10 +338,9 @@ def make_media(
                              best.get("renders") or {})
         result.undelivered = [shape for shape in best["shapes"] if shape not in delivered]
     result.delivered, result.spent_usd = delivered, budget.spent
-    who = ("terminal" if isinstance(interviewer, mi.TerminalInterviewer) else
-           "answers file" if isinstance(interviewer, mi.FileInterviewer) else "caller")
+    who = mi.answered_by(interviewer, shared=bool(shared))
     _write_record(folder, request, kind, profile.id, model, max_cost_usd, result, versions, parts, delivered, who, made,
-                  stood_in)
+                  stood_in, preset)
     return result
 
 
@@ -552,7 +551,7 @@ def _judging(made: str, versions: list[dict[str, Any]]) -> str:
 
 def _write_record(folder: Path, request: str, kind: str, provider_id: str, model: str, limit: str | None, result: make.MakeResult,
                   versions: list[dict[str, Any]], parts: dict[str, dict[str, str]], delivered: dict[str, str], who: str,
-                  made: str, stood_in: dict[str, str]) -> None:
+                  made: str, stood_in: dict[str, str], preset: str) -> None:
     record = {
         "schema": "proofhouse.make-media/v1",
         "proofhouse_version": __version__,
@@ -563,6 +562,7 @@ def _write_record(folder: Path, request: str, kind: str, provider_id: str, model
         "model": model,
         "spending_limit_usd": limit,
         "interview_from": who,
+        "interview_preset": preset,
         "interview": result.interview.to_dict() if result.interview is not None else None,
         "roles": {role: {k: v for k, v in entry.items() if k != "kind" or made == "video"} for role, entry in parts.items()},
         "stood_in": stood_in,

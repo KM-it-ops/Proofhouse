@@ -73,6 +73,30 @@ def test_answers_given_ahead_make_it_in_one_run(tmp_path: Path, monkeypatch: pyt
     assert json.loads((tmp_path / "o" / "record.json").read_text(encoding="utf-8"))["interview_from"] == "answers file"
 
 
+def test_the_record_names_for_as_the_source_of_the_tool_and_keeps_the_preset(tmp_path: Path,
+                                                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    model = Owner([9])
+    _route(monkeypatch, model)
+    ahead = tmp_path / "ahead.json"
+    ahead.write_text(json.dumps({"answers": {"must": "check the order"}, "confirmed": True}), encoding="utf-8")
+    assert cli.main([*BASE, "--for", "Claude Code", "--answers", str(ahead), "--preset", "efficient",
+                     "--out", str(tmp_path / "o")]) == live_cli.EXIT_OK
+    record = json.loads((tmp_path / "o" / "record.json").read_text(encoding="utf-8"))
+    assert record["interview_from"] == "answers file; the tool from --for"
+    assert record["interview_preset"] == "efficient"
+
+
+def test_the_interview_source_is_named_for_every_way_it_can_be_answered() -> None:
+    from proofhouse import make_interview as mi
+    assert mi.answered_by(mi.FileInterviewer(None, "Claude Code")) == "--for"
+    assert mi.answered_by(mi.FileInterviewer(None, "voice: kokoro", target_from="the service flags")) == "the service flags"
+    terminal = mi.TerminalInterviewer(input, print, "Claude Code")
+    assert mi.answered_by(terminal) == "terminal; the tool from --for"
+    assert mi.answered_by(mi.TerminalInterviewer(input, print)) == "terminal"
+    assert mi.answered_by(None) == "none" and mi.answered_by(object()) == "caller"
+    assert mi.answered_by(terminal, shared=True) == "launch"
+
+
 def test_a_pause_with_for_given_uses_the_same_exit_code(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                                         capsys: pytest.CaptureFixture[str]) -> None:
     _route(monkeypatch, Owner([9]))

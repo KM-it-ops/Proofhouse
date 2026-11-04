@@ -186,6 +186,7 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
             return _fail(str(exc))
     if not args.for_target and not args.answers:
         args.for_target = _media_target_text(args)
+        args.target_from = "the service flags"
     options = _video_options(args)
     video = {"visual_kind": options["visual_kind"], "voice": options["voice"], "music_file": options["music_file"],
              "captions": options["captions"], "facts": facts, "allow_commands": options["allow_commands"]}
@@ -260,10 +261,11 @@ def _choose_interviewer(args: argparse.Namespace, *, launching: bool = False) ->
 
     out = Path(args.out) if args.out else None
     for_target = args.for_target
+    target_from = getattr(args, "target_from", "--for")
     if not for_target and args.kind == "app" and args.platform:
-        for_target = ", ".join(args.platform)
+        for_target, target_from = ", ".join(args.platform), "--platform"
     if args.answers:
-        interviewer: object = mi.FileInterviewer(Path(args.answers), for_target)
+        interviewer: object = mi.FileInterviewer(Path(args.answers), for_target, target_from)
         paused = Path(args.answers).resolve().parent
         if out is None:  # go on with the make (or the launch) it answers
             for folder in (paused, paused.parent) if launching else (paused,):
@@ -274,8 +276,8 @@ def _choose_interviewer(args: argparse.Namespace, *, launching: bool = False) ->
     if _stdin_is_terminal():
         show = (lambda text: print(text, end="", file=sys.stderr, flush=True)) if args.json else (
             lambda text: print(text, end="", flush=True))
-        return mi.TerminalInterviewer(input, show, None if launching else for_target, args.kind), out
-    return mi.FileInterviewer(None, for_target), out
+        return mi.TerminalInterviewer(input, show, None if launching else for_target, args.kind, target_from), out
+    return mi.FileInterviewer(None, for_target, target_from), out
 
 
 def _cmd_make_launch(args: argparse.Namespace) -> int:

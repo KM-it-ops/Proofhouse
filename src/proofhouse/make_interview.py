@@ -684,6 +684,22 @@ def run(iv: Interview, source: Interviewer, ask: Ask, *, preset: str, learned_by
 
 # --- where the answers come from ---------------------------------------------------------------------
 
+def answered_by(interviewer: Any, *, shared: bool = False) -> str:
+    """Where the interview was answered, as the record names it: the answers file, the terminal, a launch or the
+    caller, and the flag that named the tool when a flag did (``--for``, ``--platform`` or the service flags)."""
+    if shared:
+        return "launch"
+    if interviewer is None:
+        return "none"
+    if not isinstance(interviewer, (FileInterviewer, TerminalInterviewer)):
+        return "caller"
+    flag = interviewer.target_from if interviewer.for_target else None
+    if isinstance(interviewer, FileInterviewer) and interviewer.path is None:
+        return flag or "nothing yet"
+    where = "terminal" if isinstance(interviewer, TerminalInterviewer) else "answers file"
+    return f"{where}; the tool from {flag}" if flag else where
+
+
 def _answer_text(value: Any) -> str:
     if isinstance(value, list):
         return ", ".join(str(v).strip() for v in value if str(v).strip())
@@ -693,8 +709,9 @@ def _answer_text(value: Any) -> str:
 class FileInterviewer:
     """Answers from a JSON file: {"for": "...", "answers": {"<id>": "..."}, "confirmed": true, "correction": "..."}."""
 
-    def __init__(self, path: Path | None, for_target: str | None = None) -> None:
+    def __init__(self, path: Path | None, for_target: str | None = None, target_from: str = "--for") -> None:
         self.data: dict[str, Any] = {}
+        self.path, self.target_from = path, target_from
         if path is not None:
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
@@ -727,8 +744,9 @@ class TerminalInterviewer:
     """Asks in the terminal. Enter skips a question; at the say-back, Enter accepts and any other text corrects."""
 
     def __init__(self, read: Callable[[], str], write: Callable[[str], None], for_target: str | None = None,
-                 kind: str = "") -> None:
+                 kind: str = "", target_from: str = "--for") -> None:
         self.read, self.write, self.for_target, self.kind = read, write, for_target, kind
+        self.target_from = target_from
 
     def _line(self, prompt: str) -> str:
         self.write(prompt)
