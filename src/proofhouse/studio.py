@@ -25,6 +25,7 @@ renders, and ``studio.json`` with every call, cost, FFmpeg command and check.
 from __future__ import annotations
 
 import base64
+import copy
 import json
 import math
 import re
@@ -796,6 +797,18 @@ def _spoken_guess(board: list[dict[str, Any]], rate: float = FAST_RATE) -> float
     return storyboard.time_beats(beats)
 
 
+def _cut_to_fit(count: int, size: Callable[[int], float], fits: Callable[[list[int]], bool]) -> list[int] | None:
+    """The beats to keep when whole middle beats are cut, the longest first, until the rest fits: the opening and
+    the close always stay. None when even those two alone do not fit."""
+    keep = list(range(count))
+    while not fits(keep):
+        middle = keep[1:-1]
+        if not middle:
+            return None
+        keep.remove(max(middle, key=size))
+    return keep
+
+
 def produce(
     brief: str,
     *,
@@ -891,19 +904,41 @@ def produce(
                                    {"voice": voice} if voice else {}))
 
         too_long = 0
+        cut_said: list[str] = []  # the words of middle beats cut to fit, once the writer had no fixes left
+        limit = seconds + brief_slack(seconds)
 
-        def voice_board(board: list[dict[str, Any]]) -> tuple[list[storyboard.Beat], float, str | None]:
+        def cut_board(board: list[dict[str, Any]], keep: list[int]) -> None:
+            cut_said.extend(str(row.get("say") or "").strip() for i, row in enumerate(board) if i not in keep)
+            board[:] = [board[i] for i in keep]
+
+        def voice_board(board: list[dict[str, Any]], last: bool) -> tuple[list[storyboard.Beat], float, str | None]:
             """Speak the storyboard's words and time it. A film the chosen voice makes too long is a problem to send
-            back, with that voice's own pace, and its spoken files are set aside so the next script starts fresh."""
+            back, with that voice's own pace, and its spoken files are set aside so the next script starts fresh.
+            On the ``last`` chance, whole middle beats are cut to fit first."""
             nonlocal too_long
             try:
                 beats = storyboard.parse([{**row, "base": {"kind": "living"}} for row in board], out_dir)
+                asked = [b.cut for b in beats]  # timing settles the joins left on auto; a shorter film settles its own
                 if any(b.phrases for b in beats):
                     storyboard.voice(beats, speak)
             except storyboard.StoryboardError as exc:
                 raise StudioError(str(exc)) from exc
+
+            def trial(kept: list[int]) -> list[storyboard.Beat]:
+                run = [copy.copy(beats[i]) for i in kept]
+                for n, (i, beat) in enumerate(zip(kept, run), start=1):
+                    beat.number, beat.cut = n, asked[i]
+                return run
+
             total = storyboard.time_beats(beats)
-            if total <= seconds + brief_slack(seconds):
+            if total > limit and last:
+                keep = _cut_to_fit(len(beats), lambda i: sum(p.seconds for p in beats[i].phrases),
+                                   lambda kept: storyboard.time_beats(trial(kept)) <= limit)
+                if keep is not None:
+                    beats = trial(keep)
+                    cut_board(board, keep)
+                    total = storyboard.time_beats(beats)
+            if total <= limit:
                 return beats, storyboard.fill_to(beats, seconds), None
             too_long += 1
             if (out_dir / "voice").is_dir():
@@ -937,7 +972,13 @@ def produce(
                 if "beats" in data or "shots" not in data:
                     board = beats_from(data, facts)
                     guess = _spoken_guess(board)
-                    if guess > seconds + brief_slack(seconds):
+                    if guess > limit and attempt == SCRIPT_FIXES:  # no fixes left: cut middle beats, not the film
+                        keep = _cut_to_fit(len(board), lambda i: _spoken_guess([board[i]]),
+                                           lambda kept: _spoken_guess([board[i] for i in kept]) <= limit)
+                        if keep is not None:
+                            cut_board(board, keep)
+                            guess = _spoken_guess(board)
+                    if guess > limit:
                         fit = script_budget(seconds)
                         problem = (f"the script is too long: even read quickly it runs about {guess:.0f} seconds, and "
                                    f"the film must be about {seconds} seconds. Use {fit['fewest']} to {fit['most']} beats "
@@ -967,7 +1008,7 @@ def produce(
                     raise StudioError("generated pictures need --visual-provider and --visual-model (see `proofhouse media list`)")
                 if any(row.get("say") for row in board) and not voice_provider:
                     raise StudioError("a film with words needs a voice service to speak them (--voice-provider)")
-                timed, length, problem = voice_board(board)
+                timed, length, problem = voice_board(board, attempt == SCRIPT_FIXES)
             if problem is None:
                 break
             if attempt == SCRIPT_FIXES:  # keep what it said last, so the failure can be read
@@ -976,6 +1017,12 @@ def produce(
             prompt, role = _FIX.format(problem=problem, task=task, reply=reply_text[:6000]), "script fix"
 
         if board is not None:
+            if cut_said:
+                quoted = ", ".join(f"'{s}'" for s in cut_said)
+                production.checks.append({
+                    "render": "all", "check": "middle beats cut to fit", "ok": True,
+                    "detail": f"after {SCRIPT_FIXES} fixes the script still ran over {seconds} seconds, so these middle "
+                              f"beats were cut and the opening and close kept: {quoted}"})
             production.title, production.music_brief = str(data.get("title", "")).strip(), str(data.get("music", "")).strip()
             script = {"title": production.title, "music": production.music_brief, "beats": board}
             for row, beat in zip(board, timed):  # keep the spoken files, so nothing is spoken twice

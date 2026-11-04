@@ -595,6 +595,32 @@ def test_a_script_too_long_once_spoken_is_sent_back_with_the_voice_s_own_pace(tm
 
 
 @needs_ffmpeg
+def test_a_script_that_stays_too_long_keeps_its_opening_and_close_and_cuts_middle_beats_to_fit(
+        tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.5", str(tmp_path / "phrase.wav"))
+    long = json.loads(json.dumps(BEATS))
+    long["beats"].insert(2, {"say": "Watch it get better.", "base": {"prompt": "a chart climbing"}})
+    long["beats"].insert(1, {"say": "Every version is kept.", "base": {"prompt": "a shelf of folders"}})
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(long, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("too long" in a for a in asked[1:])  # every chance first
+    assert made.stopped == "finished" and "1x1" in made.renders, made.stopped
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    said = [row["phrases"][0]["text"] for row in script["beats"]]
+    assert said[0] == long["beats"][0]["say"] and said[-1] == long["beats"][-1]["say"]  # the opening and the close
+    assert 2 <= len(said) < len(long["beats"])
+    assert next(c for c in made.checks if c["check"] == "length matches the brief")["ok"]
+    cut = next(c for c in made.checks if c["check"] == "middle beats cut to fit")
+    assert all(f"'{s}'" in cut["detail"] for row in long["beats"] if (s := row["say"]) not in said), cut
+    shots = sorted(p.name for p in (tmp_path / "v" / "shots").iterdir())
+    assert len([s for s in shots if s.endswith(".png")]) == len(said)  # no picture is made for a cut beat
+
+
+@needs_ffmpeg
 def test_a_script_that_stays_too_long_stops_before_any_picture_is_made(tmp_path: Path, services) -> None:
     _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=3", str(tmp_path / "slow.wav"))
     asked: list[str] = []
