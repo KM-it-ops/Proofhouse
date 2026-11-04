@@ -349,6 +349,48 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
     return out
 
 
+def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None) -> tuple[dict[str, Any], list[str]]:
+    """The beats plan with each overlay or sound time that cannot be read taken out, and a note for each.
+
+    Used only once the script writer has had all its chances to fix them, so one garbled time never costs the
+    whole film: the overlay or sound stays and plays at its default moment. Anything else that is wrong (a layer
+    the engine cannot draw, a broken beat) is left as it is, so it stays a failure."""
+    rows = data.get("beats")
+    if not isinstance(rows, list):
+        return data, []
+    dropped: list[str] = []
+    out: list[Any] = []
+    for number, raw in enumerate(rows, start=1):
+        if not isinstance(raw, dict):
+            return data, []
+        bare = {k: v for k, v in raw.items() if k not in ("layers", "sounds")}
+        try:
+            beats_from({"beats": [bare]}, facts)
+        except StudioError:
+            return data, []
+        row = dict(raw)
+        for key in ("layers", "sounds"):
+            if not isinstance(raw.get(key), list):
+                continue
+            keep = []
+            for i, item in enumerate(raw[key], start=1):
+                try:
+                    beats_from({"beats": [{**bare, key: [item]}]}, facts)
+                except StudioError:
+                    plain = {k: v for k, v in item.items() if k not in ("at", "until")} if isinstance(item, dict) else item
+                    try:
+                        beats_from({"beats": [{**bare, key: [plain]}]}, facts)
+                    except StudioError:
+                        return data, []  # not a timing problem
+                    times = ", ".join(repr(item[k]) for k in ("at", "until") if k in item)
+                    dropped.append(f"beat {number} {key[:-1]} {i} time {times}")
+                    item = plain
+                keep.append(item)
+            row[key] = keep
+        out.append(row)
+    return {**data, "beats": out}, dropped
+
+
 def srt(shots: list[Shot]) -> str:
     def stamp(t: int) -> str:
         return f"{t // 3600:02d}:{t // 60 % 60:02d}:{t % 60:02d},000"
@@ -829,6 +871,7 @@ def produce(
             board: list[dict[str, Any]] | None = None
             plan: tuple[str, str, str, list[Shot]] | None = None
             problem: str | None = None
+            data: dict[str, Any] | None = None
             try:
                 data = _json_object(reply_text)
                 if "beats" in data or "shots" not in data:
@@ -843,6 +886,19 @@ def produce(
                     plan = plan_from(data, seconds, facts)
             except StudioError as exc:
                 problem = str(exc)
+            if problem is not None and attempt == SCRIPT_FIXES and board is None and plan is None and data:
+                cleaned, dropped = untime_unreadable(data, facts)  # the last chance is gone: keep what can be read
+                if dropped:
+                    try:
+                        board = beats_from(cleaned, facts)
+                    except StudioError:
+                        pass
+                    else:
+                        data, problem = cleaned, None
+                        production.checks.append({
+                            "render": "all", "check": "unreadable timings dropped", "ok": True,
+                            "detail": f"after {SCRIPT_FIXES} fixes these times still could not be read, so those parts "
+                                      f"play at their default moment: {'; '.join(dropped)}"})
             if problem is None and board is not None:
                 if any(row["base"]["kind"] == "generate" for row in board) and (not visual_provider or not visual_model):
                     raise StudioError("generated pictures need --visual-provider and --visual-model (see `proofhouse media list`)")

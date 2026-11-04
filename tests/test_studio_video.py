@@ -614,6 +614,28 @@ def test_a_script_that_stays_too_long_stops_before_any_picture_is_made(tmp_path:
 
 
 @needs_ffmpeg
+def test_a_timing_that_stays_unreadable_falls_back_to_the_default_instead_of_losing_the_film(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    garbled = json.loads(json.dumps(BEATS))
+    garbled["beats"][0]["layers"].append({"kind": "chips", "items": ["fast"], "at": "3:+"})
+    garbled["beats"][1]["sounds"] = [{"kind": "whoosh", "at": "+/- 0.5 seconds of end::"}, {"kind": "hit", "at": "start"}]
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(garbled, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert len(asked) == 1 + studio.SCRIPT_FIXES  # the writer had every chance to fix them first
+    assert made.stopped == "finished" and "1x1" in made.renders, made.stopped
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    # the overlay and the sound stay; only their unreadable times are gone, so they play at the default moment
+    assert script["beats"][0]["layers"] == [*BEATS["beats"][0]["layers"], {"kind": "chips", "items": ["fast"]}]
+    assert script["beats"][1]["sounds"] == [{"kind": "whoosh"}, {"kind": "hit", "at": "start"}]
+    untimed = next(c for c in made.checks if c["check"] == "unreadable timings dropped")
+    assert "beat 1 layer 2" in untimed["detail"] and "beat 2 sound 1" in untimed["detail"], untimed
+
+
+@needs_ffmpeg
 def test_a_short_film_is_held_out_to_the_asked_length(tmp_path: Path, services) -> None:
     _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
     made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
