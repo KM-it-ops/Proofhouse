@@ -399,6 +399,8 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      too long after its fixes keeps its opening and close and cuts middle beats to fit, and the record names
      each cut. The plan and the judge are asked for JSON; a plan with no prompt is asked for once more, and
      its reply is kept if it still has none. A model that refuses a picture is not sent one again.
+     A number the writer gives as text ("500") is read as that number, and a model on this machine is
+     waited for up to 600 seconds (120 elsewhere), since a CPU model is slow but never billed.
      Run on 2026-11-04: llama3.2 plus the local picture program made the 10-second film at $0; the second
      version scored 8/10 and was delivered.
 

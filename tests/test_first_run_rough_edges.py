@@ -130,6 +130,23 @@ def test_a_slow_model_gets_a_plain_message_and_a_setting(monkeypatch: pytest.Mon
     assert live._timeout_seconds() == 120.0
 
 
+def test_a_model_on_this_machine_is_waited_for_longer_than_one_elsewhere(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("PROOFHOUSE_TIMEOUT_SECONDS", raising=False)
+    assert live._timeout_seconds("http://localhost:11434/v1/chat/completions") == 600.0  # slow on a CPU, never billed
+    assert live._timeout_seconds("http://127.0.0.1:8080/v1/chat/completions") == 600.0
+    assert live._timeout_seconds("https://api.example.com/v1/chat/completions") == 120.0
+    monkeypatch.setenv("PROOFHOUSE_TIMEOUT_SECONDS", "45")  # the setting wins everywhere
+    assert live._timeout_seconds("http://localhost:11434/v1/chat/completions") == 45.0
+
+    monkeypatch.delenv("PROOFHOUSE_TIMEOUT_SECONDS", raising=False)
+
+    def too_slow(request: live.Request) -> live.Response:
+        raise TimeoutError("timed out")
+
+    result = live.run_prompt("ollama", "llama3", prompt="hi", transport=too_slow)
+    assert "within 600 seconds" in result.message and "for example 1200" in result.message
+
+
 def test_a_launch_whose_plan_cannot_be_read_says_so_and_keeps_a_record(tmp_path: Path, capsys) -> None:
     def rambling(request: live.Request) -> live.Response:
         return _reply("I would love to help you launch! First you should think about your audience.")

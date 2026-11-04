@@ -97,19 +97,23 @@ def _scrub(value: Any, secret: str | None) -> Any:
 
 
 DEFAULT_TIMEOUT_SECONDS = 120.0
+LOCAL_TIMEOUT_SECONDS = 600.0  # a model on this machine is slow on a CPU, and waiting for it costs nothing
 
 
-def _timeout_seconds() -> float:
-    """How long to wait for a model: PROOFHOUSE_TIMEOUT_SECONDS if it is a positive number, else 120."""
+def _timeout_seconds(url: str = "") -> float:
+    """How long to wait for a model: PROOFHOUSE_TIMEOUT_SECONDS if it is a positive number, else 600 for a model on
+    this machine and 120 for one elsewhere."""
+    here = (urlparse(url).hostname or "").lower() in providers.LOCAL_HOSTS
+    fallback = LOCAL_TIMEOUT_SECONDS if here else DEFAULT_TIMEOUT_SECONDS
     try:
         seconds = float(os.environ.get("PROOFHOUSE_TIMEOUT_SECONDS", ""))
     except ValueError:
-        return DEFAULT_TIMEOUT_SECONDS
-    return seconds if 0 < seconds < float("inf") else DEFAULT_TIMEOUT_SECONDS
+        return fallback
+    return seconds if 0 < seconds < float("inf") else fallback
 
 
 def _httpx_post(request: Request) -> Response:
-    timeout = _timeout_seconds()
+    timeout = _timeout_seconds(request.url)
     # Optional extra: a default install must not import httpx at module load. Without it, the standard library sends.
     try:
         import httpx
@@ -240,9 +244,11 @@ def run_prompt(
     response = gated.response
     if isinstance(response, _SendFailed):
         if response.timed_out:
+            waited = _timeout_seconds(url)
             detail = (
-                f"{profile.name} did not answer within {_timeout_seconds():g} seconds; nothing more was tried. "
-                "A slow or large model needs longer: set PROOFHOUSE_TIMEOUT_SECONDS (for example 600), or use a faster model"
+                f"{profile.name} did not answer within {waited:g} seconds; nothing more was tried. A slow or large "
+                f"model needs longer: set PROOFHOUSE_TIMEOUT_SECONDS (for example {max(600.0, 2 * waited):g}), "
+                "or use a faster model"
             )
         elif profile.local:
             detail = (
