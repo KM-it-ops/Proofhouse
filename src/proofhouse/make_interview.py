@@ -370,6 +370,25 @@ def parse_questions(text: str | None) -> list[Question]:
     return found
 
 
+_GIVEN_TOPICS = {  # a line of what the command set -> the words of a question that asks it again
+    "- length:": re.compile(r"\b(length|duration|runtime)\b|\bhow long\b", re.I),
+    "- shapes to deliver:": re.compile(
+        r"\b(format|formats|aspect|orientation|ratio|vertical|horizontal|landscape|portrait)\b", re.I),
+}
+
+
+def not_given(questions: list[Question], given: str) -> list[Question]:
+    """The questions left once those about what the command already set are dropped, whatever the model asked.
+
+    A follow-up of a dropped question is asked plainly, since its parent is decided."""
+    topics = [words for line, words in _GIVEN_TOPICS.items() if line in given]
+    dropped = {q.id for q in questions
+               if any(words.search(f"{q.id.replace('_', ' ')} {q.text}") for words in topics)}
+    return [Question(q.id, q.text, q.type, q.options, None, q.group)
+            if q.depends_on and q.depends_on[0] in dropped else q
+            for q in questions if q.id not in dropped]
+
+
 def _plain_question(text: str) -> str:
     """A question's words without case, punctuation or a note in brackets at the end, to spot one asked twice."""
     text = re.sub(r"\s*\([^()]*\)\s*$", "", text.strip())
@@ -681,7 +700,8 @@ def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], st
         system += _GIVEN_NOTE.format(given=iv.given)
     for user in (packet.user, packet.user + "\n\nReply with the JSON array only, nothing else."):
         try:
-            return parse_questions(ask("questions", system, user)), "model"
+            kept = not_given(parse_questions(ask("questions", system, user)), iv.given)
+            return (kept, "model") if kept else (list(_FALLBACK), "fallback")
         except ValueError:
             continue
     return list(_FALLBACK), "fallback"

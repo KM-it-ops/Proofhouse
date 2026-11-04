@@ -148,6 +148,30 @@ def test_too_many_questions_are_cut() -> None:
     assert len(mi.parse_questions(many)) == mi.MAX_QUESTIONS
 
 
+def test_a_question_about_what_the_command_already_set_is_dropped_even_when_the_model_asks_it() -> None:
+    # what a small free model asked although --seconds 10 --formats 16x9 were set
+    reply = json.dumps([
+        {"id": "hype_film_goal", "text": "Is the goal to hype the tool or the client?", "type": "single_select",
+         "options": ["Hype the tool", "Hype the client"]},
+        {"id": "film_length", "text": "Is the film a specific length?", "type": "single_select",
+         "options": ["No changes", "Yes, 10 seconds"]},
+        {"id": "film_format", "text": "What is the video format?", "type": "single_select", "options": ["Video format"]},
+        {"id": "aspect", "text": "Should it be vertical or horizontal?", "type": "text"},
+        {"id": "how_long", "text": "How long should it run?", "type": "text"},
+        {"id": "film_tone", "text": "What tone should the film have?", "type": "text"},
+        {"id": "film_content", "text": "Should the film contain content from the model?", "type": "text",
+         "dependsOn": {"questionId": "film_length", "values": ["Yes, 10 seconds"]}},
+    ])
+    given = "- length: 10 seconds\n- shapes to deliver: 16x9 (wide 16:9)"
+    kept = mi.not_given(mi.parse_questions(reply), given)
+    assert [q.id for q in kept] == ["hype_film_goal", "film_tone", "film_content"]
+    assert kept[2].depends_on is None  # its parent is decided, so it is simply asked
+    # only what was set is dropped: with no length set, the length questions stay
+    shapes_only = mi.not_given(mi.parse_questions(reply), "- shapes to deliver: 16x9 (wide 16:9)")
+    assert [q.id for q in shapes_only] == ["hype_film_goal", "film_length", "how_long", "film_tone", "film_content"]
+    assert mi.not_given(mi.parse_questions(reply), "") == mi.parse_questions(reply)
+
+
 def test_a_follow_up_is_asked_only_when_its_parent_answer_calls_for_it() -> None:
     team = mi.parse_questions(QUESTIONS)[1]
     assert not mi.applies(team, {})
