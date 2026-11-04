@@ -74,14 +74,17 @@ _PLACE_NOTE = (
     "using what is known about it below.\n\nWHAT IS KNOWN:\n{guide}"
 )
 _SAY_BACK_MEDIA = (
-    "You are about to make a {kind} with {name}. Before making anything, say back in plain everyday words what you "
-    "understood, so the owner can correct it. Use short bullet points under these headings: What it is; What it is "
+    "You are about to make a {kind} with {name}. {name} is only the tool that makes it: the {kind} is about what "
+    "the request says, never about {name}, so leave {name} out of what you say back. Before making anything, say "
+    "back in plain everyday words what you understood, so the owner can correct it. Use short bullet points under these headings: What it is; What it is "
     "for; Who will see or hear it; How long or how big; The look, voice or music; Where it will be shown; What I am "
     "assuming. Under 150 words. No jargon: if a technical term is needed, put it in brackets after the plain words. "
     "Output only the bullet points.\n\n{brief}"
 )
 _MEDIA_NOTE = (
-    "\n\nHere the thing being made is a {kind} (a picture, a voice, music or a film, not text), made by {name}. Ask "
+    "\n\nHere the thing being made is a {kind} (a picture, a voice, music or a film, not text). {name} is only the "
+    "tool that makes it: the {kind} is about what the request says, never about {name}, so ask nothing about {name} "
+    "itself and never name it in a question. Ask "
     "what you need to make it well: what it is for, who will see or hear it, how long or how big it should be, the "
     "look it should have, the voice (who speaks, how it sounds), the music (mood, pace), and where it will be shown "
     "(so the right shapes are made, such as wide, tall or square). Ask nothing about writing code or text files."
@@ -175,7 +178,7 @@ class Interview:
         """What make writes, judges and revises against: the request plus everything the interview found."""
         parts = [f"REQUEST:\n{self.request}"]
         if self.target is not None:
-            parts.append(f"MADE FOR: {_made_for(self.target)}")
+            parts.append(f"{'MADE WITH' if self.target.sort == 'media' else 'MADE FOR'}: {_made_for(self.target)}")
         if self.shared:
             parts.append(f"WHAT THE OWNER TOLD US FOR THE WHOLE LAUNCH:\n{self.shared}")
         if self.entries:
@@ -186,8 +189,12 @@ class Interview:
             parts.append("CORRECTIONS FROM THE OWNER (these win over everything above):\n"
                          + "\n".join(f"- {c}" for c in self.corrections))
         if self.target is not None and self.target.guide:
-            heading = f"HOW {self.target.name.upper()} WANTS A {self.kind.upper()} WRITTEN" \
-                if self.target.sort in ("tool", "model") else f"WHAT IS KNOWN ABOUT {self.target.name.upper()}"
+            if self.target.sort in ("tool", "model"):
+                heading = f"HOW {self.target.name.upper()} WANTS A {self.kind.upper()} WRITTEN"
+            elif self.target.sort == "media":
+                heading = "THE TOOLS THAT WILL MAKE IT (never the subject of the piece)"
+            else:
+                heading = f"WHAT IS KNOWN ABOUT {self.target.name.upper()}"
             parts.append(f"{heading} (from {self.target.guide_source}):\n{self.target.guide}")
         return "\n\n".join(parts)
 
@@ -221,7 +228,7 @@ def _made_for(target: ToolTarget) -> str:
     if target.sort == "launch":
         return target.name
     if target.sort == "media":
-        return f"{target.name} (the services that make it)"
+        return f"{target.name} (only the tools that make it; the piece is not about them)"
     return f"{target.name} ({'an AI tool people work in' if target.sort == 'tool' else 'an AI model called directly'})"
 
 
@@ -616,7 +623,12 @@ def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], st
     assert iv.target is not None
     target = iv.target
     where = _where(target)
-    objective = f"Make a {iv.kind} {where}. {iv.request}" if where else f"Make a {iv.kind} for {target.name}. {iv.request}"
+    if where:
+        objective = f"Make a {iv.kind} {where}. {iv.request}"
+    elif target.sort == "media":
+        objective = f"Make a {iv.kind}. {iv.request}"  # the services make it; they are not who it is for
+    else:
+        objective = f"Make a {iv.kind} for {target.name}. {iv.request}"
     packet = packets.clarify_packet(objective, _notes_for(target), preset, False)
     if target.sort == "media":
         system = packet.system + _MEDIA_NOTE.format(kind=iv.kind, name=target.name)
@@ -820,7 +832,7 @@ def questions_markdown(iv: Interview) -> str:
     if iv.target is None:
         lines += [f"{target_question(iv.kind)} Put it in answers.json as \"for\" (or pass --for).", ""]
         return "\n".join(lines)
-    lines += [f"Made for: {_made_for(iv.target)}", ""]
+    lines += [f"{'Made with' if iv.target.sort == 'media' else 'Made for'}: {_made_for(iv.target)}", ""]
     for n, q in enumerate(iv.questions, 1):
         lines.append(f"{n}. **{q.id}**: {q.text}")
         if q.options:

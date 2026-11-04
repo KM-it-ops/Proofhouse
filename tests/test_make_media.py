@@ -155,6 +155,20 @@ def test_the_questions_cover_what_a_media_piece_needs_and_the_say_back_says_wher
     assert iv.target.sort == "media" and iv.target.id.startswith("image=my-painter")
 
 
+
+
+def test_the_services_that_make_a_piece_are_never_taken_for_what_it_is_about(tmp_path: Path, programs: None) -> None:
+    model = Director()
+    made = make_media.make_media("a fox at dawn", kind="image", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter", {"must": "a red scarf"}, [None]), transport=model)
+    asked = model.seen["questions"][0]
+    assert "for My Painter" not in asked  # the questions are about the fox, not the painter
+    assert "My Painter is only the tool that makes it" in asked and "never name it in a question" in asked
+    assert "leave My Painter out" in model.seen["say back"][0]
+    brief = made.interview.brief()
+    assert "MADE WITH: My Painter (only the tools that make it; the piece is not about them)" in brief
+    assert "MADE FOR" not in brief and "WHAT IS KNOWN ABOUT" not in brief
+    assert "Made with: My Painter" in mi.questions_markdown(made.interview)
 # --- the target: the media list, your own programs, and services learned on the spot -------------------
 
 def test_a_video_target_is_split_into_roles_by_what_each_service_makes(tmp_path: Path, programs: None) -> None:
