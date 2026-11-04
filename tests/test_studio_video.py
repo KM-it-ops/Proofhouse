@@ -153,6 +153,7 @@ def test_one_spending_limit_covers_the_whole_video(tmp_path: Path, services, mon
     assert "fal" in made.stopped or "spending limit" in made.stopped
 
 
+@needs_ffmpeg
 def test_a_zero_limit_runs_free_calls_and_the_spend_gate_refuses_the_paid_one(tmp_path: Path, services,
                                                                           monkeypatch: pytest.MonkeyPatch) -> None:
     assert studio._Budget("0").next_limit() == "0"  # nothing left still asks the gate; it does not stop first
@@ -514,6 +515,7 @@ def test_a_film_cut_from_stills_fails_the_something_happens_checks(tmp_path: Pat
     assert "nothing new on screen for" in failed["something happens"]
 
 
+@needs_ffmpeg
 def test_a_script_reply_that_cannot_be_read_is_kept_beside_the_record(tmp_path: Path, services) -> None:
     def rambler(request: live.Request) -> live.Response:
         return live.Response(200, {"choices": [{"message": {"content": "Sure! {title: 'no quotes', beats: [,]}"}}],

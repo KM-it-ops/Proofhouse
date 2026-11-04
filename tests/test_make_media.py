@@ -277,6 +277,7 @@ def test_a_voice_is_checked_for_sound_and_delivered_as_the_file_types_asked_for(
         assert path in out.replace("\\", "/") or str(folder / path) in out
 
 
+@needs_ffmpeg
 def test_a_model_that_cannot_take_a_picture_judges_from_the_words_and_the_record_says_why(tmp_path: Path,
                                                                                       programs: None) -> None:
     model = Director(scores=[9], blind=True)
@@ -291,6 +292,7 @@ def test_a_model_that_cannot_take_a_picture_judges_from_the_words_and_the_record
     assert "never saw the picture" in _record(folder)["judging"]
 
 
+@needs_ffmpeg
 def test_a_model_that_refused_a_picture_is_not_sent_one_again_in_later_rounds(tmp_path: Path, programs: None) -> None:
     model = Director(scores=[5, 6], blind=True)
     folder = tmp_path / "o"
@@ -302,6 +304,7 @@ def test_a_model_that_refused_a_picture_is_not_sent_one_again_in_later_rounds(tm
         assert "could not take the picture" in version["judged_on"]["words_only_because"]
 
 
+@needs_ffmpeg
 def test_the_plan_and_the_judge_are_asked_for_json_and_a_plan_with_no_prompt_is_asked_for_again(
         tmp_path: Path, programs: None) -> None:
     class Forgetful(Director):
@@ -336,6 +339,7 @@ def test_a_plan_that_stays_without_a_prompt_stops_and_keeps_the_reply(tmp_path: 
     assert (folder / "plan-reply.txt").read_text(encoding="utf-8") == "I cannot plan that."
 
 
+@needs_ffmpeg
 def test_the_judge_is_told_what_it_saw_is_its_own_claim(tmp_path: Path, programs: None) -> None:
     class Seeing(Director):
         def __call__(self, request: live.Request) -> live.Response:
