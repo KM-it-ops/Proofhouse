@@ -50,10 +50,34 @@ _BEATS = (
     '"start", "phrase N" or "phrase N end", with an optional + or - seconds. The kinds: title {{"text"}}, '
     'label {{"text"}}, chips {{"items": ["short", "words"]}}, cards {{"items": ["short titles"]}}, '
     'counter {{"to": a number}}, lower_third {{"title"}}. Energy is low, mid or high and sets the pace of the joins. '
-    "Write 5 to 10 beats of one or two phrases each, one flowing passage across them, no slogans or lists. "
-    "Something new must appear on screen at least every 3 seconds. The words must fit about {seconds} seconds "
-    "spoken."
+    "Write {fewest} to {most} beats of one or two phrases each, one flowing passage across them, no slogans or lists. "
+    "Spoken, the whole film lasts about {seconds} seconds, so use {words} words in all at most. "
+    "Something new must appear on screen at least every 3 seconds."
 )
+
+_FIX = (
+    "The storyboard you wrote cannot be used: {problem}.\n"
+    "Write the whole storyboard again with that fixed, in the same JSON shape, JSON only.\n\n"
+    "YOUR TASK WAS:\n{task}\n\nYOUR REPLY WAS:\n{reply}"
+)
+
+SPEAKING_RATE = 2.5  # words a second from an ordinary voice
+FAST_RATE = 3.2  # a quick voice: a script too long even at this pace is sent back before anything is spoken
+BEAT_OVERHEAD = storyboard.LEAD + storyboard.BREATH + 0.45  # seconds each beat adds around its words, join included
+BRIEF_SLACK = 0.15  # share of the asked length a film may run over
+SCRIPT_FIXES = 2  # times the script writer is sent its own reply back to fix
+
+
+def brief_slack(seconds: float) -> float:
+    """How far past the asked length a film may run and still match the brief."""
+    return max(1.0, BRIEF_SLACK * seconds)
+
+
+def script_budget(seconds: float, rate: float = SPEAKING_RATE) -> dict[str, int]:
+    """How many beats, and how many words in all, fit a film of ``seconds`` spoken at ``rate`` words a second."""
+    beats = max(2, round(seconds / 3.5))
+    words = max(3, int((seconds - beats * BEAT_OVERHEAD) * rate * 0.9))
+    return {"fewest": max(1, beats - 1), "most": beats + 1, "words": words}
 
 _SCRIPT = (
     "You are a video producer, film director and motion designer. Plan a finished, produced film for the brief below, about "
@@ -142,7 +166,7 @@ def _json_object(text: str | None) -> dict[str, Any]:
     except ValueError:
         data = None
     if not isinstance(data, dict):
-        raise StudioError("the script writer did not return the planned JSON; try another model")
+        raise StudioError("the reply was not JSON in the planned shape")
     return data
 
 
@@ -229,13 +253,14 @@ def _facts_lookup(facts: dict[str, Any]) -> dict[str, dict[str, Any]]:
 
 def script_prompt(brief: str, seconds: int, facts: dict[str, Any] | None = None) -> str:
     if facts is None:
-        return _SCRIPT.format(seconds=seconds, brief=brief)
+        return _SCRIPT.format(seconds=seconds, brief=brief, **script_budget(seconds))
     lines = [f"- {item['id']}: {item.get('shows', item['id'])}" for item in facts.get("commands") or []]
     lines += [f"- {item['id']}: {item.get('shows', item['id'])}" for item in facts.get("pages") or []]
     facts_block = "\n".join(f"- {line}" for line in facts.get("facts") or []) or "- (none listed)"
     return _SCRIPT_FACTS.format(
         seconds=seconds,
         brief=brief,
+        **script_budget(seconds),
         product=facts["product"],
         summary=facts["summary"],
         facts_block=facts_block,
@@ -660,6 +685,15 @@ def _run(cmd: list[str], cwd: Path, production: Production) -> None:
         raise StudioError(f"ffmpeg failed: {(done.stderr or '').strip()[-400:]}")
 
 
+def _spoken_guess(board: list[dict[str, Any]], rate: float = FAST_RATE) -> float:
+    """How long the storyboard runs if every phrase is read at ``rate`` words a second."""
+    beats = storyboard.parse([{**row, "base": {"kind": "living"}} for row in board], Path.cwd())
+    for beat in beats:
+        for phrase in beat.phrases:
+            phrase.seconds = len(phrase.text.split()) / rate
+    return storyboard.time_beats(beats)
+
+
 def produce(
     brief: str,
     *,
@@ -720,18 +754,6 @@ def produce(
             raise StudioError(f"{role}: {result.message}")
 
     try:
-        reply = live.run_prompt(provider_id, model, prompt=script_prompt(brief, seconds, facts),
-                                max_output_tokens=2048, max_cost_usd=budget.next_limit(), transport=text_transport,
-                                json_reply=True)
-        figure = (reply.cost or {}).get("usd")
-        budget.charge(figure if reply.status != "refused" else 0)
-        record("script", reply, figure)
-        try:
-            data = _json_object(reply.output_text)
-        except StudioError:  # keep what it said, so the failure can be read
-            (out_dir / "script-reply.txt").write_text(reply.output_text or "", encoding="utf-8")
-            raise StudioError("the script writer did not return the planned JSON (its reply is in script-reply.txt); "
-                              "try another model") from None
         lookup = _facts_lookup(facts) if facts else {}
 
         def make_media(kind: str, service: str, model_id: str, prompt: str, target: Path, params: dict[str, Any]) -> str:
@@ -762,24 +784,94 @@ def produce(
             except capture.CaptureError as exc:
                 raise StudioError(str(exc)) from exc
 
-        if "beats" in data:
-            board = beats_from(data, facts)
+        def speak(text: str, name: str) -> Path:
+            return Path(make_media("speech", voice_provider or "", voice_model or "", text, out_dir / "voice" / name,
+                                   {"voice": voice} if voice else {}))
+
+        too_long = 0
+
+        def voice_board(board: list[dict[str, Any]]) -> tuple[list[storyboard.Beat], float, str | None]:
+            """Speak the storyboard's words and time it. A film the chosen voice makes too long is a problem to send
+            back, with that voice's own pace, and its spoken files are set aside so the next script starts fresh."""
+            nonlocal too_long
+            try:
+                beats = storyboard.parse([{**row, "base": {"kind": "living"}} for row in board], out_dir)
+                if any(b.phrases for b in beats):
+                    storyboard.voice(beats, speak)
+            except storyboard.StoryboardError as exc:
+                raise StudioError(str(exc)) from exc
+            total = storyboard.time_beats(beats)
+            if total <= seconds + brief_slack(seconds):
+                return beats, storyboard.fill_to(beats, seconds), None
+            too_long += 1
+            if (out_dir / "voice").is_dir():
+                (out_dir / "voice").rename(out_dir / f"voice-too-long-{too_long}")
+            words = sum(len(p.text.split()) for b in beats for p in b.phrases)
+            talk = sum(p.seconds for b in beats for p in b.phrases)
+            if not words:
+                fit = script_budget(seconds)
+                return beats, total, (f"the script is too long: its beats run {total:.1f} seconds, and the film must be "
+                                      f"about {seconds} seconds. Use {fit['fewest']} to {fit['most']} beats")
+            rate = words / talk
+            return beats, total, (f"the script is too long: spoken by the chosen voice it runs {total:.1f} seconds, and "
+                                  f"the film must be about {seconds} seconds. This voice speaks about {rate:.1f} words a "
+                                  f"second, so use {script_budget(seconds, rate)['words']} words in all at most")
+
+        task = script_prompt(brief, seconds, facts)
+        prompt, role = task, "script"
+        for attempt in range(1 + SCRIPT_FIXES):
+            reply = live.run_prompt(provider_id, model, prompt=prompt, max_output_tokens=2048,
+                                    max_cost_usd=budget.next_limit(), transport=text_transport, json_reply=True)
+            figure = (reply.cost or {}).get("usd")
+            budget.charge(figure if reply.status != "refused" else 0)
+            record(role, reply, figure)
+            reply_text = reply.output_text or ""
+            board: list[dict[str, Any]] | None = None
+            plan: tuple[str, str, str, list[Shot]] | None = None
+            problem: str | None = None
+            try:
+                data = _json_object(reply_text)
+                if "beats" in data or "shots" not in data:
+                    board = beats_from(data, facts)
+                    guess = _spoken_guess(board)
+                    if guess > seconds + brief_slack(seconds):
+                        fit = script_budget(seconds)
+                        problem = (f"the script is too long: even read quickly it runs about {guess:.0f} seconds, and "
+                                   f"the film must be about {seconds} seconds. Use {fit['fewest']} to {fit['most']} beats "
+                                   f"and {fit['words']} words in all at most")
+                else:
+                    plan = plan_from(data, seconds, facts)
+            except StudioError as exc:
+                problem = str(exc)
+            if problem is None and board is not None:
+                if any(row["base"]["kind"] == "generate" for row in board) and (not visual_provider or not visual_model):
+                    raise StudioError("generated pictures need --visual-provider and --visual-model (see `proofhouse media list`)")
+                if any(row.get("say") for row in board) and not voice_provider:
+                    raise StudioError("a film with words needs a voice service to speak them (--voice-provider)")
+                timed, length, problem = voice_board(board)
+            if problem is None:
+                break
+            if attempt == SCRIPT_FIXES:  # keep what it said last, so the failure can be read
+                (out_dir / "script-reply.txt").write_text(reply_text, encoding="utf-8")
+                raise StudioError(f"{problem} (the script writer's last reply is in script-reply.txt); try another model")
+            prompt, role = _FIX.format(problem=problem, task=task, reply=reply_text[:6000]), "script fix"
+
+        if board is not None:
             production.title, production.music_brief = str(data.get("title", "")).strip(), str(data.get("music", "")).strip()
             script = {"title": production.title, "music": production.music_brief, "beats": board}
+            for row, beat in zip(board, timed):  # keep the spoken files, so nothing is spoken twice
+                if beat.phrases and row.pop("say", None) is not None:
+                    row["phrases"] = [{"text": p.text, "file": Path(p.file).relative_to(out_dir).as_posix()}
+                                      for p in beat.phrases]
             (out_dir / "script.json").write_text(json.dumps(script, indent=2) + "\n", encoding="utf-8")
-            if any(row["base"]["kind"] == "generate" for row in board) and (not visual_provider or not visual_model):
-                raise StudioError("generated pictures need --visual-provider and --visual-model (see `proofhouse media list`)")
-            if any(row.get("say") for row in board) and not voice_provider:
-                raise StudioError("a film with words needs a voice service to speak them (--voice-provider)")
             (out_dir / "shots").mkdir()
-            for number, row in enumerate(board, start=1):
+            for number, (row, beat) in enumerate(zip(board, timed), start=1):
                 base, target = row["base"], out_dir / "shots" / f"beat-{number:02d}"
                 if base["kind"] == "capture":
                     file = capture_still(base["ref"], target)
                     row["base"] = {"kind": "capture", "file": Path(file).relative_to(out_dir).as_posix()}
                 elif base["kind"] == "generate":
-                    words = len(str(row.get("say", "")).split())
-                    params = ({"seconds": max(2, min(10, math.ceil(words / 2.6 + 1)))} if visual_kind == "video"
+                    params = ({"seconds": max(2, min(10, math.ceil(beat.frames / beat.fps)))} if visual_kind == "video"
                               else {"size": "1792x1024"})
                     file = make_media(visual_kind, visual_provider, visual_model, base["prompt"], target, params)
                     row["base"] = {"kind": visual_kind, "file": Path(file).relative_to(out_dir).as_posix()}
@@ -787,24 +879,18 @@ def produce(
                 production.music_file = str(shutil.copy2(music_file, out_dir / f"music{music_file.suffix}"))
             elif music_provider and production.music_brief:
                 production.music_file = make_media("music", music_provider, music_model or "", production.music_brief,
-                                                   out_dir / "music", {"seconds": seconds})
-
-            def speak(text: str, name: str) -> Path:
-                return Path(make_media("speech", voice_provider or "", voice_model or "", text, out_dir / "voice" / name,
-                                       {"voice": voice} if voice else {}))
+                                                   out_dir / "music", {"seconds": math.ceil(max(length, seconds))})
 
             production = assemble_beats(out_dir, script, formats=formats, size_scale=size_scale, captions=captions,
-                                        speak=speak, music_file=production.music_file, production=production)
-            spoken = {b["beat"]: b["phrases"] for b in production.beats}
-            for number, row in enumerate(board, start=1):  # keep the spoken files, so a re-render need not speak again
-                if number in spoken and row.pop("say", None) is not None:
-                    row["phrases"] = [{"text": p["text"], "file": p["file"]} for p in spoken[number]]
+                                        speak=speak, music_file=production.music_file, production=production,
+                                        seconds=seconds)
             (out_dir / "script.json").write_text(json.dumps(script, indent=2) + "\n", encoding="utf-8")
             production.spent_usd = budget.spent
             _write_record(production, brief)
             return production
 
-        title, narration, music_brief, shots = plan_from(data, seconds, facts)
+        assert plan is not None
+        title, narration, music_brief, shots = plan
         production.title, production.voiceover, production.music_brief, production.shots = title, narration, music_brief, shots
         (out_dir / "script.json").write_text(json.dumps({"title": title, "voiceover": narration, "music": music_brief,
                                                           "shots": [vars(s) for s in shots]}, indent=2) + "\n", encoding="utf-8")
@@ -972,13 +1058,15 @@ def assemble_beats(
     speak: Callable[[str, str], Path] | None = None,
     music_file: str | None = None,
     production: Production | None = None,
+    seconds: float | None = None,
 ) -> Production:
     """Make a film from a storyboard of beats, every file in it named inside ``out_dir``.
 
     Each phrase is spoken (``speak(text, name)``, for phrases with no file) and measured, and the beats are timed to
     the words. Then, for each format, every beat's motion scene is rendered, the beats are joined with their
     transitions, the sound design is laid on its own track, music and sounds dip under every line, captions are
-    burned in, and the render is measured.
+    burned in, and the render is measured. Given ``seconds``, a film shorter than that is held out to it, and
+    its length is checked against it.
     """
     if production is None:
         production = Production(out_dir)
@@ -990,7 +1078,7 @@ def assemble_beats(
     try:
         beats = storyboard.parse(board, out_dir)
         storyboard.voice(beats, speak or _unvoiced)
-        total = storyboard.time_beats(beats)
+        total = storyboard.fill_to(beats, seconds) if seconds else storyboard.time_beats(beats)
         share = storyboard.check_mix(beats, total)
         production.beats = [_beat_record(b, out_dir) for b in beats]
         production.voiceover = " ".join(p.text for b in beats for p in b.phrases)
@@ -1030,6 +1118,10 @@ def assemble_beats(
              "ok": text == (out_dir / "captions.srt").read_text(encoding="utf-8"),
              "detail": f"{sum(len(b.phrases) for b in beats)} captions"},
         ]
+        if seconds:
+            production.checks.append({"render": "all", "check": "length matches the brief",
+                                      "ok": abs(total - seconds) <= brief_slack(seconds),
+                                      "detail": f"{total:.1f}s of the {seconds:g}s asked"})
     except (StudioError, storyboard.StoryboardError, motion.MotionError, sound.SoundError) as exc:
         production.stopped = str(exc)
     shutil.rmtree(work, ignore_errors=True)

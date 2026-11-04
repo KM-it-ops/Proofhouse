@@ -93,7 +93,7 @@ def test_the_script_prompt_carries_the_facts_and_asks_for_speech_not_slogans() -
     for needle in ("Proofhouse", "version", "compare", "two models side by side", "It keeps every version", "short phrases"):
         assert needle in prompt
     assert "30" in prompt and "a launch film" in prompt
-    assert studio.script_prompt("a launch film", 30) == studio._SCRIPT.format(seconds=30, brief="a launch film")
+    assert studio.script_prompt("a launch film", 30) == studio._SCRIPT.format(seconds=30, brief="a launch film", **studio.script_budget(30))
 
 
 def test_capture_shots_name_a_listed_item_and_the_writer_cannot_invent_one() -> None:

@@ -433,3 +433,15 @@ def test_a_storyboard_with_no_words_needs_no_voice_track(tmp_path: Path) -> None
     beats, total = _planned([{"hold": 2}], tmp_path)
     assert storyboard.voice_command(beats, total, tmp_path / "v.wav") is None
     assert storyboard.speech_spans(beats) == []
+
+
+def test_a_film_shorter_than_asked_is_filled_out_to_the_asked_length(tmp_path: Path) -> None:
+    rows = [{"say": "Say what you want.", "base": {"kind": "living"}}, {"say": "Pick any model.", "base": {"kind": "living"}}]
+    beats, total = _planned(rows, tmp_path)
+    spans = [b.span for b in beats]
+    starts = [p.start for b in beats for p in b.phrases]
+    filled = storyboard.fill_to(beats, total + 4)
+    assert filled == pytest.approx(total + 4, abs=1 / storyboard.FPS)
+    assert all(after > before + 1.9 for after, before in zip((b.span for b in beats), spans))
+    assert [p.start for b in beats for p in b.phrases][0] == starts[0]  # the first word does not move
+    assert storyboard.fill_to(beats, 1.0) == pytest.approx(filled)  # never cut short to fit

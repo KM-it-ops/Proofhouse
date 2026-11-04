@@ -524,3 +524,103 @@ def test_a_script_reply_that_cannot_be_read_is_kept_beside_the_record(tmp_path: 
                           media_transport=_media(services))
     assert made.renders == {} and "script-reply.txt" in made.stopped
     assert (tmp_path / "v" / "script-reply.txt").read_text(encoding="utf-8").startswith("Sure! {title")
+
+
+# ---------------------------------------------------------------- the film fits the asked length
+
+def test_the_script_asks_for_beats_and_words_that_fit_the_asked_length() -> None:
+    short, long = studio.script_budget(10), studio.script_budget(60)
+    assert short["most"] <= 4 and short["words"] <= 18
+    assert long["fewest"] > short["most"] and long["words"] > 4 * short["words"]
+    assert studio.script_budget(10, rate=1.5)["words"] < short["words"]
+    prompt = studio.script_prompt("a hype film", 10)
+    assert f"{short['words']} words in all at most" in prompt and f"{short['fewest']} to {short['most']} beats" in prompt
+    assert "5 to 10 beats" not in prompt
+
+
+def _writer_of(*replies: dict | str, asked: list[str]):  # noqa: ANN202
+    def write(request: live.Request) -> live.Response:
+        asked.append(request.body["messages"][-1]["content"])
+        reply = replies[min(len(asked), len(replies)) - 1]
+        text = reply if isinstance(reply, str) else json.dumps(reply)
+        return live.Response(200, {"choices": [{"message": {"content": text}}],
+                                   "usage": {"prompt_tokens": 30, "completion_tokens": 20}})
+    return write
+
+
+@needs_ffmpeg
+def test_a_script_too_long_for_the_film_is_sent_back_before_anything_is_spoken(tmp_path: Path, services) -> None:
+    rambling = {**BEATS, "beats": [{**row, "say": "Say what you want, in as many words as you like, and then some more. " * 3}
+                                   for row in BEATS["beats"]]}
+    asked: list[str] = []
+    spoken: list[str] = []
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        spoken.append(request.url)
+        return _media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()})(request)
+
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.2", str(tmp_path / "phrase.wav"))
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(rambling, BEATS, asked=asked), media_transport=post)
+    assert made.stopped == "finished", made.stopped
+    assert [c["role"] for c in made.calls][:2] == ["script", "script fix"]
+    assert len(asked) == 2 and "too long" in asked[1] and "Say what you want, in as many words" in asked[1]
+    assert f"{studio.script_budget(6)['words']} words" in asked[1]
+    assert len([u for u in spoken if u.endswith("/tts")]) == 3  # only the fixed script was spoken
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    assert all("as many words" not in p["text"] for row in script["beats"] for p in row["phrases"])
+
+
+@needs_ffmpeg
+def test_a_script_too_long_once_spoken_is_sent_back_with_the_voice_s_own_pace(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=3", str(tmp_path / "slow.wav"))
+    one = {**BEATS, "beats": BEATS["beats"][:1]}
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(BEATS, one, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "slow.wav").read_bytes()}))
+    assert made.stopped == "finished", made.stopped
+    assert [c["role"] for c in made.calls if c["role"].startswith("script")] == ["script", "script fix"]
+    assert "spoken by the chosen voice" in asked[1] and "1.1 words a second" in asked[1]
+    folder = tmp_path / "v"
+    assert sorted(p.name for p in (folder / "voice-too-long-1").iterdir()) == ["beat01-01.wav", "beat02-01.wav", "beat03-01.wav"]
+    assert sorted(p.name for p in (folder / "voice").iterdir()) == ["beat01-01.wav"]
+    fits = next(c for c in made.checks if c["check"] == "length matches the brief")
+    assert fits["ok"] and "of the 6s asked" in fits["detail"], fits
+    assert next(c for c in made.checks if c["check"] == "length")["ok"]
+
+
+@needs_ffmpeg
+def test_a_script_that_stays_too_long_stops_before_any_picture_is_made(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=3", str(tmp_path / "slow.wav"))
+    asked: list[str] = []
+    pictures: list[str] = []
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        if request.url.endswith("/img"):
+            pictures.append(request.url)
+        return _media({**services, "wav": (tmp_path / "slow.wav").read_bytes()})(request)
+
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(BEATS, asked=asked), media_transport=post)
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and pictures == [] and made.renders == {}
+    assert "too long" in made.stopped and "script-reply.txt" in made.stopped, made.stopped
+
+
+@needs_ffmpeg
+def test_a_short_film_is_held_out_to_the_asked_length(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=12, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_beats_writer,
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert made.stopped == "finished", made.stopped
+    assert studio.probe(Path(made.renders["1x1"]))["seconds"] == pytest.approx(12, abs=0.15)
+    assert next(c for c in made.checks if c["check"] == "length matches the brief")["ok"]

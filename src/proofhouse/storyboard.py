@@ -355,6 +355,18 @@ def time_beats(beats: list[Beat], fps: float = FPS) -> float:
     return start / fps
 
 
+def fill_to(beats: list[Beat], target: float, fps: float = FPS) -> float:
+    """Time the beats, and when the film comes out shorter than ``target`` seconds, hold every beat a little
+    longer after its words until it fills that length. A film already that long is left as it is."""
+    total = time_beats(beats, fps)
+    short = target - total
+    if short < 1 / fps or not beats:
+        return total
+    for beat in beats:
+        beat.hold = (beat.own_f - beat.into_f) / fps + short / len(beats)
+    return time_beats(beats, fps)
+
+
 def check_mix(beats: list[Beat], total: float) -> float:
     """The share of the film that is real product footage; more than a third is refused."""
     real = sum(b.span for b in beats if b.real)
