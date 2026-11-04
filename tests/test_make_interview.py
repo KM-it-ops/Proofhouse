@@ -104,9 +104,21 @@ def test_questions_are_read_from_groups_fences_and_flat_lists() -> None:
     assert grouped[0].group == "Basics" and grouped[0].options == ("Just me", "My team")
     assert grouped[1].depends_on == ("audience", ("My team",))
     flat = mi.parse_questions(json.dumps([{"id": "same", "question": "Same?"}, {"id": "same", "question": "Other?"}]))
-    assert [q.id for q in flat] == ["same", "same_2"] and flat[0].type == "text"
+    assert [q.id for q in flat] == ["same", "other"] and flat[0].type == "text"  # a reused id takes the words
     # options without a choice type, or a choice type without options, are plain text questions
     assert mi.parse_questions(json.dumps([{"text": "Pick", "type": "single_select", "options": []}]))[0].type == "text"
+
+
+def test_every_question_gets_its_own_id_even_when_the_model_copies_one() -> None:
+    texts = ["Objective", "Video purpose", "Video length", "Video duration", "Target audience", "Video resolution",
+             "Style"]
+    reply = json.dumps([{"id": "short_snake_case", "text": t} for t in texts])
+    ids = [q.id for q in mi.parse_questions(reply)]
+    assert ids == ["objective", "video_purpose", "video_length", "video_duration", "target_audience",
+                   "video_resolution", "style"]
+    # the same id three times over, on questions whose words would also clash, still gives three ids
+    clash = json.dumps([{"id": "pick", "text": "Pick one"}, {"id": "pick", "text": "pick"}, {"id": "pick", "text": "Pick!"}])
+    assert len({q.id for q in mi.parse_questions(clash)}) == len(mi.parse_questions(clash))
 
 
 def test_a_question_asked_twice_is_asked_once() -> None:

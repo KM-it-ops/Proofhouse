@@ -289,7 +289,10 @@ def _json_value(text: str | None) -> Any:
 
 
 def _clean_id(raw: str, n: int) -> str:
-    return re.sub(r"[^a-z0-9_]+", "_", raw.lower()).strip("_")[:40] or f"q{n}"
+    return re.sub(r"[^a-z0-9_]+", "_", raw.lower()).strip("_")[:40].strip("_") or f"q{n}"
+
+
+_PLACEHOLDER_IDS = {"short_snake_case", "snake_case", "id", "question_id"}  # copied from the schema's example
 
 
 def parse_questions(text: str | None) -> list[Question]:
@@ -307,6 +310,7 @@ def parse_questions(text: str | None) -> list[Question]:
             flat.append(("", item))
     found: list[Question] = []
     ids: dict[str, str] = {}  # the model's id -> ours
+    taken: set[str] = set()  # every id given out so far
     asked: dict[str, str] = {}  # a question's words, said plainly -> our id for it
     for group, q in flat:
         text_ = str(q.get("text") or q.get("question") or "").strip()
@@ -317,11 +321,13 @@ def parse_questions(text: str | None) -> list[Question]:
         if same in asked:  # the same question asked twice (a model often repeats one with a note after it)
             ids.setdefault(raw, asked[same])
             continue
-        qid = base = _clean_id(raw, len(found) + 1)
+        reused = raw in ids or _clean_id(raw, 0) in _PLACEHOLDER_IDS
+        qid = base = _clean_id(text_ if reused else raw, len(found) + 1)  # a reused id: name it by its own words
         n = 2
-        while qid in ids.values():
+        while qid in taken:
             qid, n = f"{base}_{n}", n + 1
         ids.setdefault(raw, qid)
+        taken.add(qid)
         asked[same] = qid
         kind = q.get("type") if q.get("type") in TYPES else "text"
         options = tuple(str(o).strip() for o in q.get("options") or [] if str(o).strip()) \
