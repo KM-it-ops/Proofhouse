@@ -386,11 +386,12 @@ def script_problems(data: dict[str, Any], facts: dict[str, Any] | None = None) -
 
 
 def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None) -> tuple[dict[str, Any], list[str]]:
-    """The beats plan with each overlay or sound time that cannot be read taken out, and a note for each.
+    """The beats plan with each overlay or sound time, and each beat's pace (its energy or cut), that cannot be
+    read taken out, and a note for each.
 
-    Used only once the script writer has had all its chances to fix them, so one garbled time never costs the
-    whole film: the overlay or sound stays and plays at its default moment. Anything else that is wrong (a layer
-    the engine cannot draw, a broken beat) is left as it is, so it stays a failure."""
+    Used only once the script writer has had all its chances to fix them, so one garbled time or pace never costs
+    the whole film: the overlay or sound plays at its default moment and the beat at its default pace. Anything
+    else that is wrong (a layer the engine cannot draw, a broken beat) is left as it is, so it stays a failure."""
     rows = data.get("beats")
     if not isinstance(rows, list):
         return data, []
@@ -400,11 +401,18 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
         if not isinstance(raw, dict):
             return data, []
         bare = {k: v for k, v in raw.items() if k not in ("layers", "sounds")}
+        row = dict(raw)
+        for pace in ("energy", "cut"):
+            if pace in bare:
+                try:
+                    beats_from({"beats": [{"say": "x", "base": {"prompt": "x"}, pace: bare[pace]}]}, facts)
+                except StudioError:
+                    dropped.append(f"beat {number} {pace} {bare.pop(pace)!r}")
+                    row.pop(pace)
         try:
             beats_from({"beats": [bare]}, facts)
         except StudioError:
             return data, []
-        row = dict(raw)
         for key in ("layers", "sounds"):
             if not isinstance(raw.get(key), list):
                 continue
@@ -935,8 +943,8 @@ def produce(
                         data, problem = cleaned, None
                         production.checks.append({
                             "render": "all", "check": "unreadable timings dropped", "ok": True,
-                            "detail": f"after {SCRIPT_FIXES} fixes these times still could not be read, so those parts "
-                                      f"play at their default moment: {'; '.join(dropped)}"})
+                            "detail": f"after {SCRIPT_FIXES} fixes these times and paces still could not be read, so "
+                                      f"those parts play at their default moment and pace: {'; '.join(dropped)}"})
             if problem is None and board is not None:
                 if any(row["base"]["kind"] == "generate" for row in board) and (not visual_provider or not visual_model):
                     raise StudioError("generated pictures need --visual-provider and --visual-model (see `proofhouse media list`)")
