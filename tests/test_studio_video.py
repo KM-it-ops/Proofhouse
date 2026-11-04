@@ -624,3 +624,29 @@ def test_a_short_film_is_held_out_to_the_asked_length(tmp_path: Path, services) 
     assert made.stopped == "finished", made.stopped
     assert studio.probe(Path(made.renders["1x1"]))["seconds"] == pytest.approx(12, abs=0.15)
     assert next(c for c in made.checks if c["check"] == "length matches the brief")["ok"]
+
+
+# --- every second is lively ------------------------------------------------------------------------------
+
+@needs_ffmpeg
+def test_bare_still_beats_with_long_lines_still_have_something_happening_every_second(tmp_path: Path) -> None:
+    out = tmp_path / "film"
+    (out / "shots").mkdir(parents=True)
+    (out / "voice").mkdir()
+    for n in (1, 2, 3, 4):
+        _ffmpeg("-f", "lavfi", "-i", f"testsrc2=s=640x360:d={n}", "-frames:v", "1", str(out / "shots" / f"beat-0{n}.png"))
+    for n, length in ((1, 3.6), (2, 4.2), (3, 2.0)):
+        _ffmpeg("-f", "lavfi", "-i", f"sine=frequency=440:duration={length}", str(out / "voice" / f"beat0{n}-01.wav"))
+    lines = ["Imagine one tool that makes everything you ask for",
+             "Prompts, pictures, films, sites and loops from any model you pick",
+             "Try Proofhouse today"]
+    board = {"beats": [{"base": {"kind": "image", "file": f"shots/beat-0{n}.png"},
+                        "phrases": [{"text": line, "file": f"voice/beat0{n}-01.wav"}] if line else []}
+                       for n, line in zip((1, 2, 3, 4), [*lines, None])]}
+    made = studio.assemble_beats(out, board, formats=("16x9", "9x16"), size_scale=0.25, seconds=16)
+    assert made.stopped == "finished", made.stopped
+    failed = {(c["render"], c["check"]): c["detail"] for c in made.checks if not c["ok"]}
+    assert failed == {}, failed
+    for path in made.renders.values():
+        activity = studio.picture_activity(Path(path))
+        assert activity["longest_quiet"] <= 1.0 and activity["lively_share"] >= 0.95, (path, activity)

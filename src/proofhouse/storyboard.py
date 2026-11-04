@@ -558,8 +558,117 @@ def _tall(layer: dict, size: tuple[int, int]) -> dict:
     return layer
 
 
-def scene(beat: Beat, size: tuple[int, int], following: Beat | None = None) -> dict:
-    """The motion scene for one beat's clip, ready for ``motion.render``. ``following`` is the next beat."""
+# --- keeping every second lively ---------------------------------------------------------------------
+# A beat that leaves the picture standing still (a still image, a capture, a layer that has finished arriving)
+# gets motion made from its own words: the key words of each line land one by one as they are said, and a row
+# of them pops in and out over any stretch that would otherwise hold still.
+
+LIVELY_GAP = 0.8  # the longest a beat may go with nothing new on screen; the film is measured a second at a time
+MOVING = 0.45  # how long one entrance keeps the picture changing
+FILL_STEP = 0.6  # the spacing of the pops in a filler row
+FILL_Y = 790  # where a filler row sits in a 1080-high frame: under a centred title, over the captions
+FILL_SIZE = 54  # its words, big enough to read at a glance
+TITLE_SHADOW = 1.0  # the darkest halo, so the words read on a light picture too
+TITLE_SIZE = 124  # bigger than a written title: these words carry the line
+_SMALL_WORDS = frozenset(
+    "a an and are as at be been but by can do for from has have i if in into is it its just me my no not of on "
+    "one or our so than that the their them then there these this those to too up us was we were what when "
+    "where which who will with you your".split())
+_TEXT_KINDS = ("title", "label", "chips", "cards", "panel", "counter", "callout", "lower_third", "terminal")
+
+
+def key_words(text: str, most: int = 6) -> list[str]:
+    """The words of a line worth putting on screen: its first ``most`` words that are not small joining words."""
+    words = [w.strip(".,;:!?\"'()[]") for w in text.split()]
+    words = [w for w in words if w]
+    big = [w for w in words if w.lower() not in _SMALL_WORDS]
+    return (big or words)[:most]
+
+
+def _moving(layer: dict, seconds: float) -> list[tuple[float, float]]:
+    """When a layer changes the picture, as (from, to) in clip seconds."""
+    kind, at, until = layer["kind"], float(layer.get("at", 0.0)), layer.get("until")
+    enter = layer.get("enter", motion._ENTER.get(kind, "fade"))
+    if kind in ("video", "cursor", "terminal") or (kind == "image" and "scroll" in layer):
+        return [(at, float(until) if until is not None else seconds)]
+    if kind == "wipe":
+        spans = [(at, at + float(layer.get("duration", 0.6)))]
+    elif kind == "counter":
+        spans = [(at, at + float(layer.get("duration", 1.2)))]
+    elif enter == "type":
+        spans = [(at, at + len(str(layer.get("text", ""))) / float(layer.get("cps", 16)))]
+    elif enter == "none":
+        spans = [(at, at + 0.1)]
+    else:
+        if kind in ("chips", "cards"):
+            n = len(layer.get("items") or [None])
+        elif kind == "title" and enter == "words":
+            n = len(str(layer.get("text", "")).split())
+        else:
+            n = 1
+        stagger = float(layer.get("stagger", {"chips": 0.08, "title": 0.07}.get(kind, 0.1)))
+        spans = [(at, at + stagger * max(n - 1, 0) + MOVING)]
+    if until is not None:
+        spans.append((float(until), float(until) + motion.EXIT_SECONDS))
+    return spans
+
+
+def quiet_stretches(spans: list[tuple[float, float]], start: float, end: float) -> list[tuple[float, float]]:
+    """The stretches between ``start`` and ``end`` longer than ``LIVELY_GAP`` in which nothing moves."""
+    out, t = [], start
+    for a, b in sorted(spans):
+        if a >= end:
+            break
+        if a - t > LIVELY_GAP:
+            out.append((t, a))
+        t = max(t, b)
+    if end - t > LIVELY_GAP:
+        out.append((t, end))
+    return out
+
+
+def liven(beat: Beat, layers: list[dict], words: str = "") -> list[dict]:
+    """The layers to add so that this beat never holds still for longer than ``LIVELY_GAP``.
+
+    ``layers`` are the beat's own, already timed. A beat with no words on screen of its own gets each line's key
+    words as a title that builds word by word while the line is said; any stretch still left standing gets a row
+    of key words that pop in one at a time and leave. ``words`` stands in for a beat that says nothing."""
+    if beat.base["kind"] == "video":
+        return []  # moving pictures move by themselves
+    spans = [s for layer in layers for s in _moving(layer, beat.seconds)]
+    if beat.into:
+        spans.append((0.0, beat.into))
+    added: list[dict] = []
+    if not any(layer["kind"] in _TEXT_KINDS for layer in layers):
+        for phrase in beat.phrases:
+            shown = key_words(phrase.text)
+            if not shown:
+                continue
+            at = round(phrase.start - beat.start, 4)
+            if added:
+                added[-1]["until"] = max(at, round(added[-1]["at"] + 0.1, 4))
+            stagger = min(max(phrase.seconds / len(shown), 0.07), FILL_STEP)  # the words land as they are said
+            added.append({"kind": "title", "text": " ".join(shown), "at": at, "stagger": round(stagger, 4),
+                          "size": TITLE_SIZE, "color": "white", "shadow": TITLE_SHADOW, "accent": shown[:1]})
+        spans += [s for layer in added for s in _moving(layer, beat.seconds)]
+    pool = key_words(" ".join(p.text for p in beat.phrases) or words, most=4)
+    if not pool:
+        return added
+    k = len(pool)
+    for start, end in quiet_stretches(spans, 0.0, beat.own):
+        rows = max(1, round((end - start) / ((k + 1) * FILL_STEP)))
+        length = (end - start) / rows
+        step = length / (k + 1)
+        for j in range(rows):
+            at = start + j * length
+            added.append({"kind": "chips", "items": pool[j % k:] + pool[:j % k], "at": round(at, 4),
+                          "stagger": round(step, 4), "until": round(at + k * step, 4), "y": FILL_Y, "size": FILL_SIZE, "quiet": True})
+    return added
+
+
+def scene(beat: Beat, size: tuple[int, int], following: Beat | None = None, words: str = "") -> dict:
+    """The motion scene for one beat's clip, ready for ``motion.render``. ``following`` is the next beat; ``words``
+    gives a beat that says nothing something to show (see ``liven``)."""
     base = dict(beat.base)
     layers: list[dict] = []
     if base["kind"] in REAL_KINDS:
@@ -578,12 +687,14 @@ def scene(beat: Beat, size: tuple[int, int], following: Beat | None = None) -> d
             if layer["until"] <= layer["at"]:
                 raise StoryboardError(f"beat {beat.number}: layer {i} ends before it starts once timed")
         layers.append(layer)
+    wipes = []
     if beat.cut == "wipe" and beat.into_f:
-        layers.append({"kind": "wipe", "mode": "reveal", "at": 0.0, "duration": beat.into, "quiet": True})
+        wipes.append({"kind": "wipe", "mode": "reveal", "at": 0.0, "duration": beat.into, "quiet": True})
     if following is not None and following.cut == "wipe" and beat.cover_f:
         dur = max(1 / beat.fps, beat.cover - 1 / beat.fps)  # full cover on the clip's last frame
-        layers.append({"kind": "wipe", "mode": "cover", "at": round(beat.seconds - beat.cover, 4),
-                       "duration": round(dur, 4)})
+        wipes.append({"kind": "wipe", "mode": "cover", "at": round(beat.seconds - beat.cover, 4),
+                      "duration": round(dur, 4)})
+    layers += [_tall(layer, size) for layer in liven(beat, layers + wipes, words)] + wipes
     sc = {"size": list(size), "fps": beat.fps, "seconds": beat.seconds, "base": base, "layers": layers}
     try:
         return motion.check_scene(sc)
@@ -592,7 +703,13 @@ def scene(beat: Beat, size: tuple[int, int], following: Beat | None = None) -> d
 
 
 def scenes(beats: list[Beat], size: tuple[int, int]) -> list[dict]:
-    return [scene(b, size, beats[k + 1] if k + 1 < len(beats) else None) for k, b in enumerate(beats)]
+    """Every beat's scene. A beat that says nothing borrows the nearest line before it (or after it) to show."""
+    lines = [" ".join(p.text for p in b.phrases) for b in beats]
+    out = []
+    for k, b in enumerate(beats):
+        near = [lines[i] for i in [*range(k - 1, -1, -1), *range(k + 1, len(beats))] if lines[i]]
+        out.append(scene(b, size, beats[k + 1] if k + 1 < len(beats) else None, near[0] if near else ""))
+    return out
 
 
 # --- sound -------------------------------------------------------------------------------------------

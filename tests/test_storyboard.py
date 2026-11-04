@@ -445,3 +445,49 @@ def test_a_film_shorter_than_asked_is_filled_out_to_the_asked_length(tmp_path: P
     assert all(after > before + 1.9 for after, before in zip((b.span for b in beats), spans))
     assert [p.start for b in beats for p in b.phrases][0] == starts[0]  # the first word does not move
     assert storyboard.fill_to(beats, 1.0) == pytest.approx(filled)  # never cut short to fit
+
+
+# --- every second lively ---------------------------------------------------------------------------------
+
+def _quiet(beat: storyboard.Beat, sc: dict) -> list[tuple[float, float]]:
+    spans = [s for layer in sc["layers"] for s in storyboard._moving(layer, beat.seconds)]
+    if beat.into:
+        spans.append((0.0, beat.into))
+    return storyboard.quiet_stretches(spans, 0.0, beat.own)
+
+
+def test_key_words_drop_the_small_joining_words() -> None:
+    assert storyboard.key_words("Say what you want, and pick any model!") == ["Say", "want", "pick", "any", "model"]
+    assert storyboard.key_words("it is what it is") == ["it", "is", "what", "it", "is"]  # all small: keep them
+    assert storyboard.key_words("one two three four five six seven", most=3) == ["two", "three", "four"]
+
+
+def test_a_still_beat_with_long_lines_never_holds_still(tmp_path: Path) -> None:
+    shot = _capture(tmp_path)
+    rows = [{"base": {"kind": "capture", "file": shot},
+             "say": "Proofhouse makes prompts agents skills rules servers hooks images video voice music sites apps."},
+            {"base": {"kind": "living"}, "say": "Pick any model from any provider and watch it run."}]
+    beats, total = _planned(rows, tmp_path)
+    storyboard.fill_to(beats, total + 6)  # stretch the beats so long stretches would stand still
+    for beat, sc in zip(beats, storyboard.scenes(beats, (1920, 1080))):
+        assert _quiet(beat, sc) == [], f"beat {beat.number} holds still"
+        titles = [layer for layer in sc["layers"] if layer["kind"] == "title"]
+        assert titles and titles[0]["text"].split()[0] in ("Proofhouse", "Pick")  # its own words, not filler
+        assert all(layer.get("quiet") for layer in sc["layers"] if layer["kind"] == "chips")  # fillers make no sound
+
+
+def test_a_beat_that_says_nothing_borrows_the_nearest_line(tmp_path: Path) -> None:
+    beats, total = _planned([{"say": "Ship launches from one goal.", "base": {"kind": "living"}},
+                             {"base": {"kind": "living"}}], tmp_path)
+    storyboard.fill_to(beats, total + 4)
+    sc = storyboard.scenes(beats, (1920, 1080))[1]
+    shown = {w for layer in sc["layers"] if layer["kind"] == "chips" for w in layer["items"]}
+    assert shown and shown <= {"Ship", "launches", "goal"}
+    assert _quiet(beats[1], sc) == []
+
+
+def test_moving_pictures_get_nothing_added(tmp_path: Path) -> None:
+    beats, _ = _planned([{"say": "Watch this for a long while now.", "base": {"kind": "living"}}], tmp_path)
+    beat = beats[0]
+    beat.base = {"kind": "video", "file": "clip.mp4"}
+    assert storyboard.liven(beat, []) == []
