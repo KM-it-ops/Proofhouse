@@ -90,6 +90,7 @@ _MEDIA_NOTE = (
     "(so the right shapes are made, such as wide, tall or square). Ask nothing about writing code or text files."
 )
 _SHARED_NOTE = "\n\nThe owner already answered these for the whole launch. Do not ask them again:\n{shared}"
+_GIVEN_NOTE = "\n\nThe owner already set these on the command. They are decided: do not ask about them:\n{given}"
 _PLACE_SORTS = ("deploy", "platform", "launch")
 _MEDIA_PREFIX = re.compile(r"(visuals|voice|music)\s*:\s*(.*)", flags=re.I | re.S)
 
@@ -173,6 +174,7 @@ class Interview:
     corrections: list[str] = field(default_factory=list)
     confirmed: bool = False
     shared: str = ""  # what the owner told us for the whole launch this part belongs to
+    given: str = ""  # what the owner already set on the command (a length, the shapes), so it is never asked
 
     def brief(self) -> str:
         """What make writes, judges and revises against: the request plus everything the interview found."""
@@ -181,6 +183,8 @@ class Interview:
             parts.append(f"{'MADE WITH' if self.target.sort == 'media' else 'MADE FOR'}: {_made_for(self.target)}")
         if self.shared:
             parts.append(f"WHAT THE OWNER TOLD US FOR THE WHOLE LAUNCH:\n{self.shared}")
+        if self.given:
+            parts.append(f"WHAT THE OWNER ALREADY SET:\n{self.given}")
         if self.entries:
             parts.append("WHAT THE OWNER TOLD US:\n" + packets.format_answered_entries(self.entries))
         if self.confirmed and self.understood:
@@ -205,6 +209,7 @@ class Interview:
             "questions": [q.to_dict() for q in self.questions], "questions_from": self.questions_from,
             "entries": [list(e) for e in self.entries], "answered": self.answered, "understood": self.understood,
             "corrections": list(self.corrections), "confirmed": self.confirmed, "shared": self.shared,
+            "given": self.given,
         }
 
     @classmethod
@@ -216,7 +221,7 @@ class Interview:
             [Question.from_dict(q) for q in data.get("questions") or []], data.get("questions_from", "model"),
             [(str(a), str(b)) for a, b in data.get("entries") or []], bool(data.get("answered")),
             data.get("understood"), list(data.get("corrections") or []), bool(data.get("confirmed")),
-            str(data.get("shared") or ""),
+            str(data.get("shared") or ""), str(data.get("given") or ""),
         )
 
 
@@ -656,6 +661,8 @@ def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], st
         system = packet.system + _KIND_NOTE.format(kind=iv.kind, name=target.name)
     if iv.shared:
         system += _SHARED_NOTE.format(shared=iv.shared)
+    if iv.given:
+        system += _GIVEN_NOTE.format(given=iv.given)
     for user in (packet.user, packet.user + "\n\nReply with the JSON array only, nothing else."):
         try:
             return parse_questions(ask("questions", system, user)), "model"

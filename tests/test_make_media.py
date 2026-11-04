@@ -376,6 +376,11 @@ def test_the_video_flags_answer_which_services_make_it(tmp_path: Path, programs:
     interview = json.loads((folder / "interview.json").read_text(encoding="utf-8"))
     assert interview["target"]["sort"] == "media"
     assert seen == []
+    # what the command already set is told to the interviewer as decided, so it is never asked again
+    asked = model.seen["questions"][0]
+    assert "already set these on the command" in asked
+    assert "12 seconds" in asked and "16x9 (wide 16:9)" in asked
+    assert "12 seconds" in interview["given"] and "16x9" in interview["given"]  # and kept with the paused interview
 
 
 def test_image_voice_and_music_are_not_text_kinds_and_cannot_be_taken_by_an_add_on() -> None:

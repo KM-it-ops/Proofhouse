@@ -177,6 +177,20 @@ def _deliver(folder: Path, kind: str, name: str, best: dict[str, Any], shapes: l
     return delivered
 
 
+_SHAPE_WORDS = {"16x9": "wide 16:9", "9x16": "tall 9:16", "1x1": "square 1:1"}
+
+
+def _given(video: dict[str, Any] | None, shapes: list[str] | None) -> str:
+    """What the owner already set on the command, in words the interviewer reads as decided."""
+    lines = []
+    if video and video.get("seconds"):
+        lines.append(f"- length: {video['seconds']} seconds")
+    if shapes:
+        named = ", ".join(f"{s} ({_SHAPE_WORDS[s]})" if s in _SHAPE_WORDS else s for s in shapes)
+        lines.append(f"- shapes to deliver: {named}")
+    return "\n".join(lines)
+
+
 def make_media(
     request: str,
     *,
@@ -262,7 +276,7 @@ def make_media(
     stood_in: dict[str, str] = {}
     try:
         folder.mkdir(parents=True, exist_ok=interview is not None)
-        interview = interview or mi.Interview(request, kind, shared=shared)
+        interview = interview or mi.Interview(request, kind, shared=shared, given=_given(video, shapes))
         try:
             mi.run(interview, interviewer, call, preset=preset, learned_by=f"{profile.id}/{model}")
         except mi.Paused as paused:
