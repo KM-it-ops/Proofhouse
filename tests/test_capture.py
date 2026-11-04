@@ -233,7 +233,7 @@ def test_the_video_command_hands_facts_and_allow_commands_over_once_and_needs_no
     assert code == 7  # the fake made no renders
     assert seen["allow_commands"] is True
     assert seen["facts"]["product"] == "Proofhouse"  # type: ignore[index]
-    assert not seen["visual_provider"]
+    assert seen["visual_provider"] == "local-images"  # none named, so the free one on this machine stands in
 
 
 def test_a_command_may_carry_the_line_to_show_instead_of_its_real_arguments(tmp_path: Path) -> None:
