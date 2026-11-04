@@ -512,7 +512,17 @@ def make(
         else:
             _deliver(folder, "copy" if kind in extra else kind, best.text)
     result.spent_usd = budget.spent
-    _write_record(folder, request, profile.id, model, max_cost_usd, result, extra.get(kind))
+    if shared:
+        who = "launch"
+    elif interviewer is None:
+        who = "none"
+    elif isinstance(interviewer, mi.TerminalInterviewer):
+        who = "terminal"
+    elif isinstance(interviewer, mi.FileInterviewer):
+        who = "answers file"
+    else:
+        who = "caller"
+    _write_record(folder, request, profile.id, model, max_cost_usd, result, extra.get(kind), who)
     return result
 
 
@@ -840,9 +850,10 @@ def _deliver(folder: Path, kind: str, text: str) -> None:
 
 def _write_record(
     folder: Path, request: str, provider_id: str, model: str, limit: str | None, result: MakeResult,
-    kind_entry: dict[str, Any] | None = None,
+    kind_entry: dict[str, Any] | None = None, interview_from: str = "none",
 ) -> None:
     record = {
+        "interview_from": interview_from,
         "schema": "proofhouse.make/v1",
         "proofhouse_version": __version__,
         "request": request,

@@ -31,6 +31,12 @@ class Model:
         self.sent.append(text)
         if text.startswith("Proofhouse makes many kinds"):
             content = self.research
+        elif text.startswith("Proofhouse is about to write"):
+            content = json.dumps({"name": "Claude Code", "guide": "Keep it short and literal.", "sources": ["https://example.org/docs"]})
+        elif text.startswith("You are an expert prompt engineer. You generate"):
+            content = json.dumps([{"id": "must", "text": "What must it show?", "type": "text"}])
+        elif text.startswith("You are about to write a"):
+            content = "- What it is: a press kit"
         elif text.startswith("You judge AI work"):
             assert "PRESS KIT:" in text
             content = json.dumps({"score": 10, "missing": [], "fix": ""})
@@ -176,7 +182,9 @@ def test_failed_research_at_the_front_door_is_recorded_to_try_again() -> None:
 
 def test_make_on_the_command_line_says_what_it_learned(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys) -> None:
     monkeypatch.setattr(live, "_httpx_post", Model())
+    answers = tmp_path / "answers.json"
+    answers.write_text(json.dumps({"for": "Claude Code", "answers": {"must": "the facts"}, "confirmed": True}), encoding="utf-8")
     code = cli.main(["make", "a press kit for Brew", "--kind", "press-kit", "--provider", "ollama", "--model", "m",
-                     "--out", str(tmp_path / "o"), "--json"])
+                     "--out", str(tmp_path / "o"), "--answers", str(answers), "--json"])
     out = json.loads(capsys.readouterr().out)
     assert code == 0 and out["kind"] == "press-kit" and out["learned"]["sources_note"] == learn.SOURCES_NOTE

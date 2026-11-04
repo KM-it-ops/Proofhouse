@@ -101,14 +101,25 @@ def test_a_python_package_add_on_is_loaded_and_a_broken_one_is_skipped(monkeypat
 
 
 def test_a_make_kind_nobody_added_is_researched_first_not_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """An unknown kind is learned (learn.py), never refused; the first thing sent is the research question."""
+    """An unknown kind is learned (learn.py), never refused; once the owner has answered, the research question is sent."""
     addons.install(_pack(tmp_path, PACK))
     sent: list[str] = []
 
     def model(request: live.Request) -> live.Response:
-        sent.append(" ".join(m["content"] for m in json.loads(request.body_bytes)["messages"]))
-        return live.Response(200, {"choices": [{"message": {"content": "not JSON"}}], "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+        text = " ".join(m["content"] for m in json.loads(request.body_bytes)["messages"])
+        sent.append(text)
+        if text.startswith("You are an expert prompt engineer. You generate"):
+            content = json.dumps([{"id": "must", "text": "What must it show?", "type": "text"}])
+        elif text.startswith("You are about to write a"):
+            content = "- What it is: a poster"
+        else:
+            content = "not JSON"
+        return live.Response(200, {"choices": [{"message": {"content": content}}], "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
 
     monkeypatch.setattr(live, "_httpx_post", model)
-    assert cli.main(["make", "x", "--kind", "poster", "--provider", "ollama", "--model", "m", "--out", str(tmp_path / "o")]) != 0
-    assert len(sent) == 1 and sent[0].startswith("Proofhouse makes many kinds") and "make a poster" in sent[0]
+    answers = tmp_path / "answers.json"
+    answers.write_text(json.dumps({"for": "Claude Code", "answers": {"must": "the date"}, "confirmed": True}), encoding="utf-8")
+    assert cli.main(["make", "x", "--kind", "poster", "--provider", "ollama", "--model", "m", "--out", str(tmp_path / "o"),
+                     "--answers", str(answers)]) != 0
+    research = [text for text in sent if text.startswith("Proofhouse makes many kinds")]
+    assert len(research) == 1 and "make a poster" in research[0]

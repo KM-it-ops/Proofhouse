@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from proofhouse import cli, launch, learn_catalog, live, make
+from proofhouse import cli, launch, learn_catalog, live, live_cli, make
 from proofhouse import make_interview as mi
 
 from test_make_interview import Answers, Owner
@@ -190,7 +190,7 @@ def test_the_command_interviews_a_site_too(tmp_path: Path, monkeypatch: pytest.M
     _route(monkeypatch, Builder())
     code = cli.main(["make", "a site for refunds", "--kind", "site", "--provider", "ollama", "--model", "m",
                      "--for", "Netlify", "--out", str(tmp_path / "o")])
-    assert code == 0 and "waiting for your answers" in capsys.readouterr().out
+    assert code == live_cli.EXIT_WAITING and "waiting for your answers" in capsys.readouterr().out
     assert json.loads((tmp_path / "o" / "answers.json").read_text(encoding="utf-8"))["for"] == "Netlify"
 
 
@@ -199,7 +199,7 @@ def test_platforms_named_on_the_command_line_answer_which_platforms(tmp_path: Pa
     _route(monkeypatch, Builder())
     code = cli.main(["make", "an app for refunds", "--kind", "app", "--provider", "ollama", "--model", "m",
                      "--platform", "pwa", "--out", str(tmp_path / "o")])
-    assert code == 0 and "waiting for your answers" in capsys.readouterr().out
+    assert code == live_cli.EXIT_WAITING and "waiting for your answers" in capsys.readouterr().out
     assert json.loads((tmp_path / "o" / "answers.json").read_text(encoding="utf-8"))["for"] == "pwa"
 
 
@@ -273,7 +273,7 @@ def test_the_command_pauses_a_launch_and_names_every_answers_file(tmp_path: Path
     code = cli.main(["make", "launch our refund helper", "--kind", "launch", "--provider", "ollama", "--model", "m",
                      "--out", str(tmp_path / "l"), "--for", "unused"])
     out = capsys.readouterr().out
-    assert code == 0 and "waiting for your answers" in out
+    assert code == live_cli.EXIT_WAITING and "waiting for your answers" in out
     assert f"--answers {tmp_path / 'l' / 'answers.json'}" in out
 
 

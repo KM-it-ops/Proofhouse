@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from proofhouse import cli, hosts, live, make, make_checks
+from proofhouse import cli, hosts, live, live_cli, make, make_checks
 from proofhouse import make_interview as mi
 
 QUESTIONS = json.dumps([
@@ -351,7 +351,7 @@ def test_the_command_pauses_with_for_and_tells_you_how_to_go_on(tmp_path: Path, 
     code = cli.main(["make", "a skill for refunds", "--kind", "skill", "--provider", "ollama", "--model", "m",
                      "--for", "Claude Code", "--out", str(tmp_path / "o")])
     out = capsys.readouterr().out
-    assert code == 0 and "waiting for your answers" in out
+    assert code == live_cli.EXIT_WAITING and "waiting for your answers" in out
     assert f"--answers {tmp_path / 'o' / 'answers.json'}" in out
 
 
@@ -376,7 +376,7 @@ def test_the_command_names_the_rule_file_not_the_question_sheet(tmp_path: Path, 
     monkeypatch.setattr(make, "make", lambda *a, **k: real(*a, **{**k, "transport": model}))
     folder = tmp_path / "o"
     base = ["make", "a rule for refunds", "--kind", "rule", "--provider", "ollama", "--model", "m"]
-    assert cli.main([*base, "--for", "Cursor", "--out", str(folder)]) == 0
+    assert cli.main([*base, "--for", "Cursor", "--out", str(folder)]) == live_cli.EXIT_WAITING
     answers = json.loads((folder / "answers.json").read_text(encoding="utf-8"))
     answers["answers"]["must"], answers["confirmed"] = "confirm the order", True
     (folder / "answers.json").write_text(json.dumps(answers), encoding="utf-8")
