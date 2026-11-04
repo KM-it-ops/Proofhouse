@@ -63,6 +63,7 @@ class Director:
         self.calls: list[str] = []
         self.seen: dict[str, list[str]] = {}
         self.pictures: list[str] = []
+        self.json_mode: dict[str, list[bool]] = {}  # per role: was the reply asked for as JSON
 
     def __call__(self, request: live.Request) -> live.Response:
         body = json.loads(request.body_bytes)
@@ -101,6 +102,7 @@ class Director:
             role, content = "other", "{}"
         self.calls.append(role)
         self.seen.setdefault(role, []).append(text)
+        self.json_mode.setdefault(role, []).append(body.get("response_format") == {"type": "json_object"})
         return live.Response(200, {"choices": [{"message": {"content": content}}],
                                    "usage": {"prompt_tokens": 10, "completion_tokens": 5}})
 
@@ -287,6 +289,51 @@ def test_a_model_that_cannot_take_a_picture_judges_from_the_words_and_the_record
     assert judged["picture"] is None and "could not take the picture" in judged["words_only_because"]
     assert "this model does not take pictures" in judged["words_only_because"]
     assert "never saw the picture" in _record(folder)["judging"]
+
+
+def test_a_model_that_refused_a_picture_is_not_sent_one_again_in_later_rounds(tmp_path: Path, programs: None) -> None:
+    model = Director(scores=[5, 6], blind=True)
+    folder = tmp_path / "o"
+    made = make_media.make_media("a fox at dawn", kind="image", provider_id="ollama", model="m", out_dir=folder,
+                                 interviewer=Answers("my-painter", {}, [True]), transport=model, rounds=2)
+    assert len(made.rounds) == 2 and model.calls.count("judge") == 2
+    assert model.calls.count("refused picture") == 1  # it said once that it cannot see: that is not asked again
+    for version in _record(folder)["versions"]:
+        assert "could not take the picture" in version["judged_on"]["words_only_because"]
+
+
+def test_the_plan_and_the_judge_are_asked_for_json_and_a_plan_with_no_prompt_is_asked_for_again(
+        tmp_path: Path, programs: None) -> None:
+    class Forgetful(Director):
+        def __call__(self, request: live.Request) -> live.Response:
+            reply = super().__call__(request)
+            if self.calls[-1] == "plan" and self.calls.count("plan") == 2:  # round 2's plan leaves the prompt out
+                reply.payload["choices"][0]["message"]["content"] = json.dumps({"seconds": 2, "shapes": ["1x1"]})
+            return reply
+
+    model = Forgetful(scores=[5, 6])
+    folder = tmp_path / "o"
+    made = make_media.make_media("a fox at dawn", kind="image", provider_id="ollama", model="m", out_dir=folder,
+                                 interviewer=Answers("my-painter", {}, [True]), transport=model, rounds=2)
+    assert len(made.rounds) == 2 and made.stopped == "rounds used up", made.stopped
+    assert model.calls.count("plan") == 3 and '"prompt"' in model.seen["plan"][2]  # told what was missing
+    assert all(model.json_mode["plan"]) and all(model.json_mode["judge"])
+    assert [c.role for c in made.calls].count("plan fix") == 1
+
+
+def test_a_plan_that_stays_without_a_prompt_stops_and_keeps_the_reply(tmp_path: Path, programs: None) -> None:
+    class Empty(Director):
+        def __call__(self, request: live.Request) -> live.Response:
+            reply = super().__call__(request)
+            if self.calls[-1] == "plan":
+                reply.payload["choices"][0]["message"]["content"] = "I cannot plan that."
+            return reply
+
+    folder = tmp_path / "o"
+    made = make_media.make_media("a fox at dawn", kind="image", provider_id="ollama", model="m", out_dir=folder,
+                                 interviewer=Answers("my-painter", {}, [True]), transport=Empty(), rounds=2)
+    assert "no plan" in made.stopped and "plan-reply.txt" in made.stopped, made.stopped
+    assert (folder / "plan-reply.txt").read_text(encoding="utf-8") == "I cannot plan that."
 
 
 def test_the_judge_is_told_what_it_saw_is_its_own_claim(tmp_path: Path, programs: None) -> None:

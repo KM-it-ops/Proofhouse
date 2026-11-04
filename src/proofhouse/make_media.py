@@ -52,6 +52,11 @@ _PLAN = (
     "You plan a {noun} that an AI media service will make from your words. {write}Use everything the owner told us. "
     "If the owner's last version fell short, change the plan to fix exactly that. Reply with JSON only, in this form: {form}"
 )
+_PLAN_AGAIN = (
+    '\n\nYOUR LAST REPLY HAD NO "prompt" FIELD, SO NOTHING COULD BE MADE FROM IT:\n{said}\n\n'
+    'Reply again with JSON only, in the form asked, and put the words the service will make from in "prompt".'
+)
+_JSON_ROLES = ("plan", "plan fix", "judge")  # the replies read as JSON are asked for as JSON
 _JUDGE = (
     "You judge media made by an AI service against what the owner asked for. You cannot see the picture or hear the "
     "sound yourself: you have the plan, the results of the file checks and any sound measurements, so judge whether "
@@ -254,7 +259,8 @@ def make_media(
         if budget.spent_out():
             raise make._Stop("spending limit reached")
         reply = live.run_prompt(profile.id, model, prompt=prompt, input_text=input_text, images=images,
-                                max_output_tokens=2048, max_cost_usd=limit, transport=transport)
+                                max_output_tokens=2048, max_cost_usd=limit, transport=transport,
+                                json_reply=role in _JSON_ROLES)
         cost = reply.cost or {}
         result.calls.append(make.Call(role, reply.status, reply.code, cost.get("tokens_in"), cost.get("tokens_out"), cost.get("usd")))
         budget.charge(reply)
@@ -273,6 +279,7 @@ def make_media(
 
     versions: list[dict[str, Any]] = []
     parts: dict[str, dict[str, str]] = {}
+    cannot_see: list[str] = []  # set once the model refuses a picture: later rounds judge from the words
     stood_in: dict[str, str] = {}
     try:
         folder.mkdir(parents=True, exist_ok=interview is not None)
@@ -306,10 +313,13 @@ def make_media(
         brief = interview.brief()
         previous: tuple[list[str], str] = ([], "")
         for n in range(1, rounds + 1):
-            plan = _plan(call, entry, made, brief, previous)
+            plan, said = _plan(call, entry, made, brief, previous)
             prompt = str(plan.get("prompt") or "").strip()
             if not prompt:
-                raise make._Stop("the model returned no plan to work with")
+                folder.mkdir(parents=True, exist_ok=True)
+                (folder / "plan-reply.txt").write_text(said, encoding="utf-8")
+                raise make._Stop("the model returned no plan to work with, even when asked again "
+                                 "(its last reply is in plan-reply.txt)")
             vdir = folder / f"v{n}"
             version: dict[str, Any] = {"version": n, "plan": plan, "files": [], "checks": [], "score": None, "missing": [], "fix": ""}
             if made == "video":
@@ -332,7 +342,7 @@ def make_media(
                 (vdir / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
             version["checks_ok"] = bool(version["checks"]) and all(c["ok"] for c in version["checks"])
             if version["files"] or version["checks_ok"]:
-                _judge(ask, call, folder, vdir, made, version, brief, plan)
+                _judge(ask, call, folder, vdir, made, version, brief, plan, cannot_see)
             else:
                 version["missing"] = ["nothing was made: " + "; ".join(c["detail"] for c in version["checks"] if not c["ok"])]
             result.rounds.append(make.Round(n, prompt, None, version["score"], version["missing"], version["fix"]))
@@ -381,15 +391,22 @@ def _fill_gaps(parts: dict[str, dict[str, str]], video: dict[str, Any]) -> dict[
     return stood_in
 
 
-def _plan(call: Any, entry: dict[str, Any], made: str, brief: str, previous: tuple[list[str], str]) -> dict[str, Any]:
+def _plan(call: Any, entry: dict[str, Any], made: str, brief: str,
+          previous: tuple[list[str], str]) -> tuple[dict[str, Any], str]:
+    """The plan for the next version and the model's raw reply; a reply with no "prompt" is asked for once more."""
     write = str(entry.get("write") or "").strip()
     system = _PLAN.format(noun=_NOUN[made], write=(write + " ") if write else "", form=_PLAN_FORM[made])
     text = brief
     if previous[0] or previous[1]:
         text += ("\n\nWHAT THE LAST VERSION MISSED:\n" + "\n".join(f"- {m}" for m in previous[0])
                  + f"\n\nHOW TO FIX IT:\n{previous[1] or 'make it fully meet the request'}")
-    data = mi._json_value(call("plan", system, text))
-    return data if isinstance(data, dict) else {}
+    said = call("plan", system, text) or ""
+    data = mi._json_value(said)
+    if isinstance(data, dict) and str(data.get("prompt") or "").strip():
+        return data, said
+    said = call("plan fix", system, text + _PLAN_AGAIN.format(said=said[:2000])) or ""
+    data = mi._json_value(said)
+    return (data if isinstance(data, dict) else {}), said
 
 
 def _pay(budget: make.Budget, provider: media.MediaProvider | None, usd: Any) -> None:
@@ -493,7 +510,7 @@ def _sound_text(facts: dict[str, float]) -> str:
 
 
 def _judge(ask: Any, call: Any, folder: Path, vdir: Path, made: str, version: dict[str, Any], brief: str,
-           plan: dict[str, Any]) -> None:
+           plan: dict[str, Any], cannot_see: list[str]) -> None:
     """Judge one version: send the picture when there is one, and the sound as measurements; else the words alone."""
     first = folder / version["files"][0] if version["files"] else None
     sound = picture = None
@@ -510,7 +527,9 @@ def _judge(ask: Any, call: Any, folder: Path, vdir: Path, made: str, version: di
         subject += f"\n\nSOUND, MEASURED:\n{_sound_text(sound)}"
     why = None
     text = None
-    if picture is not None:
+    if picture is not None and cannot_see:
+        why = cannot_see[0]
+    elif picture is not None:
         reply = ask("judge", _JUDGE_SEEING.format(what=_SHOWN[made]), subject, [studio.data_url(picture)])
         if reply.status == "success":
             text = reply.output_text
@@ -518,6 +537,7 @@ def _judge(ask: Any, call: Any, folder: Path, vdir: Path, made: str, version: di
             why = "the spending limit left could not cover sending a picture"
         else:
             why = f"the model could not take the picture ({reply.message})"
+            cannot_see.append(why)
     elif made in _SHOWN:
         why = "no picture could be taken from the file"
     seen_as = _rel(folder, picture) if picture is not None and text is not None else None
