@@ -106,11 +106,11 @@ opened and checked), and shown to a stranger (not done yet; it waits on the owne
 | Paid image, voice, music and video services; training start; learning an unknown kind; model-list update | yes | not run live (spend limit 0, no keys) | no |
 
 Notes from that run: the film's music is a locally built bed, because the Gemini music attempt failed twice.
-Since then (branch `feat/video-finishing`, not merged): the engine itself now dissolves between shots, fades the film in and out,
+Since then (`feat/video-finishing`, now on main through #100): the engine itself now dissolves between shots, fades the film in and out,
 cleans the voice, dips the music under it and levels the mix to -16 LUFS. That polish used to exist only in the example scripts.
 Tested on a short local film (no model calls, $0). Still not done in the video engine: the voice and music still come only from a
 service or a file you give (nothing is made locally when you have neither), and shots are not timed to the spoken words.
-Since then (branch `feat/video-motion`, not merged): films can be written beat by beat, each beat timed to its spoken words, with
+Since then (`feat/video-motion`, now on main through #100): films can be written beat by beat, each beat timed to its spoken words, with
 moving graphics, sound effects, picked cuts and real screen recordings (at most a third of the film); the voice can come from a
 program on your own machine (Kokoro), so a film costs $0. Still not done: music is still a file or a service, the vertical 9:16
 layout of beat films is not fully worked out, and recordings have no `proofhouse` command yet (only `proofhouse.recording`).
@@ -351,6 +351,24 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      not be delivered is named (`undelivered`) and the run exits 7. A launch's video part is now
      interviewed and made through this same loop. Still open: a kind nobody taught
      (such as "podcast") is not learned as a media kind yet.
+8. **The full video engine behind `make --kind video`** (branch `feat/video-engine`). One goal: a film
+   with pictures, voice, music, sound and editing comes out of the front door on any machine, at $0 with
+   local programs and at full quality with any paid service, and the judge looks at it before scoring.
+   - **8a. $0 makers ship as data.** A music bed maker (`local-music`, made from scratch in Python: chords,
+     bass, pads and drums picked from the mood words) and a local voice (`local-voice`: the speech engine
+     this machine already has, such as Windows speech, macOS `say`, espeak-ng, Piper or Kokoro) ship as
+     entries in the media list. A run entry may start the Python that runs Proofhouse (`@python`).
+   - **8b. Gaps filled, never failed.** A film with words and no voice service named gets the local voice; a
+     film with no music service gets the local bed. The record names what stood in.
+   - **8c. The judge looks and listens.** Each version's judge gets frames from the film (a contact sheet),
+     the picture itself for an image, and measured sound facts (loudness, how much of the film has voice,
+     music and silence). The spending limit counts each picture at a fixed worst case. A model that cannot
+     take pictures is asked again with words only, and the record says exactly what the judge saw and heard.
+   - **8d. Finishing.** The voice must fit the film (no words cut off), a film that fails a check is not
+     left behind as if it were finished, beat films lay out properly in 9:16, and a callout over a
+     recording finds its place by itself.
+   - **8e. Front door details.** The interview record names `--for` and presets correctly, and
+     `docs/usage.md` covers the media interview and exit 9.
 
 ## What is left (updated 2026-10-27)
 
