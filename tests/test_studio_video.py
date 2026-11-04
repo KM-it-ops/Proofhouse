@@ -442,17 +442,24 @@ def test_a_storyboard_with_words_but_no_voice_service_stops_before_spending(tmp_
 def test_a_storyboard_layer_the_engine_cannot_draw_is_refused_before_any_picture_is_made(tmp_path: Path, services) -> None:
     bad = {**BEATS, "beats": [{**BEATS["beats"][0], "layers": [{"kind": "hologram", "at": 0}]}]}
     calls: list[str] = []
+    made_when_asked: list[int] = []
 
     def post(request: media.MediaRequest) -> media.MediaResponse:
         calls.append(request.url)
         return _media(services)(request)
 
+    def write(request: live.Request) -> live.Response:
+        made_when_asked.append(len(calls))
+        return live.Response(200, {"choices": [{"message": {"content": json.dumps(bad)}}],
+                                   "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+
     made = studio.produce("x", provider_id="ollama", model="llama3", visual_provider="local-images", visual_model="sdxl",
                           voice_provider="local-voice", voice_model="tts", seconds=6, formats=("1x1",),
-                          out_dir=tmp_path / "v", size_scale=0.1, media_transport=post,
-                          text_transport=lambda r: live.Response(200, {"choices": [{"message": {"content": json.dumps(bad)}}],
-                                                                        "usage": {"prompt_tokens": 1, "completion_tokens": 1}}))
-    assert made.stopped.startswith("beat 1:") and calls == [], made.stopped
+                          out_dir=tmp_path / "v", size_scale=0.1, media_transport=post, text_transport=write)
+    # the writer is sent it back every time before anything is made; on the last chance only that layer is left out
+    assert made_when_asked == [0] * (1 + studio.SCRIPT_FIXES), made_when_asked
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    assert made.stopped == "finished" and script["beats"][0]["layers"] == [], made.stopped
 
 
 def test_a_storyboard_may_only_show_footage_from_the_fact_sheet() -> None:
@@ -723,6 +730,58 @@ def test_the_script_writer_is_told_every_problem_at_once_so_one_fix_can_mend_the
     assert "beat 1: layer 2 (counter)" in fix and "needs 'to'" in fix
     assert "beat 2: layer 1 at:" in fix and "no phrase 2" in fix
     assert "beat 3: layer 2 has" in fix and "unknown kind 'card'" in fix
+
+
+@needs_ffmpeg
+def test_a_picture_layer_with_a_prompt_is_made_and_placed_over_the_beat(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    asked_for = json.loads(json.dumps(BEATS))
+    asked_for["beats"][0]["layers"].append({"kind": "image", "prompt": "a glowing logo", "at": "phrase 1", "until": "phrase 1 end"})
+    asked: list[str] = []
+    prompts: list[str] = []
+    post = _media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()})
+
+    def counting(request: media.MediaRequest) -> media.MediaResponse:
+        if request.url.endswith("/img"):
+            prompts.append(json.loads(request.body_bytes)["prompt"])
+        return post(request)
+
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(asked_for, asked=asked), media_transport=counting)
+    assert len(asked) == 1 and made.stopped == "finished" and "1x1" in made.renders, made.stopped  # no fix was needed
+    assert "a glowing logo" in prompts and len(prompts) == 4  # three beat pictures and the layer's own
+    layer = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))["beats"][0]["layers"][1]
+    assert layer["kind"] == "image" and "prompt" not in layer and layer["at"] == "phrase 1", layer
+    assert (tmp_path / "v" / layer["file"]).is_file() and layer["file"].startswith("shots/beat-01-layer-2")
+
+
+@needs_ffmpeg
+def test_a_layer_that_stays_undrawable_is_left_out_instead_of_losing_the_film(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    broken = json.loads(json.dumps(BEATS))
+    # what a small model wrote after every fix: a picture with nothing to show, timed by a phrase the beat lacks
+    broken["beats"][1]["layers"].append({"kind": "image", "at": "phrase 3 end"})
+    broken["beats"][2]["layers"].append({"kind": "card", "items": ["x"]})  # a kind the engine does not have
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(broken, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert len(asked) == 1 + studio.SCRIPT_FIXES  # the writer had every chance to fix them first
+    assert made.stopped == "finished" and "1x1" in made.renders, made.stopped
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    assert script["beats"][1]["layers"] == BEATS["beats"][1]["layers"]  # only the broken layers are gone
+    assert script["beats"][2]["layers"] == BEATS["beats"][2]["layers"]
+    dropped = next(c for c in made.checks if c["check"] == "unreadable timings dropped")
+    assert "beat 2 layer 2 left out" in dropped["detail"] and "beat 3 layer 2 left out" in dropped["detail"], dropped
+
+
+def test_a_beat_that_stays_broken_still_fails_on_the_last_chance() -> None:
+    broken = {"beats": [{"say": "Hi.", "base": "not an object", "layers": [{"kind": "card"}]}]}
+    assert studio.untime_unreadable(broken) == (broken, [])
 
 
 @needs_ffmpeg

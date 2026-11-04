@@ -50,7 +50,7 @@ _BEATS = (
     "Layers are motion graphics drawn over the picture. Each has a kind and an at: seconds into the beat, or "
     '"start", "phrase N" or "phrase N end", with an optional + or - seconds. The kinds: title {{"text"}}, '
     'label {{"text"}}, chips {{"items": ["short", "words"]}}, cards {{"items": ["short titles"]}}, '
-    'counter {{"to": a number}}, lower_third {{"title"}}. Energy is low, mid or high and sets the pace of the joins. '
+    'counter {{"to": a number}}, lower_third {{"title"}}, image {{"prompt": "a picture to make and show"}}. Energy is low, mid or high and sets the pace of the joins. '
     "Write {fewest} to {most} beats of one or two phrases each, one flowing passage across them, no slogans or lists. "
     "Spoken, the whole film lasts about {seconds} seconds, so use {words} words in all at most. "
     "Something new must appear on screen at least every 3 seconds."
@@ -341,7 +341,9 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
         else:
             row["base"] = {"kind": "living"}
         out.append(row)
-    dry = [{**row, "base": {"kind": "living"}} for row in out]
+    dry = [{**row, "base": {"kind": "living"},
+            **({"layers": [_stand_in(lay) for lay in row["layers"]]} if isinstance(row.get("layers"), list) else {})}
+           for row in out]
     try:
         beats = storyboard.parse(dry, Path.cwd())
         for beat in beats:
@@ -352,6 +354,19 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
     except motion.MotionError as exc:
         raise StudioError(f"beat {beat.number}: {exc}") from exc
     return out
+
+
+def to_make(layer: Any) -> bool:
+    """True for a picture or clip overlay the plan asks to have made from a prompt, rather than one with a file."""
+    return (isinstance(layer, dict) and layer.get("kind") in ("image", "video") and "file" not in layer
+            and isinstance(layer.get("prompt"), str) and bool(layer["prompt"].strip()))
+
+
+def _stand_in(layer: Any) -> Any:
+    """An overlay still to be made, as a plain label with the same times, so its times are checked before it is paid for."""
+    if not to_make(layer):
+        return layer
+    return {**{k: v for k, v in layer.items() if k != "prompt"}, "kind": "label", "text": "x"}
 
 
 def _not_a_beat(number: int, raw: Any) -> str:
@@ -403,7 +418,9 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
 
     Used only once the script writer has had all its chances to fix them, so one garbled time or pace never costs
     the whole film: the overlay or sound plays at its default moment and the beat at its default pace, and a scrap
-    of text left in the beats list by a broken reply is left out. Anything else that is wrong (a layer the engine cannot draw, a broken beat) is left as it is, so it stays a failure."""
+    of text left in the beats list by a broken reply is left out. An overlay or sound the engine still cannot draw
+    once its times are gone is left out too, so one bad overlay never costs the film. A beat that is itself broken
+    (its words or its picture) is left as it is, so it stays a failure."""
     rows = data.get("beats")
     if not isinstance(rows, list):
         return data, []
@@ -441,8 +458,10 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
                     plain = {k: v for k, v in item.items() if k not in ("at", "until")} if isinstance(item, dict) else item
                     try:
                         beats_from({"beats": [{**bare, key: [plain]}]}, facts)
-                    except StudioError:
-                        return data, []  # not a timing problem
+                    except StudioError as exc:
+                        said = re.sub(r"^beat \d+: ", "", str(exc))
+                        dropped.append(f"beat {number} {key[:-1]} {i} left out ({said})")
+                        continue
                     times = ", ".join(repr(item[k]) for k in ("at", "until") if k in item)
                     dropped.append(f"beat {number} {key[:-1]} {i} time {times}")
                     item = plain
@@ -1000,11 +1019,13 @@ def produce(
                         data, problem = cleaned, None
                         production.checks.append({
                             "render": "all", "check": "unreadable timings dropped", "ok": True,
-                            "detail": f"after {SCRIPT_FIXES} fixes these parts still could not be read, so stray text "
-                                      f"in the beats is left out and times and paces play at their default: "
+                            "detail": f"after {SCRIPT_FIXES} fixes these parts still could not be read or drawn, so stray "
+                                      f"text and overlays the engine cannot draw are left out, and times and paces play "
+                                      f"at their default: "
                                       f"{'; '.join(dropped)}"})
             if problem is None and board is not None:
-                if any(row["base"]["kind"] == "generate" for row in board) and (not visual_provider or not visual_model):
+                if (any(row["base"]["kind"] == "generate" or any(to_make(lay) for lay in row.get("layers") or [])
+                        for row in board) and (not visual_provider or not visual_model)):
                     raise StudioError("generated pictures need --visual-provider and --visual-model (see `proofhouse media list`)")
                 if any(row.get("say") for row in board) and not voice_provider:
                     raise StudioError("a film with words needs a voice service to speak them (--voice-provider)")
@@ -1033,14 +1054,20 @@ def produce(
             (out_dir / "shots").mkdir()
             for number, (row, beat) in enumerate(zip(board, timed), start=1):
                 base, target = row["base"], out_dir / "shots" / f"beat-{number:02d}"
+                params = ({"seconds": max(2, min(10, math.ceil(beat.frames / beat.fps)))} if visual_kind == "video"
+                          else {"size": "1792x1024"})
                 if base["kind"] == "capture":
                     file = capture_still(base["ref"], target)
                     row["base"] = {"kind": "capture", "file": Path(file).relative_to(out_dir).as_posix()}
                 elif base["kind"] == "generate":
-                    params = ({"seconds": max(2, min(10, math.ceil(beat.frames / beat.fps)))} if visual_kind == "video"
-                              else {"size": "1792x1024"})
                     file = make_media(visual_kind, visual_provider, visual_model, base["prompt"], target, params)
                     row["base"] = {"kind": visual_kind, "file": Path(file).relative_to(out_dir).as_posix()}
+                for i, lay in enumerate(row.get("layers") or [], start=1):  # overlays the plan asked to have made
+                    if to_make(lay):
+                        file = make_media(visual_kind, visual_provider, visual_model, lay["prompt"].strip(),
+                                          out_dir / "shots" / f"beat-{number:02d}-layer-{i}", params)
+                        row["layers"][i - 1] = {**{k: v for k, v in lay.items() if k != "prompt"}, "kind": visual_kind,
+                                                "file": Path(file).relative_to(out_dir).as_posix()}
             if music_file is not None:
                 production.music_file = str(shutil.copy2(music_file, out_dir / f"music{music_file.suffix}"))
             elif music_provider and production.music_brief:

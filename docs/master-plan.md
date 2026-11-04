@@ -359,7 +359,8 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      this machine already has, such as Windows speech, macOS `say`, espeak-ng, Piper or Kokoro) ship as
      entries in the media list. A run entry may start the Python that runs Proofhouse (`@python`).
    - **8b. Gaps filled, never failed.** A film with words and no voice service named gets the local voice; a
-     film with no music service gets the local bed. The record names what stood in.
+     film with no music service gets the local bed; a film with no picture service gets pictures made on this
+     machine (`local-images`). The record names what stood in.
    - **8c. The judge looks and listens.** Each version's judge gets frames from the film (a contact sheet),
      the picture itself for an image, and measured sound facts (loudness, how much of the film has voice,
      music and silence). The spending limit counts each picture at a fixed worst case. A model that cannot
@@ -405,6 +406,13 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      Runs on 2026-11-04: llama3.2 plus the local picture program made the 10-second film at $0 each time.
      After the last fixes, all three versions were made with none lost (9 calls); llama3.2 cannot see
      pictures, so it judged on the words alone, and the record says so.
+     Fixes after the run from main (2026-11-04): a picture laid over a beat can be asked for by prompt and is
+     made like the beat's own picture, and an overlay the engine still cannot draw after the writer's fixes
+     is left out (and named) instead of losing the version. Free pictures ship as data (`local-images`):
+     a real image model run on this machine when the `local-images` extra is installed (Stable Diffusion
+     Turbo by default, any diffusers model by id), and otherwise generated art from the prompt's colour and
+     mood words, with no words drawn. A film with no picture service gets it as a stand-in, and the record
+     says so.
 
 ## What is left (updated 2026-10-27)
 
