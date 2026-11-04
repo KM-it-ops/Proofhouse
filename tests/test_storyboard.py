@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from proofhouse import sound, storyboard
+from proofhouse import motion, sound, storyboard
 from proofhouse.storyboard import StoryboardError
 
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
@@ -215,6 +215,15 @@ def test_times_can_hang_off_the_words(tmp_path: Path) -> None:
     assert storyboard.when(beat, 99) == pytest.approx(beat.seconds, abs=1e-3)
 
 
+def test_a_time_written_as_text_seconds_means_seconds(tmp_path: Path) -> None:
+    """Small models write "at": "2" or "2s"; that is two seconds, not an error."""
+    beats, _ = _planned([{"say": "Hello there.", "layers": [{"kind": "label", "text": "Hi", "at": "0", "until": "0.5s"}]}],
+                        tmp_path)
+    beat = beats[0]
+    assert storyboard.when(beat, "0.5") == pytest.approx(beat.into + 0.5, abs=1e-3)
+    assert storyboard.when(beat, "0.25 s") == storyboard.when(beat, 0.25)
+
+
 # --- scenes, sounds, captions ------------------------------------------------------------------------
 
 def test_a_capture_sits_centred_in_a_window_over_a_generated_background(tmp_path: Path) -> None:
@@ -250,6 +259,95 @@ def test_the_recorded_pointer_is_redrawn_where_it_was_on_the_screen(tmp_path: Pa
     assert cursor["at"] == pytest.approx(beat.into + 0.5)  # it appears once the window has risen in
     assert [(m["t"], m["x"]) for m in cursor["moves"]] == [(0.0, 100), (0.5, 640), (2.5, 900)]
     assert [(c["t"], c["x"]) for c in cursor["clicks"]] == [(0.6, 640)]
+
+
+def _layer(scene: dict, kind: str) -> dict:
+    return next(layer for layer in scene["layers"] if layer["kind"] == kind)
+
+
+def test_a_callout_on_footage_is_placed_on_the_picture_by_itself(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    shot = _capture(tmp_path)
+    callout = {"kind": "callout", "box": [100, 100, 300, 80], "label": "here"}
+    rows = [{"base": {"kind": "capture", "file": shot}, "say": "Look.", "layers": [callout]},
+            {"base": {"kind": "capture", "file": shot}, "say": "Again.", "layers": [dict(callout, map="frame")]},
+            {"base": {"kind": "recording", "file": _recording(tmp_path)}, "say": "Watch.", "layers": [callout]}]
+    beats, _ = _planned(rows, tmp_path)
+    scenes = storyboard.scenes(beats, (640, 360))
+    # the box is in the screenshot's own pixels; the storyboard knows where the screenshot sits
+    _, inner, _ = storyboard.picture_box(beats[0], (640, 360))
+    assert _layer(scenes[0], "callout")["map"] == {"size": [1600, 1000], "box": inner}
+    assert "map" not in _layer(scenes[1], "callout")  # "frame": the box stays in design pixels
+    _, inner, _ = storyboard.picture_box(beats[2], (640, 360))
+    assert _layer(scenes[2], "callout")["map"] == {"size": [1280, 800], "box": inner}  # the recording's size
+
+
+def test_a_callout_stays_in_design_pixels_when_the_footage_does_not_hold_still(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    shot = _capture(tmp_path)
+    callout = {"kind": "callout", "box": [100, 100, 300, 80]}
+    beats, _ = _planned([{"base": {"kind": "capture", "file": shot, "fit": "fill"}, "say": "Look.", "layers": [callout]}],
+                        tmp_path)
+    assert "map" not in _layer(storyboard.scenes(beats, (640, 360))[0], "callout")
+    for rows in ([{"base": {"kind": "capture", "file": shot, "fit": "fill"}, "say": "x", "layers": [dict(callout, map="footage")]}],
+                 [{"say": "No footage.", "layers": [dict(callout, map="footage")]}]):
+        beats, _ = _planned(rows, tmp_path)
+        with pytest.raises(StoryboardError, match="footage"):
+            storyboard.scenes(beats, (640, 360))
+
+
+def test_a_vertical_film_spreads_the_layout_down_the_frame_and_enlarges_the_words(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    layers = [{"kind": "title", "text": "Hello", "y": 380},
+              {"kind": "label", "text": "step one"},
+              {"kind": "cards", "items": ["a", "b", "c", "d"]},
+              {"kind": "panel", "rows": ["x", "y"], "box": [560, 190, 800, 700]},
+              {"kind": "counter", "to": 9, "size": 120},
+              {"kind": "link", "from": [400, 300], "to": [1500, 800]}]
+    beats, _ = _planned([{"say": "Intro.", "layers": layers}], tmp_path)
+    wide = storyboard.scenes(beats, (1920, 1080))[0]
+    assert [{k: v for k, v in layer.items() if k not in ("at",)} for layer in wide["layers"]] == layers  # unchanged
+    tall = storyboard.scenes(beats, (1080, 1920))[0]
+    f = (1920 * 1920 / 1080) / 1080
+    title, label, cards, panel, counter, link = (_layer(tall, k) for k in ("title", "label", "cards", "panel", "counter", "link"))
+    assert title["y"] == pytest.approx(380 * f) and title["size"] == pytest.approx(144)
+    assert label["y"] == pytest.approx(160 * f) and label["size"] == pytest.approx(33)
+    assert counter["size"] == pytest.approx(180)
+    assert cards["columns"] == 2
+    x, y, w, h = cards["box"]
+    assert x + w / 2 == pytest.approx(960) and y + h / 2 == pytest.approx(540 * f) and w <= 1840
+    assert h > 420  # two rows of cards get the room of two rows
+    x, y, w, h = panel["box"]
+    assert (x + w / 2, y + h / 2, w, h) == pytest.approx((960, 540 * f, 1200, 1050))
+    assert link["from"] == pytest.approx([400, 300 * f]) and link["to"] == pytest.approx([1500, 800 * f])
+
+
+def test_a_vertical_film_enlarges_the_words_drawn_inside_plates_boxes_and_labels(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    timeline = {"command": "proofhouse make", "keys": [0.2, 0.3], "enter": 0.6, "seconds": 2.0}
+    layers = [{"kind": "lower_third", "title": "Ada"},
+              {"kind": "callout", "box": [600, 300, 300, 100], "label": "here"},
+              {"kind": "cards", "items": ["a", "b"]},
+              {"kind": "panel", "rows": ["x"], "box": [160, 190, 1600, 700]},
+              {"kind": "terminal", "timeline": timeline}]
+    beats, _ = _planned([{"say": "Intro.", "layers": layers}], tmp_path)
+    wide = storyboard.scenes(beats, (1920, 1080))[0]
+    assert not any("text_scale" in layer for layer in wide["layers"])
+    tall = storyboard.scenes(beats, (1080, 1920))[0]
+    scale = {k: _layer(tall, k)["text_scale"] for k in ("lower_third", "callout", "cards", "panel", "terminal")}
+    assert scale["lower_third"] == scale["callout"] == scale["cards"] == pytest.approx(1.5)
+    assert scale["panel"] == pytest.approx(1840 / 1600, abs=1e-4)  # a wide box can only grow so far, and its words with it
+    assert scale["terminal"] == pytest.approx(1840 / 1500, abs=1e-4)
+    assert _layer(tall, "panel")["box"][2] == pytest.approx(1840)
+    motion.check_scene(tall)
+
+
+def test_vertical_footage_fills_more_of_the_width(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    beats, _ = _planned([{"base": {"kind": "capture", "file": _capture(tmp_path)}, "say": "Look."}], tmp_path)
+    box, _, _ = storyboard.picture_box(beats[0], (1080, 1920))
+    assert box[2] == pytest.approx(0.94 * 1920) and box[0] + box[2] / 2 == pytest.approx(960)
+    assert storyboard.picture_box(beats[0], (1920, 1080))[0][2] <= 0.86 * 1920 + 0.01
 
 
 def test_sounds_come_from_the_motion_the_beats_the_keys_and_the_joins(tmp_path: Path) -> None:
@@ -355,3 +453,61 @@ def test_a_storyboard_with_no_words_needs_no_voice_track(tmp_path: Path) -> None
     beats, total = _planned([{"hold": 2}], tmp_path)
     assert storyboard.voice_command(beats, total, tmp_path / "v.wav") is None
     assert storyboard.speech_spans(beats) == []
+
+
+def test_a_film_shorter_than_asked_is_filled_out_to_the_asked_length(tmp_path: Path) -> None:
+    rows = [{"say": "Say what you want.", "base": {"kind": "living"}}, {"say": "Pick any model.", "base": {"kind": "living"}}]
+    beats, total = _planned(rows, tmp_path)
+    spans = [b.span for b in beats]
+    starts = [p.start for b in beats for p in b.phrases]
+    filled = storyboard.fill_to(beats, total + 4)
+    assert filled == pytest.approx(total + 4, abs=1 / storyboard.FPS)
+    assert all(after > before + 1.9 for after, before in zip((b.span for b in beats), spans))
+    assert [p.start for b in beats for p in b.phrases][0] == starts[0]  # the first word does not move
+    assert storyboard.fill_to(beats, 1.0) == pytest.approx(filled)  # never cut short to fit
+
+
+# --- every second lively ---------------------------------------------------------------------------------
+
+def _quiet(beat: storyboard.Beat, sc: dict) -> list[tuple[float, float]]:
+    spans = [s for layer in sc["layers"] for s in storyboard._moving(layer, beat.seconds)]
+    if beat.into:
+        spans.append((0.0, beat.into))
+    return storyboard.quiet_stretches(spans, 0.0, beat.own)
+
+
+def test_key_words_drop_the_small_joining_words() -> None:
+    assert storyboard.key_words("Say what you want, and pick any model!") == ["Say", "want", "pick", "any", "model"]
+    assert storyboard.key_words("it is what it is") == ["it", "is", "what", "it", "is"]  # all small: keep them
+    assert storyboard.key_words("one two three four five six seven", most=3) == ["two", "three", "four"]
+
+
+def test_a_still_beat_with_long_lines_never_holds_still(tmp_path: Path) -> None:
+    shot = _capture(tmp_path)
+    rows = [{"base": {"kind": "capture", "file": shot},
+             "say": "Proofhouse makes prompts agents skills rules servers hooks images video voice music sites apps."},
+            {"base": {"kind": "living"}, "say": "Pick any model from any provider and watch it run."}]
+    beats, total = _planned(rows, tmp_path)
+    storyboard.fill_to(beats, total + 6)  # stretch the beats so long stretches would stand still
+    for beat, sc in zip(beats, storyboard.scenes(beats, (1920, 1080))):
+        assert _quiet(beat, sc) == [], f"beat {beat.number} holds still"
+        titles = [layer for layer in sc["layers"] if layer["kind"] == "title"]
+        assert titles and titles[0]["text"].split()[0] in ("Proofhouse", "Pick")  # its own words, not filler
+        assert all(layer.get("quiet") for layer in sc["layers"] if layer["kind"] == "chips")  # fillers make no sound
+
+
+def test_a_beat_that_says_nothing_borrows_the_nearest_line(tmp_path: Path) -> None:
+    beats, total = _planned([{"say": "Ship launches from one goal.", "base": {"kind": "living"}},
+                             {"base": {"kind": "living"}}], tmp_path)
+    storyboard.fill_to(beats, total + 4)
+    sc = storyboard.scenes(beats, (1920, 1080))[1]
+    shown = {w for layer in sc["layers"] if layer["kind"] == "chips" for w in layer["items"]}
+    assert shown and shown <= {"Ship", "launches", "goal"}
+    assert _quiet(beats[1], sc) == []
+
+
+def test_moving_pictures_get_nothing_added(tmp_path: Path) -> None:
+    beats, _ = _planned([{"say": "Watch this for a long while now.", "base": {"kind": "living"}}], tmp_path)
+    beat = beats[0]
+    beat.base = {"kind": "video", "file": "clip.mp4"}
+    assert storyboard.liven(beat, []) == []

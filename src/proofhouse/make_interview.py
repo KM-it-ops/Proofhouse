@@ -74,19 +74,23 @@ _PLACE_NOTE = (
     "using what is known about it below.\n\nWHAT IS KNOWN:\n{guide}"
 )
 _SAY_BACK_MEDIA = (
-    "You are about to make a {kind} with {name}. Before making anything, say back in plain everyday words what you "
-    "understood, so the owner can correct it. Use short bullet points under these headings: What it is; What it is "
+    "You are about to make a {kind} with {name}. {name} is only the tool that makes it: the {kind} is about what "
+    "the request says, never about {name}, so leave {name} out of what you say back. Before making anything, say "
+    "back in plain everyday words what you understood, so the owner can correct it. Use short bullet points under these headings: What it is; What it is "
     "for; Who will see or hear it; How long or how big; The look, voice or music; Where it will be shown; What I am "
     "assuming. Under 150 words. No jargon: if a technical term is needed, put it in brackets after the plain words. "
     "Output only the bullet points.\n\n{brief}"
 )
 _MEDIA_NOTE = (
-    "\n\nHere the thing being made is a {kind} (a picture, a voice, music or a film, not text), made by {name}. Ask "
+    "\n\nHere the thing being made is a {kind} (a picture, a voice, music or a film, not text). {name} is only the "
+    "tool that makes it: the {kind} is about what the request says, never about {name}, so ask nothing about {name} "
+    "itself and never name it in a question. Ask "
     "what you need to make it well: what it is for, who will see or hear it, how long or how big it should be, the "
     "look it should have, the voice (who speaks, how it sounds), the music (mood, pace), and where it will be shown "
     "(so the right shapes are made, such as wide, tall or square). Ask nothing about writing code or text files."
 )
 _SHARED_NOTE = "\n\nThe owner already answered these for the whole launch. Do not ask them again:\n{shared}"
+_GIVEN_NOTE = "\n\nThe owner already set these on the command. They are decided: do not ask about them:\n{given}"
 _PLACE_SORTS = ("deploy", "platform", "launch")
 _MEDIA_PREFIX = re.compile(r"(visuals|voice|music)\s*:\s*(.*)", flags=re.I | re.S)
 
@@ -170,14 +174,20 @@ class Interview:
     corrections: list[str] = field(default_factory=list)
     confirmed: bool = False
     shared: str = ""  # what the owner told us for the whole launch this part belongs to
+    given: str = ""  # what the owner already set on the command (a length, the shapes), so it is never asked
 
     def brief(self) -> str:
         """What make writes, judges and revises against: the request plus everything the interview found."""
         parts = [f"REQUEST:\n{self.request}"]
-        if self.target is not None:
+        if self.target is not None and self.target.sort == "media":  # what the tools make, never their names
+            parts.append("MADE WITH: the tools the owner chose (only the tools that make it; the piece is not about "
+                         "them, and never shows or names them)")
+        elif self.target is not None:
             parts.append(f"MADE FOR: {_made_for(self.target)}")
         if self.shared:
             parts.append(f"WHAT THE OWNER TOLD US FOR THE WHOLE LAUNCH:\n{self.shared}")
+        if self.given:
+            parts.append(f"WHAT THE OWNER ALREADY SET:\n{self.given}")
         if self.entries:
             parts.append("WHAT THE OWNER TOLD US:\n" + packets.format_answered_entries(self.entries))
         if self.confirmed and self.understood:
@@ -186,9 +196,14 @@ class Interview:
             parts.append("CORRECTIONS FROM THE OWNER (these win over everything above):\n"
                          + "\n".join(f"- {c}" for c in self.corrections))
         if self.target is not None and self.target.guide:
-            heading = f"HOW {self.target.name.upper()} WANTS A {self.kind.upper()} WRITTEN" \
-                if self.target.sort in ("tool", "model") else f"WHAT IS KNOWN ABOUT {self.target.name.upper()}"
-            parts.append(f"{heading} (from {self.target.guide_source}):\n{self.target.guide}")
+            if self.target.sort in ("tool", "model"):
+                heading = f"HOW {self.target.name.upper()} WANTS A {self.kind.upper()} WRITTEN"
+            elif self.target.sort == "media":
+                heading = "THE TOOLS THAT WILL MAKE IT (never the subject of the piece)"
+            else:
+                heading = f"WHAT IS KNOWN ABOUT {self.target.name.upper()}"
+            guide = _nameless(self.target.guide) if self.target.sort == "media" else self.target.guide
+            parts.append(f"{heading} (from {self.target.guide_source}):\n{guide}")
         return "\n\n".join(parts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -198,6 +213,7 @@ class Interview:
             "questions": [q.to_dict() for q in self.questions], "questions_from": self.questions_from,
             "entries": [list(e) for e in self.entries], "answered": self.answered, "understood": self.understood,
             "corrections": list(self.corrections), "confirmed": self.confirmed, "shared": self.shared,
+            "given": self.given,
         }
 
     @classmethod
@@ -209,8 +225,20 @@ class Interview:
             [Question.from_dict(q) for q in data.get("questions") or []], data.get("questions_from", "model"),
             [(str(a), str(b)) for a, b in data.get("entries") or []], bool(data.get("answered")),
             data.get("understood"), list(data.get("corrections") or []), bool(data.get("confirmed")),
-            str(data.get("shared") or ""),
+            str(data.get("shared") or ""), str(data.get("given") or ""),
         )
+
+
+def _nameless(guide: str) -> str:
+    """A media guide ("visuals: Name (id/model) makes image") as just what each part makes ("visuals: makes image"),
+    so a writer never draws a service because of its name."""
+    lines = []
+    for line in guide.splitlines():
+        role, _, rest = line.partition(": ")
+        _, found, makes = rest.rpartition(" makes ")
+        if found:
+            lines.append(f"{role}: makes {makes}")
+    return "\n".join(lines)
 
 
 def _made_for(target: ToolTarget) -> str:
@@ -221,7 +249,7 @@ def _made_for(target: ToolTarget) -> str:
     if target.sort == "launch":
         return target.name
     if target.sort == "media":
-        return f"{target.name} (the services that make it)"
+        return f"{target.name} (only the tools that make it; the piece is not about them)"
     return f"{target.name} ({'an AI tool people work in' if target.sort == 'tool' else 'an AI model called directly'})"
 
 
@@ -244,7 +272,8 @@ def target_question(kind: str) -> str:
 
     if kind in make_media.media_kinds():
         needs = make_media.service_kinds(kind)
-        found = [pid for pid, p in media.all_media_providers().items() if needs & set(p.kinds)]
+        listed = [(pid, p) for pid, p in media.all_media_providers().items() if needs & set(p.kinds)]
+        found = [pid for pid, p in sorted(listed, key=lambda e: e[1].origin == "shipped")]  # your own first
         return (f"Which service makes it? Name it as service or service/model, such as {', '.join(found[:8])}"
                 + (" (for a video you can name several, such as 'visuals: a, voice: b, music: c')" if kind == "video" else ""))
     return "Which AI tool or model is this for? (for example Claude Code, Cursor, Codex, or a model name)"
@@ -281,7 +310,10 @@ def _json_value(text: str | None) -> Any:
 
 
 def _clean_id(raw: str, n: int) -> str:
-    return re.sub(r"[^a-z0-9_]+", "_", raw.lower()).strip("_")[:40] or f"q{n}"
+    return re.sub(r"[^a-z0-9_]+", "_", raw.lower()).strip("_")[:40].strip("_") or f"q{n}"
+
+
+_PLACEHOLDER_IDS = {"short_snake_case", "snake_case", "id", "question_id"}  # copied from the schema's example
 
 
 def parse_questions(text: str | None) -> list[Question]:
@@ -299,16 +331,25 @@ def parse_questions(text: str | None) -> list[Question]:
             flat.append(("", item))
     found: list[Question] = []
     ids: dict[str, str] = {}  # the model's id -> ours
+    taken: set[str] = set()  # every id given out so far
+    asked: dict[str, str] = {}  # a question's words, said plainly -> our id for it
     for group, q in flat:
         text_ = str(q.get("text") or q.get("question") or "").strip()
         if not text_ or len(found) >= MAX_QUESTIONS:
             continue
         raw = str(q.get("id") or text_)
-        qid = base = _clean_id(raw, len(found) + 1)
+        same = _plain_question(text_)
+        if same in asked:  # the same question asked twice (a model often repeats one with a note after it)
+            ids.setdefault(raw, asked[same])
+            continue
+        reused = raw in ids or _clean_id(raw, 0) in _PLACEHOLDER_IDS
+        qid = base = _clean_id(text_ if reused else raw, len(found) + 1)  # a reused id: name it by its own words
         n = 2
-        while qid in ids.values():
+        while qid in taken:
             qid, n = f"{base}_{n}", n + 1
         ids.setdefault(raw, qid)
+        taken.add(qid)
+        asked[same] = qid
         kind = q.get("type") if q.get("type") in TYPES else "text"
         options = tuple(str(o).strip() for o in q.get("options") or [] if str(o).strip()) \
             if isinstance(q.get("options"), list) and kind != "text" else ()
@@ -327,6 +368,33 @@ def parse_questions(text: str | None) -> list[Question]:
     if not found:
         raise ValueError("the reply holds no questions")
     return found
+
+
+_GIVEN_TOPICS = {  # a line of what the command set -> the words of a question that asks it again
+    "- length:": re.compile(r"\b(length|duration|runtime)\b|\bhow long\b", re.I),
+    "- shapes to deliver:": re.compile(
+        r"\b(format|formats|aspect|orientation|ratio|vertical|horizontal|landscape|portrait|widescreen)\b"
+        r"|\b\d+ ?[:x] ?\d+\b"  # 16:9, 9x16
+        r"|\b(wide|tall|square)\b.*\b(wide|tall|square)\b", re.I),  # "wide, tall or square": two of them
+}
+
+
+def not_given(questions: list[Question], given: str) -> list[Question]:
+    """The questions left once those about what the command already set are dropped, whatever the model asked.
+
+    A follow-up of a dropped question is asked plainly, since its parent is decided."""
+    topics = [words for line, words in _GIVEN_TOPICS.items() if line in given]
+    dropped = {q.id for q in questions
+               if any(words.search(f"{q.id.replace('_', ' ')} {q.text}") for words in topics)}
+    return [Question(q.id, q.text, q.type, q.options, None, q.group)
+            if q.depends_on and q.depends_on[0] in dropped else q
+            for q in questions if q.id not in dropped]
+
+
+def _plain_question(text: str) -> str:
+    """A question's words without case, punctuation or a note in brackets at the end, to spot one asked twice."""
+    text = re.sub(r"\s*\([^()]*\)\s*$", "", text.strip())
+    return " ".join(re.sub(r"[^\w\s]", " ", text.lower()).split())
 
 
 def applies(question: Question, answers: dict[str, str]) -> bool:
@@ -615,7 +683,12 @@ def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], st
     assert iv.target is not None
     target = iv.target
     where = _where(target)
-    objective = f"Make a {iv.kind} {where}. {iv.request}" if where else f"Make a {iv.kind} for {target.name}. {iv.request}"
+    if where:
+        objective = f"Make a {iv.kind} {where}. {iv.request}"
+    elif target.sort == "media":
+        objective = f"Make a {iv.kind}. {iv.request}"  # the services make it; they are not who it is for
+    else:
+        objective = f"Make a {iv.kind} for {target.name}. {iv.request}"
     packet = packets.clarify_packet(objective, _notes_for(target), preset, False)
     if target.sort == "media":
         system = packet.system + _MEDIA_NOTE.format(kind=iv.kind, name=target.name)
@@ -625,9 +698,12 @@ def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], st
         system = packet.system + _KIND_NOTE.format(kind=iv.kind, name=target.name)
     if iv.shared:
         system += _SHARED_NOTE.format(shared=iv.shared)
+    if iv.given:
+        system += _GIVEN_NOTE.format(given=iv.given)
     for user in (packet.user, packet.user + "\n\nReply with the JSON array only, nothing else."):
         try:
-            return parse_questions(ask("questions", system, user)), "model"
+            kept = not_given(parse_questions(ask("questions", system, user)), iv.given)
+            return (kept, "model") if kept else (list(_FALLBACK), "fallback")
         except ValueError:
             continue
     return list(_FALLBACK), "fallback"
@@ -683,6 +759,22 @@ def run(iv: Interview, source: Interviewer, ask: Ask, *, preset: str, learned_by
 
 # --- where the answers come from ---------------------------------------------------------------------
 
+def answered_by(interviewer: Any, *, shared: bool = False) -> str:
+    """Where the interview was answered, as the record names it: the answers file, the terminal, a launch or the
+    caller, and the flag that named the tool when a flag did (``--for``, ``--platform`` or the service flags)."""
+    if shared:
+        return "launch"
+    if interviewer is None:
+        return "none"
+    if not isinstance(interviewer, (FileInterviewer, TerminalInterviewer)):
+        return "caller"
+    flag = interviewer.target_from if interviewer.for_target else None
+    if isinstance(interviewer, FileInterviewer) and interviewer.path is None:
+        return flag or "nothing yet"
+    where = "terminal" if isinstance(interviewer, TerminalInterviewer) else "answers file"
+    return f"{where}; the tool from {flag}" if flag else where
+
+
 def _answer_text(value: Any) -> str:
     if isinstance(value, list):
         return ", ".join(str(v).strip() for v in value if str(v).strip())
@@ -692,8 +784,9 @@ def _answer_text(value: Any) -> str:
 class FileInterviewer:
     """Answers from a JSON file: {"for": "...", "answers": {"<id>": "..."}, "confirmed": true, "correction": "..."}."""
 
-    def __init__(self, path: Path | None, for_target: str | None = None) -> None:
+    def __init__(self, path: Path | None, for_target: str | None = None, target_from: str = "--for") -> None:
         self.data: dict[str, Any] = {}
+        self.path, self.target_from = path, target_from
         if path is not None:
             try:
                 data = json.loads(path.read_text(encoding="utf-8"))
@@ -726,8 +819,9 @@ class TerminalInterviewer:
     """Asks in the terminal. Enter skips a question; at the say-back, Enter accepts and any other text corrects."""
 
     def __init__(self, read: Callable[[], str], write: Callable[[str], None], for_target: str | None = None,
-                 kind: str = "") -> None:
+                 kind: str = "", target_from: str = "--for") -> None:
         self.read, self.write, self.for_target, self.kind = read, write, for_target, kind
+        self.target_from = target_from
 
     def _line(self, prompt: str) -> str:
         self.write(prompt)
@@ -801,7 +895,7 @@ def questions_markdown(iv: Interview) -> str:
     if iv.target is None:
         lines += [f"{target_question(iv.kind)} Put it in answers.json as \"for\" (or pass --for).", ""]
         return "\n".join(lines)
-    lines += [f"Made for: {_made_for(iv.target)}", ""]
+    lines += [f"{'Made with' if iv.target.sort == 'media' else 'Made for'}: {_made_for(iv.target)}", ""]
     for n, q in enumerate(iv.questions, 1):
         lines.append(f"{n}. **{q.id}**: {q.text}")
         if q.options:

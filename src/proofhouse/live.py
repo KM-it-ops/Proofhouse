@@ -97,19 +97,23 @@ def _scrub(value: Any, secret: str | None) -> Any:
 
 
 DEFAULT_TIMEOUT_SECONDS = 120.0
+LOCAL_TIMEOUT_SECONDS = 600.0  # a model on this machine is slow on a CPU, and waiting for it costs nothing
 
 
-def _timeout_seconds() -> float:
-    """How long to wait for a model: PROOFHOUSE_TIMEOUT_SECONDS if it is a positive number, else 120."""
+def _timeout_seconds(url: str = "") -> float:
+    """How long to wait for a model: PROOFHOUSE_TIMEOUT_SECONDS if it is a positive number, else 600 for a model on
+    this machine and 120 for one elsewhere."""
+    here = (urlparse(url).hostname or "").lower() in providers.LOCAL_HOSTS
+    fallback = LOCAL_TIMEOUT_SECONDS if here else DEFAULT_TIMEOUT_SECONDS
     try:
         seconds = float(os.environ.get("PROOFHOUSE_TIMEOUT_SECONDS", ""))
     except ValueError:
-        return DEFAULT_TIMEOUT_SECONDS
-    return seconds if 0 < seconds < float("inf") else DEFAULT_TIMEOUT_SECONDS
+        return fallback
+    return seconds if 0 < seconds < float("inf") else fallback
 
 
 def _httpx_post(request: Request) -> Response:
-    timeout = _timeout_seconds()
+    timeout = _timeout_seconds(request.url)
     # Optional extra: a default install must not import httpx at module load. Without it, the standard library sends.
     try:
         import httpx
@@ -147,17 +151,28 @@ def _output_text(payload: dict[str, Any]) -> str | None:
     return None
 
 
+STRUCTURED_JSON = "output.structured_json@1"  # the capability a provider entry lists under ignores to opt out
+
+
 def run_prompt(
     provider_id: str,
     model: str,
     *,
     prompt: str,
     input_text: str | None = None,
+    images: list[str] | None = None,
     max_output_tokens: int = 1024,
     max_cost_usd: str | None = None,
     transport: Transport | None = None,
+    json_reply: bool = False,
 ) -> RunResult:
-    """Send one prompt (and optional input) to any provider through the spend gate."""
+    """Send one prompt (and optional input) to any provider through the spend gate.
+
+    ``json_reply`` asks for JSON mode, so the reply comes back as one whole JSON object, unless the provider's entry
+    says it ignores structured JSON (then nothing extra is sent and the prompt's own words must do it).
+
+    ``images`` are inline pictures (``data:image/png;base64,...`` or JPEG) sent beside the owner's words; the spend
+    gate refuses any it cannot count."""
     model = (model or "").strip()
     # One read of the providers files for the whole run; the spend gate prices this same entry.
     try:
@@ -186,15 +201,22 @@ def run_prompt(
     if (urlparse(url).hostname or "").lower() != profile.host:
         return _refused("PHC-RUN-0004", f"the address {url!r} does not match provider {profile.id}", profile.id, model)
 
+    words = prompt if input_text is None else input_text
+    user: Any = words
+    if images:
+        user = [{"type": "text", "text": words}] + [{"type": "image_url", "image_url": {"url": url}} for url in images]
     if input_text is None:
-        messages = [{"role": "user", "content": prompt}]
+        messages = [{"role": "user", "content": user}]
     else:
-        messages = [{"role": "system", "content": prompt}, {"role": "user", "content": input_text}]
+        messages = [{"role": "system", "content": prompt}, {"role": "user", "content": user}]
     cap_field = "max_completion_tokens" if profile.shape == "openai" else "max_tokens"
     headers = {"Content-Type": "application/json"}
     if secret:
         headers["Authorization"] = f"Bearer {secret}"
-    unsent = Request(url, headers, {"model": model, "messages": messages, cap_field: max_output_tokens}, b"")
+    body: dict[str, Any] = {"model": model, "messages": messages, cap_field: max_output_tokens}
+    if json_reply and STRUCTURED_JSON not in profile.ignores:
+        body["response_format"] = {"type": "json_object"}
+    unsent = Request(url, headers, body, b"")
 
     def _dispatch(body_bytes: bytes) -> Any:
         # The only send step. It runs only when the spend gate calls it, with the bytes the gate counted.
@@ -222,9 +244,11 @@ def run_prompt(
     response = gated.response
     if isinstance(response, _SendFailed):
         if response.timed_out:
+            waited = _timeout_seconds(url)
             detail = (
-                f"{profile.name} did not answer within {_timeout_seconds():g} seconds; nothing more was tried. "
-                "A slow or large model needs longer: set PROOFHOUSE_TIMEOUT_SECONDS (for example 600), or use a faster model"
+                f"{profile.name} did not answer within {waited:g} seconds; nothing more was tried. A slow or large "
+                f"model needs longer: set PROOFHOUSE_TIMEOUT_SECONDS (for example {max(600.0, 2 * waited):g}), "
+                "or use a faster model"
             )
         elif profile.local:
             detail = (

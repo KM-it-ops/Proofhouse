@@ -79,7 +79,7 @@ _ENTER = {
 _SPRING = {"title": "pop", "callout": "pop", "chips": "pill"}
 _NUMBERS = ("at", "until", "size", "stagger", "duration", "depth", "spotlight", "shadow", "width", "x", "y",
             "leading", "cps", "speed", "start", "dim", "push", "bend", "decimals", "columns", "pad", "radius",
-            "tracking")
+            "tracking", "text_scale")
 
 
 # --- timing -----------------------------------------------------------------------------------------
@@ -273,6 +273,17 @@ def _clamp(v: float, lo: float = 0.0, hi: float = 1.0) -> float:
 
 def _number(v: Any) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
+
+
+_PLAIN_NUMBER = re.compile(r"-?(\d+\.?\d*|\.\d+)")
+
+
+def _read_number(v: Any) -> Any:
+    """A plain number written as text ("500", " -2.5 ") as that number; anything else unchanged."""
+    if isinstance(v, str) and _PLAIN_NUMBER.fullmatch(v.strip()):
+        text = v.strip()
+        return float(text) if "." in text else int(text)
+    return v
 
 
 def _px(v: float) -> float:
@@ -992,6 +1003,11 @@ def _draw_chips(st: _State, layer: dict, dest: Any, t: float, local: float, fade
             x += w + gap
 
 
+def _text_scale(layer: dict) -> float:
+    """How much bigger than usual a layer draws its words (a vertical film asks for bigger ones)."""
+    return float(layer.get("text_scale", 1.0))
+
+
 def _draw_cards(st: _State, layer: dict, dest: Any, t: float, local: float, fade: float, index: int) -> None:
     u = st.u
     bx, by, bw, bh = _box(layer, (160, 330, 1600, 420), u)
@@ -1015,7 +1031,7 @@ def _draw_cards(st: _State, layer: dict, dest: Any, t: float, local: float, fade
         x = bx + (bw - (in_row * cw + (in_row - 1) * gap)) / 2 + c * (cw + gap)
         y = by + r * (ch + gap)
         img, m = _card(cw, ch, str(item.get("tag", "")), str(item.get("title", "")), str(item.get("body", "")),
-                       bool(item.get("hot")), u)
+                       bool(item.get("hot")), u * _text_scale(layer))
         dx, dy, sc, op = _enter(style, s, cl)
         mx, my = x + cw / 2, y + ch / 2
         _place(dest, img, m + cw / 2, m + ch / 2, mx, my, mx, my, dx * u + drift, dy * u, sc, op * fade)
@@ -1025,6 +1041,7 @@ def _draw_panel(st: _State, layer: dict, dest: Any, t: float, local: float, fade
     u = st.u
     x, y, w, h = _box(layer, (560, 190, 800, 700), u)
     w, h = round(w), round(h)
+    u *= _text_scale(layer)  # the words, rows and chrome inside the box
     chrome, m, head = _panel_chrome(w, h, str(layer.get("title", "")), u)
     canvas = chrome.copy()
     cfg = _spring_of(layer, "panel")
@@ -1125,7 +1142,8 @@ def _draw_callout(st: _State, layer: dict, dest: Any, t: float, local: float, fa
         cl = local - 0.12
         ls = _spring_at(cl, SPRINGS["pill"], st.fps)
         if ls > 0:
-            img, m, cw, ch = _chip(str(layer["label"]), _px(26 * u), True, u)
+            lu = u * _text_scale(layer)
+            img, m, cw, ch = _chip(str(layer["label"]), _px(26 * lu), True, lu)
             ly = y - 12 * u - ch if y / u >= 80 else y + h + 12 * u
             dx, dy, sc, op = _enter("pop-rise", ls, cl)
             mx, my = x + cw / 2, ly + ch / 2
@@ -1176,7 +1194,7 @@ def _draw_cursor(st: _State, layer: dict, dest: Any, t: float, local: float, fad
 
 def _draw_lower_third(st: _State, layer: dict, dest: Any, t: float, local: float, fade: float, index: int) -> None:
     u = st.u
-    img, m, _w, h = _plate(str(layer["title"]), str(layer.get("subtitle", "")), u)
+    img, m, _w, h = _plate(str(layer["title"]), str(layer.get("subtitle", "")), u * _text_scale(layer))
     x, y = layer.get("x", 120) * u, layer.get("y", st.dh - 200) * u
     dx, dy, sc, op = _motion(st, layer, "lower_third", t, local, fade)
     _place(dest, img, m, m, x, y, x, y + h / 2, dx, dy, sc, op)
@@ -1187,6 +1205,7 @@ def _draw_terminal(st: _State, layer: dict, dest: Any, t: float, local: float, f
     u = st.u
     x, y, w, h = _box(layer, (210, 140, 1500, 800), u)
     w, h = round(w), round(h)
+    u *= _text_scale(layer)  # the window chrome and the typed text
     tl = layer["timeline"]
     typed, out = terminal_state(tl, local)
     keys = _keys(tl)
@@ -1637,7 +1656,7 @@ def _check_layer(i: int, layer: Any) -> dict:
     if kind not in KINDS:
         raise MotionError(f"layer {i} has an unknown kind {kind!r}; known kinds: {', '.join(KINDS)}")
     where = f"layer {i} ({kind})"
-    out = dict(layer)
+    out = {k: _read_number(v) if k in _NUMBERS or k in ("to", "from") else v for k, v in layer.items()}
     for field in _REQUIRED[kind]:
         if field not in out:
             raise MotionError(f"{where} needs {field!r}")

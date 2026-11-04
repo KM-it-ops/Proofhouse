@@ -121,6 +121,21 @@ def test_openai_uses_its_own_output_cap_field(monkeypatch: pytest.MonkeyPatch) -
     assert "max_completion_tokens" in json.loads(rec.calls[0].body_bytes)
 
 
+def test_a_json_reply_is_asked_for_where_the_provider_honours_it(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Small models break their JSON; asking for JSON mode makes the provider keep it whole."""
+    rec = Recorder()
+    assert live.run_prompt("ollama", "llama3", prompt="Reply in JSON.", json_reply=True, transport=rec).status == "success"
+    assert json.loads(rec.calls[0].body_bytes)["response_format"] == {"type": "json_object"}
+    plain = Recorder()
+    live.run_prompt("ollama", "llama3", prompt="hi", transport=plain)
+    assert "response_format" not in json.loads(plain.calls[0].body_bytes)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    _declare("anthropic", "claude-x")
+    ignored = Recorder()
+    live.run_prompt("anthropic", "claude-x", prompt="Reply in JSON.", json_reply=True, max_cost_usd="1", transport=ignored)
+    assert "response_format" not in json.loads(ignored.calls[0].body_bytes)  # its list says it ignores JSON mode
+
+
 def test_a_model_on_this_machine_runs_free_with_no_key_and_no_limit() -> None:
     rec = Recorder()
     result = live.run_prompt("ollama", "llama3", prompt="hi", transport=rec)

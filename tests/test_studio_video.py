@@ -85,20 +85,43 @@ def test_a_brief_becomes_three_finished_renders_with_voice_music_and_captions(tm
 
 
 @needs_ffmpeg
-def test_a_voice_longer_than_the_film_is_reported_not_silently_cut(tmp_path: Path, services) -> None:
+def test_a_voice_longer_than_the_film_lengthens_the_shots_instead_of_being_cut(tmp_path: Path, services) -> None:
     for name in ("long", "fits", "silent"):
         (tmp_path / name).mkdir()
-    shots =[studio.Shot(2, "a", "one", str(tmp_path / "frame.png")), studio.Shot(2, "b", "two", str(tmp_path / "frame.png"))]
+    shots = [studio.Shot(2, "a", "one two three four", str(tmp_path / "frame.png")),
+             studio.Shot(2, "b", "five", str(tmp_path / "frame.png"))]
     made = studio.assemble(tmp_path / "long", shots, visual_kind="image", formats=("1x1",), size_scale=0.1,
                            voice_file=str(tmp_path / "voice.wav"))  # the voice is 5 s, the film 4 s
     check = next(c for c in made.checks if c["check"] == "voice fits the film")
-    assert check["ok"] is False
-    assert "5.0s of voice" in check["detail"] and "4s film" in check["detail"] and "last 1.0s" in check["detail"]
+    assert check["ok"] is True
+    assert "5.0s of voice" in check["detail"] and "lengthened from 4s to 6s" in check["detail"]
+    assert [s.seconds for s in shots] == [4, 2]  # the extra time goes where the words are densest
+    assert studio.probe(Path(made.renders["1x1"]))["seconds"] == pytest.approx(6, abs=0.3)
+    assert "00:00:04,000 --> 00:00:06,000\nfive" in (tmp_path / "long" / "captions.srt").read_text(encoding="utf-8")
+    shots = [studio.Shot(2, "a", "one", str(tmp_path / "frame.png")), studio.Shot(2, "b", "two", str(tmp_path / "frame.png"))]
     fits = studio.assemble(tmp_path / "fits", shots + [studio.Shot(2, "c", "three", str(tmp_path / "frame.png"))],
                            visual_kind="image", formats=("1x1",), size_scale=0.1, voice_file=str(tmp_path / "voice.wav"))
     assert next(c for c in fits.checks if c["check"] == "voice fits the film")["ok"] is True
     silent = studio.assemble(tmp_path / "silent", shots, visual_kind="image", formats=("1x1",), size_scale=0.1)
     assert not [c for c in silent.checks if c["check"] == "voice fits the film"]
+
+
+@needs_ffmpeg
+def test_a_render_that_fails_its_checks_is_set_aside_not_left_looking_finished(tmp_path: Path, services,
+                                                                                monkeypatch: pytest.MonkeyPatch) -> None:
+    real = studio._render_checks
+
+    def broken(name, *args, **kwargs):  # noqa: ANN001, ANN202
+        checks = real(name, *args, **kwargs)
+        return [dict(c, ok=False) if name == "1x1" and c["check"] == "length" else c for c in checks]
+
+    monkeypatch.setattr(studio, "_render_checks", broken)
+    (tmp_path / "out").mkdir()
+    shots = [studio.Shot(2, "a", "one", str(tmp_path / "frame.png"))]
+    made = studio.assemble(tmp_path / "out", shots, visual_kind="image", formats=("1x1", "16x9"), size_scale=0.1)
+    assert Path(made.renders["1x1"]).name == "video-1x1.failed.mp4" and Path(made.renders["1x1"]).is_file()
+    assert not (tmp_path / "out" / "video-1x1.mp4").exists()
+    assert Path(made.renders["16x9"]).name == "video-16x9.mp4"  # its checks passed
 
 
 @needs_ffmpeg
@@ -129,6 +152,26 @@ def test_one_spending_limit_covers_the_whole_video(tmp_path: Path, services, mon
     assert made.renders == {} and len(calls) <= 2  # at most 2 x $0.40 fit under $1.00; the job failures stop it
     assert "fal" in made.stopped or "spending limit" in made.stopped
 
+
+@needs_ffmpeg
+def test_a_zero_limit_runs_free_calls_and_the_spend_gate_refuses_the_paid_one(tmp_path: Path, services,
+                                                                          monkeypatch: pytest.MonkeyPatch) -> None:
+    assert studio._Budget("0").next_limit() == "0"  # nothing left still asks the gate; it does not stop first
+    monkeypatch.setenv("FAL_KEY", "k")
+    assert cli.main(["media", "price", "fal", "*", "--usd", "0.40"]) == 0
+    calls: list[str] = []
+
+    def paid(request: media.MediaRequest) -> media.MediaResponse:
+        calls.append(request.url)
+        return media.MediaResponse(200, {})
+
+    made = studio.produce(
+        "x", provider_id="ollama", model="llama3", visual_provider="fal", visual_model="fal-ai/model",
+        seconds=6, out_dir=tmp_path / "v", max_cost_usd="0", size_scale=0.1,
+        text_transport=_script_writer, media_transport=paid, media_get=lambda url, headers: media.MediaResponse(200, {}),
+    )
+    assert calls == [] and made.renders == {} and made.stopped == "spending limit reached"
+    assert made.calls[0]["role"] == "script" and made.calls[0]["status"] == "success"  # the free script was written
 
 def test_a_paid_video_needs_one_limit_and_ffmpeg_formats_are_checked(tmp_path: Path) -> None:
     if shutil.which("ffmpeg") is None:
@@ -362,7 +405,9 @@ def test_a_storyboard_from_the_model_is_voiced_phrase_by_phrase_and_rendered(tmp
     assert set(made.renders) == {"16x9", "9x16"}
     failed = [c for c in made.checks if not c["ok"]]
     assert failed == [], failed
-    assert {"real footage share", "captions match the script"} <= {c["check"] for c in made.checks}
+    assert {"real footage share", "captions match the script", "voice fits the film"} <= {c["check"] for c in made.checks}
+    fits = next(c for c in made.checks if c["check"] == "voice fits the film")
+    assert "the last word ends at" in fits["detail"]
     folder = tmp_path / "video"
     assert sorted(p.name for p in (folder / "shots").iterdir()) == ["beat-01.png", "beat-02.png", "beat-03.png"]
     assert sorted(p.name for p in (folder / "voice").iterdir()) == ["beat01-01.wav", "beat02-01.wav", "beat03-01.wav"]
@@ -468,3 +513,252 @@ def test_a_film_cut_from_stills_fails_the_something_happens_checks(tmp_path: Pat
     failed = {c["check"]: c["detail"] for c in made.checks if not c["ok"]}
     assert "something happens" in failed and "picture changes every second" in failed, made.checks
     assert "nothing new on screen for" in failed["something happens"]
+
+
+@needs_ffmpeg
+def test_a_script_reply_that_cannot_be_read_is_kept_beside_the_record(tmp_path: Path, services) -> None:
+    def rambler(request: live.Request) -> live.Response:
+        return live.Response(200, {"choices": [{"message": {"content": "Sure! {title: 'no quotes', beats: [,]}"}}],
+                                   "usage": {"prompt_tokens": 30, "completion_tokens": 20}})
+
+    made = studio.produce("x", provider_id="ollama", model="m", visual_provider="local-images", visual_model="m",
+                          seconds=6, out_dir=tmp_path / "v", size_scale=0.1, text_transport=rambler,
+                          media_transport=_media(services))
+    assert made.renders == {} and "script-reply.txt" in made.stopped
+    assert (tmp_path / "v" / "script-reply.txt").read_text(encoding="utf-8").startswith("Sure! {title")
+
+
+# ---------------------------------------------------------------- the film fits the asked length
+
+def test_the_script_asks_for_beats_and_words_that_fit_the_asked_length() -> None:
+    short, long = studio.script_budget(10), studio.script_budget(60)
+    assert short["most"] <= 4 and short["words"] <= 18
+    assert long["fewest"] > short["most"] and long["words"] > 4 * short["words"]
+    assert studio.script_budget(10, rate=1.5)["words"] < short["words"]
+    prompt = studio.script_prompt("a hype film", 10)
+    assert f"{short['words']} words in all at most" in prompt and f"{short['fewest']} to {short['most']} beats" in prompt
+    assert "5 to 10 beats" not in prompt
+
+
+def _writer_of(*replies: dict | str, asked: list[str]):  # noqa: ANN202
+    def write(request: live.Request) -> live.Response:
+        asked.append(request.body["messages"][-1]["content"])
+        reply = replies[min(len(asked), len(replies)) - 1]
+        text = reply if isinstance(reply, str) else json.dumps(reply)
+        return live.Response(200, {"choices": [{"message": {"content": text}}],
+                                   "usage": {"prompt_tokens": 30, "completion_tokens": 20}})
+    return write
+
+
+@needs_ffmpeg
+def test_a_script_too_long_for_the_film_is_sent_back_before_anything_is_spoken(tmp_path: Path, services) -> None:
+    rambling = {**BEATS, "beats": [{**row, "say": "Say what you want, in as many words as you like, and then some more. " * 3}
+                                   for row in BEATS["beats"]]}
+    asked: list[str] = []
+    spoken: list[str] = []
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        spoken.append(request.url)
+        return _media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()})(request)
+
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.2", str(tmp_path / "phrase.wav"))
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(rambling, BEATS, asked=asked), media_transport=post)
+    assert made.stopped == "finished", made.stopped
+    assert [c["role"] for c in made.calls][:2] == ["script", "script fix"]
+    assert len(asked) == 2 and "too long" in asked[1] and "Say what you want, in as many words" in asked[1]
+    assert f"{studio.script_budget(6)['words']} words" in asked[1]
+    assert len([u for u in spoken if u.endswith("/tts")]) == 3  # only the fixed script was spoken
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    assert all("as many words" not in p["text"] for row in script["beats"] for p in row["phrases"])
+
+
+@needs_ffmpeg
+def test_a_script_too_long_once_spoken_is_sent_back_with_the_voice_s_own_pace(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=3", str(tmp_path / "slow.wav"))
+    one = {**BEATS, "beats": BEATS["beats"][:1]}
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(BEATS, one, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "slow.wav").read_bytes()}))
+    assert made.stopped == "finished", made.stopped
+    assert [c["role"] for c in made.calls if c["role"].startswith("script")] == ["script", "script fix"]
+    assert "spoken by the chosen voice" in asked[1] and "1.1 words a second" in asked[1]
+    folder = tmp_path / "v"
+    assert sorted(p.name for p in (folder / "voice-too-long-1").iterdir()) == ["beat01-01.wav", "beat02-01.wav", "beat03-01.wav"]
+    assert sorted(p.name for p in (folder / "voice").iterdir()) == ["beat01-01.wav"]
+    fits = next(c for c in made.checks if c["check"] == "length matches the brief")
+    assert fits["ok"] and "of the 6s asked" in fits["detail"], fits
+    assert next(c for c in made.checks if c["check"] == "length")["ok"]
+
+
+@needs_ffmpeg
+def test_a_script_that_stays_too_long_keeps_its_opening_and_close_and_cuts_middle_beats_to_fit(
+        tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.5", str(tmp_path / "phrase.wav"))
+    long = json.loads(json.dumps(BEATS))
+    long["beats"].insert(2, {"say": "Watch it get better.", "base": {"prompt": "a chart climbing"}})
+    long["beats"].insert(1, {"say": "Every version is kept.", "base": {"prompt": "a shelf of folders"}})
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(long, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("too long" in a for a in asked[1:])  # every chance first
+    assert made.stopped == "finished" and "1x1" in made.renders, made.stopped
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    said = [row["phrases"][0]["text"] for row in script["beats"]]
+    assert said[0] == long["beats"][0]["say"] and said[-1] == long["beats"][-1]["say"]  # the opening and the close
+    assert 2 <= len(said) < len(long["beats"])
+    assert next(c for c in made.checks if c["check"] == "length matches the brief")["ok"]
+    cut = next(c for c in made.checks if c["check"] == "middle beats cut to fit")
+    assert all(f"'{s}'" in cut["detail"] for row in long["beats"] if (s := row["say"]) not in said), cut
+    shots = sorted(p.name for p in (tmp_path / "v" / "shots").iterdir())
+    assert len([s for s in shots if s.endswith(".png")]) == len(said)  # no picture is made for a cut beat
+
+
+@needs_ffmpeg
+def test_a_script_that_stays_too_long_stops_before_any_picture_is_made(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=3", str(tmp_path / "slow.wav"))
+    asked: list[str] = []
+    pictures: list[str] = []
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        if request.url.endswith("/img"):
+            pictures.append(request.url)
+        return _media({**services, "wav": (tmp_path / "slow.wav").read_bytes()})(request)
+
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(BEATS, asked=asked), media_transport=post)
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and pictures == [] and made.renders == {}
+    assert "too long" in made.stopped and "script-reply.txt" in made.stopped, made.stopped
+
+
+@needs_ffmpeg
+def test_a_timing_that_stays_unreadable_falls_back_to_the_default_instead_of_losing_the_film(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    garbled = json.loads(json.dumps(BEATS))
+    garbled["beats"][0]["layers"].append({"kind": "chips", "items": ["fast"], "at": "3:+"})
+    garbled["beats"][1]["sounds"] = [{"kind": "whoosh", "at": "+/- 0.5 seconds of end::"}, {"kind": "hit", "at": "start"}]
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(garbled, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert len(asked) == 1 + studio.SCRIPT_FIXES  # the writer had every chance to fix them first
+    assert made.stopped == "finished" and "1x1" in made.renders, made.stopped
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    # the overlay and the sound stay; only their unreadable times are gone, so they play at the default moment
+    assert script["beats"][0]["layers"] == [*BEATS["beats"][0]["layers"], {"kind": "chips", "items": ["fast"]}]
+    assert script["beats"][1]["sounds"] == [{"kind": "whoosh"}, {"kind": "hit", "at": "start"}]
+    untimed = next(c for c in made.checks if c["check"] == "unreadable timings dropped")
+    assert "beat 1 layer 2" in untimed["detail"] and "beat 2 sound 1" in untimed["detail"], untimed
+
+
+@needs_ffmpeg
+def test_a_pace_that_stays_unreadable_falls_back_to_the_default_instead_of_losing_the_film(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    garbled = json.loads(json.dumps(BEATS))
+    garbled["beats"][1]["energy"] = "low+"  # a small model's near miss, written again after every fix
+    garbled["beats"][2]["cut"] = "zoomy"
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(garbled, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert len(asked) == 1 + studio.SCRIPT_FIXES  # the writer had every chance to fix them first
+    assert made.stopped == "finished" and "1x1" in made.renders, made.stopped
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    assert "energy" not in script["beats"][1] and "cut" not in script["beats"][2]  # the default pace plays instead
+    assert script["beats"][1]["phrases"][0]["text"] == BEATS["beats"][1]["say"]  # and the beat itself is kept whole
+    untimed = next(c for c in made.checks if c["check"] == "unreadable timings dropped")
+    assert "beat 2 energy 'low+'" in untimed["detail"] and "beat 3 cut 'zoomy'" in untimed["detail"], untimed
+
+
+@needs_ffmpeg
+def test_stray_text_in_the_beats_is_named_to_the_writer_and_left_out_when_it_stays(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    garbled = json.loads(json.dumps(BEATS))
+    garbled["beats"] += ["layers': [{", "kind, "]  # what a small model's broken reply leaves after the last beat
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(garbled, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    fix = asked[1]
+    n = len(BEATS["beats"])
+    assert "no beats" not in fix and f"beat {n + 1}: " in fix and f"beat {n + 2}: " in fix and "not a beat" in fix
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and made.stopped == "finished", made.stopped
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    assert len(script["beats"]) == n  # every real beat is kept; only the stray text is gone
+    untimed = next(c for c in made.checks if c["check"] == "unreadable timings dropped")
+    assert f"beat {n + 1} stray text" in untimed["detail"], untimed
+
+
+@needs_ffmpeg
+def test_the_script_writer_is_told_every_problem_at_once_so_one_fix_can_mend_them_all(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    broken = json.loads(json.dumps(BEATS))
+    broken["beats"][0]["layers"].append({"kind": "counter", "text": "1"})  # a counter with nothing to count to
+    broken["beats"][1]["layers"][0]["at"] = "phrase 2"  # the beat has one phrase
+    broken["beats"][2]["layers"].append({"kind": "card", "items": ["x"]})  # a kind the engine does not have
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(broken, BEATS, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert len(asked) == 2 and made.stopped == "finished", made.stopped  # one fix was enough
+    fix = asked[1]
+    assert "beat 1: layer 2 (counter)" in fix and "needs 'to'" in fix
+    assert "beat 2: layer 1 at:" in fix and "no phrase 2" in fix
+    assert "beat 3: layer 2 has" in fix and "unknown kind 'card'" in fix
+
+
+@needs_ffmpeg
+def test_a_short_film_is_held_out_to_the_asked_length(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=12, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_beats_writer,
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert made.stopped == "finished", made.stopped
+    assert studio.probe(Path(made.renders["1x1"]))["seconds"] == pytest.approx(12, abs=0.15)
+    assert next(c for c in made.checks if c["check"] == "length matches the brief")["ok"]
+
+
+# --- every second is lively ------------------------------------------------------------------------------
+
+@needs_ffmpeg
+def test_bare_still_beats_with_long_lines_still_have_something_happening_every_second(tmp_path: Path) -> None:
+    out = tmp_path / "film"
+    (out / "shots").mkdir(parents=True)
+    (out / "voice").mkdir()
+    for n in (1, 2, 3, 4):
+        _ffmpeg("-f", "lavfi", "-i", f"testsrc2=s=640x360:d={n}", "-frames:v", "1", str(out / "shots" / f"beat-0{n}.png"))
+    for n, length in ((1, 3.6), (2, 4.2), (3, 2.0)):
+        _ffmpeg("-f", "lavfi", "-i", f"sine=frequency=440:duration={length}", str(out / "voice" / f"beat0{n}-01.wav"))
+    lines = ["Imagine one tool that makes everything you ask for",
+             "Prompts, pictures, films, sites and loops from any model you pick",
+             "Try Proofhouse today"]
+    board = {"beats": [{"base": {"kind": "image", "file": f"shots/beat-0{n}.png"},
+                        "phrases": [{"text": line, "file": f"voice/beat0{n}-01.wav"}] if line else []}
+                       for n, line in zip((1, 2, 3, 4), [*lines, None])]}
+    made = studio.assemble_beats(out, board, formats=("16x9", "9x16"), size_scale=0.25, seconds=16)
+    assert made.stopped == "finished", made.stopped
+    failed = {(c["render"], c["check"]): c["detail"] for c in made.checks if not c["ok"]}
+    assert failed == {}, failed
+    for path in made.renders.values():
+        activity = studio.picture_activity(Path(path))
+        assert activity["longest_quiet"] <= 1.0 and activity["lively_share"] >= 0.95, (path, activity)

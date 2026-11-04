@@ -139,3 +139,12 @@ def test_a_made_subagent_installs_into_claude_code(tmp_path: Path, monkeypatch: 
     assert made.best_version == 1 and agent.is_file()
     assert cli.main(["install", "agent", str(agent), "--into", "claude"]) == 0
     assert (home / ".claude" / "agents" / "refund-agent.md").is_file()
+
+
+def test_a_zero_limit_still_lets_free_local_calls_run(tmp_path: Path) -> None:
+    # $0 means spend nothing, and a model on this machine costs nothing, so the work still happens
+    model = ScriptedModel([10])
+    made = make.make("x", provider_id="ollama", model="m", max_cost_usd="0", out_dir=tmp_path / "o", transport=model)
+    assert made.stopped != "spending limit reached" and len(model.calls) >= 2 and made.spent_usd == 0
+    assert not make.Budget("0", local=True).spent_out() and make.Budget("0", local=True).for_next_call() == "0"
+    assert make.Budget("0", local=False).spent_out() and not make.Budget(None, local=True).spent_out()

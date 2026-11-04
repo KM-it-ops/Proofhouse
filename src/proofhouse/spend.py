@@ -12,7 +12,9 @@ case can be made (fail closed). Parts never make this decision.
   table, and no setting or environment variable switches the check off.
 - **Estimate**: input tokens are bounded by the UTF-8 bytes of the request body
   exactly as sent, plus a fixed margin (``COUNTING_RULE``); output tokens by the
-  output-token ceiling the call already requires. Money is exact ``Decimal``:
+  output-token ceiling the call already requires. A small picture sent inline (a PNG or JPEG of at most
+  ``PICTURE_MAX_SIDE`` pixels a side) is counted at ``PICTURE_TOKENS_BOUND`` instead of its bytes, because
+  providers bill a picture by its size, not by its text. Money is exact ``Decimal``:
   an amount that would need rounding is refused, never rounded.
 - **Gate**: ``send_within_ceiling`` is the only way a sender is called. It makes
   the request bytes, works out the worst case from them, and calls ``send``
@@ -27,6 +29,8 @@ case can be made (fail closed). Parts never make this decision.
 
 from __future__ import annotations
 
+import base64
+import binascii
 import hashlib
 import json
 import re
@@ -64,8 +68,14 @@ _SERVICE_TIERS = frozenset({"default"})
 # A margin for the markers and rewritten tool text the provider adds around a request; it does not
 # publish that format. Chosen here, not a figure the provider gives.
 INPUT_TOKEN_MARGIN = 1024
+# A picture is billed by its size. The dearest published rate this was checked against is gpt-4o-mini's, at 25,501
+# tokens for a 1024 x 1024 picture at full detail (2,833 + 4 tiles x 5,667); this bound sits above it. Chosen here,
+# not a figure a provider gives for every model.
+PICTURE_MAX_SIDE = 1024
+PICTURE_TOKENS_BOUND = 32768
 COUNTING_RULE = (
-    "input tokens <= UTF-8 bytes of the request body as sent + 1024, assuming at most one token per byte; "
+    "input tokens <= UTF-8 bytes of the request body as sent + 1024, assuming at most one token per byte, "
+    "with each inline picture of at most 1024 px a side counted as 32768 tokens instead of its bytes; "
     "output tokens <= the request's output cap, assuming it caps every billed output token, reasoning included"
 )
 # The request fields the estimate covers, per provider. Any other field (more choices, another
@@ -78,8 +88,10 @@ _OUTPUT_CAP_FIELD = {"openai": "max_completion_tokens", "openai-compatible": "ma
 SOURCE_TABLE = "price table"
 SOURCE_DECLARED = "declared by you"
 SOURCE_LOCAL = "on this machine: no charge"
-# Inside the request, only text the byte count covers: plain-string messages, function tools, and
-# text output formats. Images, audio and other parts are billed far above their bytes, so they are refused.
+# Inside the request, only what the count covers: plain-string messages, function tools, text output formats,
+# and in the owner's message, words with small inline PNG or JPEG pictures. Audio, pictures fetched from the web,
+# large pictures and other parts are billed in ways the count does not cover, so they are refused.
+_PICTURE_URL = re.compile(r"data:image/(png|jpeg);base64,([A-Za-z0-9+/]*={0,2})")
 _MESSAGE_ROLES = frozenset({"system", "developer", "user", "assistant"})
 _OUTPUT_FORMATS = frozenset({"text", "json_object", "json_schema"})
 # A ceiling of 0, or from 0.000000000001 up to (not including) 10000000000000 dollars; anything else is refused.
@@ -339,8 +351,78 @@ def _price_for(table: PriceTable, profile: Any, model: str, user: Mapping[str, A
     return None
 
 
-def _check_request(body: Mapping[str, Any], *, shape: str, model: str, output_bound: int) -> None:
-    """The model and output cap are read from the bytes being counted; the caller's word is not taken."""
+def picture_size(data: bytes, kind: str) -> tuple[int, int] | None:
+    """(width, height) read from a PNG or JPEG's own header, or None when the bytes are not that kind of picture."""
+    if kind == "png":
+        if len(data) < 24 or data[:8] != b"\x89PNG\r\n\x1a\n" or data[12:16] != b"IHDR":
+            return None
+        return int.from_bytes(data[16:20], "big"), int.from_bytes(data[20:24], "big")
+    if data[:2] != b"\xff\xd8":
+        return None
+    at = 2
+    while at + 4 <= len(data):
+        if data[at] != 0xFF:
+            return None
+        marker = data[at + 1]
+        if marker == 0xFF:
+            at += 1
+            continue
+        if marker == 0x01 or 0xD0 <= marker <= 0xD8:
+            at += 2
+            continue
+        length = int.from_bytes(data[at + 2:at + 4], "big")
+        if 0xC0 <= marker <= 0xCF and marker not in (0xC4, 0xC8, 0xCC):
+            if at + 9 > len(data):
+                return None
+            return int.from_bytes(data[at + 7:at + 9], "big"), int.from_bytes(data[at + 5:at + 7], "big")
+        if marker == 0xDA or length < 2:
+            return None
+        at += 2 + length
+    return None
+
+
+def _picture_part(part: dict[str, Any]) -> int:
+    """The bytes of one inline picture part, which the count swaps for the fixed bound; refuses anything else."""
+    inner = part.get("image_url")
+    if set(part) != {"type", "image_url"} or not isinstance(inner, dict) or set(inner) != {"url"} or not isinstance(inner["url"], str):
+        raise SpendRefused("PHC-COST-0003", "a picture must be sent inline as a PNG or JPEG, with nothing else set")
+    url = inner["url"]
+    found = _PICTURE_URL.fullmatch(url)
+    if found is None:
+        raise SpendRefused("PHC-COST-0003", "a picture must be sent inline as a PNG or JPEG, not fetched from elsewhere")
+    try:
+        data = base64.b64decode(found.group(2), validate=True)
+    except (binascii.Error, ValueError):
+        raise SpendRefused("PHC-COST-0003", "a picture's data is not valid base64") from None
+    size = picture_size(data, found.group(1))
+    if size is None:
+        raise SpendRefused("PHC-COST-0003", f"a picture is not the {found.group(1).upper()} it says it is")
+    if not all(1 <= side <= PICTURE_MAX_SIDE for side in size):
+        raise SpendRefused("PHC-COST-0003", f"a picture is {size[0]}x{size[1]}; at most {PICTURE_MAX_SIDE} px a side is covered")
+    return len(url.encode("utf-8"))
+
+
+def _parts(content: list[Any]) -> tuple[int, int]:
+    """Words and pictures in one message: (pictures, bytes of their data)."""
+    pictures = picture_bytes = 0
+    for part in content:
+        if not isinstance(part, dict):
+            raise SpendRefused("PHC-COST-0003", "a message part is not words or a picture the estimate covers")
+        if part.get("type") == "text" and set(part) == {"type", "text"} and isinstance(part["text"], str):
+            continue
+        if part.get("type") != "image_url":
+            raise SpendRefused("PHC-COST-0003", "a message part is not words or a picture the estimate covers")
+        picture_bytes += _picture_part(part)
+        pictures += 1
+    if not pictures:
+        raise SpendRefused("PHC-COST-0003", "a message in parts must carry a picture; plain words go as one string")
+    return pictures, picture_bytes
+
+
+def _check_request(body: Mapping[str, Any], *, shape: str, model: str, output_bound: int) -> tuple[int, int]:
+    """The model and output cap are read from the bytes being counted; the caller's word is not taken.
+
+    Returns how many inline pictures the request carries and how many of its bytes are their data."""
     fields = _REQUEST_FIELDS.get(shape)
     if fields is None:
         raise SpendRefused("PHC-COST-0003", f"no request shape {shape!r} is known")
@@ -355,13 +437,15 @@ def _check_request(body: Mapping[str, Any], *, shape: str, model: str, output_bo
     messages = body.get("messages")
     if not isinstance(messages, list) or not messages:
         raise SpendRefused("PHC-COST-0003", "the request's messages must be a non-empty list")
+    pictures = picture_bytes = 0
     for message in messages:
-        if (
-            not isinstance(message, dict)
-            or set(message) != {"role", "content"}
-            or message["role"] not in _MESSAGE_ROLES
-            or not isinstance(message["content"], str)
-        ):
+        if not isinstance(message, dict) or set(message) != {"role", "content"} or message["role"] not in _MESSAGE_ROLES:
+            raise SpendRefused("PHC-COST-0003", "a message is not plain text the estimate covers")
+        content = message["content"]
+        if isinstance(content, list) and message["role"] == "user":
+            count, size = _parts(content)
+            pictures, picture_bytes = pictures + count, picture_bytes + size
+        elif not isinstance(content, str):
             raise SpendRefused("PHC-COST-0003", "a message is not plain text the estimate covers")
     tools = body.get("tools", [])
     if not isinstance(tools, list) or any(not isinstance(tool, dict) or tool.get("type") != "function" for tool in tools):
@@ -370,6 +454,7 @@ def _check_request(body: Mapping[str, Any], *, shape: str, model: str, output_bo
         output_format = body["response_format"]
         if not isinstance(output_format, dict) or output_format.get("type") not in _OUTPUT_FORMATS:
             raise SpendRefused("PHC-COST-0003", "the output format is not one the estimate covers")
+    return pictures, picture_bytes
 
 
 @dataclass(frozen=True, slots=True)
@@ -441,7 +526,9 @@ def send_within_ceiling(
         facts["output_tokens_bound"] = output_bound = _count(max_output_tokens, "the output-token ceiling")
         known = _snapshot(snapshot)
         profile = _provider(provider, known)
-        _check_request(body, shape=profile.shape, model=model, output_bound=output_bound)
+        pictures, picture_bytes = _check_request(body, shape=profile.shape, model=model, output_bound=output_bound)
+        if pictures:
+            facts["input_tokens_bound"] = bound = bound - picture_bytes + pictures * PICTURE_TOKENS_BOUND
         try:
             table = load_price_table()
         except PriceTableError as exc:

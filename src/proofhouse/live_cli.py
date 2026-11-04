@@ -186,6 +186,9 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
             return _fail(str(exc))
     if not args.for_target and not args.answers:
         args.for_target = _media_target_text(args)
+        args.target_from = "the service flags"
+    elif not args.for_target:  # an answers file's own "for" wins; the flags answer only when it has none
+        args.flag_target = _media_target_text(args)
     options = _video_options(args)
     video = {"visual_kind": options["visual_kind"], "voice": options["voice"], "music_file": options["music_file"],
              "captions": options["captions"], "facts": facts, "allow_commands": options["allow_commands"]}
@@ -205,7 +208,11 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
         if args.max_cost_usd:
             again += f" --max-cost-usd {args.max_cost_usd}"
         for flag, value in (("--seconds", video.get("seconds")), ("--formats", ",".join(shapes) if shapes else None),
-                            ("--voice", args.voice), ("--music-file", args.music_file), ("--facts", args.facts)):
+                            ("--visual-provider", args.visual_provider), ("--visual-model", args.visual_model),
+                            ("--voice-provider", args.voice_provider), ("--voice-model", args.voice_model),
+                            ("--voice", args.voice), ("--music-provider", args.music_provider),
+                            ("--music-model", args.music_model), ("--music-file", args.music_file),
+                            ("--facts", args.facts), ("--preset", args.preset)):
             if value:
                 again += f" {flag} {value}"
         if args.rounds != make.DEFAULT_ROUNDS:
@@ -240,7 +247,7 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
         if made.undelivered:
             print(f"not delivered: {', '.join(made.undelivered)} (the file could not be made in that shape)")
         print(f"spent about ${format(made.spent_usd, 'f')} over {len(made.calls)} calls; every version is in {made.folder}")
-        print("the judge read the plan and the file checks; it did not see or hear the result itself")
+        print("the judge's score is advice: record.json says what it was sent for each version (judged_on)")
     return EXIT_OK if delivered and not made.undelivered else EXIT_REFUSED
 
 
@@ -260,10 +267,15 @@ def _choose_interviewer(args: argparse.Namespace, *, launching: bool = False) ->
 
     out = Path(args.out) if args.out else None
     for_target = args.for_target
+    target_from = getattr(args, "target_from", "--for")
     if not for_target and args.kind == "app" and args.platform:
-        for_target = ", ".join(args.platform)
+        for_target, target_from = ", ".join(args.platform), "--platform"
     if args.answers:
-        interviewer: object = mi.FileInterviewer(Path(args.answers), for_target)
+        from_file = mi.FileInterviewer(Path(args.answers), for_target, target_from)
+        flagged = getattr(args, "flag_target", None)
+        if flagged and from_file.target() is None:
+            from_file.for_target, from_file.target_from = flagged, "the service flags"
+        interviewer: object = from_file
         paused = Path(args.answers).resolve().parent
         if out is None:  # go on with the make (or the launch) it answers
             for folder in (paused, paused.parent) if launching else (paused,):
@@ -274,8 +286,8 @@ def _choose_interviewer(args: argparse.Namespace, *, launching: bool = False) ->
     if _stdin_is_terminal():
         show = (lambda text: print(text, end="", file=sys.stderr, flush=True)) if args.json else (
             lambda text: print(text, end="", flush=True))
-        return mi.TerminalInterviewer(input, show, None if launching else for_target, args.kind), out
-    return mi.FileInterviewer(None, for_target), out
+        return mi.TerminalInterviewer(input, show, None if launching else for_target, args.kind, target_from), out
+    return mi.FileInterviewer(None, for_target, target_from), out
 
 
 def _cmd_make_launch(args: argparse.Namespace) -> int:

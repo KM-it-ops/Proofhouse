@@ -23,6 +23,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import time
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -36,6 +37,7 @@ MEDIA_SCHEMA = "proofhouse.media-providers/v1"
 SHIPPED_PATH = Path(__file__).resolve().parent / "data" / "media_providers.json"
 KINDS = ("image", "video", "speech", "music")
 UNITS = ("request", "image", "second", "1k_chars")
+PYTHON = "@python"  # a program line may start the Python that runs Proofhouse, wherever it lives
 DEFAULTS = {"size": "1024x1024", "voice": "alloy", "seconds": 5}
 _REDACTED = "[REDACTED]"
 
@@ -472,7 +474,7 @@ def _run_program(profile: MediaProvider, body_bytes: bytes) -> MediaResponse | s
     assert profile.run is not None
     body = json.loads(body_bytes)
     first, *rest = body["command"]
-    program = _find_program(first)
+    program = sys.executable if first == PYTHON else _find_program(first)
     if program is None:
         return f"{first} is not installed or not on PATH (or give its full path)"
     if Path(program).suffix.lower() in (".bat", ".cmd"):

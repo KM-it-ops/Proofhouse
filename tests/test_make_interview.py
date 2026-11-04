@@ -103,10 +103,38 @@ def test_questions_are_read_from_groups_fences_and_flat_lists() -> None:
     assert [q.id for q in grouped] == ["audience", "team_size", "must"]
     assert grouped[0].group == "Basics" and grouped[0].options == ("Just me", "My team")
     assert grouped[1].depends_on == ("audience", ("My team",))
-    flat = mi.parse_questions(json.dumps([{"question": "Same?"}, {"question": "Same?"}]))
-    assert [q.id for q in flat] == ["same", "same_2"] and flat[0].type == "text"
+    flat = mi.parse_questions(json.dumps([{"id": "same", "question": "Same?"}, {"id": "same", "question": "Other?"}]))
+    assert [q.id for q in flat] == ["same", "other"] and flat[0].type == "text"  # a reused id takes the words
     # options without a choice type, or a choice type without options, are plain text questions
     assert mi.parse_questions(json.dumps([{"text": "Pick", "type": "single_select", "options": []}]))[0].type == "text"
+
+
+def test_every_question_gets_its_own_id_even_when_the_model_copies_one() -> None:
+    texts = ["Objective", "Video purpose", "Video length", "Video duration", "Target audience", "Video resolution",
+             "Style"]
+    reply = json.dumps([{"id": "short_snake_case", "text": t} for t in texts])
+    ids = [q.id for q in mi.parse_questions(reply)]
+    assert ids == ["objective", "video_purpose", "video_length", "video_duration", "target_audience",
+                   "video_resolution", "style"]
+    # the same id three times over, on questions whose words would also clash, still gives three ids
+    clash = json.dumps([{"id": "pick", "text": "Pick one"}, {"id": "pick", "text": "pick"}, {"id": "pick", "text": "Pick!"}])
+    assert len({q.id for q in mi.parse_questions(clash)}) == len(mi.parse_questions(clash))
+
+
+def test_a_question_asked_twice_is_asked_once() -> None:
+    reply = json.dumps([
+        {"id": "purpose", "text": "What is the main purpose of this video?", "type": "single_select",
+         "options": ["Teaser", "Tutorial"]},
+        {"id": "purpose_value", "text": "What is the main purpose of this video? (select one)", "type": "single_select",
+         "options": ["Teaser", "Tutorial"]},
+        {"id": "length", "text": "How long should the video be?"},
+        {"id": "length_value", "text": "how long should the video be (length)"},
+        {"id": "teaser_tone", "text": "What tone should the teaser have?", "dependsOn": {"questionId": "purpose_value",
+                                                                                      "values": ["Teaser"]}},
+    ])
+    questions = mi.parse_questions(reply)
+    assert [q.id for q in questions] == ["purpose", "length", "teaser_tone"]
+    assert questions[2].depends_on == ("purpose", ("Teaser",))  # a follow-up of the repeat hangs off the first
 
 
 @pytest.mark.parametrize("reply", [None, "", "no json here", "[]", json.dumps([{"text": ""}]), '{"other": 1}'])
@@ -118,6 +146,44 @@ def test_a_reply_with_no_questions_is_refused(reply: str | None) -> None:
 def test_too_many_questions_are_cut() -> None:
     many = json.dumps([{"text": f"Question {n}?"} for n in range(mi.MAX_QUESTIONS + 5)])
     assert len(mi.parse_questions(many)) == mi.MAX_QUESTIONS
+
+
+def test_a_question_about_what_the_command_already_set_is_dropped_even_when_the_model_asks_it() -> None:
+    # what a small free model asked although --seconds 10 --formats 16x9 were set
+    reply = json.dumps([
+        {"id": "hype_film_goal", "text": "Is the goal to hype the tool or the client?", "type": "single_select",
+         "options": ["Hype the tool", "Hype the client"]},
+        {"id": "film_length", "text": "Is the film a specific length?", "type": "single_select",
+         "options": ["No changes", "Yes, 10 seconds"]},
+        {"id": "film_format", "text": "What is the video format?", "type": "single_select", "options": ["Video format"]},
+        {"id": "aspect", "text": "Should it be vertical or horizontal?", "type": "text"},
+        {"id": "how_long", "text": "How long should it run?", "type": "text"},
+        {"id": "film_tone", "text": "What tone should the film have?", "type": "text"},
+        {"id": "film_content", "text": "Should the film contain content from the model?", "type": "text",
+         "dependsOn": {"questionId": "film_length", "values": ["Yes, 10 seconds"]}},
+    ])
+    given = "- length: 10 seconds\n- shapes to deliver: 16x9 (wide 16:9)"
+    kept = mi.not_given(mi.parse_questions(reply), given)
+    assert [q.id for q in kept] == ["hype_film_goal", "film_tone", "film_content"]
+    assert kept[2].depends_on is None  # its parent is decided, so it is simply asked
+    # only what was set is dropped: with no length set, the length questions stay
+    shapes_only = mi.not_given(mi.parse_questions(reply), "- shapes to deliver: 16x9 (wide 16:9)")
+    assert [q.id for q in shapes_only] == ["hype_film_goal", "film_length", "how_long", "film_tone", "film_content"]
+    assert mi.not_given(mi.parse_questions(reply), "") == mi.parse_questions(reply)
+
+
+def test_a_question_about_the_shape_in_plain_words_is_dropped_when_the_command_set_the_shapes() -> None:
+    # what llama3.2 asked on 2026-11-04 although --formats 16x9 was set
+    reply = json.dumps([
+        {"id": "should_the_video_be_wide_tall_or_square", "text": "Should the video be wide, tall, or square?",
+         "type": "text"},
+        {"id": "screen", "text": "Widescreen or phone screen?", "type": "text"},
+        {"id": "ratio", "text": "Is 16:9 or 9:16 better?", "type": "text"},
+        {"id": "logo", "text": "Should the logo sit in a square badge?", "type": "text"},  # not about the film's shape
+        {"id": "tone", "text": "What tone should the video convey?", "type": "text"},
+    ])
+    kept = mi.not_given(mi.parse_questions(reply), "- shapes to deliver: 16x9 (wide 16:9)")
+    assert [q.id for q in kept] == ["logo", "tone"]
 
 
 def test_a_follow_up_is_asked_only_when_its_parent_answer_calls_for_it() -> None:

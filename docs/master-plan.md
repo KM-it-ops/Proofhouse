@@ -106,14 +106,14 @@ opened and checked), and shown to a stranger (not done yet; it waits on the owne
 | Paid image, voice, music and video services; training start; learning an unknown kind; model-list update | yes | not run live (spend limit 0, no keys) | no |
 
 Notes from that run: the film's music is a locally built bed, because the Gemini music attempt failed twice.
-Since then (branch `feat/video-finishing`, not merged): the engine itself now dissolves between shots, fades the film in and out,
+Since then (`feat/video-finishing`, now on main through #100): the engine itself now dissolves between shots, fades the film in and out,
 cleans the voice, dips the music under it and levels the mix to -16 LUFS. That polish used to exist only in the example scripts.
 Tested on a short local film (no model calls, $0). Still not done in the video engine: the voice and music still come only from a
 service or a file you give (nothing is made locally when you have neither), and shots are not timed to the spoken words.
-Since then (branch `feat/video-motion`, not merged): films can be written beat by beat, each beat timed to its spoken words, with
+Since then (`feat/video-motion`, now on main through #100): films can be written beat by beat, each beat timed to its spoken words, with
 moving graphics, sound effects, picked cuts and real screen recordings (at most a third of the film); the voice can come from a
-program on your own machine (Kokoro), so a film costs $0. Still not done: music is still a file or a service, the vertical 9:16
-layout of beat films is not fully worked out, and recordings have no `proofhouse` command yet (only `proofhouse.recording`).
+program on your own machine (Kokoro), so a film costs $0. Still not done: recordings have no `proofhouse` command yet
+(only `proofhouse.recording`). Music and the 9:16 layout were done later, in step 8.
 The agent bridge (`proofhouse agent-server`) was added in this run; its API entry is in the OpenAPI fixture.
 
 ## Build order
@@ -344,13 +344,67 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      command. Every paid call goes through the spending limit.
      **Done (branch `feat/make-media`, on top of PR #96 and 7b).** Each version's plan is kept in
      `v<n>/plan.json` and only the best version that passed every check is delivered into `delivered/`.
-     The record says what the judge could not see or hear (`not_judged`). image, voice and music are now
+     The record says what the judge was sent (`judging`, and `judged_on` per version). image, voice and music are now
      reserved kinds, so a learned kit or add-on cannot take them over. A paused run prints a command to
      run again that keeps the length, shapes and other choices given. A film missing a shape it was asked
      for fails its checks; a studio stopped by the spending limit stops the whole make; a shape that could
      not be delivered is named (`undelivered`) and the run exits 7. A launch's video part is now
      interviewed and made through this same loop. Still open: a kind nobody taught
      (such as "podcast") is not learned as a media kind yet.
+8. **The full video engine behind `make --kind video`** (branch `feat/video-engine`). One goal: a film
+   with pictures, voice, music, sound and editing comes out of the front door on any machine, at $0 with
+   local programs and at full quality with any paid service, and the judge looks at it before scoring.
+   - **8a. $0 makers ship as data.** A music bed maker (`local-music`, made from scratch in Python: chords,
+     bass, pads and drums picked from the mood words) and a local voice (`local-voice`: the speech engine
+     this machine already has, such as Windows speech, macOS `say`, espeak-ng, Piper or Kokoro) ship as
+     entries in the media list. A run entry may start the Python that runs Proofhouse (`@python`).
+   - **8b. Gaps filled, never failed.** A film with words and no voice service named gets the local voice; a
+     film with no music service gets the local bed. The record names what stood in.
+   - **8c. The judge looks and listens.** Each version's judge gets frames from the film (a contact sheet),
+     the picture itself for an image, and measured sound facts (loudness, how much of the film has voice,
+     music and silence). The spending limit counts each picture at a fixed worst case. A model that cannot
+     take pictures is asked again with words only, and the record says exactly what the judge saw and heard.
+     **Done.** The judge is sent a smaller copy of an image, or a 4 x 3 contact sheet of twelve moments
+     from a film, as an inline picture through the spend gate (each counted as 32,768 tokens, at most 1024 px
+     a side). For sound it reads measured loudness, peak, length and the share that is silent; telling
+     voice from music is not measured yet. Each version's `judged_on` keeps the picture sent, the sound
+     facts, why it judged from words alone when it did, and what the model said it saw (its own claim).
+   - **8d. Finishing.** The voice must fit the film (no words cut off), a film that fails a check is not
+     left behind as if it were finished, beat films lay out properly in 9:16, and a callout over a
+     recording finds its place by itself.
+     **Done.** When the voice runs long, the shots are lengthened a second at a time (the busiest first)
+     and the record says so; a beat film checks that its last word ends before the film does. A render
+     with a failed check is renamed `video-<shape>.failed.mp4` and never delivered. In 9:16 the words are
+     half again as large, boxes widen, cards wrap to two columns and the layout spreads down the frame.
+     A callout or pointer on footage that holds still is given in the footage's own pixels and placed by
+     itself. The lower-third plate, the callout's label and the words inside cards, panels and terminals
+     are enlarged in 9:16 too (`text_scale`).
+   - **8e. Front door details.** The interview record names `--for` and presets correctly, and
+     `docs/usage.md` covers the media interview and exit 9.
+     **Done.** `interview_from` names the answers file, the terminal, a launch or the caller, and the flag
+     that named the tool (`--for`, `--platform` or the service flags); the record keeps `interview_preset`.
+     A media part made inside a launch now records "launch", as text parts already did.
+   - **8f. A free film made end to end.** A whole film made at a $0 limit with a free local model and the
+     local picture program, with every weakness the run showed fixed rather than worked around.
+     **Done.** A $0 limit runs free local models, and the model is asked for JSON only. A film fits the
+     length asked for, and beats with no layers still move. The picture service is never the film's subject:
+     the plan and script writers and the judge are told only what each tool makes, never its name.
+     The interview asks each question once, gives each one its own id, and never asks what the command
+     already set (length, shapes, the services the flags name, even when an answers file is given); a
+     question about a length or shape the command set is dropped even when the model asks it anyway.
+     A layer time or beat pace (energy, cut) the script writer never fixes plays at its default instead of
+     losing the film.
+     When the script has several problems, the writer is told all of them at once.
+     Stray text in a script's beats is named to the writer, and left out if it stays. A script that is still
+     too long after its fixes keeps its opening and close and cuts middle beats to fit, and the record names
+     each cut. The plan and the judge are asked for JSON; a plan with no prompt is asked for once more, and
+     its reply is kept if it still has none. A model that refuses a picture is not sent one again.
+     A number the writer gives as text ("500") is read as that number, and a model on this machine is
+     waited for up to 600 seconds (120 elsewhere), since a CPU model is slow but never billed. A shape
+     question in plain words ("wide, tall or square?") is dropped like "16:9?" when the command set the shapes.
+     Runs on 2026-11-04: llama3.2 plus the local picture program made the 10-second film at $0 each time.
+     After the last fixes, all three versions were made with none lost (9 calls); llama3.2 cannot see
+     pictures, so it judged on the words alone, and the record says so.
 
 ## What is left (updated 2026-10-27)
 

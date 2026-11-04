@@ -8,10 +8,13 @@ say-back you confirm. Then, for each version:
 2. a media service makes it (``media.generate``, through the spend gate; a program on this machine costs nothing).
    A film goes through the studio (``studio.produce``), which makes the shots, voice and music and cuts them together;
 3. the files are checked with FFmpeg (a picture has a size, a sound has sound and a length, a film passes the studio's checks);
-4. your model judges the plan and the checks; its fix goes into the next plan.
+4. your model judges it; its fix goes into the next plan. The judge is sent the picture: a smaller copy of an image,
+   or for a film a contact sheet of twelve moments from start to end (``studio.contact_sheet``), through the same
+   spend gate. It cannot hear, so for sound it reads measurements: loudness, peak, length and how much is silent
+   (``studio.sound_facts``). When the model cannot take a picture, it judges from the words alone and the record says why.
 
 Every version stays in ``v1/``, ``v2/`` and so on. Only the best version whose checks all passed is delivered, in
-``delivered/``, in the shapes asked for. The judge never sees the picture or hears the sound itself, and the record says so.
+``delivered/``, in the shapes asked for. Each version's ``judged_on`` says what the judge was sent.
 """
 
 from __future__ import annotations
@@ -49,12 +52,26 @@ _PLAN = (
     "You plan a {noun} that an AI media service will make from your words. {write}Use everything the owner told us. "
     "If the owner's last version fell short, change the plan to fix exactly that. Reply with JSON only, in this form: {form}"
 )
+_PLAN_AGAIN = (
+    '\n\nYOUR LAST REPLY HAD NO "prompt" FIELD, SO NOTHING COULD BE MADE FROM IT:\n{said}\n\n'
+    'Reply again with JSON only, in the form asked, and put the words the service will make from in "prompt".'
+)
+_JSON_ROLES = ("plan", "plan fix", "judge")  # the replies read as JSON are asked for as JSON
 _JUDGE = (
     "You judge media made by an AI service against what the owner asked for. You cannot see the picture or hear the "
-    "sound yourself: you have the plan and the results of the file checks, so judge whether the plan serves the request "
-    "and whether the checks show a usable file. Score 0 to 10. Reply with JSON only: "
-    '{{"score": <0-10>, "missing": ["<what falls short>"], "fix": "<the one change that would help most>"}}'
+    "sound yourself: you have the plan, the results of the file checks and any sound measurements, so judge whether "
+    "the plan serves the request and whether the checks show a usable file. Score 0 to 10. Reply with JSON only: "
+    '{"score": <0-10>, "missing": ["<what falls short>"], "fix": "<the one change that would help most>"}'
 )
+_JUDGE_SEEING = (
+    "You judge media made by an AI service against what the owner asked for. With these words comes one picture: "
+    "{what}. Look at it closely and judge what you see against the request, the plan, the file checks and any sound "
+    "measurements (you cannot hear the sound; the measurements are all you have of it). Score 0 to 10. Reply with JSON "
+    'only: {{"saw": "<one sentence on what the picture shows>", "score": <0-10>, "missing": ["<what falls short>"], '
+    '"fix": "<the one change that would help most>"}}'
+)
+_SHOWN = {"image": "the picture itself, made smaller",
+          "video": "a contact sheet of the film: twelve moments from start to end, left to right, top to bottom"}
 
 
 def media_kinds() -> dict[str, dict[str, Any]]:
@@ -165,6 +182,20 @@ def _deliver(folder: Path, kind: str, name: str, best: dict[str, Any], shapes: l
     return delivered
 
 
+_SHAPE_WORDS = {"16x9": "wide 16:9", "9x16": "tall 9:16", "1x1": "square 1:1"}
+
+
+def _given(video: dict[str, Any] | None, shapes: list[str] | None) -> str:
+    """What the owner already set on the command, in words the interviewer reads as decided."""
+    lines = []
+    if video and video.get("seconds"):
+        lines.append(f"- length: {video['seconds']} seconds")
+    if shapes:
+        named = ", ".join(f"{s} ({_SHAPE_WORDS[s]})" if s in _SHAPE_WORDS else s for s in shapes)
+        lines.append(f"- shapes to deliver: {named}")
+    return "\n".join(lines)
+
+
 def make_media(
     request: str,
     *,
@@ -223,15 +254,20 @@ def make_media(
     elif folder.exists():
         raise make.MakeError(f"{folder} already exists; pick a new folder with --out, or remove it first")
 
-    def call(role: str, prompt: str, input_text: str | None = None) -> str | None:
+    def ask(role: str, prompt: str, input_text: str | None = None, images: list[str] | None = None) -> live.RunResult:
         limit = budget.for_next_call()
-        if limit == "0":
+        if budget.spent_out():
             raise make._Stop("spending limit reached")
-        reply = live.run_prompt(profile.id, model, prompt=prompt, input_text=input_text, max_output_tokens=2048,
-                                max_cost_usd=limit, transport=transport)
+        reply = live.run_prompt(profile.id, model, prompt=prompt, input_text=input_text, images=images,
+                                max_output_tokens=2048, max_cost_usd=limit, transport=transport,
+                                json_reply=role in _JSON_ROLES)
         cost = reply.cost or {}
         result.calls.append(make.Call(role, reply.status, reply.code, cost.get("tokens_in"), cost.get("tokens_out"), cost.get("usd")))
         budget.charge(reply)
+        return reply
+
+    def call(role: str, prompt: str, input_text: str | None = None) -> str | None:
+        reply = ask(role, prompt, input_text)
         if reply.code == "PHC-COST-0001":
             raise make._Stop("spending limit reached")
         if reply.status != "success":
@@ -243,9 +279,11 @@ def make_media(
 
     versions: list[dict[str, Any]] = []
     parts: dict[str, dict[str, str]] = {}
+    cannot_see: list[str] = []  # set once the model refuses a picture: later rounds judge from the words
+    stood_in: dict[str, str] = {}
     try:
         folder.mkdir(parents=True, exist_ok=interview is not None)
-        interview = interview or mi.Interview(request, kind, shared=shared)
+        interview = interview or mi.Interview(request, kind, shared=shared, given=_given(video, shapes))
         try:
             mi.run(interview, interviewer, call, preset=preset, learned_by=f"{profile.id}/{model}")
         except mi.Paused as paused:
@@ -266,6 +304,7 @@ def make_media(
         result.interview = interview
         assert interview.target is not None
         parts = roles(interview.target)
+        stood_in = _fill_gaps(parts, video) if made == "video" else {}
         services = [media.find(p["provider"]) for p in parts.values()]
         if any(s is None for s in services):
             raise make.MakeError("a service named in the interview is no longer in the media list")
@@ -274,10 +313,13 @@ def make_media(
         brief = interview.brief()
         previous: tuple[list[str], str] = ([], "")
         for n in range(1, rounds + 1):
-            plan = _plan(call, entry, made, brief, previous)
+            plan, said = _plan(call, entry, made, brief, previous)
             prompt = str(plan.get("prompt") or "").strip()
             if not prompt:
-                raise make._Stop("the model returned no plan to work with")
+                folder.mkdir(parents=True, exist_ok=True)
+                (folder / "plan-reply.txt").write_text(said, encoding="utf-8")
+                raise make._Stop("the model returned no plan to work with, even when asked again "
+                                 "(its last reply is in plan-reply.txt)")
             vdir = folder / f"v{n}"
             version: dict[str, Any] = {"version": n, "plan": plan, "files": [], "checks": [], "score": None, "missing": [], "fix": ""}
             if made == "video":
@@ -300,10 +342,7 @@ def make_media(
                 (vdir / "plan.json").write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
             version["checks_ok"] = bool(version["checks"]) and all(c["ok"] for c in version["checks"])
             if version["files"] or version["checks_ok"]:
-                subject = (f"REQUEST AND WHAT THE OWNER TOLD US:\n{brief}\n\nPLAN:\n{json.dumps(plan, indent=2)}\n\n"
-                           f"FILE CHECKS:\n{_checks_text(version['checks'])}")
-                score, missing, fix = make._judgement(call("judge", _JUDGE, subject))
-                version.update(score=score, missing=missing, fix=fix)
+                _judge(ask, call, folder, vdir, made, version, brief, plan, cannot_see)
             else:
                 version["missing"] = ["nothing was made: " + "; ".join(c["detail"] for c in version["checks"] if not c["ok"])]
             result.rounds.append(make.Round(n, prompt, None, version["score"], version["missing"], version["fix"]))
@@ -323,21 +362,51 @@ def make_media(
                              best.get("renders") or {})
         result.undelivered = [shape for shape in best["shapes"] if shape not in delivered]
     result.delivered, result.spent_usd = delivered, budget.spent
-    who = ("terminal" if isinstance(interviewer, mi.TerminalInterviewer) else
-           "answers file" if isinstance(interviewer, mi.FileInterviewer) else "caller")
-    _write_record(folder, request, kind, profile.id, model, max_cost_usd, result, versions, parts, delivered, who, made)
+    who = mi.answered_by(interviewer, shared=bool(shared))
+    _write_record(folder, request, kind, profile.id, model, max_cost_usd, result, versions, parts, delivered, who, made,
+                  stood_in, preset)
     return result
 
 
-def _plan(call: Any, entry: dict[str, Any], made: str, brief: str, previous: tuple[list[str], str]) -> dict[str, Any]:
+# The free makers that fill a part of a film nobody named a service for. They are entries in the media list (data), so
+# an owner can replace or remove them there.
+_STAND_INS = {"voice": "local-voice", "music": "local-music"}
+
+
+def _fill_gaps(parts: dict[str, dict[str, str]], video: dict[str, Any]) -> dict[str, str]:
+    """Give a film with no voice or music service the free ones on this machine, and say which stood in and why."""
+    from . import local_voice
+
+    stood_in: dict[str, str] = {}
+    for role, pid in _STAND_INS.items():
+        if role in parts or (role == "music" and video.get("music_file")):
+            continue
+        found = media.find(pid)
+        if found is None or role not in ROLES["video"] or not ROLES["video"][role] & set(found.kinds):
+            continue
+        if role == "voice" and not local_voice.available():
+            continue
+        parts[role] = {"provider": pid, "model": "local"}
+        stood_in[role] = f"{pid}: no {role} service was named, so {found.name.lower()} made it at no cost"
+    return stood_in
+
+
+def _plan(call: Any, entry: dict[str, Any], made: str, brief: str,
+          previous: tuple[list[str], str]) -> tuple[dict[str, Any], str]:
+    """The plan for the next version and the model's raw reply; a reply with no "prompt" is asked for once more."""
     write = str(entry.get("write") or "").strip()
     system = _PLAN.format(noun=_NOUN[made], write=(write + " ") if write else "", form=_PLAN_FORM[made])
     text = brief
     if previous[0] or previous[1]:
         text += ("\n\nWHAT THE LAST VERSION MISSED:\n" + "\n".join(f"- {m}" for m in previous[0])
                  + f"\n\nHOW TO FIX IT:\n{previous[1] or 'make it fully meet the request'}")
-    data = mi._json_value(call("plan", system, text))
-    return data if isinstance(data, dict) else {}
+    said = call("plan", system, text) or ""
+    data = mi._json_value(said)
+    if isinstance(data, dict) and str(data.get("prompt") or "").strip():
+        return data, said
+    said = call("plan fix", system, text + _PLAN_AGAIN.format(said=said[:2000])) or ""
+    data = mi._json_value(said)
+    return (data if isinstance(data, dict) else {}), said
 
 
 def _pay(budget: make.Budget, provider: media.MediaProvider | None, usd: Any) -> None:
@@ -358,7 +427,7 @@ def _render_one(folder: Path, vdir: Path, version: dict[str, Any], made: str, pa
     provider = media.find(role["provider"])
     vdir.mkdir(parents=True)
     limit = budget.for_next_call()
-    if limit == "0":
+    if budget.spent_out():
         raise make._Stop("spending limit reached")
     params: dict[str, Any] = {}
     if made == "speech" and isinstance(plan.get("voice"), str) and plan["voice"].strip():
@@ -384,7 +453,7 @@ def _render_video(folder: Path, vdir: Path, version: dict[str, Any], parts: dict
                   provider_id: str, model: str, video: dict[str, Any], transport: Any, media_transport: Any,
                   media_get: Any) -> dict[str, str]:
     limit = budget.for_next_call()
-    if limit == "0":
+    if budget.spent_out():
         raise make._Stop("spending limit reached")
     text = f"{brief}\n\nPLAN:\n{plan['prompt']}"
     if previous[0] or previous[1]:
@@ -435,20 +504,88 @@ def _render_video(folder: Path, vdir: Path, version: dict[str, Any], parts: dict
     return dict(made.renders)
 
 
-def _not_judged(made: str) -> str:
-    parts = []
-    if made in ("image", "video"):
-        parts.append("the picture")
+def _sound_text(facts: dict[str, float]) -> str:
+    return (f"- loudness: {facts['loudness_lufs']:g} LUFS (whole piece)\n- loudest peak: {facts['peak_dbfs']:g} dBFS\n"
+            f"- length: {facts['seconds']:g}s\n- silent: {facts['silent_share']:.0%} of it (quieter than -45 dB for half a second or more)")
+
+
+def _judge(ask: Any, call: Any, folder: Path, vdir: Path, made: str, version: dict[str, Any], brief: str,
+           plan: dict[str, Any], cannot_see: list[str]) -> None:
+    """Judge one version: send the picture when there is one, and the sound as measurements; else the words alone."""
+    first = folder / version["files"][0] if version["files"] else None
+    sound = picture = None
+    try:
+        if first is not None and made in ("speech", "music", "video"):
+            sound = studio.sound_facts(first)
+        if first is not None and made in _SHOWN:
+            picture = studio.contact_sheet(first, vdir / "judge-sheet.jpg", kind=made)
+    except (OSError, ValueError):  # FFmpeg missing or the file unreadable: judge from the words
+        pass
+    subject = (f"REQUEST AND WHAT THE OWNER TOLD US:\n{brief}\n\nPLAN:\n{json.dumps(plan, indent=2)}\n\n"
+               f"FILE CHECKS:\n{_checks_text(version['checks'])}")
+    if sound is not None:
+        subject += f"\n\nSOUND, MEASURED:\n{_sound_text(sound)}"
+    why = None
+    text = None
+    if picture is not None and cannot_see:
+        why = cannot_see[0]
+    elif picture is not None:
+        reply = ask("judge", _JUDGE_SEEING.format(what=_SHOWN[made]), subject, [studio.data_url(picture)])
+        if reply.status == "success":
+            text = reply.output_text
+        elif reply.code == "PHC-COST-0001":
+            why = "the spending limit left could not cover sending a picture"
+        else:
+            why = f"the model could not take the picture ({reply.message})"
+            cannot_see.append(why)
+    elif made in _SHOWN:
+        why = "no picture could be taken from the file"
+    seen_as = _rel(folder, picture) if picture is not None and text is not None else None
+    if text is None:
+        text = call("judge", _JUDGE, subject)
+    score, missing, fix = make._judgement(text)
+    version.update(score=score, missing=missing, fix=fix,
+                   judged_on={"picture": seen_as, "sound": sound, "words_only_because": why,
+                              "saw": _saw(text) if seen_as else ""})
+
+
+def _saw(text: str | None) -> str:
+    """What the judge said the picture shows: its own claim, kept as it said it."""
+    match = re.search(r"\{.*\}", text or "", flags=re.S)
+    try:
+        data = json.loads(match.group(0)) if match else {}
+    except ValueError:
+        return ""
+    saw = data.get("saw") if isinstance(data, dict) else None
+    return str(saw).strip()[:500] if isinstance(saw, str) else ""
+
+
+def _judging(made: str, versions: list[dict[str, Any]]) -> str:
+    """What the judge was sent, in plain words, across every version it judged."""
+    judged = [v["judged_on"] for v in versions if v.get("judged_on")]
+    said = []
+    if made in _SHOWN:
+        what = "a contact sheet of twelve moments from the film" if made == "video" else "a smaller copy of the picture"
+        seen = sum(1 for j in judged if j["picture"])
+        if judged and seen == len(judged):
+            said.append(f"The judge was sent {what} for every version it judged.")
+        elif seen:
+            said.append(f"The judge was sent {what} for {seen} of {len(judged)} versions; it judged the others from the "
+                        "plan and the file checks alone (each version's judged_on says why).")
+        else:
+            said.append("The judge never saw the picture: it judged from the plan and the file checks alone "
+                        "(each version's judged_on says why).")
     if made in ("speech", "music", "video"):
-        parts.append("the sound")
-    seen = " or ".join(parts)
-    return (f"The judge never saw or heard the result itself: it read the plan and the file checks, so it did not look at {seen}. "
-            "Its score is advice, not proof; look at or listen to the delivered files yourself.")
+        said.append("The judge cannot hear: for the sound it read measured loudness, peak, length and silence, "
+                    "not the sound itself.")
+    said.append("What a model says it saw is its own claim (judged_on.saw). Its score is advice, not proof; "
+                "look at and listen to the delivered files yourself.")
+    return " ".join(said)
 
 
 def _write_record(folder: Path, request: str, kind: str, provider_id: str, model: str, limit: str | None, result: make.MakeResult,
                   versions: list[dict[str, Any]], parts: dict[str, dict[str, str]], delivered: dict[str, str], who: str,
-                  made: str) -> None:
+                  made: str, stood_in: dict[str, str], preset: str) -> None:
     record = {
         "schema": "proofhouse.make-media/v1",
         "proofhouse_version": __version__,
@@ -459,14 +596,17 @@ def _write_record(folder: Path, request: str, kind: str, provider_id: str, model
         "model": model,
         "spending_limit_usd": limit,
         "interview_from": who,
+        "interview_preset": preset,
         "interview": result.interview.to_dict() if result.interview is not None else None,
         "roles": {role: {k: v for k, v in entry.items() if k != "kind" or made == "video"} for role, entry in parts.items()},
-        "versions": [{k: v[k] for k in ("version", "plan", "files", "checks", "score", "missing", "fix")} for v in versions],
+        "stood_in": stood_in,
+        "versions": [{**{k: v[k] for k in ("version", "plan", "files", "checks", "score", "missing", "fix")},
+                      "judged_on": v.get("judged_on")} for v in versions],
         "best_version": result.best_version,
         "best_score": result.best_score,
         "delivered": delivered,
         "undelivered": result.undelivered,
-        "not_judged": _not_judged(made),
+        "judging": _judging(made, versions),
         "spent_usd": format(result.spent_usd, "f"),
         "calls": [vars(c) for c in result.calls],
         "stopped": result.stopped,

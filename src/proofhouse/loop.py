@@ -292,7 +292,7 @@ def run_loop(
                 result.done = True
                 raise _Stop("check passed")
             limit = budget.for_next_call()
-            if limit == "0":
+            if budget.spent_out():
                 raise _Stop("spending limit reached")
             reply = live.run_prompt(profile.id, model, prompt=system, input_text=_state(workdir, result.steps, watch_output, check_now),
                                     max_output_tokens=max_output_tokens, max_cost_usd=limit, transport=transport)
