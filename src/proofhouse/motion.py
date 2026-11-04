@@ -275,6 +275,17 @@ def _number(v: Any) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
 
+_PLAIN_NUMBER = re.compile(r"-?(\d+\.?\d*|\.\d+)")
+
+
+def _read_number(v: Any) -> Any:
+    """A plain number written as text ("500", " -2.5 ") as that number; anything else unchanged."""
+    if isinstance(v, str) and _PLAIN_NUMBER.fullmatch(v.strip()):
+        text = v.strip()
+        return float(text) if "." in text else int(text)
+    return v
+
+
 def _px(v: float) -> float:
     """Font and stroke sizes rounded to a quarter pixel, so drawn sprites can be reused."""
     return max(1.0, round(v * 4) / 4)
@@ -1645,7 +1656,7 @@ def _check_layer(i: int, layer: Any) -> dict:
     if kind not in KINDS:
         raise MotionError(f"layer {i} has an unknown kind {kind!r}; known kinds: {', '.join(KINDS)}")
     where = f"layer {i} ({kind})"
-    out = dict(layer)
+    out = {k: _read_number(v) if k in _NUMBERS or k in ("to", "from") else v for k, v in layer.items()}
     for field in _REQUIRED[kind]:
         if field not in out:
             raise MotionError(f"{where} needs {field!r}")

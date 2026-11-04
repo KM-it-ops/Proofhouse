@@ -97,6 +97,15 @@ def test_counter_counts_up_and_lands_on_the_number() -> None:
     assert _alpha_sum(motion.frame(scene, 1.0)) > 0
 
 
+def test_a_number_written_as_text_is_read_as_the_number() -> None:
+    scene = motion.check_scene(_scene([{"kind": "counter", "to": "500", "from": " -2.5 ", "size": "48", "at": "0.5"}]))
+    layer = scene["layers"][0]
+    assert (layer["to"], layer["from"], layer["size"], layer["at"]) == (500, -2.5, 48, 0.5)
+    for word in ("five hundred", "1e999", "nan", ""):  # not a plain finite number: still refused
+        with pytest.raises(motion.MotionError, match="to must be a number"):
+            motion.check_scene(_scene([{"kind": "counter", "to": word}]))
+
+
 def test_cursor_follows_its_path_and_ripples_on_a_click() -> None:
     layer = {"kind": "cursor", "moves": [{"t": 0.0, "x": 300, "y": 300}, {"t": 1.0, "x": 1500, "y": 700}],
              "clicks": [{"t": 1.1, "x": 1500, "y": 700}]}
