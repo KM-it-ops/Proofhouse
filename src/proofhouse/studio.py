@@ -843,6 +843,23 @@ def produce(
 _STILL_SUFFIXES = frozenset({".png", ".jpg", ".jpeg", ".webp", ".gif", ".bmp"})
 
 
+VOICE_MARGIN = 0.5  # seconds of picture left after the last word
+VOICE_FITS = 0.25  # a voice this much past the film's end still fits
+
+
+def _fit_to_voice(shots: list[Shot], spoken: float) -> tuple[float, int]:
+    """When the voice runs past the film, lengthen the shots a whole second at a time until it ends with a little
+    picture left. Each second goes to the shot whose words are most crowded for its length. A voice that already
+    fits is left alone. Returns the voice's length and the film's length before."""
+    before = sum(s.seconds for s in shots)
+    if spoken <= before + VOICE_FITS:
+        return spoken, before
+    while shots and sum(s.seconds for s in shots) < spoken + VOICE_MARGIN:
+        crowded = max(shots, key=lambda s: (len(s.caption.split()) or 0.1) / max(s.seconds, 1))
+        crowded.seconds += 1
+    return spoken, before
+
+
 def assemble(
     out_dir: Path,
     shots: list[Shot],
@@ -866,6 +883,7 @@ def assemble(
         production.folder = out_dir
     production.voice_file = voice_file
     production.music_file = music_file
+    fitted = _fit_to_voice(shots, probe(Path(voice_file))["seconds"]) if voice_file else None
     total = sum(s.seconds for s in shots)
     (out_dir / "captions.srt").write_text(srt(shots), encoding="utf-8")
     has_captions = captions and any(s.caption for s in shots)
@@ -873,13 +891,12 @@ def assemble(
     work = out_dir / "work"
     work.mkdir()
     try:
-        if production.voice_file:
-            spoken = probe(Path(production.voice_file))["seconds"]
+        if fitted is not None:
+            spoken, before = fitted
             production.checks.append({
-                "render": "all", "check": "voice fits the film", "ok": spoken <= total + 0.25,
+                "render": "all", "check": "voice fits the film", "ok": spoken <= total + VOICE_FITS,
                 "detail": f"{spoken:.1f}s of voice in a {total}s film" + (
-                    f": the last {spoken - total:.1f}s of speech is cut off; shorten the script or lengthen the shots"
-                    if spoken > total + 0.25 else "")})
+                    f"; the shots were lengthened from {before}s to {total}s to fit it" if total > before else "")})
         for name in formats:
             w, h = FORMATS[name]
             size = (int(w * size_scale) // 2 * 2, int(h * size_scale) // 2 * 2)
@@ -918,6 +935,7 @@ def assemble(
     except StudioError as exc:
         production.stopped = str(exc)
     shutil.rmtree(work, ignore_errors=True)
+    _set_aside_failed(production)
     return production
 
 
@@ -996,7 +1014,10 @@ def assemble_beats(
                                         loudness=LOUDNESS, picture_filter=burn), out_dir, production)
             production.renders[name] = str(final)
             production.checks += _render_checks(name, final, total, size, True, 0.1)
+        last = max((p.start + p.seconds for b in beats for p in b.phrases), default=0.0)
         production.checks += [
+            {"render": "all", "check": "voice fits the film", "ok": last <= total + 0.01,
+             "detail": f"the last word ends at {last:.2f}s of a {total:.2f}s film" if last else "no words spoken"},
             {"render": "all", "check": "real footage share", "ok": share <= storyboard.REAL_SHARE + 1e-9,
              "detail": f"{share:.0%} of the film is real product footage (a third at most)"},
             {"render": "all", "check": "captions match the script",
@@ -1006,7 +1027,21 @@ def assemble_beats(
     except (StudioError, storyboard.StoryboardError, motion.MotionError, sound.SoundError) as exc:
         production.stopped = str(exc)
     shutil.rmtree(work, ignore_errors=True)
+    _set_aside_failed(production)
     return production
+
+
+def _set_aside_failed(production: Production) -> None:
+    """A render with a failed check is renamed ``video-<shape>.failed.mp4``, so it never sits there looking finished.
+    It is kept, and still listed, so it can be looked at and judged."""
+    for name, path in list(production.renders.items()):
+        failed = [c for c in production.checks if c["render"] in (name, "all") and not c["ok"]]
+        final = Path(path)
+        if failed and final.is_file() and not final.name.endswith(".failed.mp4"):
+            aside = final.with_name(final.stem + ".failed.mp4")
+            aside.unlink(missing_ok=True)
+            final.replace(aside)
+            production.renders[name] = str(aside)
 
 
 def _write_record(production: Production, brief: str) -> None:

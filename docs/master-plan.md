@@ -112,8 +112,8 @@ Tested on a short local film (no model calls, $0). Still not done in the video e
 service or a file you give (nothing is made locally when you have neither), and shots are not timed to the spoken words.
 Since then (`feat/video-motion`, now on main through #100): films can be written beat by beat, each beat timed to its spoken words, with
 moving graphics, sound effects, picked cuts and real screen recordings (at most a third of the film); the voice can come from a
-program on your own machine (Kokoro), so a film costs $0. Still not done: music is still a file or a service, the vertical 9:16
-layout of beat films is not fully worked out, and recordings have no `proofhouse` command yet (only `proofhouse.recording`).
+program on your own machine (Kokoro), so a film costs $0. Still not done: recordings have no `proofhouse` command yet
+(only `proofhouse.recording`). Music and the 9:16 layout were done later, in step 8.
 The agent bridge (`proofhouse agent-server`) was added in this run; its API entry is in the OpenAPI fixture.
 
 ## Build order
@@ -372,6 +372,12 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
    - **8d. Finishing.** The voice must fit the film (no words cut off), a film that fails a check is not
      left behind as if it were finished, beat films lay out properly in 9:16, and a callout over a
      recording finds its place by itself.
+     **Done.** When the voice runs long, the shots are lengthened a second at a time (the busiest first)
+     and the record says so; a beat film checks that its last word ends before the film does. A render
+     with a failed check is renamed `video-<shape>.failed.mp4` and never delivered. In 9:16 the words are
+     half again as large, boxes widen, cards wrap to two columns and the layout spreads down the frame.
+     A callout or pointer on footage that holds still is given in the footage's own pixels and placed by
+     itself. Not yet enlarged in 9:16: the lower-third plate, the callout's label and the words inside cards.
    - **8e. Front door details.** The interview record names `--for` and presets correctly, and
      `docs/usage.md` covers the media interview and exit 9.
 

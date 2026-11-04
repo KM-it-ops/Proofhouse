@@ -85,20 +85,43 @@ def test_a_brief_becomes_three_finished_renders_with_voice_music_and_captions(tm
 
 
 @needs_ffmpeg
-def test_a_voice_longer_than_the_film_is_reported_not_silently_cut(tmp_path: Path, services) -> None:
+def test_a_voice_longer_than_the_film_lengthens_the_shots_instead_of_being_cut(tmp_path: Path, services) -> None:
     for name in ("long", "fits", "silent"):
         (tmp_path / name).mkdir()
-    shots =[studio.Shot(2, "a", "one", str(tmp_path / "frame.png")), studio.Shot(2, "b", "two", str(tmp_path / "frame.png"))]
+    shots = [studio.Shot(2, "a", "one two three four", str(tmp_path / "frame.png")),
+             studio.Shot(2, "b", "five", str(tmp_path / "frame.png"))]
     made = studio.assemble(tmp_path / "long", shots, visual_kind="image", formats=("1x1",), size_scale=0.1,
                            voice_file=str(tmp_path / "voice.wav"))  # the voice is 5 s, the film 4 s
     check = next(c for c in made.checks if c["check"] == "voice fits the film")
-    assert check["ok"] is False
-    assert "5.0s of voice" in check["detail"] and "4s film" in check["detail"] and "last 1.0s" in check["detail"]
+    assert check["ok"] is True
+    assert "5.0s of voice" in check["detail"] and "lengthened from 4s to 6s" in check["detail"]
+    assert [s.seconds for s in shots] == [4, 2]  # the extra time goes where the words are densest
+    assert studio.probe(Path(made.renders["1x1"]))["seconds"] == pytest.approx(6, abs=0.3)
+    assert "00:00:04,000 --> 00:00:06,000\nfive" in (tmp_path / "long" / "captions.srt").read_text(encoding="utf-8")
+    shots = [studio.Shot(2, "a", "one", str(tmp_path / "frame.png")), studio.Shot(2, "b", "two", str(tmp_path / "frame.png"))]
     fits = studio.assemble(tmp_path / "fits", shots + [studio.Shot(2, "c", "three", str(tmp_path / "frame.png"))],
                            visual_kind="image", formats=("1x1",), size_scale=0.1, voice_file=str(tmp_path / "voice.wav"))
     assert next(c for c in fits.checks if c["check"] == "voice fits the film")["ok"] is True
     silent = studio.assemble(tmp_path / "silent", shots, visual_kind="image", formats=("1x1",), size_scale=0.1)
     assert not [c for c in silent.checks if c["check"] == "voice fits the film"]
+
+
+@needs_ffmpeg
+def test_a_render_that_fails_its_checks_is_set_aside_not_left_looking_finished(tmp_path: Path, services,
+                                                                                monkeypatch: pytest.MonkeyPatch) -> None:
+    real = studio._render_checks
+
+    def broken(name, *args, **kwargs):  # noqa: ANN001, ANN202
+        checks = real(name, *args, **kwargs)
+        return [dict(c, ok=False) if name == "1x1" and c["check"] == "length" else c for c in checks]
+
+    monkeypatch.setattr(studio, "_render_checks", broken)
+    (tmp_path / "out").mkdir()
+    shots = [studio.Shot(2, "a", "one", str(tmp_path / "frame.png"))]
+    made = studio.assemble(tmp_path / "out", shots, visual_kind="image", formats=("1x1", "16x9"), size_scale=0.1)
+    assert Path(made.renders["1x1"]).name == "video-1x1.failed.mp4" and Path(made.renders["1x1"]).is_file()
+    assert not (tmp_path / "out" / "video-1x1.mp4").exists()
+    assert Path(made.renders["16x9"]).name == "video-16x9.mp4"  # its checks passed
 
 
 @needs_ffmpeg
@@ -362,7 +385,9 @@ def test_a_storyboard_from_the_model_is_voiced_phrase_by_phrase_and_rendered(tmp
     assert set(made.renders) == {"16x9", "9x16"}
     failed = [c for c in made.checks if not c["ok"]]
     assert failed == [], failed
-    assert {"real footage share", "captions match the script"} <= {c["check"] for c in made.checks}
+    assert {"real footage share", "captions match the script", "voice fits the film"} <= {c["check"] for c in made.checks}
+    fits = next(c for c in made.checks if c["check"] == "voice fits the film")
+    assert "the last word ends at" in fits["detail"]
     folder = tmp_path / "video"
     assert sorted(p.name for p in (folder / "shots").iterdir()) == ["beat-01.png", "beat-02.png", "beat-03.png"]
     assert sorted(p.name for p in (folder / "voice").iterdir()) == ["beat01-01.wav", "beat02-01.wav", "beat03-01.wav"]

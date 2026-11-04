@@ -405,7 +405,8 @@ def picture_box(beat: Beat, size: tuple[int, int]) -> tuple[list[float], list[fl
     frame = base.get("frame", "window")
     left, top, right, bottom = INSETS[frame]
     aspect = _aspect(beat)
-    width = min(0.86 * 1920 - left - right, (0.82 * tall - top - bottom) * aspect)
+    across = 0.94 if H > W else 0.86  # a vertical frame is narrow: the footage takes more of its width
+    width = min(across * 1920 - left - right, (0.82 * tall - top - bottom) * aspect)
     height = width / aspect
     box_w, box_h = width + left + right, height + top + bottom
     x, y = (1920 - box_w) / 2, 0.47 * tall - box_h / 2
@@ -440,6 +441,98 @@ def _footage(beat: Beat, size: tuple[int, int]) -> list[dict]:
     return out
 
 
+# Layers that can be placed in the footage's own pixels, and how a layout written for a wide frame is spread
+# down a vertical one: positions keep their share of the height, boxes grow to use the narrow width, words get bigger.
+_MAPPED = ("callout", "cursor")
+_POINT_KINDS = ("title", "label", "chips", "counter", "lower_third")
+_BOX_DEFAULTS = {"cards": (160, 330, 1600, 420), "panel": (560, 190, 800, 700), "terminal": (210, 140, 1500, 800),
+                 "video": (160, 90, 1600, 900), "image": (160, 90, 1600, 900)}
+_TEXT_SIZES = {"title": 96, "label": 22, "chips": 34, "counter": 160}
+TALL_TEXT = 1.5
+TALL_WIDTH = 1840
+
+
+def _holds_still(beat: Beat) -> bool:
+    """Real footage that keeps one place on screen: not filling the frame, not a scrolling capture."""
+    base = beat.base
+    return (base["kind"] in REAL_KINDS and base.get("fit") != "fill"
+            and not (base["kind"] == "capture" and "scroll" in base))
+
+
+def _recorded_size(beat: Beat) -> list[int]:
+    base = beat.base
+    if beat.meta:
+        return [int(v) for v in beat.meta["size"]]
+    if base["kind"] == "capture":
+        from PIL import Image
+
+        with Image.open(base["file"]) as im:
+            return list(im.size)
+    size = motion._video_size(base["file"])
+    if size is None:
+        raise StoryboardError(f"beat {beat.number}: cannot read the size of {Path(base['file']).name}")
+    return list(size)
+
+
+def _on_footage(beat: Beat, layer: dict, i: int, size: tuple[int, int]) -> dict:
+    """A callout or pointer on still footage is in the footage's own pixels unless it says ``map: frame``."""
+    mp = layer.get("map")
+    if mp == "frame":
+        layer.pop("map")
+        return layer
+    if mp == "footage":
+        if layer["kind"] not in _MAPPED:
+            raise StoryboardError(f"beat {beat.number}: layer {i}: only a callout or cursor can be placed on the footage")
+        if not _holds_still(beat):
+            raise StoryboardError(f"beat {beat.number}: layer {i} asks to be placed on the footage, but this beat has "
+                                  "no footage that holds still (a recording, or a capture that neither scrolls nor fills)")
+    elif mp is not None or layer["kind"] not in _MAPPED or not _holds_still(beat):
+        return layer
+    layer["map"] = {"size": _recorded_size(beat), "box": picture_box(beat, size)[1]}
+    return layer
+
+
+def _tall(layer: dict, size: tuple[int, int]) -> dict:
+    """Spread a layout written for a 1920 x 1080 frame down a vertical one. Wide and square frames are untouched."""
+    W, H = size
+    if H <= W:
+        return layer
+    tall = 1920 * H / W
+    f = tall / 1080
+    kind = layer["kind"]
+    mapped = isinstance(layer.get("map"), dict)  # in the footage's own pixels: the map already places it
+    if kind in _TEXT_SIZES:
+        layer["size"] = layer.get("size", _TEXT_SIZES[kind]) * TALL_TEXT
+    if kind in _POINT_KINDS:
+        if "y" in layer:
+            layer["y"] = layer["y"] * f
+        elif kind == "label":
+            layer["y"] = 160 * f
+    elif kind == "link":
+        layer["from"], layer["to"] = ([p[0], p[1] * f] for p in (layer["from"], layer["to"]))
+    elif kind == "cursor" and not mapped:
+        for key in ("moves", "clicks"):
+            if key in layer:
+                layer[key] = [dict(m, y=m["y"] * f) if isinstance(m, dict) and "y" in m else m for m in layer[key]]
+    elif (kind in _BOX_DEFAULTS or kind == "callout") and not mapped and (kind != "callout" or "box" in layer):
+        box = layer.get("box", _BOX_DEFAULTS.get(kind))
+        if not (isinstance(box, (list, tuple)) and len(box) == 4 and all(isinstance(v, (int, float)) for v in box)):
+            return layer  # motion.check_scene says what is wrong with it
+        x, y, w, h = box
+        grow = min(TALL_TEXT, TALL_WIDTH / w) if w > 0 else 1.0
+        cx, cy, w, h = x + w / 2, (y + h / 2) * f, w * grow, h * grow
+        if kind == "cards":
+            n = len(layer.get("items") or [None])
+            before = max(1, int(min(layer.get("columns", 4), n)))
+            layer["columns"] = min(before, 2)
+            h *= math.ceil(n / layer["columns"]) / math.ceil(n / before)
+            h = min(h, 0.8 * tall)
+        x = min(max(cx - w / 2, 0.0), max(0.0, 1920 - w))
+        y = min(max(cy - h / 2, 0.0), max(0.0, tall - h))
+        layer["box"] = [round(v, 4) for v in (x, y, w, h)]
+    return layer
+
+
 def scene(beat: Beat, size: tuple[int, int], following: Beat | None = None) -> dict:
     """The motion scene for one beat's clip, ready for ``motion.render``. ``following`` is the next beat."""
     base = dict(beat.base)
@@ -453,7 +546,7 @@ def scene(beat: Beat, size: tuple[int, int], following: Beat | None = None) -> d
         if base["kind"] == "video":
             base.setdefault("push", 0.04)
     for i, layer in enumerate(beat.layers, start=1):
-        layer = dict(layer)
+        layer = _tall(_on_footage(beat, dict(layer), i, size), size)
         layer["at"] = when(beat, layer.get("at", 0))
         if "until" in layer:
             layer["until"] = when(beat, layer["until"])

@@ -756,7 +756,9 @@ def test_render_video_fails_when_the_finished_file_is_wrong(tmp_path: Path, monk
                                                             wrong: dict[str, object], check: str) -> None:
     folder = video_folder(tmp_path)
     real_probe = studio.probe
-    monkeypatch.setattr(studio, "probe", lambda path: {**real_probe(path), **wrong})
+    # only the finished film is wrong; the voice is measured truly (a long voice would lengthen the film to fit)
+    monkeypatch.setattr(studio, "probe",
+                        lambda path: {**real_probe(path), **(wrong if Path(path).name.startswith("video-") else {})})
     assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 1
     assert check in capsys.readouterr().err
     record = json.loads((folder / "studio.json").read_text(encoding="utf-8"))
