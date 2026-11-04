@@ -153,11 +153,15 @@ def run_prompt(
     *,
     prompt: str,
     input_text: str | None = None,
+    images: list[str] | None = None,
     max_output_tokens: int = 1024,
     max_cost_usd: str | None = None,
     transport: Transport | None = None,
 ) -> RunResult:
-    """Send one prompt (and optional input) to any provider through the spend gate."""
+    """Send one prompt (and optional input) to any provider through the spend gate.
+
+    ``images`` are inline pictures (``data:image/png;base64,...`` or JPEG) sent beside the owner's words; the spend
+    gate refuses any it cannot count."""
     model = (model or "").strip()
     # One read of the providers files for the whole run; the spend gate prices this same entry.
     try:
@@ -186,10 +190,14 @@ def run_prompt(
     if (urlparse(url).hostname or "").lower() != profile.host:
         return _refused("PHC-RUN-0004", f"the address {url!r} does not match provider {profile.id}", profile.id, model)
 
+    words = prompt if input_text is None else input_text
+    user: Any = words
+    if images:
+        user = [{"type": "text", "text": words}] + [{"type": "image_url", "image_url": {"url": url}} for url in images]
     if input_text is None:
-        messages = [{"role": "user", "content": prompt}]
+        messages = [{"role": "user", "content": user}]
     else:
-        messages = [{"role": "system", "content": prompt}, {"role": "user", "content": input_text}]
+        messages = [{"role": "system", "content": prompt}, {"role": "user", "content": user}]
     cap_field = "max_completion_tokens" if profile.shape == "openai" else "max_tokens"
     headers = {"Content-Type": "application/json"}
     if secret:

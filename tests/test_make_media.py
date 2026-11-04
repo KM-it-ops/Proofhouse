@@ -56,15 +56,31 @@ def programs(tmp_path: Path) -> None:
 class Director:
     """A text model for media makes: answers by what each call asks for, and keeps every prompt it saw."""
 
-    def __init__(self, scores: list[int] | None = None, shapes: list[str] | None = None) -> None:
+    def __init__(self, scores: list[int] | None = None, shapes: list[str] | None = None, blind: bool = False) -> None:
         self.scores = list(scores or [9])
         self.shapes = shapes
+        self.blind = blind  # a model that cannot take pictures
         self.calls: list[str] = []
         self.seen: dict[str, list[str]] = {}
+        self.pictures: list[str] = []
 
     def __call__(self, request: live.Request) -> live.Response:
         body = json.loads(request.body_bytes)
-        text = " ".join(m["content"] for m in body["messages"])
+        words, pictures = [], []
+        for m in body["messages"]:
+            if isinstance(m["content"], str):
+                words.append(m["content"])
+                continue
+            for part in m["content"]:
+                if part["type"] == "text":
+                    words.append(part["text"])
+                else:
+                    pictures.append(part["image_url"]["url"])
+        text = " ".join(words)
+        if pictures and self.blind:
+            self.calls.append("refused picture")
+            return live.Response(400, {"error": {"message": "this model does not take pictures"}})
+        self.pictures += pictures
         if text.startswith("You are an expert prompt engineer. You generate"):
             role, content = "questions", QUESTIONS
         elif text.startswith("You are about to"):
@@ -192,6 +208,8 @@ def test_an_image_is_made_by_your_own_program_checked_judged_improved_and_delive
     assert "fix number 1" in model.seen["plan"][1] and "fix number 1" not in model.seen["plan"][0]  # the plan changes
     assert "a red scarf" in model.seen["plan"][0]  # the interview's answers reach the plan
     assert "image size" in model.seen["judge"][0]  # the judge sees the file checks
+    assert len(model.pictures) == 2 and all(p.startswith("data:image/jpeg;base64,") for p in model.pictures)
+    assert "the picture itself, made smaller" in model.seen["judge"][0]  # and is told what the picture is
     for n in (1, 2):
         assert (folder / f"v{n}" / "plan.json").is_file()
         assert any(p.suffix == ".png" for p in (folder / f"v{n}").iterdir())
@@ -201,7 +219,10 @@ def test_an_image_is_made_by_your_own_program_checked_judged_improved_and_delive
     assert [v["version"] for v in record["versions"]] == [1, 2]
     assert record["versions"][0]["plan"]["prompt"].startswith("plan 1") and record["versions"][1]["plan"]["prompt"].startswith("plan 2")
     assert all(c["ok"] for v in record["versions"] for c in v["checks"])
-    assert "picture" in record["not_judged"]  # the judge read the plan and the checks, not the picture itself
+    for n, version in enumerate(record["versions"], 1):
+        assert version["judged_on"]["picture"] == f"v{n}/judge-sheet.jpg" and version["judged_on"]["words_only_because"] is None
+        assert (folder / version["judged_on"]["picture"]).is_file()
+    assert "smaller copy of the picture for every version" in record["judging"] and "not_judged" not in record
     assert record["spent_usd"] == "0" and record["best_version"] == 2
     assert set(record["delivered"]) == {"16x9", "1x1"} and set(made.delivered) == {"16x9", "1x1"}
     for shape, (w, h) in (("16x9", (1920, 1080)), ("1x1", (1080, 1080))):
@@ -225,12 +246,47 @@ def test_a_voice_is_checked_for_sound_and_delivered_as_the_file_types_asked_for(
     record = _record(folder)
     assert record["interview_from"] == "answers file"
     assert {c["check"] for c in record["versions"][0]["checks"]} >= {"has sound", "length"}
-    assert "sound" in record["not_judged"]
+    assert "SOUND, MEASURED" in model.seen["judge"][0] and "LUFS" in model.seen["judge"][0]  # it reads the sound, measured
+    sound = record["versions"][0]["judged_on"]["sound"]
+    assert 1.5 < sound["seconds"] < 2.5 and sound["silent_share"] < 0.2 and sound["loudness_lufs"] < 0
+    assert record["versions"][0]["judged_on"]["picture"] is None and not model.pictures
+    assert "cannot hear" in record["judging"]
     assert set(record["delivered"]) == {"mp3", "wav"}  # --formats wins over the plan
     for path in record["delivered"].values():
         seen = studio.probe(folder / path)
         assert seen["audio"] and seen["seconds"] > 1
         assert path in out.replace("\\", "/") or str(folder / path) in out
+
+
+def test_a_model_that_cannot_take_a_picture_judges_from_the_words_and_the_record_says_why(tmp_path: Path,
+                                                                                      programs: None) -> None:
+    model = Director(scores=[9], blind=True)
+    folder = tmp_path / "o"
+    made = make_media.make_media("a fox at dawn", kind="image", provider_id="ollama", model="m", out_dir=folder,
+                                 interviewer=Answers("my-painter", {}, [True]), transport=model, rounds=2)
+    assert made.best_score == 9 and model.calls.count("refused picture") == 1 and model.calls.count("judge") == 1
+    assert model.seen["judge"][0].startswith("You judge media") and "cannot see the picture" in model.seen["judge"][0]
+    judged = _record(folder)["versions"][0]["judged_on"]
+    assert judged["picture"] is None and "could not take the picture" in judged["words_only_because"]
+    assert "this model does not take pictures" in judged["words_only_because"]
+    assert "never saw the picture" in _record(folder)["judging"]
+
+
+def test_the_judge_is_told_what_it_saw_is_its_own_claim(tmp_path: Path, programs: None) -> None:
+    class Seeing(Director):
+        def __call__(self, request: live.Request) -> live.Response:
+            reply = super().__call__(request)
+            if self.calls[-1] == "judge":
+                content = json.loads(reply.payload["choices"][0]["message"]["content"])
+                reply.payload["choices"][0]["message"]["content"] = json.dumps({"saw": "a test pattern, no fox", **content})
+            return reply
+
+    folder = tmp_path / "o"
+    make_media.make_media("a fox at dawn", kind="image", provider_id="ollama", model="m", out_dir=folder,
+                          interviewer=Answers("my-painter", {}, [True]), transport=Seeing(scores=[9]), rounds=1)
+    record = _record(folder)
+    assert record["versions"][0]["judged_on"]["saw"] == "a test pattern, no fox"
+    assert "its own claim" in record["judging"]
 
 
 @needs_ffmpeg
@@ -284,7 +340,9 @@ def test_a_video_is_planned_rendered_by_the_studio_improved_and_kept_by_version(
     record = _record(folder)
     assert record["roles"]["visuals"]["provider"] == "my-painter" and record["roles"]["voice"]["provider"] == "my-voice"
     assert set(record["delivered"]) == {"9x16"}
-    assert "picture" in record["not_judged"] and "sound" in record["not_judged"]
+    # the fake films are not films: no picture could be taken, so the judge read the words, and the record says why
+    assert all(v["judged_on"]["words_only_because"] == "no picture could be taken from the file" for v in record["versions"])
+    assert "never saw the picture" in record["judging"] and "cannot hear" in record["judging"]
 
 
 def test_the_video_flags_answer_which_services_make_it(tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch,

@@ -344,7 +344,7 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      command. Every paid call goes through the spending limit.
      **Done (branch `feat/make-media`, on top of PR #96 and 7b).** Each version's plan is kept in
      `v<n>/plan.json` and only the best version that passed every check is delivered into `delivered/`.
-     The record says what the judge could not see or hear (`not_judged`). image, voice and music are now
+     The record says what the judge was sent (`judging`, and `judged_on` per version). image, voice and music are now
      reserved kinds, so a learned kit or add-on cannot take them over. A paused run prints a command to
      run again that keeps the length, shapes and other choices given. A film missing a shape it was asked
      for fails its checks; a studio stopped by the spending limit stops the whole make; a shape that could
@@ -364,6 +364,11 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      the picture itself for an image, and measured sound facts (loudness, how much of the film has voice,
      music and silence). The spending limit counts each picture at a fixed worst case. A model that cannot
      take pictures is asked again with words only, and the record says exactly what the judge saw and heard.
+     **Done.** The judge is sent a smaller copy of an image, or a 4 x 3 contact sheet of twelve moments
+     from a film, as an inline picture through the spend gate (each counted as 32,768 tokens, at most 1024 px
+     a side). For sound it reads measured loudness, peak, length and the share that is silent; telling
+     voice from music is not measured yet. Each version's `judged_on` keeps the picture sent, the sound
+     facts, why it judged from words alone when it did, and what the model said it saw (its own claim).
    - **8d. Finishing.** The voice must fit the film (no words cut off), a film that fails a check is not
      left behind as if it were finished, beat films lay out properly in 9:16, and a callout over a
      recording finds its place by itself.

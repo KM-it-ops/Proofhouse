@@ -24,6 +24,7 @@ renders, and ``studio.json`` with every call, cost, FFmpeg command and check.
 
 from __future__ import annotations
 
+import base64
 import json
 import math
 import re
@@ -560,6 +561,68 @@ def picture_activity(path: Path) -> dict[str, float]:
     # every one-second window, sliding a tenth at a time, so where the film's seconds happen to start never matters
     seconds = [any(events[i:i + 10]) for i in range(max(1, len(events) - 9))]
     return {"longest_quiet": longest / 10, "quiet_from": longest_at / 10, "lively_share": sum(seconds) / len(seconds)}
+
+
+SHEET_ACROSS, SHEET_DOWN = 4, 3
+SHEET_MAX_SIDE = 1024  # the largest picture the spend gate will count (spend.PICTURE_MAX_SIDE)
+
+
+def _even(value: float) -> int:
+    return max(2, int(value) // 2 * 2)
+
+
+def contact_sheet(path: Path, out: Path, *, kind: str) -> Path | None:
+    """One small JPEG the judge can look at: for a film, twelve moments spread across it in a 4 x 3 grid; for a
+    picture, the picture itself made to fit. At most SHEET_MAX_SIDE a side. None when FFmpeg cannot read the file."""
+    facts = probe(path) if shutil.which("ffprobe") else {}
+    width, height = facts.get("width"), facts.get("height")
+    if not width or not height:
+        return None
+    out.unlink(missing_ok=True)
+    if kind == "video":
+        seconds = facts.get("seconds") or 0
+        if seconds <= 0:
+            return None
+        frames = SHEET_ACROSS * SHEET_DOWN
+        tile_w = min(SHEET_MAX_SIDE / SHEET_ACROSS, SHEET_MAX_SIDE / SHEET_DOWN * width / height)
+        tile_w, tile_h = _even(tile_w), _even(tile_w * height / width)
+        args = ["-ss", f"{seconds / (2 * frames):.3f}", "-i", str(path), "-map", "0:v:0", "-vf",
+                f"fps={frames}/{seconds:.3f},scale={tile_w}:{tile_h},setsar=1,tile={SHEET_ACROSS}x{SHEET_DOWN}",
+                "-frames:v", "1", "-q:v", "4", str(out)]
+    else:
+        scale = min(1.0, SHEET_MAX_SIDE / max(width, height))
+        args = ["-i", str(path), "-vf", f"scale={max(1, round(width * scale))}:{max(1, round(height * scale))},setsar=1",
+                "-frames:v", "1", "-q:v", "3", str(out)]
+    if not convert(args) or not out.is_file() or out.stat().st_size == 0:
+        return None
+    return out
+
+
+def data_url(path: Path) -> str:
+    """A JPEG or PNG as an inline picture a model can be sent."""
+    kind = "png" if path.suffix.lower() == ".png" else "jpeg"
+    return f"data:image/{kind};base64," + base64.b64encode(path.read_bytes()).decode("ascii")
+
+
+def sound_facts(path: Path) -> dict[str, float] | None:
+    """What the sound is like, measured: integrated loudness (LUFS), true peak (dBFS), length, and the share of it
+    that is silent (below -45 dB for half a second or more). None when there is no sound FFmpeg can read."""
+    if shutil.which("ffmpeg") is None or not probe(path).get("audio"):
+        return None
+    run = subprocess.run(["ffmpeg", "-hide_banner", "-nostats", "-i", str(path), "-map", "0:a:0", "-af",
+                          "ebur128=peak=true,silencedetect=n=-45dB:d=0.5", "-f", "null", "-"],
+                         capture_output=True, text=True, check=False)
+    summary = run.stderr.rpartition("Summary:")[2]
+    loud = re.search(r"I:\s+(-?[0-9.]+|-inf) LUFS", summary)
+    peak = re.search(r"Peak:\s+(-?[0-9.]+|-inf) dBFS", summary)
+    if run.returncode != 0 or loud is None or peak is None:
+        return None
+    seconds = probe(path)["seconds"] or 0.0
+    starts = [float(m) for m in re.findall(r"silence_start: (-?[0-9.]+)", run.stderr)]
+    lengths = [float(m) for m in re.findall(r"silence_duration: ([0-9.]+)", run.stderr)]
+    silent = sum(lengths) + sum(max(0.0, seconds - start) for start in starts[len(lengths):])
+    return {"loudness_lufs": float(loud.group(1)), "peak_dbfs": float(peak.group(1)), "seconds": round(seconds, 2),
+            "silent_share": round(min(1.0, silent / seconds), 3) if seconds else 1.0}
 
 
 def _render_checks(name: str, final: Path, total: float, size: tuple[int, int], sound: bool,
