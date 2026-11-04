@@ -657,6 +657,27 @@ def test_a_pace_that_stays_unreadable_falls_back_to_the_default_instead_of_losin
 
 
 @needs_ffmpeg
+def test_stray_text_in_the_beats_is_named_to_the_writer_and_left_out_when_it_stays(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    garbled = json.loads(json.dumps(BEATS))
+    garbled["beats"] += ["layers': [{", "kind, "]  # what a small model's broken reply leaves after the last beat
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(garbled, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    fix = asked[1]
+    n = len(BEATS["beats"])
+    assert "no beats" not in fix and f"beat {n + 1}: " in fix and f"beat {n + 2}: " in fix and "not a beat" in fix
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and made.stopped == "finished", made.stopped
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    assert len(script["beats"]) == n  # every real beat is kept; only the stray text is gone
+    untimed = next(c for c in made.checks if c["check"] == "unreadable timings dropped")
+    assert f"beat {n + 1} stray text" in untimed["detail"], untimed
+
+
+@needs_ffmpeg
 def test_the_script_writer_is_told_every_problem_at_once_so_one_fix_can_mend_them_all(tmp_path: Path, services) -> None:
     _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
     broken = json.loads(json.dumps(BEATS))

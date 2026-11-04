@@ -320,8 +320,11 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
     graphics will read it, so a bad plan stops here, not after the pictures and the voice are paid for."""
     lookup = _facts_lookup(facts) if facts else {}
     rows = data.get("beats")
-    if not isinstance(rows, list) or not rows or not all(isinstance(r, dict) for r in rows):
+    if not isinstance(rows, list) or not rows:
         raise StudioError("the script has no beats")
+    for number, raw in enumerate(rows, start=1):
+        if not isinstance(raw, dict):
+            raise StudioError(_not_a_beat(number, raw))
     out = []
     for number, raw in enumerate(rows, start=1):
         row = {k: v for k, v in raw.items() if k in ("say", "layers", "sounds", "cut", "energy", "hold")}
@@ -350,16 +353,24 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
     return out
 
 
+def _not_a_beat(number: int, raw: Any) -> str:
+    return (f"beat {number}: {json.dumps(raw)[:60]} is not a beat; each beat is one {{...}} object with its own "
+            f"say and base, and nothing else belongs in the beats list")
+
+
 def script_problems(data: dict[str, Any], facts: dict[str, Any] | None = None) -> list[str]:
     """Every problem in a beats plan, each named by its beat and layer or sound, so one fix can mend them all.
 
     The check that runs before anything is spent stops at the first problem; a script writer told only that one
     mends it and trips on the next, so this checks each beat, and each overlay and sound in it, on its own."""
     rows = data.get("beats")
-    if not isinstance(rows, list) or not rows or not all(isinstance(r, dict) for r in rows):
+    if not isinstance(rows, list) or not rows:
         return []
     found: list[str] = []
     for number, raw in enumerate(rows, start=1):
+        if not isinstance(raw, dict):
+            found.append(_not_a_beat(number, raw))
+            continue
         bare = {k: v for k, v in raw.items() if k not in ("layers", "sounds")}
         try:
             beats_from({"beats": [bare]}, facts)
@@ -390,16 +401,21 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
     read taken out, and a note for each.
 
     Used only once the script writer has had all its chances to fix them, so one garbled time or pace never costs
-    the whole film: the overlay or sound plays at its default moment and the beat at its default pace. Anything
-    else that is wrong (a layer the engine cannot draw, a broken beat) is left as it is, so it stays a failure."""
+    the whole film: the overlay or sound plays at its default moment and the beat at its default pace, and a scrap
+    of text left in the beats list by a broken reply is left out. Anything else that is wrong (a layer the engine cannot draw, a broken beat) is left as it is, so it stays a failure."""
     rows = data.get("beats")
     if not isinstance(rows, list):
         return data, []
     dropped: list[str] = []
     out: list[Any] = []
+    if not any(isinstance(raw, dict) for raw in rows):
+        return data, []
     for number, raw in enumerate(rows, start=1):
         if not isinstance(raw, dict):
-            return data, []
+            if not isinstance(raw, str):
+                return data, []  # not a scrap of a broken reply
+            dropped.append(f"beat {number} stray text {raw[:40]!r}")
+            continue
         bare = {k: v for k, v in raw.items() if k not in ("layers", "sounds")}
         row = dict(raw)
         for pace in ("energy", "cut"):
@@ -943,8 +959,9 @@ def produce(
                         data, problem = cleaned, None
                         production.checks.append({
                             "render": "all", "check": "unreadable timings dropped", "ok": True,
-                            "detail": f"after {SCRIPT_FIXES} fixes these times and paces still could not be read, so "
-                                      f"those parts play at their default moment and pace: {'; '.join(dropped)}"})
+                            "detail": f"after {SCRIPT_FIXES} fixes these parts still could not be read, so stray text "
+                                      f"in the beats is left out and times and paces play at their default: "
+                                      f"{'; '.join(dropped)}"})
             if problem is None and board is not None:
                 if any(row["base"]["kind"] == "generate" for row in board) and (not visual_provider or not visual_model):
                     raise StudioError("generated pictures need --visual-provider and --visual-model (see `proofhouse media list`)")
