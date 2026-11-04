@@ -447,3 +447,47 @@ def test_a_launch_that_answers_from_files_names_the_video_services_from_its_flag
                            make_media.video_target({"visual_provider": "my-painter", "visual_model": "local",
                                                     "voice_provider": "my-voice"}))
     assert isinstance(asking, mi.FileInterviewer) and asking.for_target == "visuals: my-painter/local, voice: my-voice"
+
+
+def test_a_film_with_no_voice_or_music_service_gets_the_free_ones_and_the_record_says_so(
+        tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import local_voice
+
+    monkeypatch.setattr(local_voice, "available", lambda: True)
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    made = make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter", {"must": "short"}, [True]), transport=Director())
+    assert made.delivered
+    assert seen[0]["voice_provider"] == "local-voice" and seen[0]["music_provider"] == "local-music"
+    record = _record(tmp_path / "o")
+    assert record["roles"]["voice"]["provider"] == "local-voice" and record["roles"]["music"]["provider"] == "local-music"
+    assert set(record["stood_in"]) == {"voice", "music"} and "no voice service" in record["stood_in"]["voice"]
+
+
+def test_a_named_voice_or_a_music_file_is_never_replaced(tmp_path: Path, programs: None,
+                                                        monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import local_voice
+
+    monkeypatch.setattr(local_voice, "available", lambda: True)
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    song = tmp_path / "song.wav"
+    song.write_bytes(b"RIFF")
+    make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                          interviewer=Answers("my-painter, my-voice", {"must": "short"}, [True]), transport=Director(),
+                          video={"music_file": song})
+    assert seen[0]["voice_provider"] == "my-voice" and seen[0]["music_provider"] is None
+    assert _record(tmp_path / "o")["stood_in"] == {}
+
+
+def test_with_no_speech_engine_here_the_voice_gap_stays_open(tmp_path: Path, programs: None,
+                                                           monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import local_voice
+
+    monkeypatch.setattr(local_voice, "available", lambda: False)
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                          interviewer=Answers("my-painter", {"must": "short"}, [True]), transport=Director())
+    assert seen[0]["voice_provider"] is None and seen[0]["music_provider"] == "local-music"

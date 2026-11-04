@@ -243,6 +243,7 @@ def make_media(
 
     versions: list[dict[str, Any]] = []
     parts: dict[str, dict[str, str]] = {}
+    stood_in: dict[str, str] = {}
     try:
         folder.mkdir(parents=True, exist_ok=interview is not None)
         interview = interview or mi.Interview(request, kind, shared=shared)
@@ -266,6 +267,7 @@ def make_media(
         result.interview = interview
         assert interview.target is not None
         parts = roles(interview.target)
+        stood_in = _fill_gaps(parts, video) if made == "video" else {}
         services = [media.find(p["provider"]) for p in parts.values()]
         if any(s is None for s in services):
             raise make.MakeError("a service named in the interview is no longer in the media list")
@@ -325,8 +327,32 @@ def make_media(
     result.delivered, result.spent_usd = delivered, budget.spent
     who = ("terminal" if isinstance(interviewer, mi.TerminalInterviewer) else
            "answers file" if isinstance(interviewer, mi.FileInterviewer) else "caller")
-    _write_record(folder, request, kind, profile.id, model, max_cost_usd, result, versions, parts, delivered, who, made)
+    _write_record(folder, request, kind, profile.id, model, max_cost_usd, result, versions, parts, delivered, who, made,
+                  stood_in)
     return result
+
+
+# The free makers that fill a part of a film nobody named a service for. They are entries in the media list (data), so
+# an owner can replace or remove them there.
+_STAND_INS = {"voice": "local-voice", "music": "local-music"}
+
+
+def _fill_gaps(parts: dict[str, dict[str, str]], video: dict[str, Any]) -> dict[str, str]:
+    """Give a film with no voice or music service the free ones on this machine, and say which stood in and why."""
+    from . import local_voice
+
+    stood_in: dict[str, str] = {}
+    for role, pid in _STAND_INS.items():
+        if role in parts or (role == "music" and video.get("music_file")):
+            continue
+        found = media.find(pid)
+        if found is None or role not in ROLES["video"] or not ROLES["video"][role] & set(found.kinds):
+            continue
+        if role == "voice" and not local_voice.available():
+            continue
+        parts[role] = {"provider": pid, "model": "local"}
+        stood_in[role] = f"{pid}: no {role} service was named, so {found.name.lower()} made it at no cost"
+    return stood_in
 
 
 def _plan(call: Any, entry: dict[str, Any], made: str, brief: str, previous: tuple[list[str], str]) -> dict[str, Any]:
@@ -448,7 +474,7 @@ def _not_judged(made: str) -> str:
 
 def _write_record(folder: Path, request: str, kind: str, provider_id: str, model: str, limit: str | None, result: make.MakeResult,
                   versions: list[dict[str, Any]], parts: dict[str, dict[str, str]], delivered: dict[str, str], who: str,
-                  made: str) -> None:
+                  made: str, stood_in: dict[str, str]) -> None:
     record = {
         "schema": "proofhouse.make-media/v1",
         "proofhouse_version": __version__,
@@ -461,6 +487,7 @@ def _write_record(folder: Path, request: str, kind: str, provider_id: str, model
         "interview_from": who,
         "interview": result.interview.to_dict() if result.interview is not None else None,
         "roles": {role: {k: v for k, v in entry.items() if k != "kind" or made == "video"} for role, entry in parts.items()},
+        "stood_in": stood_in,
         "versions": [{k: v[k] for k in ("version", "plan", "files", "checks", "score", "missing", "fix")} for v in versions],
         "best_version": result.best_version,
         "best_score": result.best_score,
