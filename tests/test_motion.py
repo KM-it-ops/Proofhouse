@@ -122,6 +122,22 @@ def test_terminal_types_the_command_then_shows_the_output() -> None:
     assert _alpha_sum(motion.frame(scene, 2.5)) > _alpha_sum(motion.frame(scene, 0.1)) > 0
 
 
+def test_text_scale_draws_the_words_inside_plates_boxes_and_labels_bigger() -> None:
+    timeline = {"command": "proofhouse providers list", "keys": [0.2 + i * 0.05 for i in range(25)],
+                "enter": 1.7, "output": [{"at": 1.9, "text": "openai\n"}], "seconds": 3.0}
+    layers = [{"kind": "lower_third", "title": "Ada Lovelace", "subtitle": "maker"},
+              {"kind": "callout", "box": [600, 400, 400, 200], "label": "Scored", "spotlight": 0},
+              {"kind": "cards", "items": [{"title": "Prompts", "body": "Made and kept"}, "Media"], "columns": 2},
+              {"kind": "panel", "rows": [{"text": "Prompt", "value": "ok"}, "Media"], "title": "Runs"},
+              {"kind": "terminal", "timeline": timeline}]
+    for layer in layers:
+        bright = [sum(motion.frame(_scene([dict(layer, text_scale=s)]), 2.6).convert("L").histogram()[151:])
+                  for s in (1.0, 1.5)]
+        assert bright[1] > 1.6 * bright[0] > 0, layer["kind"]  # half as big again in each direction
+    with pytest.raises(motion.MotionError, match="text_scale"):
+        motion.check_scene(_scene([dict(layers[0], text_scale="big")]))
+
+
 def test_living_background_moves_and_is_never_flat() -> None:
     scene = _scene([], base={"kind": "living"})
     a, b = motion.frame(scene, 0.0).convert("L"), motion.frame(scene, 2.0).convert("L")

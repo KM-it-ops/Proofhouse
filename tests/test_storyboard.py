@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-from proofhouse import sound, storyboard
+from proofhouse import motion, sound, storyboard
 from proofhouse.storyboard import StoryboardError
 
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None,
@@ -320,6 +320,26 @@ def test_a_vertical_film_spreads_the_layout_down_the_frame_and_enlarges_the_word
     x, y, w, h = panel["box"]
     assert (x + w / 2, y + h / 2, w, h) == pytest.approx((960, 540 * f, 1200, 1050))
     assert link["from"] == pytest.approx([400, 300 * f]) and link["to"] == pytest.approx([1500, 800 * f])
+
+
+def test_a_vertical_film_enlarges_the_words_drawn_inside_plates_boxes_and_labels(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    timeline = {"command": "proofhouse make", "keys": [0.2, 0.3], "enter": 0.6, "seconds": 2.0}
+    layers = [{"kind": "lower_third", "title": "Ada"},
+              {"kind": "callout", "box": [600, 300, 300, 100], "label": "here"},
+              {"kind": "cards", "items": ["a", "b"]},
+              {"kind": "panel", "rows": ["x"], "box": [160, 190, 1600, 700]},
+              {"kind": "terminal", "timeline": timeline}]
+    beats, _ = _planned([{"say": "Intro.", "layers": layers}], tmp_path)
+    wide = storyboard.scenes(beats, (1920, 1080))[0]
+    assert not any("text_scale" in layer for layer in wide["layers"])
+    tall = storyboard.scenes(beats, (1080, 1920))[0]
+    scale = {k: _layer(tall, k)["text_scale"] for k in ("lower_third", "callout", "cards", "panel", "terminal")}
+    assert scale["lower_third"] == scale["callout"] == scale["cards"] == pytest.approx(1.5)
+    assert scale["panel"] == pytest.approx(1840 / 1600, abs=1e-4)  # a wide box can only grow so far, and its words with it
+    assert scale["terminal"] == pytest.approx(1840 / 1500, abs=1e-4)
+    assert _layer(tall, "panel")["box"][2] == pytest.approx(1840)
+    motion.check_scene(tall)
 
 
 def test_vertical_footage_fills_more_of_the_width(tmp_path: Path) -> None:

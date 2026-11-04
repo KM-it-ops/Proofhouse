@@ -473,6 +473,7 @@ _POINT_KINDS = ("title", "label", "chips", "counter", "lower_third")
 _BOX_DEFAULTS = {"cards": (160, 330, 1600, 420), "panel": (560, 190, 800, 700), "terminal": (210, 140, 1500, 800),
                  "video": (160, 90, 1600, 900), "image": (160, 90, 1600, 900)}
 _TEXT_SIZES = {"title": 96, "label": 22, "chips": 34, "counter": 160}
+_SCALED_TEXT = ("cards", "callout", "lower_third")  # drawn at a fixed size, so they take a text_scale
 TALL_TEXT = 1.5
 TALL_WIDTH = 1840
 
@@ -528,6 +529,8 @@ def _tall(layer: dict, size: tuple[int, int]) -> dict:
     mapped = isinstance(layer.get("map"), dict)  # in the footage's own pixels: the map already places it
     if kind in _TEXT_SIZES:
         layer["size"] = layer.get("size", _TEXT_SIZES[kind]) * TALL_TEXT
+    if kind in _SCALED_TEXT:
+        layer["text_scale"] = layer.get("text_scale", 1) * TALL_TEXT
     if kind in _POINT_KINDS:
         if "y" in layer:
             layer["y"] = layer["y"] * f
@@ -545,6 +548,8 @@ def _tall(layer: dict, size: tuple[int, int]) -> dict:
             return layer  # motion.check_scene says what is wrong with it
         x, y, w, h = box
         grow = min(TALL_TEXT, TALL_WIDTH / w) if w > 0 else 1.0
+        if kind in ("panel", "terminal"):
+            layer["text_scale"] = round(layer.get("text_scale", 1) * grow, 4)  # the words grow with the box
         cx, cy, w, h = x + w / 2, (y + h / 2) * f, w * grow, h * grow
         if kind == "cards":
             n = len(layer.get("items") or [None])
