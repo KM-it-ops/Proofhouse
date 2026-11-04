@@ -103,10 +103,26 @@ def test_questions_are_read_from_groups_fences_and_flat_lists() -> None:
     assert [q.id for q in grouped] == ["audience", "team_size", "must"]
     assert grouped[0].group == "Basics" and grouped[0].options == ("Just me", "My team")
     assert grouped[1].depends_on == ("audience", ("My team",))
-    flat = mi.parse_questions(json.dumps([{"question": "Same?"}, {"question": "Same?"}]))
+    flat = mi.parse_questions(json.dumps([{"id": "same", "question": "Same?"}, {"id": "same", "question": "Other?"}]))
     assert [q.id for q in flat] == ["same", "same_2"] and flat[0].type == "text"
     # options without a choice type, or a choice type without options, are plain text questions
     assert mi.parse_questions(json.dumps([{"text": "Pick", "type": "single_select", "options": []}]))[0].type == "text"
+
+
+def test_a_question_asked_twice_is_asked_once() -> None:
+    reply = json.dumps([
+        {"id": "purpose", "text": "What is the main purpose of this video?", "type": "single_select",
+         "options": ["Teaser", "Tutorial"]},
+        {"id": "purpose_value", "text": "What is the main purpose of this video? (select one)", "type": "single_select",
+         "options": ["Teaser", "Tutorial"]},
+        {"id": "length", "text": "How long should the video be?"},
+        {"id": "length_value", "text": "how long should the video be (length)"},
+        {"id": "teaser_tone", "text": "What tone should the teaser have?", "dependsOn": {"questionId": "purpose_value",
+                                                                                      "values": ["Teaser"]}},
+    ])
+    questions = mi.parse_questions(reply)
+    assert [q.id for q in questions] == ["purpose", "length", "teaser_tone"]
+    assert questions[2].depends_on == ("purpose", ("Teaser",))  # a follow-up of the repeat hangs off the first
 
 
 @pytest.mark.parametrize("reply", [None, "", "no json here", "[]", json.dumps([{"text": ""}]), '{"other": 1}'])

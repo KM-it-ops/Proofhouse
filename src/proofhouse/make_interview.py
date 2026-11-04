@@ -307,16 +307,22 @@ def parse_questions(text: str | None) -> list[Question]:
             flat.append(("", item))
     found: list[Question] = []
     ids: dict[str, str] = {}  # the model's id -> ours
+    asked: dict[str, str] = {}  # a question's words, said plainly -> our id for it
     for group, q in flat:
         text_ = str(q.get("text") or q.get("question") or "").strip()
         if not text_ or len(found) >= MAX_QUESTIONS:
             continue
         raw = str(q.get("id") or text_)
+        same = _plain_question(text_)
+        if same in asked:  # the same question asked twice (a model often repeats one with a note after it)
+            ids.setdefault(raw, asked[same])
+            continue
         qid = base = _clean_id(raw, len(found) + 1)
         n = 2
         while qid in ids.values():
             qid, n = f"{base}_{n}", n + 1
         ids.setdefault(raw, qid)
+        asked[same] = qid
         kind = q.get("type") if q.get("type") in TYPES else "text"
         options = tuple(str(o).strip() for o in q.get("options") or [] if str(o).strip()) \
             if isinstance(q.get("options"), list) and kind != "text" else ()
@@ -335,6 +341,12 @@ def parse_questions(text: str | None) -> list[Question]:
     if not found:
         raise ValueError("the reply holds no questions")
     return found
+
+
+def _plain_question(text: str) -> str:
+    """A question's words without case, punctuation or a note in brackets at the end, to spot one asked twice."""
+    text = re.sub(r"\s*\([^()]*\)\s*$", "", text.strip())
+    return " ".join(re.sub(r"[^\w\s]", " ", text.lower()).split())
 
 
 def applies(question: Question, answers: dict[str, str]) -> bool:
