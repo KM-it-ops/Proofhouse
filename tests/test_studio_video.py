@@ -636,6 +636,26 @@ def test_a_timing_that_stays_unreadable_falls_back_to_the_default_instead_of_los
 
 
 @needs_ffmpeg
+def test_the_script_writer_is_told_every_problem_at_once_so_one_fix_can_mend_them_all(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    broken = json.loads(json.dumps(BEATS))
+    broken["beats"][0]["layers"].append({"kind": "counter", "text": "1"})  # a counter with nothing to count to
+    broken["beats"][1]["layers"][0]["at"] = "phrase 2"  # the beat has one phrase
+    broken["beats"][2]["layers"].append({"kind": "card", "items": ["x"]})  # a kind the engine does not have
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(broken, BEATS, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert len(asked) == 2 and made.stopped == "finished", made.stopped  # one fix was enough
+    fix = asked[1]
+    assert "beat 1: layer 2 (counter)" in fix and "needs 'to'" in fix
+    assert "beat 2: layer 1 at:" in fix and "no phrase 2" in fix
+    assert "beat 3: layer 2 has" in fix and "unknown kind 'card'" in fix
+
+
+@needs_ffmpeg
 def test_a_short_film_is_held_out_to_the_asked_length(tmp_path: Path, services) -> None:
     _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
     made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",

@@ -57,7 +57,8 @@ _BEATS = (
 
 _FIX = (
     "The storyboard you wrote cannot be used: {problem}.\n"
-    "Write the whole storyboard again with that fixed, in the same JSON shape, JSON only.\n\n"
+    "Write the whole storyboard again with every one of these fixed, in the same JSON shape, JSON only. "
+    "Keep everything else that worked.\n\n"
     "YOUR TASK WAS:\n{task}\n\nYOUR REPLY WAS:\n{reply}"
 )
 
@@ -347,6 +348,41 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
     except motion.MotionError as exc:
         raise StudioError(f"beat {beat.number}: {exc}") from exc
     return out
+
+
+def script_problems(data: dict[str, Any], facts: dict[str, Any] | None = None) -> list[str]:
+    """Every problem in a beats plan, each named by its beat and layer or sound, so one fix can mend them all.
+
+    The check that runs before anything is spent stops at the first problem; a script writer told only that one
+    mends it and trips on the next, so this checks each beat, and each overlay and sound in it, on its own."""
+    rows = data.get("beats")
+    if not isinstance(rows, list) or not rows or not all(isinstance(r, dict) for r in rows):
+        return []
+    found: list[str] = []
+    for number, raw in enumerate(rows, start=1):
+        bare = {k: v for k, v in raw.items() if k not in ("layers", "sounds")}
+        try:
+            beats_from({"beats": [bare]}, facts)
+        except StudioError as exc:
+            found.append(re.sub(r"^beat \d+:", f"beat {number}:", str(exc)))
+            continue
+        for key in ("layers", "sounds"):
+            items = raw.get(key)
+            if items is None:
+                continue
+            if not isinstance(items, list):
+                try:
+                    beats_from({"beats": [{**bare, key: items}]}, facts)
+                except StudioError as exc:
+                    found.append(re.sub(r"^beat \d+:", f"beat {number}:", str(exc)))
+                continue
+            for i, item in enumerate(items, start=1):
+                try:
+                    beats_from({"beats": [{**bare, key: [item]}]}, facts)
+                except StudioError as exc:
+                    said = re.sub(r"^(layer|sound)s?( \d+)?:? ?", "", re.sub(r"^beat \d+: ", "", str(exc)))
+                    found.append(f"beat {number}: {key[:-1]} {i} {said}")
+    return found
 
 
 def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None) -> tuple[dict[str, Any], list[str]]:
@@ -886,6 +922,8 @@ def produce(
                     plan = plan_from(data, seconds, facts)
             except StudioError as exc:
                 problem = str(exc)
+                if data is not None and board is None and plan is None:
+                    problem = "; ".join(script_problems(data, facts)) or problem  # all of them, not just the first
             if problem is not None and attempt == SCRIPT_FIXES and board is None and plan is None and data:
                 cleaned, dropped = untime_unreadable(data, facts)  # the last chance is gone: keep what can be read
                 if dropped:
