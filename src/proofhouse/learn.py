@@ -26,7 +26,7 @@ from . import addons, providers
 LEARNED_PACK = "learned"
 SOURCES_NOTE = "named by the model that researched this kind; not checked"
 # Kinds with an engine of their own: ``proofhouse make --kind video|launch`` runs them, not the writer loop.
-OWN_ENGINE = frozenset({"video", "launch"})
+OWN_ENGINE = frozenset({"video", "launch", "image", "voice", "music"})
 
 _RESEARCH = (
     "Proofhouse makes many kinds of things for people. Someone asked it to make a {kind}, a kind it has not made "

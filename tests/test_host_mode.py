@@ -422,11 +422,12 @@ def video_folder(tmp_path: Path, with_voice: bool = True) -> Path:
     folder = tmp_path / "v"
     folder.mkdir()
     ffmpeg("-f", "lavfi", "-i", "color=c=red:s=320x240", "-frames:v", "1", str(folder / "shot-01.png"))
-    ffmpeg("-f", "lavfi", "-i", "color=c=blue:s=320x240", "-frames:v", "1", str(folder / "shot-02.png"))
+    # the second shot moves: two still pictures in a row are a slideshow, which the film checks reject
+    ffmpeg("-f", "lavfi", "-i", "testsrc2=s=320x240:d=3:r=25", "-pix_fmt", "yuv420p", str(folder / "shot-02.mp4"))
     script: dict[str, object] = {
         "title": "Corner Bakery", "voiceover": "Fresh bread every morning.", "music": "",
         "shots": [{"seconds": 2, "visual": "red", "caption": "Fresh bread", "file": "shot-01.png"},
-                  {"seconds": 2, "visual": "blue", "caption": "Every morning", "file": "shot-02.png"}],
+                  {"seconds": 2, "visual": "a moving pattern", "caption": "Every morning", "file": "shot-02.mp4"}],
     }
     if with_voice:
         ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=4", str(folder / "voice.wav"))
@@ -458,9 +459,9 @@ def test_render_video_without_voice_is_silent_and_still_passes(tmp_path: Path) -
 @needs_ffmpeg
 def test_render_video_names_a_missing_shot_and_renders_nothing(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     folder = video_folder(tmp_path)
-    (folder / "shot-02.png").unlink()
+    (folder / "shot-02.mp4").unlink()
     assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) != 0
-    assert "shot-02.png" in capsys.readouterr().err
+    assert "shot-02.mp4" in capsys.readouterr().err
     assert not list(folder.glob("video-*.mp4"))
 
 
@@ -774,6 +775,62 @@ def test_render_video_cuts_pictures_and_clips_together_in_one_film(tmp_path: Pat
     out = capsys.readouterr().out
     assert "checks passed" in out and "0 of" not in out
     assert studio.probe(folder / "video-1x1.mp4")["seconds"] > 3.5
+
+
+def beats_folder(tmp_path: Path) -> Path:
+    folder = tmp_path / "b"
+    folder.mkdir()
+    ffmpeg("-f", "lavfi", "-i", "testsrc2=s=320x180", "-frames:v", "1", str(folder / "desk.png"))
+    for name in ("one", "two"):
+        ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.4", str(folder / f"{name}.wav"))
+    ffmpeg("-f", "lavfi", "-i", "sine=frequency=220:duration=6", str(folder / "bed.wav"))
+    script = {"title": "Corner Bakery", "music_file": "bed.wav", "beats": [
+        {"phrases": [{"text": "Fresh bread.", "file": "one.wav"}], "base": {"kind": "image", "file": "desk.png"},
+         "layers": [{"kind": "title", "text": "Fresh bread", "at": "phrase 1"}]},
+        {"phrases": [{"text": "Every morning.", "file": "two.wav"}], "base": {"kind": "living"},
+         "layers": [{"kind": "chips", "items": ["six", "am"], "at": "start"}]},
+    ]}
+    (folder / "script.json").write_text(json.dumps(script), encoding="utf-8")
+    return folder
+
+
+@needs_ffmpeg
+def test_render_video_plays_a_storyboard_timed_to_the_agents_own_phrase_files(tmp_path: Path) -> None:
+    folder = beats_folder(tmp_path)
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 0
+    measured = studio.probe(folder / "video-1x1.mp4")
+    assert measured["audio"] is True and 3.0 < measured["seconds"] < 5.0
+    record = json.loads((folder / "studio.json").read_text(encoding="utf-8"))
+    assert record["spent_usd_estimated"] == "0" and [b["beat"] for b in record["beats"]] == [1, 2]
+    assert all(check["ok"] for check in record["checks"]), record["checks"]
+    assert "Every morning." in (folder / "captions.srt").read_text(encoding="utf-8")
+
+
+@needs_ffmpeg
+def test_render_video_storyboard_needs_a_file_or_a_voice_for_every_phrase(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = beats_folder(tmp_path)
+    script = json.loads((folder / "script.json").read_text(encoding="utf-8"))
+    del script["beats"][1]["phrases"][0]["file"]
+    (folder / "script.json").write_text(json.dumps(script), encoding="utf-8")
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 2
+    assert "no voice file" in capsys.readouterr().err
+    script["voice"] = "kokoro"
+    (folder / "script.json").write_text(json.dumps(script), encoding="utf-8")
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 2
+    assert '"provider"' in capsys.readouterr().err
+    assert not list(folder.glob("video-*.mp4"))
+
+
+@needs_ffmpeg
+def test_render_video_storyboard_never_reads_a_phrase_file_outside_the_folder(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    folder = beats_folder(tmp_path)
+    shutil.copy(folder / "one.wav", tmp_path / "outside.wav")
+    script = json.loads((folder / "script.json").read_text(encoding="utf-8"))
+    script["beats"][0]["phrases"][0]["file"] = "../outside.wav"
+    (folder / "script.json").write_text(json.dumps(script), encoding="utf-8")
+    assert cli.main(["render", "video", str(folder), "--formats", "1x1", "--size-scale", "0.25"]) == 2
+    assert "outside.wav" in capsys.readouterr().err
+    assert not list(folder.glob("video-*.mp4"))
 
 
 # ---------------------------------------------------------------- skill that teaches the loop

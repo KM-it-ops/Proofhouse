@@ -20,6 +20,9 @@ from __future__ import annotations
 import base64
 import json
 import os
+import re
+import shutil
+import subprocess
 import time
 from dataclasses import dataclass, field
 from decimal import Decimal
@@ -54,12 +57,15 @@ class MediaProvider:
     poll: dict[str, Any] | None
     result: dict[str, Any]
     origin: str
+    run: dict[str, Any] | None = None  # a program on this machine instead of a web address
 
     @property
     def local(self) -> bool:
         # A learned service is never treated as local, even at a loopback address: it always needs a spending limit.
         if self.origin == "add-on learned":
             return False
+        if self.run is not None:
+            return True
         return (urlparse(self.base_url).hostname or "").lower() in providers.LOCAL_HOSTS
 
 
@@ -98,6 +104,38 @@ class MediaResult:
         return dict(vars(self))
 
 
+_PROGRAM_ORIGINS = ("shipped", "yours")
+_PLACEHOLDER = re.compile(r"\{(\w+)\}")
+
+
+def _parse_run(pid: str, run: object, origin: str) -> dict[str, Any]:
+    """A program on this machine: a command list (never one shell string), what goes on stdin, where the file comes out."""
+    if origin not in _PROGRAM_ORIGINS:
+        raise MediaError(f"{pid}: only the shipped table and your own media_providers.json may run a program on this machine")
+    if not isinstance(run, dict):
+        raise MediaError(f"{pid}: run must be an object with a command list")
+    command = run.get("command")
+    if not isinstance(command, list) or not command or any(not isinstance(a, str) or not a for a in command):
+        raise MediaError(f"{pid}: run.command must be a list of words, never one shell string")
+    if "{" in command[0]:
+        raise MediaError(f"{pid}: the program to run is never filled in from a placeholder")
+    stdin = run.get("stdin")
+    if stdin is not None and not isinstance(stdin, str):
+        raise MediaError(f"{pid}: run.stdin must be text")
+    output = run.get("output", "file")
+    if output not in ("file", "stdout"):
+        raise MediaError(f"{pid}: run.output must be file or stdout")
+    ext = run.get("ext")
+    if not isinstance(ext, str) or not re.fullmatch(r"[a-z0-9]{1,8}", ext):
+        raise MediaError(f"{pid}: run.ext must name the file type it makes, such as wav or png")
+    timeout = run.get("timeout", 900)
+    if isinstance(timeout, bool) or not isinstance(timeout, (int, float)) or not 1 <= timeout <= 86400:
+        raise MediaError(f"{pid}: run.timeout must be between 1 and 86400 seconds")
+    if output == "file" and not any("{out}" in a for a in command[1:]):
+        raise MediaError(f"{pid}: run.command must say where the file goes ({{out}}), or set output to stdout")
+    return {"command": list(command), "stdin": stdin, "output": output, "ext": ext, "timeout": timeout}
+
+
 def _parse(raw: object, origin: str) -> MediaProvider:
     if not isinstance(raw, dict):
         raise MediaError("a media service must be an object")
@@ -110,6 +148,13 @@ def _parse(raw: object, origin: str) -> MediaProvider:
     unit = raw.get("unit", "request")
     if unit not in UNITS:
         raise MediaError(f"{pid}: unit must be one of {', '.join(UNITS)}")
+    key_env = raw.get("key_env")
+    if key_env is not None and (not isinstance(key_env, str) or not providers._ENV.fullmatch(key_env)):
+        raise MediaError(f"{pid}: key_env must be an environment variable name")
+    if "run" in raw:
+        run = _parse_run(pid, raw["run"], origin)
+        return MediaProvider(pid, str(raw.get("name", pid)), kinds, "", key_env, "none", unit, {}, None,
+                             {"ext": run["ext"]}, origin, run)
     auth = raw.get("auth", "bearer")
     if auth not in ("bearer", "key", "none") and not (isinstance(auth, str) and auth.startswith("header:") and len(auth) > 7):
         raise MediaError(f"{pid}: auth must be bearer, key, none or header:<Name>")
@@ -121,9 +166,6 @@ def _parse(raw: object, origin: str) -> MediaProvider:
     poll = raw.get("poll")
     if poll is not None and (not isinstance(poll, dict) or not {"url", "status", "done"} <= set(poll)):
         raise MediaError(f"{pid}: poll needs url, status and done")
-    key_env = raw.get("key_env")
-    if key_env is not None and (not isinstance(key_env, str) or not providers._ENV.fullmatch(key_env)):
-        raise MediaError(f"{pid}: key_env must be an environment variable name")
     try:
         base = providers.check_base_url(raw.get("base_url"))
     except providers.ProviderError as exc:
@@ -204,10 +246,29 @@ def _fill(value: Any, params: dict[str, Any]) -> Any:
 def build_request(profile: MediaProvider, model: str, params: dict[str, Any]) -> tuple[str, dict[str, Any], Decimal]:
     """The URL, the body and how many price units this request is. Same parameters, same units, every time."""
     values = {**DEFAULTS, **params, "model": model}
-    url = profile.base_url.rstrip("/") + _fill(profile.submit["path"], {k: str(v) for k, v in values.items()})
-    if (urlparse(url).hostname or "").lower() != (urlparse(profile.base_url).hostname or "").lower():
-        raise MediaError(f"{profile.id}: the request address leaves the service's host")
-    body = _fill(profile.submit["body"], values)
+    if profile.run is not None:
+        text = {k: str(v) for k, v in values.items()}
+
+        def fill(arg: str) -> str:  # one pass, so words in the prompt are never read as placeholders
+            return _PLACEHOLDER.sub(lambda m: text.get(m.group(1), m.group(0)), arg)
+
+        def word(arg: str) -> str:
+            filled = fill(arg)
+            if filled.startswith("-") and not arg.startswith("-"):  # a value, not the line, made it a switch
+                raise MediaError(f"{profile.id}: a value starting with '-' would be read as an option by the "
+                                 "program; send free text on stdin")
+            return filled
+
+        command = profile.run["command"]
+        stdin = profile.run["stdin"]
+        url = "program:" + profile.id
+        body: Any = {"command": [command[0], *(word(a) for a in command[1:])],
+                     "stdin": None if stdin is None else fill(stdin)}
+    else:
+        url = profile.base_url.rstrip("/") + _fill(profile.submit["path"], {k: str(v) for k, v in values.items()})
+        if (urlparse(url).hostname or "").lower() != (urlparse(profile.base_url).hostname or "").lower():
+            raise MediaError(f"{profile.id}: the request address leaves the service's host")
+        body = _fill(profile.submit["body"], values)
     if profile.unit == "image":
         units = Decimal(int(values.get("n", 1)))
     elif profile.unit == "second":
@@ -349,9 +410,18 @@ def generate(
     headers = _headers(profile, secret)
     follow = profile.origin != "add-on learned"
     read = get or (lambda url, hdrs: _httpx_get(url, hdrs, follow_redirects=follow))
+    asked = {**(params or {}), "prompt": prompt}
+    target = None
+    if profile.run is not None:
+        target = (out if out.suffix else out.with_suffix("." + profile.run["ext"])).resolve()
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.unlink(missing_ok=True)  # an old file must never pass for a new one
+        asked["out"] = str(target)
 
     def _dispatch(url: str, body_bytes: bytes) -> Any:
         # The only paid send. It runs only when the spend gate calls it, with the request the gate built and counted.
+        if profile.run is not None:
+            return _run_program(profile, body_bytes)
         request = MediaRequest(url, headers, {}, body_bytes)
         try:
             return transport(request) if transport is not None else _httpx_post(request, follow_redirects=follow)
@@ -360,15 +430,22 @@ def generate(
         except Exception as exc:  # noqa: BLE001 -- the live boundary must not leak the key
             return type(exc).__name__
 
-    gated = spend.send_media_within_ceiling(
-        profile, model, {**(params or {}), "prompt": prompt}, ceiling_usd=max_cost_usd, send=_dispatch
-    )
+    gated = spend.send_media_within_ceiling(profile, model, asked, ceiling_usd=max_cost_usd, send=_dispatch)
     admission = gated.admission.to_dict()
     base = dict(provider=profile.id, model=model, kind=kind, admission=admission)
     if gated.admission.decision != "admitted":
         return MediaResult("refused", gated.admission.code, gated.admission.message, **base)
     cost = {"usd": admission.get("worst_case_usd"), "basis": "estimated", "unit": profile.unit, "wall_seconds": None}
     response = gated.response
+    if target is not None:
+        if not isinstance(response, MediaResponse):
+            return MediaResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: {profile.name} did not finish: {response}", **base, cost=cost)
+        if response.content is not None:
+            target.write_bytes(response.content)
+        if not target.is_file() or target.stat().st_size == 0:
+            return MediaResult("error", "PHC-RUN-0006", f"PHC-RUN-0006: {profile.name} finished but wrote nothing at {target}",
+                               **base, cost=cost)
+        return MediaResult("success", None, None, **base, path=str(target), cost=cost)
     if not isinstance(response, MediaResponse):
         return MediaResult("error", "PHC-RUN-0005", f"PHC-RUN-0005: the request could not be sent ({response}); nothing more was tried", **base, cost=cost)
     if response.location or 300 <= response.status_code < 400:
@@ -388,6 +465,54 @@ def generate(
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_bytes(data)
     return MediaResult("success", None, None, **base, path=str(target), cost=cost)
+
+
+def _run_program(profile: MediaProvider, body_bytes: bytes) -> MediaResponse | str:
+    """Run the exact command the gate counted. No shell: every word reaches the program as plain text."""
+    assert profile.run is not None
+    body = json.loads(body_bytes)
+    first, *rest = body["command"]
+    program = _find_program(first)
+    if program is None:
+        return f"{first} is not installed or not on PATH (or give its full path)"
+    if Path(program).suffix.lower() in (".bat", ".cmd"):
+        return f"{program} is a batch file, which would read the words as commands; point the line at the program itself"
+    timeout = profile.run["timeout"]
+    stdin = body["stdin"]
+    try:
+        done = subprocess.run([program, *rest], input=None if stdin is None else stdin.encode("utf-8"),
+                              stdin=subprocess.DEVNULL if stdin is None else None, capture_output=True,
+                              timeout=timeout, check=False)
+    except subprocess.TimeoutExpired:
+        return f"it ran past its {timeout:g} s limit and was stopped"
+    except OSError as exc:
+        return f"{first} could not start ({type(exc).__name__})"
+    if done.returncode != 0:
+        lines = done.stderr.decode("utf-8", "replace").strip().splitlines()
+        return f"it stopped with exit code {done.returncode}" + (f": {lines[-1][:300]}" if lines else "")
+    return MediaResponse(200, None, done.stdout if profile.run["output"] == "stdout" else None)
+
+
+def _find_program(first: str) -> str | None:
+    """A bare name from PATH's full folders only, never the current folder (which Windows searches first, and where
+    a downloaded film folder could plant one); anything else must be a full path."""
+    if Path(first).is_absolute():
+        return first if Path(first).is_file() else None
+    if Path(first).name != first:
+        return None  # a relative path would depend on where the command was run
+    exts = [""]
+    if os.name == "nt":
+        pathext = [e for e in os.environ.get("PATHEXT", ".COM;.EXE").split(os.pathsep) if e]
+        if Path(first).suffix.upper() not in (e.upper() for e in pathext):
+            exts = pathext
+    for folder in os.environ.get("PATH", "").split(os.pathsep):
+        if not folder or not Path(folder).is_absolute():
+            continue
+        for ext in exts:
+            hit = Path(folder) / (first + ext)
+            if hit.is_file() and os.access(hit, os.X_OK):
+                return str(hit)
+    return None
 
 
 def _scrub(text: str, secret: str | None) -> str:

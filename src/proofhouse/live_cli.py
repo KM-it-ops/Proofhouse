@@ -167,35 +167,81 @@ def _cmd_run(args: argparse.Namespace) -> int:
     return EXIT_OK if result.status == "success" else EXIT_REFUSED
 
 
-def _cmd_make_video(args: argparse.Namespace) -> int:
+def _media_target_text(args: argparse.Namespace) -> str | None:
+    """The services the video flags name, in the words the interview reads (the way --platform feeds an app)."""
+    from . import make_media
+
+    return make_media.video_target(vars(args))
+
+
+def _cmd_make_media(args: argparse.Namespace) -> int:
+    from . import make_interview as mi
+    from . import make_media
+
     facts = None
     if args.facts:
         try:
             facts = studio.load_facts(Path(args.facts))
         except studio.StudioError as exc:
             return _fail(str(exc))
-    out = Path(args.out) if args.out else Path.cwd() / f"video-{make._slug(args.request)}"
+    if not args.for_target and not args.answers:
+        args.for_target = _media_target_text(args)
+    options = _video_options(args)
+    video = {"visual_kind": options["visual_kind"], "voice": options["voice"], "music_file": options["music_file"],
+             "captions": options["captions"], "facts": facts, "allow_commands": options["allow_commands"]}
+    if args.seconds != 30:  # the parser default means "not asked for": the plan sets the length
+        video["seconds"] = args.seconds
+    shapes = None if args.formats == "16x9,9x16,1x1" else [f.strip() for f in args.formats.split(",") if f.strip()]
     try:
-        made = studio.produce(
-            args.request, provider_id=args.provider, model=args.model,
-            max_cost_usd=args.max_cost_usd, out_dir=out, facts=facts,
-            **_video_options(args),
-        )
-    except (studio.StudioError, OSError) as exc:
+        interviewer, out = _choose_interviewer(args)
+        made = make_media.make_media(
+            args.request, kind=args.kind, provider_id=args.provider, model=args.model, max_cost_usd=args.max_cost_usd,
+            rounds=args.rounds, target=args.target, out_dir=out, interviewer=interviewer, preset=args.preset,
+            video=video, shapes=shapes)
+    except (make.MakeError, mi.InterviewError, providers.ProviderError, OSError) as exc:
         return _fail(str(exc))
-    failed = [c for c in made.checks if not c["ok"]]
-    summary = {"folder": str(made.folder), "stopped": made.stopped, "renders": made.renders, "checks_failed": failed,
-               "spent_usd_estimated": format(made.spent_usd, "f")}
+    if made.waiting is not None:
+        again = f"proofhouse make {args.request!r} --kind {args.kind} --provider {args.provider} --model {args.model}"
+        if args.max_cost_usd:
+            again += f" --max-cost-usd {args.max_cost_usd}"
+        for flag, value in (("--seconds", video.get("seconds")), ("--formats", ",".join(shapes) if shapes else None),
+                            ("--voice", args.voice), ("--music-file", args.music_file), ("--facts", args.facts)):
+            if value:
+                again += f" {flag} {value}"
+        if args.rounds != make.DEFAULT_ROUNDS:
+            again += f" --rounds {args.rounds}"
+        if args.target != make.DEFAULT_TARGET:
+            again += f" --target {args.target}"
+        if args.visual_kind != "image":
+            again += f" --visual-kind {args.visual_kind}"
+        if args.no_captions:
+            again += " --no-captions"
+        if options["allow_commands"]:
+            again += " --allow-commands"
+        again += f" --answers {made.folder / 'answers.json'}"
+        if args.json:
+            print(json.dumps({"folder": str(made.folder), "kind": made.kind, "stopped": made.stopped,
+                              "waiting": [str(p) for p in made.waiting], "next": again}, sort_keys=True))
+        else:
+            print(f"waiting for your answers: {', '.join(str(p) for p in made.waiting)}")
+            print(f"fill in answers.json, then run: {again}")
+        return EXIT_WAITING
+    delivered ={shape: str(made.folder / path) for shape, path in (made.delivered or {}).items()}
     if args.json:
-        print(json.dumps(summary, sort_keys=True))
+        print(json.dumps({"folder": str(made.folder), "kind": made.kind, "stopped": made.stopped,
+                          "best_version": made.best_version, "best_score": made.best_score, "versions": len(made.rounds),
+                          "delivered": delivered, "undelivered": made.undelivered, "spent_usd_estimated": format(made.spent_usd, "f")}, sort_keys=True))
     else:
-        print(f"{made.title or 'video'}: {made.stopped}")
-        for name, path in made.renders.items():
-            print(f"  {name}: {path}")
-        print(f"checks: {len(made.checks) - len(failed)} passed, {len(failed)} failed; spent about ${summary['spent_usd_estimated']}")
-        for check in failed:
-            print(f"  FAILED {check['render']} {check['check']}: {check['detail']}")
-    return EXIT_OK if made.renders and not failed else EXIT_REFUSED
+        score = "not judged" if made.best_score is None else f"judge score {made.best_score}/10"
+        best = f"version {made.best_version} ({score})" if made.best_version else "nothing usable"
+        print(f"made: {best}; stopped: {made.stopped}")
+        for path in delivered.values():
+            print(f"  {path}")
+        if made.undelivered:
+            print(f"not delivered: {', '.join(made.undelivered)} (the file could not be made in that shape)")
+        print(f"spent about ${format(made.spent_usd, 'f')} over {len(made.calls)} calls; every version is in {made.folder}")
+        print("the judge read the plan and the file checks; it did not see or hear the result itself")
+    return EXIT_OK if delivered and not made.undelivered else EXIT_REFUSED
 
 
 def _video_options(args: argparse.Namespace) -> dict:
@@ -260,10 +306,12 @@ def _cmd_make_launch(args: argparse.Namespace) -> int:
 
 
 def _cmd_make(args: argparse.Namespace) -> int:
-    if args.kind == "video":
-        return _cmd_make_video(args)
     if args.kind == "launch":
         return _cmd_make_launch(args)
+    from . import make_media
+
+    if args.kind in make_media.media_kinds():
+        return _cmd_make_media(args)
     from . import make_interview as mi
 
     try:

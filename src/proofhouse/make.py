@@ -192,6 +192,10 @@ class MakeResult:
     interview: Any = None
     tried_on: str | None = None
     tried_on_note: str | None = None
+    # Media makes: the shape (or file type) to the delivered file, relative to the folder.
+    delivered: dict[str, str] | None = None
+    # Media makes: the shapes the best version should have been delivered in but could not be.
+    undelivered: list[str] = field(default_factory=list)
 
 
 def _slug(text: str) -> str:

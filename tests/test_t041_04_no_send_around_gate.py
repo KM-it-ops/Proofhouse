@@ -51,6 +51,9 @@ ALLOWED = {
     ("live.py", "urllib.request"),  # the same send step, when the optional httpx is not installed
     ("catalog.py", "httpx"),  # free model lists and official release pages; the paid reading goes through live.run_prompt and the spend gate
     ("media.py", "httpx"),
+    ("media.py", "subprocess"),  # a media program on this machine, only from the shipped table or your own file; no shell; run only by the spend gate's send step
+    ("motion.py", "subprocess"),  # ffmpeg and ffprobe on local files, and a renderer you listed in motion_renderers.json; no shell
+    ("recording.py", "subprocess"),  # the terminal command being filmed and ffmpeg joining the frames; no shell
     ("train.py", "httpx"),  # training jobs; the one paid request goes only through the spend gate
     ("train.py", "subprocess"),  # trains on this machine with your own command (for example MLX LoRA)  # any media service; the one paid request goes only through the spend gate
     ("agent_server.py", "http"),  # listens on 127.0.0.1 only and sends nothing out; a provider pointed at it still sends through live.py and the spend gate

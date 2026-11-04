@@ -1,0 +1,42 @@
+{
+  "note": "Which installed font the motion layer uses for each role. Each role is a list tried in order: a file name (looked up in the folders for this OS) or {\"file\", \"variation\", \"index\"} for a variable font or a font collection. An absolute path works too. When nothing is found, Pillow's built-in font is used. Your own lines go in motion_fonts.json in the Proofhouse home folder and are tried first.",
+  "folders": {
+    "windows": ["%WINDIR%/Fonts", "%LOCALAPPDATA%/Microsoft/Windows/Fonts"],
+    "darwin": ["/System/Library/Fonts", "/Library/Fonts", "~/Library/Fonts"],
+    "linux": ["/usr/share/fonts", "/usr/local/share/fonts", "~/.local/share/fonts", "~/.fonts"]
+  },
+  "roles": {
+    "display": [
+      {"file": "SegUIVar.ttf", "variation": "Semibold Display"},
+      {"file": "bahnschrift.ttf", "variation": "SemiBold"},
+      "seguisb.ttf",
+      "DejaVuSans-Bold.ttf",
+      "LiberationSans-Bold.ttf"
+    ],
+    "ui": [
+      "segoeui.ttf",
+      "DejaVuSans.ttf",
+      "LiberationSans-Regular.ttf",
+      "Helvetica.ttc"
+    ],
+    "ui_bold": [
+      "seguisb.ttf",
+      "segoeuib.ttf",
+      "DejaVuSans-Bold.ttf",
+      "LiberationSans-Bold.ttf"
+    ],
+    "mono": [
+      {"file": "CascadiaMono.ttf", "variation": "Regular"},
+      "consola.ttf",
+      "Menlo.ttc",
+      "DejaVuSansMono.ttf",
+      "LiberationMono-Regular.ttf"
+    ],
+    "mono_bold": [
+      {"file": "CascadiaMono.ttf", "variation": "Bold"},
+      "consolab.ttf",
+      "DejaVuSansMono-Bold.ttf",
+      "LiberationMono-Bold.ttf"
+    ]
+  }
+}

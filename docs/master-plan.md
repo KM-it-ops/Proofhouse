@@ -51,6 +51,7 @@ How it behaves everywhere:
 | Interview first for text kinds: asks its questions, says back what it understood, asks which AI tool or model it is for, then makes it in that tool's format and tries it there when it can | works (terminal or an answers file; an unknown tool is researched, not refused) |
 | Interview first for sites, apps and launches: where it will be published or which platforms, a few questions, a say-back, then build and check against the answers | works (terminal or an answers file; a launch asks shared questions once, then per part) |
 | Every run asks: with no terminal and no `--for`, a make or launch stops with its questions (which tool, model or place first) and exit code 9, then goes on from `--answers`; the record says who answered (terminal, answers file, launch, or none when called from code) | works |
+| Media through the same front door: `make --kind video\|image\|voice\|music` (and add-on media kinds) asks first, picks the service and model from the media list (local programs included; an unknown one is learned), then plans, renders, checks, judges and re-plans, keeps every version and delivers the best one in the shapes asked for; video goes through the beat-film engine | works (the judge reads the plan and the file checks; it does not see or hear the result itself) |
 | Make rules, MCP servers, hooks (each one tried for real before delivery) | works |
 | Make websites and put them online (Netlify, Vercel, Cloudflare, Surge, or any target added) | works |
 | Make apps for every platform | works; native builds proven on all six platforms ([run](https://github.com/KM-it-ops/Proofhouse/actions/runs/39161715167)) |
@@ -98,6 +99,7 @@ opened and checked), and shown to a stranger (not done yet; it waits on the owne
 | Launch (site, copy, prompt from one goal) | yes | site 8/10, copy 8/10, prompt 10/10 | no |
 | Site and app asking first (step 7a) | yes | run live 2026-11-02 through the agent bridge, answered from files: site for Netlify 9/10, 7 of 7 checks; app for PWA only 8/10, 22 of 23 checks (the one left is "nothing to build"); the answers show up in both | no |
 | Every run asks (step 7b) | yes | run live 2026-11-02 through the agent bridge with no terminal: paused three times with exit 9 (which tool, then 14 questions, then the say-back), then made a Claude Code skill from the answers file, 6/10, $0 over 12 calls; the record says "answers file" | no |
+| Media through the front door (step 7c) | yes | run live 2026-11-02 through the agent bridge with local programs only (a card painter standing in for an image service, Windows speech for voice), paid spend $0: a voice piece paused with 14 questions, then made 3 versions, best 8/10, delivered as wav and mp3 (8.8 s of real speech); a 12-second video paused with 15 questions, then made 3 versions re-planned from the judge, best 6/10 with 8 of 8 checks, delivered as a 1920x1080 mp4 of 12.3 s with sound | no |
 | Loop | yes | broken code fixed in 2 rounds, 4 of 4 tests pass, run again by hand | no |
 | Video engine | yes | two finished films with voice, music and burned-in captions, in three shapes (60 s and 45 s) | no |
 | Another provider (the Claude and Grok agent bridges, Ollama) | yes | not run live | no |
@@ -108,6 +110,10 @@ Since then (branch `feat/video-finishing`, not merged): the engine itself now di
 cleans the voice, dips the music under it and levels the mix to -16 LUFS. That polish used to exist only in the example scripts.
 Tested on a short local film (no model calls, $0). Still not done in the video engine: the voice and music still come only from a
 service or a file you give (nothing is made locally when you have neither), and shots are not timed to the spoken words.
+Since then (branch `feat/video-motion`, not merged): films can be written beat by beat, each beat timed to its spoken words, with
+moving graphics, sound effects, picked cuts and real screen recordings (at most a third of the film); the voice can come from a
+program on your own machine (Kokoro), so a film costs $0. Still not done: music is still a file or a service, the vertical 9:16
+layout of beat films is not fully worked out, and recordings have no `proofhouse` command yet (only `proofhouse.recording`).
 The agent bridge (`proofhouse agent-server`) was added in this run; its API entry is in the OpenAPI fixture.
 
 ## Build order
@@ -336,6 +342,15 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      judge, improve, keep every version, deliver in the shapes asked for. Video builds on the beat-film
      engine in PR #96 (`feat/video-motion`) rather than beside it. `generate` stays as the one-shot
      command. Every paid call goes through the spending limit.
+     **Done (branch `feat/make-media`, on top of PR #96 and 7b).** Each version's plan is kept in
+     `v<n>/plan.json` and only the best version that passed every check is delivered into `delivered/`.
+     The record says what the judge could not see or hear (`not_judged`). image, voice and music are now
+     reserved kinds, so a learned kit or add-on cannot take them over. A paused run prints a command to
+     run again that keeps the length, shapes and other choices given. A film missing a shape it was asked
+     for fails its checks; a studio stopped by the spending limit stops the whole make; a shape that could
+     not be delivered is named (`undelivered`) and the run exits 7. A launch's video part is now
+     interviewed and made through this same loop. Still open: a kind nobody taught
+     (such as "podcast") is not learned as a media kind yet.
 
 ## What is left (updated 2026-10-27)
 

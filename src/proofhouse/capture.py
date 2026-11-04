@@ -164,5 +164,53 @@ def render_card(
         html_path.unlink(missing_ok=True)
 
 
-def render_page(url: str, out_png: Path, *, size: tuple[int, int] = (1920, 1080)) -> Path:
-    return _take_screenshot(url, size, out_png)
+def render_page(
+    url: str,
+    out_png: Path,
+    *,
+    size: tuple[int, int] = (1920, 1080),
+    full_page: bool = False,
+    scale: float = 1.0,
+    timeout: int = 30,
+) -> Path:
+    """Screenshot a page. ``full_page`` keeps everything down to the bottom; ``scale`` sharpens phone shots."""
+    if not full_page and scale == 1.0:
+        return _take_screenshot(url, size, out_png)
+    sync_playwright = playwright()
+    out_png.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with sync_playwright() as p:
+            browser = launch_browser(p)
+            try:
+                page = browser.new_page(viewport={"width": size[0], "height": size[1]}, device_scale_factor=scale)
+                page.goto(url, wait_until="load", timeout=timeout * 1000)
+                page.wait_for_timeout(300)
+                page.screenshot(path=str(out_png), full_page=full_page, timeout=timeout * 1000)
+            finally:
+                browser.close()
+    except CaptureError:
+        raise
+    except Exception as exc:  # Playwright raises its own error types; report them plainly
+        raise CaptureError(f"the page screenshot failed: {exc}".splitlines()[0]) from exc
+    if not out_png.is_file():
+        raise CaptureError("the browser did not write a screenshot PNG")
+    return out_png.resolve()
+
+
+def playwright():  # noqa: ANN201 - returns Playwright's sync entry point, an optional extra
+    """Playwright's sync entry point, or a plain error saying how to install it."""
+    try:
+        from playwright.sync_api import sync_playwright
+    except ImportError as exc:
+        raise CaptureError(
+            "recording and full-page capture need the record extra: uv tool install 'proofhouse[record]'"
+        ) from exc
+    return sync_playwright
+
+
+def launch_browser(p):  # noqa: ANN001, ANN201 - Playwright objects
+    """Start the Chrome or Edge already installed here, headless; nothing is downloaded."""
+    browser = sitecheck.find_browser()
+    if browser is None:
+        raise CaptureError("no Chrome or Chromium found; install Google Chrome or Microsoft Edge")
+    return p.chromium.launch(executable_path=browser, headless=True)

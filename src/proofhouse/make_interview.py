@@ -22,7 +22,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from . import app_platforms, deploy, hosts, learn, learn_catalog
+from . import app_platforms, deploy, hosts, learn, learn_catalog, media
 from .optimize import packets
 from .optimize.model_notes import FALLBACK_ID, ResolvedNotes, prompt_notes, proofhouse_home, resolve_model_notes
 from .optimize.registry import find_model, load_registry
@@ -73,8 +73,22 @@ _PLACE_NOTE = (
     "\n\nHere the thing being made is a {kind} {where}: ask what you need to make an excellent {kind} for that, "
     "using what is known about it below.\n\nWHAT IS KNOWN:\n{guide}"
 )
+_SAY_BACK_MEDIA = (
+    "You are about to make a {kind} with {name}. Before making anything, say back in plain everyday words what you "
+    "understood, so the owner can correct it. Use short bullet points under these headings: What it is; What it is "
+    "for; Who will see or hear it; How long or how big; The look, voice or music; Where it will be shown; What I am "
+    "assuming. Under 150 words. No jargon: if a technical term is needed, put it in brackets after the plain words. "
+    "Output only the bullet points.\n\n{brief}"
+)
+_MEDIA_NOTE = (
+    "\n\nHere the thing being made is a {kind} (a picture, a voice, music or a film, not text), made by {name}. Ask "
+    "what you need to make it well: what it is for, who will see or hear it, how long or how big it should be, the "
+    "look it should have, the voice (who speaks, how it sounds), the music (mood, pace), and where it will be shown "
+    "(so the right shapes are made, such as wide, tall or square). Ask nothing about writing code or text files."
+)
 _SHARED_NOTE = "\n\nThe owner already answered these for the whole launch. Do not ask them again:\n{shared}"
 _PLACE_SORTS = ("deploy", "platform", "launch")
+_MEDIA_PREFIX = re.compile(r"(visuals|voice|music)\s*:\s*(.*)", flags=re.I | re.S)
 
 
 class InterviewError(Exception):
@@ -206,6 +220,8 @@ def _made_for(target: ToolTarget) -> str:
         return f"{target.name} (the platforms the app runs on)"
     if target.sort == "launch":
         return target.name
+    if target.sort == "media":
+        return f"{target.name} (the services that make it)"
     return f"{target.name} ({'an AI tool people work in' if target.sort == 'tool' else 'an AI model called directly'})"
 
 
@@ -224,6 +240,13 @@ def target_question(kind: str) -> str:
         return f"Where will the site be published? (for example: {', '.join(deploy.all_targets())})"
     if kind == "app":
         return f"Which platforms should the app run on? (for example: {', '.join(app_platforms.all_platforms())})"
+    from . import make_media
+
+    if kind in make_media.media_kinds():
+        needs = make_media.service_kinds(kind)
+        found = [pid for pid, p in media.all_media_providers().items() if needs & set(p.kinds)]
+        return (f"Which service makes it? Name it as service or service/model, such as {', '.join(found[:8])}"
+                + (" (for a video you can name several, such as 'visuals: a, voice: b, music: c')" if kind == "video" else ""))
     return "Which AI tool or model is this for? (for example Claude Code, Cursor, Codex, or a model name)"
 
 
@@ -389,6 +412,10 @@ def _general(entered: str, key: str, name: str, sort: str) -> ToolTarget:
 
 
 def _ask_for(kind: str) -> str:
+    from . import make_media
+
+    if kind in make_media.media_kinds():
+        return "which service makes it"
     return {"site": "where the site will be published", "app": "which platforms the app should run on"}.get(
         kind, "which AI tool or model this is for")
 
@@ -466,12 +493,74 @@ def _platform_target(entered: str, ask: Ask, learned_by: str) -> ToolTarget:
                       learned_by if learned else None)
 
 
+def _media_target(entered: str, kind: str, ask: Ask, learned_by: str) -> ToolTarget:
+    """The services that make a media piece: each from the media list (or your own program), or learned and held for approval."""
+    from . import make_media
+
+    made = make_media.media_kinds()[kind]["media"]
+    roles = make_media.ROLES[made]
+    filled: dict[str, tuple[str, str]] = {}
+    for piece in re.split(r",|\+|\s+and\s+", entered, flags=re.I):
+        text = piece.strip()
+        prefix = _MEDIA_PREFIX.fullmatch(text)
+        role = None
+        if prefix:
+            role, text = prefix.group(1).lower(), prefix.group(2).strip()
+        if role is not None and role not in roles:
+            continue
+        service, _, model = text.partition("/")
+        key = _key(service)
+        if not key:
+            continue
+        found = next((p for pid, p in media.all_media_providers().items() if key in (_key(pid), _key(p.name))), None)
+        if found is None:
+            plain = learn_catalog.plain_service_id(key)
+            if plain is None:
+                raise InterviewError(f"{service.strip()!r} is not a plain name for a media service")
+            try:
+                learn_catalog.ensure_media(plain, None, ask=lambda prompt: ask("research", prompt))
+            except learn.LearnError as exc:
+                raise InterviewError(f"could not learn the media service {service.strip()}: {exc}") from None
+            found = media.find(plain)
+            if found is None:
+                raise InterviewError(f"could not learn the media service {service.strip()}")
+        pending = learn_catalog.unapproved("media_providers", found.id, found)
+        if pending:  # stop before the questions: a learned service waits for approval
+            raise Refused(learn_catalog.refusal_message(
+                pending, thing=f"Media service {found.id}", command=f"{learn_catalog.APPROVE_CMD} {found.id}"))
+        fits = [r for r, makes in roles.items() if makes & set(found.kinds) and (role is None or r == role)]
+        if not fits:
+            raise InterviewError(f"{found.id} makes {', '.join(found.kinds)}, not {made if role is None else role}")
+        free = [r for r in fits if r not in filled]
+        if not free:
+            continue  # that part is already taken by the first service named for it
+        model = model.strip() or ("local" if found.run is not None else "")
+        if not model:
+            raise InterviewError(f"{found.id} is a web service: name its model, such as {found.id}/<model>")
+        filled[free[0]] = (found.id, model)
+    if not filled:
+        raise InterviewError(f"say {_ask_for(kind)}")
+    catalog = media.all_media_providers()
+    guides = [f"{r}: {catalog[pid].name} ({pid}/{model}) makes {', '.join(catalog[pid].kinds)}"
+              for r, (pid, model) in filled.items()]
+    learned = any(catalog[pid].origin == "add-on learned" for pid, _ in filled.values())
+    return ToolTarget(entered, "+".join(f"{r}={pid}/{model}" for r, (pid, model) in filled.items()),
+                      ", ".join(catalog[pid].name for pid, _ in filled.values()), "media",
+                      "\n".join(guides)[:_GUIDE_LIMIT],
+                      "learned (named by a model, not checked)" if learned else "the media list",
+                      learned_by if learned else None)
+
+
 def find_target(entered: str, kind: str, ask: Ask, *, learned_by: str) -> ToolTarget:
     """Known tools first, then known models, then what was learned before; anything else is researched now."""
+    from . import make_media
+
     entered = entered.strip()
     key = _key(entered)
     if not key:
         raise InterviewError(f"say {_ask_for(kind)}")
+    if kind in make_media.media_kinds():
+        return _media_target(entered, kind, ask, learned_by)
     if kind == "site":
         return _deploy_target(entered, key, ask, learned_by)
     if kind == "app":
@@ -528,7 +617,9 @@ def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], st
     where = _where(target)
     objective = f"Make a {iv.kind} {where}. {iv.request}" if where else f"Make a {iv.kind} for {target.name}. {iv.request}"
     packet = packets.clarify_packet(objective, _notes_for(target), preset, False)
-    if target.sort in _PLACE_SORTS:
+    if target.sort == "media":
+        system = packet.system + _MEDIA_NOTE.format(kind=iv.kind, name=target.name)
+    elif target.sort in _PLACE_SORTS:
         system = packet.system + _PLACE_NOTE.format(kind=iv.kind, where=where or f"({target.name})", guide=target.guide)
     else:
         system = packet.system + _KIND_NOTE.format(kind=iv.kind, name=target.name)
@@ -544,7 +635,9 @@ def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], st
 
 def _say_back(iv: Interview, ask: Ask) -> str:
     assert iv.target is not None
-    if iv.target.sort in _PLACE_SORTS:
+    if iv.target.sort == "media":
+        prompt = _SAY_BACK_MEDIA.format(kind=iv.kind, name=iv.target.name, brief=iv.brief())
+    elif iv.target.sort in _PLACE_SORTS:
         prompt = _SAY_BACK_PLACE.format(kind=iv.kind, where=(" " + _where(iv.target)).rstrip(), brief=iv.brief())
     else:
         prompt = _SAY_BACK.format(kind=iv.kind, name=iv.target.name, brief=iv.brief())

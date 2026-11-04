@@ -1,0 +1,449 @@
+"""Media makes ask first too: a video, image, voice or music piece is interviewed, made, checked, judged, improved and delivered."""
+from __future__ import annotations
+
+import json
+import shutil
+import subprocess
+import sys
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+from proofhouse import cli, live, live_cli, make, make_media, studio
+from proofhouse import make_interview as mi
+from proofhouse.optimize import cli as optimize_cli
+
+from test_learn_unknowns import MEDIA
+from test_make_interview import QUESTIONS, Answers
+
+needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="FFmpeg not installed")
+
+# Stand-ins for a local image maker and a local voice: read the words on stdin, write a real file with FFmpeg.
+PAINTER = (
+    "import subprocess, sys\n"
+    "sys.stdin.read()\n"
+    "subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'testsrc2=s=640x480', '-frames:v', '1', sys.argv[1]], check=True)\n"
+)
+SPEAKER = (
+    "import subprocess, sys\n"
+    "sys.stdin.read()\n"
+    "subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=2', sys.argv[1]], check=True)\n"
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_terminal(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(optimize_cli, "_stdin_is_terminal", lambda: False)
+
+
+def _add(tmp_path: Path, entry: dict) -> None:
+    path = tmp_path / f"{entry['id']}.json"
+    path.write_text(json.dumps(entry), encoding="utf-8")
+    assert cli.main(["media", "add", "--from", str(path)]) == 0
+
+
+@pytest.fixture
+def programs(tmp_path: Path) -> None:
+    """Two programs on this machine, added as data: a painter (image) and a speaker (speech). Both cost nothing."""
+    for name, script, kind, ext in (("my-painter", PAINTER, "image", "png"), ("my-voice", SPEAKER, "speech", "wav")):
+        path = tmp_path / f"{name}.py"
+        path.write_text(script, encoding="utf-8")
+        _add(tmp_path, {"id": name, "name": name.replace("-", " ").title(), "kinds": [kind], "unit": "request",
+                        "run": {"command": [sys.executable, str(path), "{out}"], "stdin": "{prompt}", "ext": ext}})
+
+
+class Director:
+    """A text model for media makes: answers by what each call asks for, and keeps every prompt it saw."""
+
+    def __init__(self, scores: list[int] | None = None, shapes: list[str] | None = None) -> None:
+        self.scores = list(scores or [9])
+        self.shapes = shapes
+        self.calls: list[str] = []
+        self.seen: dict[str, list[str]] = {}
+
+    def __call__(self, request: live.Request) -> live.Response:
+        body = json.loads(request.body_bytes)
+        text = " ".join(m["content"] for m in body["messages"])
+        if text.startswith("You are an expert prompt engineer. You generate"):
+            role, content = "questions", QUESTIONS
+        elif text.startswith("You are about to"):
+            role, content = "say back", "- What it is: a short piece, understood"
+        elif text.startswith("You plan a"):
+            role = "plan"
+            n = self.calls.count("plan") + 1
+            plan = {"prompt": f"plan {n}: a fox in a red scarf at dawn", "voice": "warm", "seconds": 2}
+            if self.shapes is not None:
+                plan["shapes"] = self.shapes
+            content = json.dumps(plan)
+        elif text.startswith("You judge media"):
+            n = self.calls.count("judge") + 1
+            role, content = "judge", json.dumps({"score": self.scores.pop(0), "missing": [f"gap {n}"], "fix": f"fix number {n}"})
+        elif text.startswith("Proofhouse generates images"):
+            role, content = "research", json.dumps({**MEDIA, "sources": ["https://api.acme.example/docs"]})
+        else:
+            role, content = "other", "{}"
+        self.calls.append(role)
+        self.seen.setdefault(role, []).append(text)
+        return live.Response(200, {"choices": [{"message": {"content": content}}],
+                                   "usage": {"prompt_tokens": 10, "completion_tokens": 5}})
+
+
+def _route(monkeypatch: pytest.MonkeyPatch, model: Director) -> None:
+    real = make_media.make_media
+    monkeypatch.setattr(make_media, "make_media", lambda *a, **k: real(*a, **{**k, "transport": model}))
+
+
+def _record(folder: Path) -> dict:
+    return json.loads((folder / "record.json").read_text(encoding="utf-8"))
+
+
+# --- every media kind asks first ---------------------------------------------------------------------
+
+@pytest.mark.parametrize("kind", ["image", "voice", "music", "video"])
+def test_a_media_make_with_no_terminal_pauses_and_asks_which_service_makes_it(
+        kind: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    model = Director()
+    _route(monkeypatch, model)
+    folder = tmp_path / "o"
+    code = cli.main(["make", "a fox at dawn", "--kind", kind, "--provider", "ollama", "--model", "m", "--out", str(folder)])
+    out = capsys.readouterr().out
+    assert code == live_cli.EXIT_WAITING
+    assert "waiting for your answers" in out and f"--answers {folder / 'answers.json'}" in out
+    assert model.calls == []  # nothing made blind, not even the questions before the service is known
+    asked = (folder / "questions.md").read_text(encoding="utf-8")
+    assert "Which service" in asked
+    if kind == "image":
+        assert "openai-images" in asked  # examples come from the media list
+    assert not (folder / "record.json").exists() and not (folder / "v1").exists()
+
+
+def test_the_target_question_names_services_from_the_media_list_not_from_code(tmp_path: Path, programs: None) -> None:
+    question = mi.target_question("voice")
+    assert "my-voice" in question and "elevenlabs" in question
+    assert "my-painter" not in question  # a painter cannot make a voice
+    assert "my-painter" in mi.target_question("image") and "my-voice" in mi.target_question("video")
+
+
+def test_the_questions_cover_what_a_media_piece_needs_and_the_say_back_says_where_it_will_be_shown(
+        tmp_path: Path, programs: None) -> None:
+    model = Director()
+    made = make_media.make_media("a fox at dawn", kind="image", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter", {"must": "a red scarf"}, [None]), transport=model)
+    assert made.waiting is not None and made.stopped == "waiting for your answers"
+    system = model.seen["questions"][0]
+    for need in ("what it is for", "who will", "how long", "look", "voice", "music", "where it will be shown", "shapes"):
+        assert need in system, need
+    assert "Where it will be shown" in model.seen["say back"][0]
+    iv = made.interview
+    assert iv.target.sort == "media" and iv.target.id.startswith("image=my-painter")
+
+
+# --- the target: the media list, your own programs, and services learned on the spot -------------------
+
+def test_a_video_target_is_split_into_roles_by_what_each_service_makes(tmp_path: Path, programs: None) -> None:
+    target = mi.find_target("my-painter, my-voice and openai-speech/tts-1", "video", lambda *a: None, learned_by="x")
+    roles = make_media.roles(target)
+    assert roles["visuals"] == {"provider": "my-painter", "model": "local", "kind": "image"}
+    assert roles["voice"] == {"provider": "my-voice", "model": "local"}  # the first voice named wins; the second has no role
+    named = mi.find_target("voice: openai-speech/tts-1, my-painter", "video", lambda *a: None, learned_by="x")
+    assert make_media.roles(named)["voice"] == {"provider": "openai-speech", "model": "tts-1"}
+
+
+def test_a_piece_that_cannot_make_the_kind_or_names_no_model_is_refused_plainly(tmp_path: Path, programs: None) -> None:
+    with pytest.raises(mi.InterviewError, match="speech, not image"):
+        mi.find_target("my-voice", "image", lambda *a: None, learned_by="x")
+    with pytest.raises(mi.InterviewError, match="openai-images/"):
+        mi.find_target("openai-images", "image", lambda *a: None, learned_by="x")  # a web service needs its model named
+
+
+def test_an_unknown_service_is_learned_by_the_model_then_waits_for_approval(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                                           capsys: pytest.CaptureFixture[str]) -> None:
+    model = Director()
+    _route(monkeypatch, model)
+    ahead = tmp_path / "ahead.json"
+    ahead.write_text(json.dumps({"for": "acme-images/fast"}), encoding="utf-8")
+    code = cli.main(["make", "a fox at dawn", "--kind", "image", "--provider", "ollama", "--model", "m",
+                     "--answers", str(ahead), "--max-cost-usd", "1", "--out", str(tmp_path / "o")])
+    err = capsys.readouterr().err
+    assert model.calls == ["research"]  # learned, not refused as unknown; nothing else asked or made
+    assert code != live_cli.EXIT_OK and "not approved yet" in err and "proofhouse addons approve learned acme-images" in err
+    assert not (tmp_path / "o" / "v1").exists()
+
+
+def test_a_paid_or_learned_service_needs_a_spending_limit_and_a_local_program_does_not(tmp_path: Path, programs: None) -> None:
+    with pytest.raises(make.MakeError, match="spending limit"):
+        make_media.make_media("a fox", kind="image", provider_id="ollama", model="m", out_dir=tmp_path / "paid",
+                              interviewer=Answers("openai-images/gpt-image-1", {}, [True]), transport=Director())
+    assert not (tmp_path / "paid" / "v1").exists()
+
+
+# --- make, check, judge, improve, keep versions, deliver -----------------------------------------------
+
+@needs_ffmpeg
+def test_an_image_is_made_by_your_own_program_checked_judged_improved_and_delivered_in_the_shapes_asked_for(
+        tmp_path: Path, programs: None) -> None:
+    model = Director(scores=[5, 9], shapes=["16x9", "1x1"])
+    folder = tmp_path / "o"
+    made = make_media.make_media("a fox at dawn", kind="image", provider_id="ollama", model="m", out_dir=folder,
+                                 interviewer=Answers("my-painter", {"must": "a red scarf"}, [True]), transport=model, rounds=3)
+    assert made.stopped == "reached the target" and made.best_version == 2 and made.best_score == 9
+    assert model.calls.count("plan") == 2 and model.calls.count("judge") == 2
+    assert "fix number 1" in model.seen["plan"][1] and "fix number 1" not in model.seen["plan"][0]  # the plan changes
+    assert "a red scarf" in model.seen["plan"][0]  # the interview's answers reach the plan
+    assert "image size" in model.seen["judge"][0]  # the judge sees the file checks
+    for n in (1, 2):
+        assert (folder / f"v{n}" / "plan.json").is_file()
+        assert any(p.suffix == ".png" for p in (folder / f"v{n}").iterdir())
+    record = _record(folder)
+    assert record["interview_from"] == "caller" and record["kind"] == "image"
+    assert record["roles"] == {"image": {"provider": "my-painter", "model": "local"}}
+    assert [v["version"] for v in record["versions"]] == [1, 2]
+    assert record["versions"][0]["plan"]["prompt"].startswith("plan 1") and record["versions"][1]["plan"]["prompt"].startswith("plan 2")
+    assert all(c["ok"] for v in record["versions"] for c in v["checks"])
+    assert "picture" in record["not_judged"]  # the judge read the plan and the checks, not the picture itself
+    assert record["spent_usd"] == "0" and record["best_version"] == 2
+    assert set(record["delivered"]) == {"16x9", "1x1"} and set(made.delivered) == {"16x9", "1x1"}
+    for shape, (w, h) in (("16x9", (1920, 1080)), ("1x1", (1080, 1080))):
+        seen = studio.probe(folder / record["delivered"][shape])
+        assert (seen["width"], seen["height"]) == (w, h)
+
+
+@needs_ffmpeg
+def test_a_voice_is_checked_for_sound_and_delivered_as_the_file_types_asked_for(tmp_path: Path, programs: None,
+                                                                                monkeypatch: pytest.MonkeyPatch,
+                                                                                capsys: pytest.CaptureFixture[str]) -> None:
+    model = Director(scores=[9])
+    _route(monkeypatch, model)
+    ahead = tmp_path / "ahead.json"
+    ahead.write_text(json.dumps({"for": "my-voice", "answers": {"must": "calm"}, "confirmed": True}), encoding="utf-8")
+    folder = tmp_path / "o"
+    code = cli.main(["make", "a welcome line", "--kind", "voice", "--provider", "ollama", "--model", "m",
+                     "--answers", str(ahead), "--formats", "mp3,wav", "--out", str(folder)])
+    out = capsys.readouterr().out
+    assert code == live_cli.EXIT_OK, out
+    record = _record(folder)
+    assert record["interview_from"] == "answers file"
+    assert {c["check"] for c in record["versions"][0]["checks"]} >= {"has sound", "length"}
+    assert "sound" in record["not_judged"]
+    assert set(record["delivered"]) == {"mp3", "wav"}  # --formats wins over the plan
+    for path in record["delivered"].values():
+        seen = studio.probe(folder / path)
+        assert seen["audio"] and seen["seconds"] > 1
+        assert path in out.replace("\\", "/") or str(folder / path) in out
+
+
+@needs_ffmpeg
+def test_a_file_that_fails_its_check_is_never_delivered(tmp_path: Path) -> None:
+    broken = tmp_path / "blank.py"
+    broken.write_text("import sys\nsys.stdin.read()\nopen(sys.argv[1], 'wb').write(b'not a picture')\n", encoding="utf-8")
+    _add(tmp_path, {"id": "blank", "kinds": ["image"], "run": {"command": [sys.executable, str(broken), "{out}"],
+                                                               "stdin": "{prompt}", "ext": "png"}})
+    model = Director(scores=[10, 10])
+    made = make_media.make_media("a fox", kind="image", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("blank", {}, [True]), transport=model, rounds=2)
+    assert made.best_version is None and not made.delivered
+    assert made.stopped == "rounds used up"
+    record = _record(tmp_path / "o")
+    assert any(not c["ok"] for c in record["versions"][0]["checks"]) and record["delivered"] == {}
+
+
+# --- video goes through the studio, not a second engine ------------------------------------------------
+
+def _fake_produce(seen: list[dict]):
+    def produce(brief: str, **kwargs):
+        seen.append({"brief": brief, **kwargs})
+        out = kwargs["out_dir"]
+        out.mkdir(parents=True, exist_ok=False)
+        renders = {}
+        for name in kwargs["formats"]:
+            (out / f"film-{name}.mp4").write_bytes(b"film")
+            renders[name] = str(out / f"film-{name}.mp4")
+        return studio.Production(out, title="Fox", renders=renders,
+                                 checks=[{"ok": True, "render": n, "check": "plays", "detail": ""} for n in renders])
+    return produce
+
+
+def test_a_video_is_planned_rendered_by_the_studio_improved_and_kept_by_version(tmp_path: Path, programs: None,
+                                                                                monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    model = Director(scores=[4, 9], shapes=["9x16"])
+    folder = tmp_path / "o"
+    made = make_media.make_media("a hype video for a fox cafe", kind="video", provider_id="ollama", model="m", out_dir=folder,
+                                 interviewer=Answers("my-painter, my-voice", {"must": "under a minute"}, [True]),
+                                 transport=model, rounds=3)
+    assert len(seen) == 2 and made.best_version == 2
+    first, second = seen
+    assert first["out_dir"] == folder / "v1" and second["out_dir"] == folder / "v2"
+    assert first["visual_provider"] == "my-painter" and first["voice_provider"] == "my-voice"
+    assert first["formats"] == ("9x16",)
+    assert "under a minute" in first["brief"] and "plan 1" in first["brief"]
+    assert "fix number 1" in second["brief"] and "fix number 1" not in first["brief"]  # changing the plan re-renders
+    assert first["text_transport"] is model
+    record = _record(folder)
+    assert record["roles"]["visuals"]["provider"] == "my-painter" and record["roles"]["voice"]["provider"] == "my-voice"
+    assert set(record["delivered"]) == {"9x16"}
+    assert "picture" in record["not_judged"] and "sound" in record["not_judged"]
+
+
+def test_the_video_flags_answer_which_services_make_it(tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch,
+                                                      capsys: pytest.CaptureFixture[str]) -> None:
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    model = Director()
+    _route(monkeypatch, model)
+    folder = tmp_path / "o"
+    base = ["make", "a fox film", "--kind", "video", "--provider", "ollama", "--model", "m", "--out", str(folder),
+            "--visual-provider", "my-painter", "--visual-model", "local", "--voice-provider", "my-voice"]
+    assert cli.main(base + ["--seconds", "12", "--formats", "16x9"]) == live_cli.EXIT_WAITING  # the services are known
+    assert model.calls == ["questions"]
+    again = capsys.readouterr().out.split("then run: ", 1)[1]
+    assert "--seconds 12" in again and "--formats 16x9" in again  # the run it asks for again keeps what was chosen
+    interview = json.loads((folder / "interview.json").read_text(encoding="utf-8"))
+    assert interview["target"]["sort"] == "media"
+    assert seen == []
+
+
+def test_image_voice_and_music_are_not_text_kinds_and_cannot_be_taken_by_an_add_on() -> None:
+    from proofhouse import addons, learn
+
+    for kind in ("image", "voice", "music", "video"):
+        assert kind in learn.OWN_ENGINE and kind in addons._RESERVED_KINDS
+        with pytest.raises(make.MakeError, match="its own engine"):
+            make.make("a fox", provider_id="ollama", model="m", kind=kind)
+
+
+@needs_ffmpeg
+def test_a_media_kind_added_as_data_is_made_like_the_built_in_kind_it_names(tmp_path: Path, programs: None) -> None:
+    pack = tmp_path / "pack"
+    pack.mkdir()
+    (pack / "addon.json").write_text(json.dumps({
+        "schema": "proofhouse.addon/v1", "name": "posters",
+        "make_kinds": [{"kind": "poster", "media": "image",
+                        "write": "Plan a poster: one bold picture, a short headline, readable from across a room."}],
+    }), encoding="utf-8")
+    assert cli.main(["addons", "install", str(pack)]) == 0
+    assert "poster" in make_media.media_kinds()
+    model = Director(scores=[9])
+    made = make_media.make_media("a cafe poster", kind="poster", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter", {}, [True]), transport=model)
+    assert made.best_version == 1 and made.delivered
+    assert "readable from across a room" in model.seen["plan"][0]
+
+
+# --- a film or a delivery that is only partly made is not passed off as made -----------------------------
+
+def _partial_produce(stopped: str):
+    def produce(brief: str, **kwargs):
+        out = kwargs["out_dir"]
+        out.mkdir(parents=True, exist_ok=False)
+        first = kwargs["formats"][0]
+        (out / f"film-{first}.mp4").write_bytes(b"film")
+        return studio.Production(out, title="Fox", renders={first: str(out / f"film-{first}.mp4")}, stopped=stopped,
+                                 checks=[{"ok": True, "render": first, "check": "plays", "detail": ""}])
+    return produce
+
+
+def test_a_film_missing_a_shape_it_was_asked_for_fails_its_checks_and_is_not_delivered(
+        tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(studio, "produce", _partial_produce("the 9x16 render failed"))
+    made = make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter, my-voice", {}, [True]), transport=Director(scores=[10]),
+                                 rounds=1, shapes=["16x9", "9x16"])
+    assert made.best_version is None and made.delivered == {}
+    checks = _record(tmp_path / "o")["versions"][0]["checks"]
+    assert any(not c["ok"] and "9x16" in c["detail"] for c in checks)
+
+
+def test_a_studio_that_hits_the_spending_limit_stops_the_make(tmp_path: Path, programs: None,
+                                                              monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(studio, "produce", _partial_produce("spending limit reached"))
+    model = Director(scores=[3, 3, 3])
+    made = make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter, my-voice", {}, [True]), transport=model, rounds=3,
+                                 shapes=["16x9", "9x16"])
+    assert made.stopped == "spending limit reached"
+    assert model.calls.count("plan") == 1  # no more paid planning once the limit is hit
+    assert (tmp_path / "o" / "v1" / "plan.json").is_file()
+
+
+@needs_ffmpeg
+def test_a_shape_that_could_not_be_delivered_is_named(tmp_path: Path, programs: None,
+                                                      monkeypatch: pytest.MonkeyPatch) -> None:
+    real = studio.convert
+    monkeypatch.setattr(studio, "convert", lambda args: False if "9x16" in str(args[-1]) else real(args))
+    made = make_media.make_media("a fox", kind="image", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-painter", {}, [True]), transport=Director(scores=[9]),
+                                 shapes=["16x9", "9x16"])
+    assert set(made.delivered or {}) == {"16x9"} and made.undelivered == ["9x16"]
+    assert _record(tmp_path / "o")["undelivered"] == ["9x16"]
+
+
+@pytest.mark.parametrize("missing, code", [([], live_cli.EXIT_OK), (["9x16"], live_cli.EXIT_REFUSED)])
+def test_the_command_says_plainly_when_the_judge_gave_no_score_or_a_shape_is_missing(
+        tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str], missing: list[str],
+        code: int) -> None:
+    finished = make.MakeResult(tmp_path / "o", "image", "rounds used up", 1, None, Decimal(0),
+                               delivered={"16x9": "delivered/image-16x9.png"}, undelivered=missing)
+    monkeypatch.setattr(make_media, "make_media", lambda *a, **k: finished)
+    assert cli.main(["make", "a fox", "--kind", "image", "--provider", "ollama", "--model", "m", "--for", "my-painter",
+                     "--out", str(tmp_path / "o")]) == code
+    out = capsys.readouterr().out
+    assert "None/10" not in out and "not judged" in out
+    if missing:
+        assert "not delivered: 9x16" in out
+
+
+# --- a launch's video part asks first like every other part ------------------------------------------------
+
+class LaunchDirector(Director):
+    def __call__(self, request: live.Request) -> live.Response:
+        text = " ".join(m["content"] for m in json.loads(request.body_bytes)["messages"])
+        if text.startswith("You plan product launches"):
+            self.calls.append("launch plan")
+            content = json.dumps({"name": "Brew", "parts": [{"kind": "video", "brief": "a hype video for the cold brew"}]})
+            return live.Response(200, {"choices": [{"message": {"content": content}}],
+                                       "usage": {"prompt_tokens": 10, "completion_tokens": 5}})
+        return super().__call__(request)
+
+
+def test_a_launch_video_part_is_interviewed_and_made_through_the_media_loop(tmp_path: Path, programs: None,
+                                                                            monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import launch
+
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    folder = tmp_path / "l"
+    result = launch.run_launch("launch our cold brew", provider_id="ollama", model="m", out_dir=folder,
+                               transport=LaunchDirector(scores=[9, 9]),
+                               interviewer=Answers("", {"must": "say launch day is Friday"}, [True]),
+                               part_interviewer=lambda part, where: Answers("my-painter, my-voice", {"must": "show ice"}, [True]))
+    assert [p.status for p in result.parts] == ["made"], result.parts
+    assert seen and seen[0]["out_dir"] == folder / "01-video" / "v1"
+    assert "show ice" in seen[0]["brief"] and "say launch day is Friday" in seen[0]["brief"]
+    assert _record(folder / "01-video")["delivered"]
+
+
+def test_a_launch_video_part_with_no_answers_yet_pauses_for_them(tmp_path: Path, programs: None,
+                                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import launch
+
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    folder = tmp_path / "l"
+    result = launch.run_launch("launch our cold brew", provider_id="ollama", model="m", out_dir=folder,
+                               transport=LaunchDirector(), interviewer=Answers("", {}, [True]),
+                               part_interviewer=lambda part, where: mi.FileInterviewer(None, "my-painter, my-voice"))
+    assert [p.status for p in result.parts] == ["waiting"] and seen == []
+    assert folder / "01-video" / "answers.json" in result.waiting
+
+
+def test_a_launch_that_answers_from_files_names_the_video_services_from_its_flags(tmp_path: Path, programs: None) -> None:
+    from proofhouse import launch
+
+    where = tmp_path / "01-video"
+    asking = launch._asker(mi.FileInterviewer(None), None, launch.Part("video", "a film"), where, 1,
+                           make_media.video_target({"visual_provider": "my-painter", "visual_model": "local",
+                                                    "voice_provider": "my-voice"}))
+    assert isinstance(asking, mi.FileInterviewer) and asking.for_target == "visuals: my-painter/local, voice: my-voice"
