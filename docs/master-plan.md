@@ -377,12 +377,30 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      with a failed check is renamed `video-<shape>.failed.mp4` and never delivered. In 9:16 the words are
      half again as large, boxes widen, cards wrap to two columns and the layout spreads down the frame.
      A callout or pointer on footage that holds still is given in the footage's own pixels and placed by
-     itself. Not yet enlarged in 9:16: the lower-third plate, the callout's label and the words inside cards.
+     itself. The lower-third plate, the callout's label and the words inside cards, panels and terminals
+     are enlarged in 9:16 too (`text_scale`).
    - **8e. Front door details.** The interview record names `--for` and presets correctly, and
      `docs/usage.md` covers the media interview and exit 9.
      **Done.** `interview_from` names the answers file, the terminal, a launch or the caller, and the flag
      that named the tool (`--for`, `--platform` or the service flags); the record keeps `interview_preset`.
      A media part made inside a launch now records "launch", as text parts already did.
+   - **8f. A free film made end to end.** A whole film made at a $0 limit with a free local model and the
+     local picture program, with every weakness the run showed fixed rather than worked around.
+     **Done.** A $0 limit runs free local models, and the model is asked for JSON only. A film fits the
+     length asked for, and beats with no layers still move. The picture service is never the film's subject:
+     the plan and script writers and the judge are told only what each tool makes, never its name.
+     The interview asks each question once, gives each one its own id, and never asks what the command
+     already set (length, shapes, the services the flags name, even when an answers file is given); a
+     question about a length or shape the command set is dropped even when the model asks it anyway.
+     A layer time or beat pace (energy, cut) the script writer never fixes plays at its default instead of
+     losing the film.
+     When the script has several problems, the writer is told all of them at once.
+     Stray text in a script's beats is named to the writer, and left out if it stays. A script that is still
+     too long after its fixes keeps its opening and close and cuts middle beats to fit, and the record names
+     each cut. The plan and the judge are asked for JSON; a plan with no prompt is asked for once more, and
+     its reply is kept if it still has none. A model that refuses a picture is not sent one again.
+     Run on 2026-11-04: llama3.2 plus the local picture program made the 10-second film at $0; the second
+     version scored 8/10 and was delivered.
 
 ## What is left (updated 2026-10-27)
 
