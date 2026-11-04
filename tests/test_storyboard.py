@@ -215,6 +215,15 @@ def test_times_can_hang_off_the_words(tmp_path: Path) -> None:
     assert storyboard.when(beat, 99) == pytest.approx(beat.seconds, abs=1e-3)
 
 
+def test_a_time_written_as_text_seconds_means_seconds(tmp_path: Path) -> None:
+    """Small models write "at": "2" or "2s"; that is two seconds, not an error."""
+    beats, _ = _planned([{"say": "Hello there.", "layers": [{"kind": "label", "text": "Hi", "at": "0", "until": "0.5s"}]}],
+                        tmp_path)
+    beat = beats[0]
+    assert storyboard.when(beat, "0.5") == pytest.approx(beat.into + 0.5, abs=1e-3)
+    assert storyboard.when(beat, "0.25 s") == storyboard.when(beat, 0.25)
+
+
 # --- scenes, sounds, captions ------------------------------------------------------------------------
 
 def test_a_capture_sits_centred_in_a_window_over_a_generated_background(tmp_path: Path) -> None:

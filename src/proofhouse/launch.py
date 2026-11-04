@@ -186,7 +186,7 @@ def run_launch(
 
     def ask(role: str, prompt: str, input_text: str | None = None) -> str | None:
         limit_now = budget.for_next_call()
-        if limit_now == "0":
+        if budget.spent_out():
             raise _Stop("spending limit reached")
         reply = live.run_prompt(profile.id, model, prompt=prompt, input_text=input_text, max_output_tokens=2048,
                                 max_cost_usd=limit_now, transport=transport)
@@ -268,7 +268,7 @@ def _make_parts(result: Launch, goal: str, profile: Any, model: str, max_cost_us
             continue
         counted = part.spent_usd  # an earlier pass already took this from the budget
         left = budget.for_next_call()
-        if left == "0":
+        if budget.spent_out():
             part.status, part.detail = "skipped", "spending limit reached"
             continue
         if left is not None:

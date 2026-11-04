@@ -206,7 +206,11 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
         if args.max_cost_usd:
             again += f" --max-cost-usd {args.max_cost_usd}"
         for flag, value in (("--seconds", video.get("seconds")), ("--formats", ",".join(shapes) if shapes else None),
-                            ("--voice", args.voice), ("--music-file", args.music_file), ("--facts", args.facts)):
+                            ("--visual-provider", args.visual_provider), ("--visual-model", args.visual_model),
+                            ("--voice-provider", args.voice_provider), ("--voice-model", args.voice_model),
+                            ("--voice", args.voice), ("--music-provider", args.music_provider),
+                            ("--music-model", args.music_model), ("--music-file", args.music_file),
+                            ("--facts", args.facts), ("--preset", args.preset)):
             if value:
                 again += f" {flag} {value}"
         if args.rounds != make.DEFAULT_ROUNDS:
@@ -241,7 +245,7 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
         if made.undelivered:
             print(f"not delivered: {', '.join(made.undelivered)} (the file could not be made in that shape)")
         print(f"spent about ${format(made.spent_usd, 'f')} over {len(made.calls)} calls; every version is in {made.folder}")
-        print("the judge read the plan and the file checks; it did not see or hear the result itself")
+        print("the judge's score is advice: record.json says what it was sent for each version (judged_on)")
     return EXIT_OK if delivered and not made.undelivered else EXIT_REFUSED
 
 

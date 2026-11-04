@@ -237,7 +237,7 @@ def make_media(
 
     def ask(role: str, prompt: str, input_text: str | None = None, images: list[str] | None = None) -> live.RunResult:
         limit = budget.for_next_call()
-        if limit == "0":
+        if budget.spent_out():
             raise make._Stop("spending limit reached")
         reply = live.run_prompt(profile.id, model, prompt=prompt, input_text=input_text, images=images,
                                 max_output_tokens=2048, max_cost_usd=limit, transport=transport)
@@ -396,7 +396,7 @@ def _render_one(folder: Path, vdir: Path, version: dict[str, Any], made: str, pa
     provider = media.find(role["provider"])
     vdir.mkdir(parents=True)
     limit = budget.for_next_call()
-    if limit == "0":
+    if budget.spent_out():
         raise make._Stop("spending limit reached")
     params: dict[str, Any] = {}
     if made == "speech" and isinstance(plan.get("voice"), str) and plan["voice"].strip():
@@ -422,7 +422,7 @@ def _render_video(folder: Path, vdir: Path, version: dict[str, Any], parts: dict
                   provider_id: str, model: str, video: dict[str, Any], transport: Any, media_transport: Any,
                   media_get: Any) -> dict[str, str]:
     limit = budget.for_next_call()
-    if limit == "0":
+    if budget.spent_out():
         raise make._Stop("spending limit reached")
     text = f"{brief}\n\nPLAN:\n{plan['prompt']}"
     if previous[0] or previous[1]:

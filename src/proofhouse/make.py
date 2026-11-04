@@ -244,6 +244,7 @@ class Budget:
     """One spending limit for the whole command; each call may use only what is left."""
 
     def __init__(self, limit: str | None, local: bool) -> None:
+        self.local = local
         self.unlimited_local = limit is None and local
         self.left = Decimal(limit) if limit is not None else Decimal(0)
         self.spent = Decimal(0)
@@ -252,6 +253,11 @@ class Budget:
         if self.unlimited_local:
             return None
         return format(self.left, "f") if self.left > 0 else "0"
+
+    def spent_out(self) -> bool:
+        """Nothing left and the model costs money. A model on this machine is free, so a $0 limit still lets it run;
+        the spend gate still refuses any paid call over what is left."""
+        return not self.unlimited_local and self.left <= 0 and not self.local
 
     def charge(self, result: live.RunResult) -> None:
         if result.status == "refused":  # nothing was sent, nothing was spent
@@ -356,7 +362,7 @@ def make(
     def call(role: str, prompt: str, input_text: str | None = None, on: tuple[Any, str] | None = None,
              soft: bool = False) -> str | None:
         limit = budget.for_next_call()
-        if limit == "0":
+        if budget.spent_out():
             raise _Stop("spending limit reached")
         where, which = on or (profile, model)
         reply = live.run_prompt(

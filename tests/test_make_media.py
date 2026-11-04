@@ -358,6 +358,7 @@ def test_the_video_flags_answer_which_services_make_it(tmp_path: Path, programs:
     assert model.calls == ["questions"]
     again = capsys.readouterr().out.split("then run: ", 1)[1]
     assert "--seconds 12" in again and "--formats 16x9" in again  # the run it asks for again keeps what was chosen
+    assert "--visual-provider my-painter --visual-model local --voice-provider my-voice" in again  # and the services
     interview = json.loads((folder / "interview.json").read_text(encoding="utf-8"))
     assert interview["target"]["sort"] == "media"
     assert seen == []

@@ -110,6 +110,17 @@ def _number(v: Any) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool) and math.isfinite(v)
 
 
+_PLAIN_SECONDS = re.compile(r"(\d+(?:\.\d+)?)\s*(?:s|sec|secs|seconds?)?")
+
+
+def _seconds(v: Any) -> float | None:
+    """A time given as plain seconds: a number, or text such as "2", "2.5" or "2s" that models often write."""
+    if _number(v):
+        return float(v)
+    m = _PLAIN_SECONDS.fullmatch(v.strip()) if isinstance(v, str) else None
+    return float(m.group(1)) if m else None
+
+
 def split_phrases(text: str) -> list[str]:
     """Break narration into spoken phrases after each . ! ? or …"""
     return [p for p in re.split(r"(?<=[.!?…])\s+", text.strip()) if p]
@@ -154,8 +165,9 @@ def _phrases(row: dict, root: Path, where: str) -> list[Phrase]:
 
 
 def _check_when(value: Any, phrases: int, where: str) -> None:
-    if _number(value):
-        if value < 0:
+    seconds = _seconds(value)
+    if seconds is not None:
+        if seconds < 0:
             raise StoryboardError(f"{where}: a time must be 0 or later")
         return
     m = _ANCHOR.fullmatch(value.strip()) if isinstance(value, str) else None
@@ -355,8 +367,9 @@ def check_mix(beats: list[Beat], total: float) -> float:
 
 def when(beat: Beat, value: Any) -> float:
     """A beat-local time: seconds after the picture settles, or start, end, 'phrase N' or 'phrase N end' ± seconds."""
-    if _number(value):
-        t = beat.into + value
+    seconds = _seconds(value)
+    if seconds is not None:
+        t = beat.into + seconds
     else:
         m = _ANCHOR.fullmatch(str(value).strip())
         if m is None:

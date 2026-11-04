@@ -120,9 +120,9 @@ class _Budget:
     def next_limit(self) -> str | None:
         if self.left is None:
             return None
-        if self.left <= 0:
-            raise StudioError("spending limit reached")
-        return format(self.left, "f")
+        # nothing left still asks the spend gate: a call on this machine is free and goes through, a paid one is
+        # refused there, and that refusal stops the film with "spending limit reached"
+        return format(max(self.left, Decimal(0)), "f")
 
     def charge(self, figure: Any) -> None:
         try:
@@ -725,7 +725,12 @@ def produce(
         figure = (reply.cost or {}).get("usd")
         budget.charge(figure if reply.status != "refused" else 0)
         record("script", reply, figure)
-        data = _json_object(reply.output_text)
+        try:
+            data = _json_object(reply.output_text)
+        except StudioError:  # keep what it said, so the failure can be read
+            (out_dir / "script-reply.txt").write_text(reply.output_text or "", encoding="utf-8")
+            raise StudioError("the script writer did not return the planned JSON (its reply is in script-reply.txt); "
+                              "try another model") from None
         lookup = _facts_lookup(facts) if facts else {}
 
         def make_media(kind: str, service: str, model_id: str, prompt: str, target: Path, params: dict[str, Any]) -> str:

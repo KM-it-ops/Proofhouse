@@ -153,6 +153,25 @@ def test_one_spending_limit_covers_the_whole_video(tmp_path: Path, services, mon
     assert "fal" in made.stopped or "spending limit" in made.stopped
 
 
+def test_a_zero_limit_runs_free_calls_and_the_spend_gate_refuses_the_paid_one(tmp_path: Path, services,
+                                                                          monkeypatch: pytest.MonkeyPatch) -> None:
+    assert studio._Budget("0").next_limit() == "0"  # nothing left still asks the gate; it does not stop first
+    monkeypatch.setenv("FAL_KEY", "k")
+    assert cli.main(["media", "price", "fal", "*", "--usd", "0.40"]) == 0
+    calls: list[str] = []
+
+    def paid(request: media.MediaRequest) -> media.MediaResponse:
+        calls.append(request.url)
+        return media.MediaResponse(200, {})
+
+    made = studio.produce(
+        "x", provider_id="ollama", model="llama3", visual_provider="fal", visual_model="fal-ai/model",
+        seconds=6, out_dir=tmp_path / "v", max_cost_usd="0", size_scale=0.1,
+        text_transport=_script_writer, media_transport=paid, media_get=lambda url, headers: media.MediaResponse(200, {}),
+    )
+    assert calls == [] and made.renders == {} and made.stopped == "spending limit reached"
+    assert made.calls[0]["role"] == "script" and made.calls[0]["status"] == "success"  # the free script was written
+
 def test_a_paid_video_needs_one_limit_and_ffmpeg_formats_are_checked(tmp_path: Path) -> None:
     if shutil.which("ffmpeg") is None:
         pytest.skip("FFmpeg not installed")
@@ -493,3 +512,15 @@ def test_a_film_cut_from_stills_fails_the_something_happens_checks(tmp_path: Pat
     failed = {c["check"]: c["detail"] for c in made.checks if not c["ok"]}
     assert "something happens" in failed and "picture changes every second" in failed, made.checks
     assert "nothing new on screen for" in failed["something happens"]
+
+
+def test_a_script_reply_that_cannot_be_read_is_kept_beside_the_record(tmp_path: Path, services) -> None:
+    def rambler(request: live.Request) -> live.Response:
+        return live.Response(200, {"choices": [{"message": {"content": "Sure! {title: 'no quotes', beats: [,]}"}}],
+                                   "usage": {"prompt_tokens": 30, "completion_tokens": 20}})
+
+    made = studio.produce("x", provider_id="ollama", model="m", visual_provider="local-images", visual_model="m",
+                          seconds=6, out_dir=tmp_path / "v", size_scale=0.1, text_transport=rambler,
+                          media_transport=_media(services))
+    assert made.renders == {} and "script-reply.txt" in made.stopped
+    assert (tmp_path / "v" / "script-reply.txt").read_text(encoding="utf-8").startswith("Sure! {title")
