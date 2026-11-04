@@ -172,6 +172,20 @@ def test_a_question_about_what_the_command_already_set_is_dropped_even_when_the_
     assert mi.not_given(mi.parse_questions(reply), "") == mi.parse_questions(reply)
 
 
+def test_a_question_about_the_shape_in_plain_words_is_dropped_when_the_command_set_the_shapes() -> None:
+    # what llama3.2 asked on 2026-11-04 although --formats 16x9 was set
+    reply = json.dumps([
+        {"id": "should_the_video_be_wide_tall_or_square", "text": "Should the video be wide, tall, or square?",
+         "type": "text"},
+        {"id": "screen", "text": "Widescreen or phone screen?", "type": "text"},
+        {"id": "ratio", "text": "Is 16:9 or 9:16 better?", "type": "text"},
+        {"id": "logo", "text": "Should the logo sit in a square badge?", "type": "text"},  # not about the film's shape
+        {"id": "tone", "text": "What tone should the video convey?", "type": "text"},
+    ])
+    kept = mi.not_given(mi.parse_questions(reply), "- shapes to deliver: 16x9 (wide 16:9)")
+    assert [q.id for q in kept] == ["logo", "tone"]
+
+
 def test_a_follow_up_is_asked_only_when_its_parent_answer_calls_for_it() -> None:
     team = mi.parse_questions(QUESTIONS)[1]
     assert not mi.applies(team, {})

@@ -373,7 +373,9 @@ def parse_questions(text: str | None) -> list[Question]:
 _GIVEN_TOPICS = {  # a line of what the command set -> the words of a question that asks it again
     "- length:": re.compile(r"\b(length|duration|runtime)\b|\bhow long\b", re.I),
     "- shapes to deliver:": re.compile(
-        r"\b(format|formats|aspect|orientation|ratio|vertical|horizontal|landscape|portrait)\b", re.I),
+        r"\b(format|formats|aspect|orientation|ratio|vertical|horizontal|landscape|portrait|widescreen)\b"
+        r"|\b\d+ ?[:x] ?\d+\b"  # 16:9, 9x16
+        r"|\b(wide|tall|square)\b.*\b(wide|tall|square)\b", re.I),  # "wide, tall or square": two of them
 }
 
 
