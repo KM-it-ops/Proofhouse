@@ -187,6 +187,8 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
     if not args.for_target and not args.answers:
         args.for_target = _media_target_text(args)
         args.target_from = "the service flags"
+    elif not args.for_target:  # an answers file's own "for" wins; the flags answer only when it has none
+        args.flag_target = _media_target_text(args)
     options = _video_options(args)
     video = {"visual_kind": options["visual_kind"], "voice": options["voice"], "music_file": options["music_file"],
              "captions": options["captions"], "facts": facts, "allow_commands": options["allow_commands"]}
@@ -269,7 +271,11 @@ def _choose_interviewer(args: argparse.Namespace, *, launching: bool = False) ->
     if not for_target and args.kind == "app" and args.platform:
         for_target, target_from = ", ".join(args.platform), "--platform"
     if args.answers:
-        interviewer: object = mi.FileInterviewer(Path(args.answers), for_target, target_from)
+        from_file = mi.FileInterviewer(Path(args.answers), for_target, target_from)
+        flagged = getattr(args, "flag_target", None)
+        if flagged and from_file.target() is None:
+            from_file.for_target, from_file.target_from = flagged, "the service flags"
+        interviewer: object = from_file
         paused = Path(args.answers).resolve().parent
         if out is None:  # go on with the make (or the launch) it answers
             for folder in (paused, paused.parent) if launching else (paused,):

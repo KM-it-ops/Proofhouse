@@ -383,6 +383,30 @@ def test_the_video_flags_answer_which_services_make_it(tmp_path: Path, programs:
     assert "12 seconds" in interview["given"] and "16x9" in interview["given"]  # and kept with the paused interview
 
 
+def test_an_answers_file_without_a_for_line_still_takes_the_services_the_flags_name(
+        tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(studio, "produce", _fake_produce([]))
+    model = Director()
+    _route(monkeypatch, model)
+    ahead = tmp_path / "ahead.json"
+    ahead.write_text(json.dumps({"answers": {"style": "bold"}}), encoding="utf-8")  # no "for" in the file
+    folder = tmp_path / "o"
+    assert cli.main(["make", "a fox film", "--kind", "video", "--provider", "ollama", "--model", "m",
+                     "--out", str(folder), "--answers", str(ahead),
+                     "--visual-provider", "my-painter", "--visual-model", "local"]) == live_cli.EXIT_WAITING
+    assert model.calls == ["questions"]  # the services were known, so it went on to the questions
+    interview = json.loads((folder / "interview.json").read_text(encoding="utf-8"))
+    assert interview["target"]["sort"] == "media"
+    assert "Which service makes it" not in (folder / "questions.md").read_text(encoding="utf-8")
+    # a "for" written in the answers file still wins over the flags: the unknown flag service is never looked up
+    ahead.write_text(json.dumps({"for": "visuals: my-painter/local", "answers": {"style": "bold"}}), encoding="utf-8")
+    model.calls.clear()
+    assert cli.main(["make", "a fox film", "--kind", "video", "--provider", "ollama", "--model", "m",
+                     "--out", str(tmp_path / "o2"), "--answers", str(ahead),
+                     "--visual-provider", "nobody-knows", "--visual-model", "x"]) == live_cli.EXIT_WAITING
+    assert model.calls == ["questions"]
+
+
 def test_image_voice_and_music_are_not_text_kinds_and_cannot_be_taken_by_an_add_on() -> None:
     from proofhouse import addons, learn
 
