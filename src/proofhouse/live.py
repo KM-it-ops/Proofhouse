@@ -147,6 +147,9 @@ def _output_text(payload: dict[str, Any]) -> str | None:
     return None
 
 
+STRUCTURED_JSON = "output.structured_json@1"  # the capability a provider entry lists under ignores to opt out
+
+
 def run_prompt(
     provider_id: str,
     model: str,
@@ -157,8 +160,12 @@ def run_prompt(
     max_output_tokens: int = 1024,
     max_cost_usd: str | None = None,
     transport: Transport | None = None,
+    json_reply: bool = False,
 ) -> RunResult:
     """Send one prompt (and optional input) to any provider through the spend gate.
+
+    ``json_reply`` asks for JSON mode, so the reply comes back as one whole JSON object, unless the provider's entry
+    says it ignores structured JSON (then nothing extra is sent and the prompt's own words must do it).
 
     ``images`` are inline pictures (``data:image/png;base64,...`` or JPEG) sent beside the owner's words; the spend
     gate refuses any it cannot count."""
@@ -202,7 +209,10 @@ def run_prompt(
     headers = {"Content-Type": "application/json"}
     if secret:
         headers["Authorization"] = f"Bearer {secret}"
-    unsent = Request(url, headers, {"model": model, "messages": messages, cap_field: max_output_tokens}, b"")
+    body: dict[str, Any] = {"model": model, "messages": messages, cap_field: max_output_tokens}
+    if json_reply and STRUCTURED_JSON not in profile.ignores:
+        body["response_format"] = {"type": "json_object"}
+    unsent = Request(url, headers, body, b"")
 
     def _dispatch(body_bytes: bytes) -> Any:
         # The only send step. It runs only when the spend gate calls it, with the bytes the gate counted.

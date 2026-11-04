@@ -721,7 +721,8 @@ def produce(
 
     try:
         reply = live.run_prompt(provider_id, model, prompt=script_prompt(brief, seconds, facts),
-                                max_output_tokens=2048, max_cost_usd=budget.next_limit(), transport=text_transport)
+                                max_output_tokens=2048, max_cost_usd=budget.next_limit(), transport=text_transport,
+                                json_reply=True)
         figure = (reply.cost or {}).get("usd")
         budget.charge(figure if reply.status != "refused" else 0)
         record("script", reply, figure)
