@@ -179,8 +179,11 @@ class Interview:
     def brief(self) -> str:
         """What make writes, judges and revises against: the request plus everything the interview found."""
         parts = [f"REQUEST:\n{self.request}"]
-        if self.target is not None:
-            parts.append(f"{'MADE WITH' if self.target.sort == 'media' else 'MADE FOR'}: {_made_for(self.target)}")
+        if self.target is not None and self.target.sort == "media":  # what the tools make, never their names
+            parts.append("MADE WITH: the tools the owner chose (only the tools that make it; the piece is not about "
+                         "them, and never shows or names them)")
+        elif self.target is not None:
+            parts.append(f"MADE FOR: {_made_for(self.target)}")
         if self.shared:
             parts.append(f"WHAT THE OWNER TOLD US FOR THE WHOLE LAUNCH:\n{self.shared}")
         if self.given:
@@ -199,7 +202,8 @@ class Interview:
                 heading = "THE TOOLS THAT WILL MAKE IT (never the subject of the piece)"
             else:
                 heading = f"WHAT IS KNOWN ABOUT {self.target.name.upper()}"
-            parts.append(f"{heading} (from {self.target.guide_source}):\n{self.target.guide}")
+            guide = _nameless(self.target.guide) if self.target.sort == "media" else self.target.guide
+            parts.append(f"{heading} (from {self.target.guide_source}):\n{guide}")
         return "\n\n".join(parts)
 
     def to_dict(self) -> dict[str, Any]:
@@ -223,6 +227,18 @@ class Interview:
             data.get("understood"), list(data.get("corrections") or []), bool(data.get("confirmed")),
             str(data.get("shared") or ""), str(data.get("given") or ""),
         )
+
+
+def _nameless(guide: str) -> str:
+    """A media guide ("visuals: Name (id/model) makes image") as just what each part makes ("visuals: makes image"),
+    so a writer never draws a service because of its name."""
+    lines = []
+    for line in guide.splitlines():
+        role, _, rest = line.partition(": ")
+        _, found, makes = rest.rpartition(" makes ")
+        if found:
+            lines.append(f"{role}: makes {makes}")
+    return "\n".join(lines)
 
 
 def _made_for(target: ToolTarget) -> str:

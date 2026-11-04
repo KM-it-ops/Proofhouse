@@ -166,7 +166,10 @@ def test_the_services_that_make_a_piece_are_never_taken_for_what_it_is_about(tmp
     assert "My Painter is only the tool that makes it" in asked and "never name it in a question" in asked
     assert "leave My Painter out" in model.seen["say back"][0]
     brief = made.interview.brief()
-    assert "MADE WITH: My Painter (only the tools that make it; the piece is not about them)" in brief
+    # the writers and the judge are told what the tools make, never their names, so a name is never drawn
+    assert "My Painter" not in brief and "my-painter" not in brief
+    assert "MADE WITH: the tools the owner chose (only the tools that make it; the piece is not about them" in brief
+    assert "image: makes image" in brief
     assert "MADE FOR" not in brief and "WHAT IS KNOWN ABOUT" not in brief
     assert "Made with: My Painter" in mi.questions_markdown(made.interview)
 # --- the target: the media list, your own programs, and services learned on the spot -------------------
