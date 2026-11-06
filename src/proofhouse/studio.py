@@ -548,7 +548,8 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
     Used only once the script writer has had all its chances to fix them, so one garbled time or pace never costs
     the whole film: the overlay or sound plays at its default moment and the beat at its default pace, and a scrap
     of text left in the beats list by a broken reply is left out, and so is an overlay or sound the engine cannot draw
-    (an unknown kind, a missing field), so a slip in one overlay never costs the whole film; the engine's own extras
+    (an unknown kind, a missing field), and so is a footage ref the fact sheet does not have, so a slip in one
+    overlay or ref never costs the whole film; the engine's own extras
     fill a beat left bare. A broken beat itself is left as it is, so it stays a failure."""
     rows = data.get("beats")
     if not isinstance(rows, list):
@@ -565,6 +566,12 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
             continue
         bare = {k: v for k, v in raw.items() if k not in ("layers", "sounds")}
         row = dict(raw)
+        base = raw.get("base")
+        if isinstance(base, dict) and isinstance(base.get("ref"), str) and base["ref"].strip() and \
+                base["ref"].strip() not in (_facts_lookup(facts) if facts else {}):
+            # footage that is not on the fact sheet cannot be recorded: the beat stands on what else its base gives
+            dropped.append(f"beat {number} footage ref {base['ref'].strip()[:40]!r} (not in the fact sheet)")
+            bare["base"] = row["base"] = {k: v for k, v in base.items() if k != "ref"}
         for pace in ("energy", "cut"):
             if pace in bare:
                 try:

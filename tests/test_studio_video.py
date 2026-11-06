@@ -1015,3 +1015,15 @@ def test_narration_too_thin_for_the_film_is_sent_back_and_accepted_at_the_last_c
     assert studio.settle_gaps(board, brief="x", seconds=45, facts=None, footage=[], voiced=True) == [
         "the narration stays thin: 10 words over 45 seconds"]
     assert fit["least"] < fit["words"] and f"{fit['least']} words at least" in studio.script_prompt("x", 45)
+
+
+@needs_ffmpeg
+def test_a_footage_ref_not_in_the_fact_sheet_is_left_out_at_the_last_chance_not_the_film(tmp_path: Path, services) -> None:
+    asked: list[str] = []
+    made = _footage_film(tmp_path, services, _with_refs(None, "a_neon_city", None), asked=asked)
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("a_neon_city" in a for a in asked[1:])
+    assert made.stopped == "finished", made.stopped
+    left = next(c for c in made.checks if c["check"] == "unreadable parts dropped")["detail"]
+    assert "beat 2 footage ref 'a_neon_city' (not in the fact sheet)" in left, left
+    row = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))["beats"][1]
+    assert row["real"] is True and row["layers"][0]["kind"] == "terminal"  # the real footage it could have had
