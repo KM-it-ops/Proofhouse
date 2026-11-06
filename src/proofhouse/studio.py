@@ -440,7 +440,9 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
 
     Used only once the script writer has had all its chances to fix them, so one garbled time or pace never costs
     the whole film: the overlay or sound plays at its default moment and the beat at its default pace, and a scrap
-    of text left in the beats list by a broken reply is left out. Anything else that is wrong (a layer the engine cannot draw, a broken beat) is left as it is, so it stays a failure."""
+    of text left in the beats list by a broken reply is left out, and so is an overlay or sound the engine cannot draw
+    (an unknown kind, a missing field), so a slip in one overlay never costs the whole film; the engine's own extras
+    fill a beat left bare. A broken beat itself is left as it is, so it stays a failure."""
     rows = data.get("beats")
     if not isinstance(rows, list):
         return data, []
@@ -478,8 +480,10 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
                     plain = {k: v for k, v in item.items() if k not in ("at", "until")} if isinstance(item, dict) else item
                     try:
                         beats_from({"beats": [{**bare, key: [plain]}]}, facts)
-                    except StudioError:
-                        return data, []  # not a timing problem
+                    except StudioError:  # not its time: the engine cannot draw it at all
+                        kind = item.get("kind") if isinstance(item, dict) else None
+                        dropped.append(f"beat {number} {key[:-1]} {i} ({kind or 'no kind'}) left out")
+                        continue
                     times = ", ".join(repr(item[k]) for k in ("at", "until") if k in item)
                     dropped.append(f"beat {number} {key[:-1]} {i} time {times}")
                     item = plain
@@ -1116,9 +1120,10 @@ def produce(
                     else:
                         data, problem = cleaned, None
                         production.checks.append({
-                            "render": "all", "check": "unreadable timings dropped", "ok": True,
+                            "render": "all", "check": "unreadable parts dropped", "ok": True,
                             "detail": f"after {SCRIPT_FIXES} fixes these parts still could not be read, so stray text "
-                                      f"in the beats is left out and times and paces play at their default: "
+                                      f"and overlays or sounds the engine cannot draw are left out, and times and "
+                                      f"paces play at their default: "
                                       f"{'; '.join(dropped)}"})
             if problem is None and board is not None:
                 unmade = [n for n, row in enumerate(board, start=1) if row["base"]["kind"] == "generate"]

@@ -440,20 +440,25 @@ def test_a_storyboard_with_words_but_no_voice_service_stops_before_spending(tmp_
 
 
 @needs_ffmpeg
-def test_a_storyboard_layer_the_engine_cannot_draw_is_refused_before_any_picture_is_made(tmp_path: Path, services) -> None:
+def test_a_storyboard_layer_the_engine_cannot_draw_is_sent_back_before_any_picture_is_made(tmp_path: Path, services) -> None:
     bad = {**BEATS, "beats": [{**BEATS["beats"][0], "layers": [{"kind": "hologram", "at": 0}]}]}
-    calls: list[str] = []
+    asked: list[str] = []
+    calls: list[int] = []  # how many times the writer had been asked when each picture or voice was made
 
     def post(request: media.MediaRequest) -> media.MediaResponse:
-        calls.append(request.url)
+        calls.append(len(asked))
         return _media(services)(request)
 
     made = studio.produce("x", provider_id="ollama", model="llama3", visual_provider="local-images", visual_model="sdxl",
                           voice_provider="local-voice", voice_model="tts", seconds=6, formats=("1x1",),
                           out_dir=tmp_path / "v", size_scale=0.1, media_transport=post,
-                          text_transport=lambda r: live.Response(200, {"choices": [{"message": {"content": json.dumps(bad)}}],
-                                                                        "usage": {"prompt_tokens": 1, "completion_tokens": 1}}))
-    assert made.stopped.startswith("beat 1:") and calls == [], made.stopped
+                          text_transport=_writer_of(bad, asked=asked))
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("hologram" in a for a in asked[1:])
+    assert calls and min(calls) == len(asked)  # nothing was made until the writer had every chance to fix it
+    assert made.stopped == "finished", made.stopped
+    assert "hologram" not in (tmp_path / "v" / "script.json").read_text(encoding="utf-8")
+    left = next(c for c in made.checks if c["check"] == "unreadable parts dropped")["detail"]
+    assert "beat 1 layer 1 (hologram) left out" in left, left
 
 
 def test_a_storyboard_may_only_show_footage_from_the_fact_sheet() -> None:
@@ -691,8 +696,32 @@ def test_a_timing_that_stays_unreadable_falls_back_to_the_default_instead_of_los
     # the overlay and the sound stay; only their unreadable times are gone, so they play at the default moment
     assert script["beats"][0]["layers"] == [*BEATS["beats"][0]["layers"], {"kind": "chips", "items": ["fast"]}]
     assert script["beats"][1]["sounds"] == [{"kind": "whoosh"}, {"kind": "hit", "at": "start"}]
-    untimed = next(c for c in made.checks if c["check"] == "unreadable timings dropped")
+    untimed = next(c for c in made.checks if c["check"] == "unreadable parts dropped")
     assert "beat 1 layer 2" in untimed["detail"] and "beat 2 sound 1" in untimed["detail"], untimed
+
+
+@needs_ffmpeg
+def test_an_overlay_the_engine_cannot_draw_is_left_out_instead_of_losing_the_film(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    slipped = json.loads(json.dumps(BEATS))
+    slipped["beats"][0]["layers"].append({"kind": "card", "items": ["x"]})  # a kind the engine does not have
+    slipped["beats"][1]["layers"].append({"text": "no kind"})
+    slipped["beats"][2]["sounds"] = [{"kind": "boom"}, {"kind": "hit", "at": "start"}]
+    asked: list[str] = []
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                          text_transport=_writer_of(slipped, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    assert len(asked) == 1 + studio.SCRIPT_FIXES  # the writer had every chance to fix them first
+    assert made.stopped == "finished" and "1x1" in made.renders, made.stopped
+    script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
+    assert script["beats"][0]["layers"] == BEATS["beats"][0]["layers"]  # everything that could be drawn stays
+    assert script["beats"][1]["layers"] == BEATS["beats"][1]["layers"]
+    assert script["beats"][2]["sounds"] == [{"kind": "hit", "at": "start"}]
+    left = next(c for c in made.checks if c["check"] == "unreadable parts dropped")["detail"]
+    assert "beat 1 layer" in left and "(card) left out" in left and "(no kind) left out" in left
+    assert "beat 3 sound 1 (boom) left out" in left, left
 
 
 @needs_ffmpeg
@@ -712,7 +741,7 @@ def test_a_pace_that_stays_unreadable_falls_back_to_the_default_instead_of_losin
     script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
     assert "energy" not in script["beats"][1] and "cut" not in script["beats"][2]  # the default pace plays instead
     assert script["beats"][1]["phrases"][0]["text"] == BEATS["beats"][1]["say"]  # and the beat itself is kept whole
-    untimed = next(c for c in made.checks if c["check"] == "unreadable timings dropped")
+    untimed = next(c for c in made.checks if c["check"] == "unreadable parts dropped")
     assert "beat 2 energy 'low+'" in untimed["detail"] and "beat 3 cut 'zoomy'" in untimed["detail"], untimed
 
 
@@ -733,7 +762,7 @@ def test_stray_text_in_the_beats_is_named_to_the_writer_and_left_out_when_it_sta
     assert len(asked) == 1 + studio.SCRIPT_FIXES and made.stopped == "finished", made.stopped
     script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
     assert len(script["beats"]) == n  # every real beat is kept; only the stray text is gone
-    untimed = next(c for c in made.checks if c["check"] == "unreadable timings dropped")
+    untimed = next(c for c in made.checks if c["check"] == "unreadable parts dropped")
     assert f"beat {n + 1} stray text" in untimed["detail"], untimed
 
 
