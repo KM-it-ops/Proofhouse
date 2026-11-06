@@ -151,6 +151,16 @@ def _output_text(payload: dict[str, Any]) -> str | None:
     return None
 
 
+LOCAL_THINKING_ROOM = 16384  # the cap for the one retry when a model on this machine thought through its whole cap
+
+
+def _cut_off(payload: dict[str, Any]) -> bool:
+    """True when the reply stopped because it reached the output cap."""
+    choices = payload.get("choices")
+    return isinstance(choices, list) and bool(choices) and isinstance(choices[0], dict) and \
+        choices[0].get("finish_reason") == "length"
+
+
 STRUCTURED_JSON = "output.structured_json@1"  # the capability a provider entry lists under ignores to opt out
 
 
@@ -272,6 +282,12 @@ def run_prompt(
         error = payload.get("error")
         reason = error.get("message") if isinstance(error, dict) else None
         message = f"PHC-RUN-0006: {profile.name} answered HTTP {status_code}" + (f": {reason}" if isinstance(reason, str) else "")
+    if ok and profile.local and not (text or "").strip() and _cut_off(payload) and max_output_tokens < LOCAL_THINKING_ROOM:
+        # A model that thinks before it answers can spend the whole cap thinking and say nothing. On this machine the
+        # call is free, so ask once more with room to finish rather than hand back an empty reply.
+        return run_prompt(provider_id, model, prompt=prompt, input_text=input_text, images=images,
+                          max_output_tokens=LOCAL_THINKING_ROOM, max_cost_usd=max_cost_usd, transport=transport,
+                          json_reply=json_reply)
     result = RunResult(
         "success" if ok else "error", code, message, profile.id, model, text, status_code, admission, cost, warning
     )

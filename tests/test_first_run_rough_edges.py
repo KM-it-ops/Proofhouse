@@ -155,3 +155,40 @@ def test_a_launch_whose_plan_cannot_be_read_says_so_and_keeps_a_record(tmp_path:
     assert made.parts == [] and "plan" in made.stopped and "another model" in made.stopped
     record = json.loads((tmp_path / "L" / "launch.json").read_text(encoding="utf-8"))
     assert record["parts"] == [] and "plan" in record["stopped"]
+
+
+def _thought_through_the_cap() -> live.Response:
+    return live.Response(200, {"choices": [{"message": {"content": "", "reasoning": "Hmm, let me think..."},
+                                            "finish_reason": "length"}],
+                               "usage": {"prompt_tokens": 100, "completion_tokens": 2048}})
+
+
+def test_a_local_model_that_thinks_through_its_cap_gets_room_to_answer() -> None:
+    caps: list[int] = []
+
+    def thinker(request: live.Request) -> live.Response:
+        cap = json.loads(request.body_bytes)["max_tokens"]
+        caps.append(cap)
+        return _reply("the plan") if cap > 2048 else _thought_through_the_cap()
+
+    result = live.run_prompt("ollama", "qwen3:4b", prompt="plan it", max_output_tokens=2048, transport=thinker)
+    assert result.output_text == "the plan"
+    assert caps == [2048, live.LOCAL_THINKING_ROOM]
+
+
+def test_the_retry_happens_once_and_never_for_a_paid_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    sent: list[int] = []
+
+    def always_thinking(request: live.Request) -> live.Response:
+        sent.append(1)
+        return _thought_through_the_cap()
+
+    live.run_prompt("ollama", "qwen3:4b", prompt="plan it", max_output_tokens=2048, transport=always_thinking)
+    assert len(sent) == 2
+    sent.clear()
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    assert cli.main(["providers", "price", "openai", "gpt-x", "--input", "1", "--output", "2"]) == 0
+    paid = live.run_prompt("openai", "gpt-x", prompt="plan it", max_output_tokens=2048, max_cost_usd="1",
+                           transport=always_thinking)
+    assert paid.status == "success"
+    assert len(sent) == 1
