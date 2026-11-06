@@ -24,7 +24,7 @@ import re
 import shutil
 import tempfile
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from types import MappingProxyType
 from pathlib import Path
 from typing import Any
@@ -48,7 +48,10 @@ LOCAL_HOSTS = frozenset({"localhost", "127.0.0.1", "::1"})
 
 _ID = re.compile(r"[a-z0-9][a-z0-9._-]{0,63}")
 _ENV = re.compile(r"[A-Z_][A-Z0-9_]{0,127}")
-_PROVIDER_KEYS = frozenset({"id", "name", "base_url", "shape", "key_env", "ignores"})
+_PROVIDER_KEYS = frozenset({"id", "name", "base_url", "shape", "key_env", "ignores", "also_send"})
+# Request fields Proofhouse sets itself, or that would change what a call costs; also_send may not set them.
+RESERVED_FIELDS = frozenset({"model", "messages", "max_tokens", "max_completion_tokens", "response_format",
+                             "stream", "stream_options", "n", "best_of"})
 _CAPABILITY = re.compile(r"[a-z][a-z0-9_.-]+@[1-9][0-9]*")
 
 
@@ -65,6 +68,7 @@ class Provider:
     key_env: str | None
     origin: str  # "shipped" or "yours"
     ignores: tuple[str, ...] = ()
+    also_send: Mapping[str, Any] = field(default_factory=lambda: MappingProxyType({}))  # extra request fields, e.g. thinking off
 
     @property
     def host(self) -> str:
@@ -88,6 +92,7 @@ class Provider:
             "local": self.local,
             "origin": self.origin,
             "ignores": list(self.ignores),
+            "also_send": dict(self.also_send),
         }
 
 
@@ -126,7 +131,18 @@ def parse_provider(raw: object, origin: str) -> Provider:
         not isinstance(capability, str) or not _CAPABILITY.fullmatch(capability) for capability in ignores
     ):
         raise ProviderError(f"provider {provider_id}: ignores must be a list of capability ids")
-    return Provider(provider_id, name, check_base_url(raw["base_url"]), shape, key_env, origin, tuple(ignores))
+    also_send = raw.get("also_send", {})
+    if not isinstance(also_send, dict) or any(not isinstance(k, str) or not k for k in also_send):
+        raise ProviderError(f"provider {provider_id}: also_send must be an object of request fields")
+    taken = sorted(set(also_send) & RESERVED_FIELDS)
+    if taken:
+        raise ProviderError(f"provider {provider_id}: also_send cannot set {', '.join(taken)}; Proofhouse sets those itself")
+    try:
+        json.dumps(also_send)
+    except (TypeError, ValueError):
+        raise ProviderError(f"provider {provider_id}: also_send must hold plain JSON values") from None
+    return Provider(provider_id, name, check_base_url(raw["base_url"]), shape, key_env, origin, tuple(ignores),
+                    MappingProxyType(json.loads(json.dumps(also_send))))
 
 
 def proofhouse_home() -> Path:

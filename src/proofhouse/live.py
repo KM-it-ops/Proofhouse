@@ -223,7 +223,7 @@ def run_prompt(
     headers = {"Content-Type": "application/json"}
     if secret:
         headers["Authorization"] = f"Bearer {secret}"
-    body: dict[str, Any] = {"model": model, "messages": messages, cap_field: max_output_tokens}
+    body: dict[str, Any] = {**profile.also_send, "model": model, "messages": messages, cap_field: max_output_tokens}
     if json_reply and STRUCTURED_JSON not in profile.ignores:
         body["response_format"] = {"type": "json_object"}
     unsent = Request(url, headers, body, b"")

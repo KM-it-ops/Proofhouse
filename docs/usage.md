@@ -78,7 +78,10 @@ export MISTRAL_API_KEY=...                                                 # you
 proofhouse providers price mistral mistral-large --input 2 --output 6      # USD per million tokens, if none ships
 proofhouse run --provider mistral --model mistral-large --prompt "Say hi" --max-cost-usd 0.05
 proofhouse providers add myhost --base-url https://api.myhost.ai/v1 --key-env MYHOST_KEY   # any other provider
+proofhouse providers add ollama --base-url http://localhost:11434/v1 --also-send reasoning_effort=none  # thinking off
 ```
+
+`--also-send FIELD=VALUE` adds a field to every request to that provider. On a slow machine, switching a thinking model's thinking off (`reasoning_effort=none` on Ollama) can turn a three-minute answer into a few seconds. These extra fields go only to a provider on your machine, where nothing is charged. For a paid provider the spend gate refuses them, because it cannot tell what they would add to the bill.
 
 ### Same job, many models
 

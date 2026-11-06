@@ -419,16 +419,22 @@ def _parts(content: list[Any]) -> tuple[int, int]:
     return pictures, picture_bytes
 
 
-def _check_request(body: Mapping[str, Any], *, shape: str, model: str, output_bound: int) -> tuple[int, int]:
+def _check_request(body: Mapping[str, Any], *, shape: str, model: str, output_bound: int,
+                   free_extras: Mapping[str, Any] | None = None) -> tuple[int, int]:
     """The model and output cap are read from the bytes being counted; the caller's word is not taken.
+
+    ``free_extras`` are the provider entry's own also_send fields, passed only for a provider on this machine, where
+    nothing is billed; a field is let through only with exactly the entry's value. Anywhere else they are refused.
 
     Returns how many inline pictures the request carries and how many of its bytes are their data."""
     fields = _REQUEST_FIELDS.get(shape)
     if fields is None:
         raise SpendRefused("PHC-COST-0003", f"no request shape {shape!r} is known")
-    extra = sorted(str(key) for key in body if key not in fields)
+    free = free_extras or {}
+    extra = sorted(str(key) for key in body if key not in fields and not (key in free and body[key] == free[key]))
     if extra:
-        raise SpendRefused("PHC-COST-0003", f"the request has fields the estimate does not cover: {', '.join(extra)}")
+        where = " (a provider's also_send fields go only to a provider on this machine)" if not free else ""
+        raise SpendRefused("PHC-COST-0003", f"the request has fields the estimate does not cover: {', '.join(extra)}{where}")
     if body.get("model") != model:
         raise SpendRefused("PHC-COST-0003", "the request names a different model from the one priced")
     cap = body.get(_OUTPUT_CAP_FIELD[shape])
@@ -526,7 +532,9 @@ def send_within_ceiling(
         facts["output_tokens_bound"] = output_bound = _count(max_output_tokens, "the output-token ceiling")
         known = _snapshot(snapshot)
         profile = _provider(provider, known)
-        pictures, picture_bytes = _check_request(body, shape=profile.shape, model=model, output_bound=output_bound)
+        free_extras = getattr(profile, "also_send", None) if profile.local else None
+        pictures, picture_bytes = _check_request(body, shape=profile.shape, model=model, output_bound=output_bound,
+                                                 free_extras=free_extras)
         if pictures:
             facts["input_tokens_bound"] = bound = bound - picture_bytes + pictures * PICTURE_TOKENS_BOUND
         try:

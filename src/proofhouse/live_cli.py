@@ -45,7 +45,19 @@ def _cmd_providers_list(args: argparse.Namespace) -> int:
 
 
 def _cmd_providers_add(args: argparse.Namespace) -> int:
-    raw = {"id": args.id, "name": args.name or args.id, "base_url": args.base_url, "shape": args.shape, "key_env": args.key_env}
+    raw: dict[str, object] = {"id": args.id, "name": args.name or args.id, "base_url": args.base_url, "shape": args.shape,
+                              "key_env": args.key_env}
+    extra: dict[str, object] = {}
+    for item in args.also_send or []:
+        key, sep, value = item.partition("=")
+        if not sep or not key:
+            return _fail(f"--also-send takes FIELD=VALUE, for example reasoning_effort=none (got {item!r})")
+        try:
+            extra[key] = json.loads(value)
+        except ValueError:
+            extra[key] = value  # a bare word is text
+    if extra:
+        raw["also_send"] = extra
     try:
         provider = providers.parse_provider(raw, "yours")
         data = providers.load_user()
@@ -490,6 +502,10 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_add.add_argument("--name", default=None, help="Display name.")
     p_add.add_argument(
         "--shape", default="openai-compatible", choices=providers.SHAPES, help="Request format (default openai-compatible)."
+    )
+    p_add.add_argument(
+        "--also-send", action="append", metavar="FIELD=VALUE",
+        help="An extra field for every request, for example reasoning_effort=none to switch a model's thinking off. Repeatable.",
     )
     p_add.set_defaults(func=_cmd_providers_add)
 
