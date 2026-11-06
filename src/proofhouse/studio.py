@@ -1135,10 +1135,18 @@ def produce(
                 timed, length, problem = voice_board(board, attempt == SCRIPT_FIXES)
             if problem is None:
                 break
+            cut = reply.cut_off
+            if cut:
+                problem += "; your reply was cut off before it ended, so keep it shorter"
             if attempt == SCRIPT_FIXES:  # keep what it said last, so the failure can be read
                 (out_dir / "script-reply.txt").write_text(reply_text, encoding="utf-8")
-                raise StudioError(f"{problem} (the script writer's last reply is in script-reply.txt); try another model")
-            prompt, role = _FIX.format(problem=problem, task=task, reply=reply_text[:6000]), "script fix"
+                after = ("the reply was cut off because the model ran out of room. A model on this machine may have a "
+                         "small window: for Ollama, start it with OLLAMA_CONTEXT_LENGTH=16384, or try another model"
+                         if cut else "try another model")
+                raise StudioError(f"{problem} (the script writer's last reply is in script-reply.txt); {after}")
+            # what it wrote goes back without its indents, so the fix fits in a small model's window
+            said = reply_text if data is None else json.dumps(data, ensure_ascii=False, separators=(",", ":"))
+            prompt, role = _FIX.format(problem=problem, task=task, reply=said[:6000]), "script fix"
 
         if board is not None:
             if cut_said:

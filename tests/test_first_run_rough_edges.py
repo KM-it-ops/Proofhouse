@@ -192,3 +192,14 @@ def test_the_retry_happens_once_and_never_for_a_paid_model(monkeypatch: pytest.M
                            transport=always_thinking)
     assert paid.status == "success"
     assert len(sent) == 1
+
+
+def test_a_reply_that_stopped_at_the_cap_says_it_was_cut_off() -> None:
+    def answer(finish: str):  # noqa: ANN202
+        return lambda request: live.Response(200, {"choices": [{"message": {"content": '{"beats": ['},
+                                                                "finish_reason": finish}]})
+
+    cut = live.run_prompt("ollama", "m", prompt="plan it", transport=answer("length"))
+    whole = live.run_prompt("ollama", "m", prompt="plan it", transport=answer("stop"))
+    assert cut.status == "success" and cut.cut_off and cut.to_dict()["cut_off"] is True
+    assert not whole.cut_off

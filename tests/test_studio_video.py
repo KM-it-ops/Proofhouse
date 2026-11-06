@@ -529,6 +529,37 @@ def test_a_script_reply_that_cannot_be_read_is_kept_beside_the_record(tmp_path: 
     assert (tmp_path / "v" / "script-reply.txt").read_text(encoding="utf-8").startswith("Sure! {title")
 
 
+@needs_ffmpeg
+def test_a_script_cut_off_by_a_small_window_says_so_and_how_to_give_it_room(tmp_path: Path, services) -> None:
+    asked: list[str] = []
+
+    def cut_short(request: live.Request) -> live.Response:
+        asked.append(request.body["messages"][-1]["content"])
+        return live.Response(200, {"choices": [{"message": {"content": '{"title": "T", "beats": [{"say": "It makes'},
+                                                "finish_reason": "length"}]})
+
+    made = studio.produce("x", provider_id="ollama", model="m", visual_provider="local-images", visual_model="m",
+                          seconds=6, out_dir=tmp_path / "v", size_scale=0.1, text_transport=cut_short,
+                          media_transport=_media(services))
+    assert made.renders == {} and "cut off" in made.stopped and "OLLAMA_CONTEXT_LENGTH" in made.stopped, made.stopped
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("cut off before it ended" in a for a in asked[1:])
+
+
+@needs_ffmpeg
+def test_a_fix_sends_the_writers_reply_back_without_its_indents(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
+    rambling = {**BEATS, "beats": [{**row, "say": "Say what you want, in as many words as you like, and then some more. " * 3}
+                                   for row in BEATS["beats"]]}
+    asked: list[str] = []
+    studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                   visual_model="sdxl", voice_provider="local-voice", voice_model="tts", music_file=services["bed"],
+                   seconds=6, formats=("1x1",), out_dir=tmp_path / "v", size_scale=0.1,
+                   text_transport=_writer_of(json.dumps(rambling, indent=2), BEATS, asked=asked),
+                   media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+    said = asked[1].split("YOUR REPLY WAS:\n", 1)[1]
+    assert said == json.dumps(rambling, ensure_ascii=False, separators=(",", ":"))[:6000]
+
+
 # ---------------------------------------------------------------- the film fits the asked length
 
 def test_the_script_asks_for_beats_and_words_that_fit_the_asked_length() -> None:

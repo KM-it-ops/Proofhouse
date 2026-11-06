@@ -54,6 +54,7 @@ class RunResult:
     admission: dict[str, Any] = field(default_factory=dict)
     cost: dict[str, Any] | None = None
     cost_warning: str | None = None
+    cut_off: bool = False  # the reply stopped at the output cap or the model's window, so it may be unfinished
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -67,6 +68,7 @@ class RunResult:
             "admission": self.admission,
             "cost": self.cost,
             "cost_warning": self.cost_warning,
+            "cut_off": self.cut_off,
         }
 
 
@@ -289,6 +291,7 @@ def run_prompt(
                           max_output_tokens=LOCAL_THINKING_ROOM, max_cost_usd=max_cost_usd, transport=transport,
                           json_reply=json_reply)
     result = RunResult(
-        "success" if ok else "error", code, message, profile.id, model, text, status_code, admission, cost, warning
+        "success" if ok else "error", code, message, profile.id, model, text, status_code, admission, cost, warning,
+        ok and _cut_off(payload),
     )
     return RunResult(**_scrub(result.to_dict(), secret))
