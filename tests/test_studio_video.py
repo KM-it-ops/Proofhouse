@@ -953,3 +953,65 @@ def test_with_no_picture_service_generated_beats_stand_on_a_moving_background_an
     noted = [c for c in made.checks if c["check"] == "no picture service"]
     assert len(noted) == 1 and "1, 2, 3" in noted[0]["detail"]
     assert all("image" not in url for url in calls)
+
+
+@needs_ffmpeg
+def test_a_film_with_footage_on_hand_but_none_used_is_sent_back_then_given_the_terminal(tmp_path: Path, services) -> None:
+    asked: list[str] = []
+    made = _footage_film(tmp_path, services, BEATS, asked=asked)
+    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("no real product footage" in a and "hi" in a for a in asked[1:])
+    assert made.stopped == "finished", made.stopped
+    row = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))["beats"][1]
+    assert row["real"] is True and row["layers"][0]["kind"] == "terminal", row
+    assert (tmp_path / "v" / "footage" / "hi" / "terminal.json").is_file()
+    settled = next(c for c in made.checks if c["check"] == "script settled")
+    assert settled["ok"] and "beat 2 shows the real footage 'hi'" in settled["detail"], settled
+
+
+@needs_ffmpeg
+def test_a_writer_that_adds_the_footage_when_told_is_not_asked_again(tmp_path: Path, services) -> None:
+    asked: list[str] = []
+    made = _footage_film(tmp_path, services, BEATS, _with_refs(None, "hi", None), asked=asked)
+    assert len(asked) == 2 and made.stopped == "finished", made.stopped
+    assert not any(c["check"] == "script settled" for c in made.checks)
+
+
+def _counted(to: object, say: str = "Proofhouse makes it.") -> dict:
+    third = {**BEATS["beats"][2], "say": say,
+             "layers": [*BEATS["beats"][2]["layers"], {"kind": "counter", "to": to, "label": "fixes found", "at": 0.5}]}
+    return {**BEATS, "beats": [BEATS["beats"][0], {**BEATS["beats"][1], "base": {"ref": "hi"}}, third]}
+
+
+def test_a_figure_the_facts_never_give_is_sent_back_and_left_out_at_the_last_chance() -> None:
+    ask = {"brief": "a 12 second film", "seconds": 12, "facts": TERMINAL_FACTS, "footage": ["hi"], "voiced": True}
+    board = studio.beats_from(_counted(42, "Done in 0.4s."), TERMINAL_FACTS)
+    gaps = studio.script_gaps(board, **ask)
+    assert any("beat 3 layer 2 states 42" in g for g in gaps), gaps
+    assert any("beat 3's narration states 0.4" in g for g in gaps), gaps
+    notes = studio.settle_gaps(board, **ask)
+    assert [lay["kind"] for lay in board[2]["layers"]] == ["lower_third"]
+    assert board[2]["say"] == "Done in 0.4s."  # the narration stays; only what is drawn is left out
+    assert any("beat 3 layer 2 left out" in n for n in notes), notes
+
+
+def test_figures_from_the_brief_or_facts_and_version_tags_are_not_invented() -> None:
+    facts = {**TERMINAL_FACTS, "facts": ["It runs 1,200 checks."]}
+    for figure in (12, 1200):
+        board = studio.beats_from(_counted(figure, "Proofhouse v1.0 makes it."), facts)
+        assert studio.script_gaps(board, brief="a 12 second film", seconds=12, facts=facts, footage=["hi"],
+                                  voiced=True) == []
+    assert studio.script_gaps(studio.beats_from(_counted(42), TERMINAL_FACTS), brief="x", seconds=12, facts=None,
+                              footage=[], voiced=True) == []  # with no fact sheet there is nothing to hold it to
+
+
+def test_narration_too_thin_for_the_film_is_sent_back_and_accepted_at_the_last_chance() -> None:
+    board = studio.beats_from(BEATS)  # ten words
+    fit = studio.script_budget(45)
+    gaps = studio.script_gaps(board, brief="x", seconds=45, facts=None, footage=[], voiced=True)
+    assert gaps == [f"the narration is too thin: 10 words over 45 seconds leaves long silences; use {fit['least']} to "
+                    f"{fit['words']} words in full flowing sentences"]
+    assert studio.script_gaps(board, brief="x", seconds=12, facts=None, footage=[], voiced=True) == []
+    assert studio.script_gaps(board, brief="x", seconds=45, facts=None, footage=[], voiced=False) == []
+    assert studio.settle_gaps(board, brief="x", seconds=45, facts=None, footage=[], voiced=True) == [
+        "the narration stays thin: 10 words over 45 seconds"]
+    assert fit["least"] < fit["words"] and f"{fit['least']} words at least" in studio.script_prompt("x", 45)

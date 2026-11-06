@@ -44,7 +44,7 @@ FPS = 30
 _BEATS = (
     "Reply with JSON only, in this shape: "
     '{{"title": "...", "music": "a prompt for the music bed: genre, mood, tempo", "beats": [{{'
-    '"say": "the words spoken over this beat: short phrases, plain words, each phrase ending with . ! or ?", '
+    '"say": "the words a narrator speaks over this beat: one or two full sentences in plain words, each ending with . ! or ?", '
     '"base": {base}, '
     '"layers": [{{"kind": "title", "text": "two to five words", "at": "phrase 1"}}], '
     '"sounds": [{{"kind": "pop", "at": "phrase 1"}}], "cut": "auto", "energy": "mid"}}]}}. '
@@ -60,8 +60,9 @@ _BEATS = (
     "catch: each has a kind (whoosh, tick, click, pop, hit, riser or chime) and an at, written like a layer's. "
     "Cut is how a beat joins the one before: auto, cut, dissolve, whip, zoom, wipe or flash; auto lets the story "
     "pick. Energy is low, mid or high and sets the pace of the joins. "
-    "Write {fewest} to {most} beats of one or two phrases each, one flowing passage across them, no slogans or lists. "
-    "Spoken, the whole film lasts about {seconds} seconds, so use {words} words in all at most. "
+    "Write {fewest} to {most} beats, one flowing passage across them that fills the film, no slogans or lists. "
+    "Spoken, the whole film lasts about {seconds} seconds, so use {least} words at least and {words} words in all "
+    "at most. "
     "Something new must appear on screen at least every 3 seconds: use two or three layers in most beats, a sound "
     "where something lands, and a different layer kind from one beat to the next."
 )
@@ -98,7 +99,7 @@ def script_budget(seconds: float, rate: float = SPEAKING_RATE) -> dict[str, int]
     """How many beats, and how many words in all, fit a film of ``seconds`` spoken at ``rate`` words a second."""
     beats = max(2, round(seconds / 3.5))
     words = max(3, int((seconds - beats * BEAT_OVERHEAD) * rate * 0.9))
-    return {"fewest": max(1, beats - 1), "most": beats + 1, "words": words}
+    return {"fewest": max(1, beats - 1), "most": beats + 1, "words": words, "least": max(3, words * 7 // 10)}
 
 _SCRIPT = (
     "You are a video producer, film director and motion designer. Plan a finished, produced film for the brief below, about "
@@ -114,11 +115,12 @@ _SCRIPT_FACTS = (
     "PRODUCT SUMMARY:\n{summary}\n\n"
     "FACTS ABOUT THE PRODUCT:\n{facts_block}\n\n"
     "REAL PRODUCT FOOTAGE YOU CAN SHOW (a beat's base is either {{\"ref\": \"<one of these ids>\"}}, or "
-    "{{\"prompt\": \"...\"}} for a generated picture). Show real footage only where it proves a point, in a third "
-    "of the film at most:\n{capture_list}\n\n"
+    "{{\"prompt\": \"...\"}} for a generated picture). Show real footage where it proves a point: in at least one "
+    "beat, and a third of the film at most:\n{capture_list}\n\n"
     + _BEATS.replace("{base}", '{{"prompt": "a detailed prompt about the actual product subject: setting, camera '
                                'move, light, style; no stock-footage metaphors; no text in the picture"}}')
-    + " Use only footage ids from the list above.\n\nBRIEF:\n{brief}"
+    + " Use only footage ids from the list above. On-screen words and narration state only what the brief and "
+    "the facts say: no invented numbers, features, timings or results.\n\nBRIEF:\n{brief}"
 )
 
 
@@ -389,6 +391,111 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
     except motion.MotionError as exc:
         raise StudioError(f"beat {beat.number}: {exc}") from exc
     return out
+
+
+_NUMBER = re.compile(r"(?<![\w.])v?\d+(?:[.,]\d+)*")
+_PLACING = {"kind", "at", "until", "enter", "x", "y", "size"}  # layer fields that place it, not words on screen
+
+
+def _numbers(text: str) -> set[str]:
+    """The figures in ``text``, without version tags such as v1.0 and with thousands commas taken out."""
+    return {n.replace(",", "") for n in _NUMBER.findall(text) if not n.lower().startswith("v")}
+
+
+def _shown(value: Any, key: str = "") -> list[str]:
+    """Every piece of text a layer puts on screen."""
+    if key in _PLACING:
+        return []
+    if isinstance(value, dict):
+        return [t for k, v in value.items() for t in _shown(v, k)]
+    if isinstance(value, list):
+        return [t for v in value for t in _shown(v)]
+    if isinstance(value, bool):
+        return []
+    return [str(value)] if isinstance(value, (str, int, float)) else []
+
+
+def _spoken(row: dict[str, Any]) -> str:
+    say = row.get("say")
+    if isinstance(say, list):
+        return " ".join(s for s in say if isinstance(s, str))
+    return say if isinstance(say, str) else ""
+
+
+def usable_footage(facts: dict[str, Any] | None, allow_commands: bool) -> list[str]:
+    """The fact sheet's footage ids this run can record: commands first when they may run, then pages."""
+    if not facts:
+        return []
+    ids = [c["id"] for c in facts.get("commands") or []] if allow_commands else []
+    return ids + [p["id"] for p in facts.get("pages") or []]
+
+
+def _invented(board: list[dict[str, Any]], brief: str, facts: dict[str, Any]) -> list[tuple[int, int | None, list[str]]]:
+    """Figures the film shows or says that the brief and the fact sheet never give: (beat, layer or None for the
+    narration, the figures)."""
+    source = " ".join([brief, str(facts.get("product", "")), str(facts.get("summary", ""))]
+                      + [str(f) for f in facts.get("facts") or []]
+                      + [str(item.get(k, "")) for item in (facts.get("commands") or []) + (facts.get("pages") or [])
+                         for k in ("shows", "display")])
+    known = _numbers(source)
+    found = []
+    for number, row in enumerate(board, start=1):
+        for index, layer in enumerate(row.get("layers") or [], start=1):
+            new = sorted(_numbers(" ".join(_shown(layer))) - known)
+            if new:
+                found.append((number, index, new))
+        new = sorted(_numbers(_spoken(row)) - known)
+        if new:
+            found.append((number, None, new))
+    return found
+
+
+def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, facts: dict[str, Any] | None,
+                footage: list[str], voiced: bool) -> list[str]:
+    """What a readable storyboard still lacks to make a good film, each said so the writer can fix it: no real
+    footage when the fact sheet has some, figures nobody gave it, narration too thin to fill the film."""
+    gaps = []
+    if footage and not any(row["base"]["kind"] == "capture" for row in board):
+        gaps.append(f"the film shows no real product footage: make at least one beat's base {{\"ref\": \"<id>\"}} "
+                    f"using one of: {', '.join(footage)}")
+    if facts:
+        for number, layer, new in _invented(board, brief, facts):
+            where = f"beat {number} layer {layer}" if layer else f"beat {number}'s narration"
+            gaps.append(f"{where} states {', '.join(new)}, which the brief and facts never give: say only what they "
+                        f"say, with no invented numbers, timings or results")
+    words = sum(len(_spoken(row).split()) for row in board)
+    if voiced and words:
+        fit = script_budget(seconds)
+        if words < fit["words"] // 2:
+            gaps.append(f"the narration is too thin: {words} words over {seconds} seconds leaves long silences; "
+                        f"use {fit['least']} to {fit['words']} words in full flowing sentences")
+    return gaps
+
+
+def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, facts: dict[str, Any] | None,
+                footage: list[str], voiced: bool) -> list[str]:
+    """With no fixes left, the engine settles what ``script_gaps`` found itself, and says what it did: the middle
+    beat shows real footage, overlays with invented figures are left out, thin narration stays as written."""
+    notes = []
+    if footage and not any(row["base"]["kind"] == "capture" for row in board):
+        middle = len(board) // 2
+        board[middle]["base"] = {"kind": "capture", "ref": footage[0]}
+        notes.append(f"beat {middle + 1} shows the real footage {footage[0]!r}")
+    if facts:
+        drop = {(number, layer) for number, layer, _ in _invented(board, brief, facts) if layer}
+        for number, layer, new in _invented(board, brief, facts):
+            if layer:
+                notes.append(f"beat {number} layer {layer} left out: it showed {', '.join(new)}, which the facts "
+                             f"never give")
+            else:
+                notes.append(f"beat {number}'s narration says {', '.join(new)}, which the facts never give")
+        for number, row in enumerate(board, start=1):
+            if row.get("layers"):
+                row["layers"] = [lay for i, lay in enumerate(row["layers"], start=1) if (number, i) not in drop]
+    words = sum(len(_spoken(row).split()) for row in board)
+    if voiced and words and words < script_budget(seconds)["words"] // 2:
+        notes.append(f"the narration stays thin: {words} words over {seconds} seconds")
+    return notes
 
 
 def _not_a_beat(number: int, raw: Any) -> str:
@@ -1125,6 +1232,19 @@ def produce(
                                       f"and overlays or sounds the engine cannot draw are left out, and times and "
                                       f"paces play at their default: "
                                       f"{'; '.join(dropped)}"})
+            if problem is None and board is not None:
+                ask = {"brief": brief, "seconds": seconds, "facts": facts,
+                       "footage": usable_footage(facts, allow_commands), "voiced": bool(voice_provider)}
+                if attempt < SCRIPT_FIXES:
+                    problem = "; ".join(script_gaps(board, **ask)) or None
+                else:  # no fixes left: the engine settles what is missing itself and says what it did
+                    production.checks = [c for c in production.checks if c["check"] != "script settled"]
+                    notes = settle_gaps(board, **ask)
+                    if notes:
+                        production.checks.append({
+                            "render": "all", "check": "script settled", "ok": True,
+                            "detail": f"after {SCRIPT_FIXES} fixes the script still lacked these, so the engine "
+                                      f"settled them: {'; '.join(notes)}"})
             if problem is None and board is not None:
                 unmade = [n for n, row in enumerate(board, start=1) if row["base"]["kind"] == "generate"]
                 if unmade and (not visual_provider or not visual_model):  # no picture service: the motion layers carry it

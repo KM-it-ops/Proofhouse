@@ -90,7 +90,7 @@ def test_a_fact_sheet_is_checked_when_it_is_loaded(tmp_path: Path) -> None:
 
 def test_the_script_prompt_carries_the_facts_and_asks_for_speech_not_slogans() -> None:
     prompt = studio.script_prompt("a launch film", 30, FACTS)
-    for needle in ("Proofhouse", "version", "compare", "two models side by side", "It keeps every version", "short phrases"):
+    for needle in ("Proofhouse", "version", "compare", "two models side by side", "It keeps every version", "full sentences"):
         assert needle in prompt
     assert "30" in prompt and "a launch film" in prompt
     assert studio.script_prompt("a launch film", 30) == studio._SCRIPT.format(seconds=30, brief="a launch film", **studio.script_budget(30))
