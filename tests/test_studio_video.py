@@ -6,6 +6,7 @@ import json
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -762,3 +763,133 @@ def test_bare_still_beats_with_long_lines_still_have_something_happening_every_s
     for path in made.renders.values():
         activity = studio.picture_activity(Path(path))
         assert activity["longest_quiet"] <= 1.0 and activity["lively_share"] >= 0.95, (path, activity)
+
+
+# ---------------------------------------------------------------- the writer's full toolkit, and real footage
+
+def test_the_writer_is_offered_every_layer_kind_sound_and_cut_the_engine_draws() -> None:
+    from proofhouse import sound, storyboard
+    prompt = studio.script_prompt("a hype film", 30)
+    for kind in ("title", "label", "chips", "cards", "panel", "counter", "lower_third"):
+        assert re.search(rf"\b{kind}\b", prompt), kind
+    for kind in sound.KINDS:
+        assert kind in prompt, kind
+    for cut in storyboard.CUTS:
+        assert cut in prompt, cut
+    assert "two or three layers" in prompt
+
+
+def test_a_fact_sheet_page_may_say_how_it_is_used_how_big_it_is_and_what_frame_it_plays_in(tmp_path: Path) -> None:
+    page = {"id": "app", "url": "http://localhost:3000", "steps": [{"do": "wait", "seconds": 1}], "size": [390, 844],
+            "frame": "phone"}
+    sheet = tmp_path / "facts.json"
+
+    def load(**change: object) -> dict:
+        sheet.write_text(json.dumps({"product": "P", "summary": "S", "pages": [{**page, **change}]}), encoding="utf-8")
+        return studio.load_facts(sheet)
+
+    assert load()["pages"][0] == page
+    with pytest.raises(studio.StudioError, match="steps"):
+        load(steps=[{"do": "dance"}])
+    with pytest.raises(studio.StudioError, match="size"):
+        load(size=[10, 844])
+    with pytest.raises(studio.StudioError, match="size"):
+        load(size=[390, True])
+    with pytest.raises(studio.StudioError, match="frame"):
+        load(frame="tv")
+
+
+TERMINAL_FACTS = {"product": "Proofhouse", "summary": "a test",
+                  "commands": [{"id": "hi", "argv": [sys.executable, "-c", "print('hi there')"], "display": "proofhouse hi"}]}
+
+
+def _with_refs(*refs: str | None) -> dict:
+    return {**BEATS, "beats": [{**row, "base": {"ref": ref}} if ref else row for row, ref in zip(BEATS["beats"], refs)]}
+
+
+def _footage_film(tmp_path: Path, services, *replies: dict, asked: list[str], seconds: int = 12):  # noqa: ANN202
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.2", str(tmp_path / "phrase.wav"))
+    return studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
+                          visual_model="sdxl", voice_provider="local-voice", voice_model="tts",
+                          music_file=services["bed"], seconds=seconds, formats=("1x1",), out_dir=tmp_path / "v",
+                          size_scale=0.1, facts=TERMINAL_FACTS, allow_commands=True,
+                          text_transport=_writer_of(*replies, asked=asked),
+                          media_transport=_media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()}))
+
+
+@needs_ffmpeg
+def test_a_command_in_the_fact_sheet_is_typed_in_a_terminal_with_its_real_output(tmp_path: Path, services) -> None:
+    made = _footage_film(tmp_path, services, _with_refs(None, "hi", None), asked=[])
+    assert made.stopped == "finished", made.stopped
+    folder = tmp_path / "v"
+    timeline = json.loads((folder / "footage" / "hi" / "terminal.json").read_text(encoding="utf-8"))
+    assert timeline["command"] == "proofhouse hi" and "hi there" in json.dumps(timeline["output"])
+    row = json.loads((folder / "script.json").read_text(encoding="utf-8"))["beats"][1]
+    assert row["base"] == {"kind": "living"} and row["real"] is True and row["hold"] >= timeline["seconds"]
+    assert row["layers"][0]["kind"] == "terminal" and row["layers"][0]["timeline"] == timeline
+    assert row["layers"][1]["kind"] == "chips" and row["layers"][1]["y"] == studio.TERMINAL_SLOTS[0]  # words clear of it
+    assert sorted(p.name for p in (folder / "shots").iterdir()) == ["beat-01.png", "beat-03.png"]  # nothing generated for it
+    share = next(c for c in made.checks if c["check"] == "real footage share")
+    assert share["ok"], share
+
+
+@needs_ffmpeg
+def test_command_footage_without_permission_stops_before_anything_is_spoken_or_made(tmp_path: Path, services) -> None:
+    calls: list[str] = []
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        calls.append(request.url)
+        return _media(services)(request)
+
+    made = studio.produce("x", provider_id="ollama", model="llama3", visual_provider="local-images", visual_model="sdxl",
+                          voice_provider="local-voice", voice_model="tts", seconds=12, formats=("1x1",),
+                          out_dir=tmp_path / "v", size_scale=0.1, facts=TERMINAL_FACTS,
+                          text_transport=_writer_of(_with_refs(None, "hi", None), asked=[]), media_transport=post)
+    assert "--allow-commands" in made.stopped and calls == [] and made.renders == {}, made.stopped
+
+
+@needs_ffmpeg
+def test_too_much_real_footage_is_sent_back_to_the_writer_before_any_picture_is_made(tmp_path: Path, services) -> None:
+    asked: list[str] = []
+    made = _footage_film(tmp_path, services, _with_refs("hi", "hi", "hi"), _with_refs(None, "hi", None), asked=asked)
+    assert made.stopped == "finished", made.stopped
+    assert len(asked) == 2 and "real product footage fills" in asked[1] and "fewer footage refs" in asked[1]
+    assert sorted(p.name for p in (tmp_path / "v" / "shots").iterdir()) == ["beat-01.png", "beat-03.png"]
+    assert "real footage cut to a third" not in {c["check"] for c in made.checks}
+
+
+@needs_ffmpeg
+def test_real_footage_that_stays_too_long_is_cut_to_a_third_and_noted(tmp_path: Path, services) -> None:
+    asked: list[str] = []
+    made = _footage_film(tmp_path, services, _with_refs("hi", "hi", "hi"), asked=asked)
+    assert made.stopped == "finished", made.stopped
+    assert len(asked) == 1 + studio.SCRIPT_FIXES
+    cut = [c for c in made.checks if c["check"] == "real footage cut to a third"]
+    assert cut and all("moving background" in c["detail"] for c in cut)
+    rows = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))["beats"]
+    assert 1 <= sum(1 for r in rows if r.get("real")) < 3
+    assert all(r["layers"][0]["kind"] != "terminal" for r in rows if not r.get("real"))
+    assert next(c for c in made.checks if c["check"] == "real footage share")["ok"]
+
+
+@needs_ffmpeg
+def test_with_no_picture_service_generated_beats_stand_on_a_moving_background_and_it_is_noted(
+        tmp_path: Path, services) -> None:
+    calls: list[str] = []
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        calls.append(request.url)
+        return _media({**services, "wav": (tmp_path / "phrase.wav").read_bytes()})(request)
+
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.2", str(tmp_path / "phrase.wav"))
+    made = studio.produce("a hype video", provider_id="ollama", model="llama3", voice_provider="local-voice",
+                          voice_model="tts", music_file=services["bed"], seconds=12, formats=("1x1",),
+                          out_dir=tmp_path / "v", size_scale=0.1, text_transport=_writer_of(BEATS, asked=[]),
+                          media_transport=post)
+    assert made.stopped == "finished", made.stopped
+    rows = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))["beats"]
+    assert [r["base"] for r in rows] == [{"kind": "living"}] * 3
+    assert not list((tmp_path / "v" / "shots").iterdir())  # no picture was asked for
+    noted = [c for c in made.checks if c["check"] == "no picture service"]
+    assert len(noted) == 1 and "1, 2, 3" in noted[0]["detail"]
+    assert all("image" not in url for url in calls)

@@ -36,7 +36,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
-from . import __version__, capture, live, media, motion, providers, sound, storyboard
+from . import __version__, capture, live, media, motion, providers, recording, sound, storyboard
 
 FORMATS = {"16x9": (1920, 1080), "9x16": (1080, 1920), "1x1": (1080, 1080)}
 FPS = 30
@@ -46,14 +46,24 @@ _BEATS = (
     '{{"title": "...", "music": "a prompt for the music bed: genre, mood, tempo", "beats": [{{'
     '"say": "the words spoken over this beat: short phrases, plain words, each phrase ending with . ! or ?", '
     '"base": {base}, '
-    '"layers": [{{"kind": "title", "text": "two to five words", "at": "phrase 1"}}], "energy": "mid"}}]}}. '
+    '"layers": [{{"kind": "title", "text": "two to five words", "at": "phrase 1"}}], '
+    '"sounds": [{{"kind": "pop", "at": "phrase 1"}}], "cut": "auto", "energy": "mid"}}]}}. '
     "Layers are motion graphics drawn over the picture. Each has a kind and an at: seconds into the beat, or "
-    '"start", "phrase N" or "phrase N end", with an optional + or - seconds. The kinds: title {{"text"}}, '
-    'label {{"text"}}, chips {{"items": ["short", "words"]}}, cards {{"items": ["short titles"]}}, '
-    'counter {{"to": a number}}, lower_third {{"title"}}. Energy is low, mid or high and sets the pace of the joins. '
+    '"start", "phrase N" or "phrase N end", with an optional + or - seconds. The kinds and what each needs: '
+    'title {{"text"}} (big words; "enter": "type" types them out), label {{"text"}} (one short line), '
+    'chips {{"items": ["short", "words"]}} (a row of tags that pop in one by one), '
+    'cards {{"items": [{{"title": "short title", "tag": "one word"}}]}} (a row of cards), '
+    'panel {{"title": "...", "rows": ["short lines", "ticked off in turn"]}}, '
+    'counter {{"to": a number, "label": "what it counts"}} (counts up), '
+    'lower_third {{"title": "...", "subtitle": "..."}} (a name plate). Any layer may take "y" (pixels down a '
+    '1920x1080 frame, to keep layers apart) and "size" (text size in pixels). Sounds mark moments the eye should '
+    "catch: each has a kind (whoosh, tick, click, pop, hit, riser or chime) and an at, written like a layer's. "
+    "Cut is how a beat joins the one before: auto, cut, dissolve, whip, zoom, wipe or flash; auto lets the story "
+    "pick. Energy is low, mid or high and sets the pace of the joins. "
     "Write {fewest} to {most} beats of one or two phrases each, one flowing passage across them, no slogans or lists. "
     "Spoken, the whole film lasts about {seconds} seconds, so use {words} words in all at most. "
-    "Something new must appear on screen at least every 3 seconds."
+    "Something new must appear on screen at least every 3 seconds: use two or three layers in most beats, a sound "
+    "where something lands, and a different layer kind from one beat to the next."
 )
 
 _FIX = (
@@ -62,6 +72,15 @@ _FIX = (
     "Keep everything else that worked.\n\n"
     "YOUR TASK WAS:\n{task}\n\nYOUR REPLY WAS:\n{reply}"
 )
+
+# Real footage from a fact sheet, set the way the reference films set it by hand.
+FOOTAGE_TERMINAL = {"cps": 30.0, "lead": 0.3, "hold": 0.8, "max_wait": 0.4}  # a command typed briskly, real output
+TERMINAL_BOX = (160, 230, 1600, 460)  # where the terminal sits in a 1920x1080 frame
+TERMINAL_SLOTS = (130, 800, 900)  # heights for the writer's words on a terminal beat: above it, then below it
+FOOTAGE_PAGE_SIZE = (1280, 720)  # the browser window a page is recorded in
+FOOTAGE_PAGE_STEPS = [{"do": "wait", "seconds": 0.8}, {"do": "scroll", "y": 500}, {"do": "wait", "seconds": 0.8},
+                      {"do": "scroll", "y": 500}, {"do": "wait", "seconds": 0.6}]  # a page with no steps: look, scroll
+FOOTAGE_SPEED = 1.5  # recordings play a little faster than they were made
 
 SPEAKING_RATE = 2.5  # words a second from an ordinary voice
 FAST_RATE = 3.2  # a quick voice: a script too long even at this pace is sent back before anything is spoken
@@ -229,6 +248,22 @@ def load_facts(path: Path) -> dict[str, Any]:
             if not isinstance(item["shows"], str):
                 raise StudioError(f"fact sheet page {page_id!r} shows must be a string")
             entry["shows"] = item["shows"]
+        if item.get("steps") is not None:
+            try:
+                recording.check_steps(item["steps"])
+            except capture.CaptureError as exc:
+                raise StudioError(f"fact sheet page {page_id!r} steps: {exc}") from None
+            entry["steps"] = list(item["steps"])
+        size = item.get("size")
+        if size is not None:
+            if not (isinstance(size, list) and len(size) == 2
+                    and all(isinstance(v, int) and not isinstance(v, bool) and 200 <= v <= 4000 for v in size)):
+                raise StudioError(f"fact sheet page {page_id!r} size must be [width, height] in pixels, 200 to 4000")
+            entry["size"] = list(size)
+        if item.get("frame") is not None:
+            if item["frame"] not in ("window", "phone"):
+                raise StudioError(f"fact sheet page {page_id!r} frame must be window or phone")
+            entry["frame"] = item["frame"]
         pages.append(entry)
     seen: set[str] = set()
     for item in commands + pages:
@@ -256,8 +291,10 @@ def _facts_lookup(facts: dict[str, Any]) -> dict[str, dict[str, Any]]:
 def script_prompt(brief: str, seconds: int, facts: dict[str, Any] | None = None) -> str:
     if facts is None:
         return _SCRIPT.format(seconds=seconds, brief=brief, **script_budget(seconds))
-    lines = [f"- {item['id']}: {item.get('shows', item['id'])}" for item in facts.get("commands") or []]
-    lines += [f"- {item['id']}: {item.get('shows', item['id'])}" for item in facts.get("pages") or []]
+    lines = [f"- {item['id']}: {item.get('shows', item['id'])} (a terminal: the command typed out, then its real "
+             f"output)" for item in facts.get("commands") or []]
+    lines += [f"- {item['id']}: {item.get('shows', item['id'])} (the page, recorded as it is used)"
+              for item in facts.get("pages") or []]
     facts_block = "\n".join(f"- {line}" for line in facts.get("facts") or []) or "- (none listed)"
     return _SCRIPT_FACTS.format(
         seconds=seconds,
@@ -899,6 +936,58 @@ def produce(
             except capture.CaptureError as exc:
                 raise StudioError(str(exc)) from exc
 
+        recorded: dict[str, dict[str, Any]] = {}
+
+        def footage(ref: str) -> dict[str, Any]:
+            """The beat fields for one piece of real footage, recorded once and kept: a command is typed in a
+            terminal and shows its real output, as it arrived, over the moving background; a page is used in the
+            browser here and recorded, and plays in a window frame. Nothing is paid for."""
+            if ref in recorded:
+                return recorded[ref]
+            item = lookup.get(ref)
+            if item is None:
+                raise StudioError(f"capture ref {ref!r} is not in the fact sheet")
+            folder = out_dir / "footage" / (re.sub(r"[^A-Za-z0-9_-]+", "-", ref).strip("-")[:60] or "shot")
+            try:
+                if item["kind"] == "command":
+                    if not allow_commands:
+                        raise StudioError("command footage needs --allow-commands (running the commands in the fact "
+                                          "sheet on this machine)")
+                    cwd = Path(item["cwd"]) if item.get("cwd") else Path.cwd()
+                    chunks = recording.record_command(item["argv"], cwd=cwd)
+                    timeline = recording.terminal_timeline(item.get("display") or " ".join(item["argv"]), chunks,
+                                                           **FOOTAGE_TERMINAL)
+                    folder.mkdir(parents=True, exist_ok=True)
+                    (folder / "terminal.json").write_text(json.dumps(timeline, indent=2) + "\n", encoding="utf-8")
+                    found = {"base": {"kind": "living"}, "hold": timeline["seconds"],
+                             "terminal": {"kind": "terminal", "timeline": timeline, "box": list(TERMINAL_BOX)}}
+                else:
+                    size = tuple(item.get("size") or FOOTAGE_PAGE_SIZE)
+                    shot = recording.record_app(item["url"], item.get("steps") or FOOTAGE_PAGE_STEPS, folder,
+                                                size=size, scale=max(1.0, 1920 / max(size)))
+                    base = {"kind": "recording", "file": shot.video.relative_to(out_dir).as_posix(),
+                            "frame": item.get("frame", "window"), "speed": FOOTAGE_SPEED}
+                    found = {"base": base,
+                             "hold": round(max(storyboard.MIN_BEAT, shot.seconds / FOOTAGE_SPEED), 3)}
+            except capture.CaptureError as exc:
+                raise StudioError(f"footage {ref!r}: {exc}") from exc
+            recorded[ref] = found
+            return found
+
+        def with_footage(row: dict[str, Any]) -> dict[str, Any]:
+            """The beat as it will be filmed: real footage recorded and put in, generated pictures still to come."""
+            if row["base"]["kind"] != "capture":
+                return {**row, "base": {"kind": "living"}}
+            found = footage(row["base"]["ref"])
+            out = {**row, "base": dict(found["base"]), "real": True,
+                   "hold": max(float(row.get("hold") or 0), found["hold"])}
+            if "terminal" in found:  # the writer's words go above and below the terminal, never over it
+                slots = iter(TERMINAL_SLOTS)
+                layers = [lay if "y" in lay or "box" in lay else {**lay, "y": next(slots, TERMINAL_SLOTS[-1])}
+                          for lay in row.get("layers") or []]
+                out["layers"] = [dict(found["terminal"]), *layers]
+            return out
+
         def speak(text: str, name: str) -> Path:
             return Path(make_media("speech", voice_provider or "", voice_model or "", text, out_dir / "voice" / name,
                                    {"voice": voice} if voice else {}))
@@ -917,7 +1006,7 @@ def produce(
             On the ``last`` chance, whole middle beats are cut to fit first."""
             nonlocal too_long
             try:
-                beats = storyboard.parse([{**row, "base": {"kind": "living"}} for row in board], out_dir)
+                beats = storyboard.parse([with_footage(row) for row in board], out_dir)
                 asked = [b.cut for b in beats]  # timing settles the joins left on auto; a shorter film settles its own
                 if any(b.phrases for b in beats):
                     storyboard.voice(beats, speak)
@@ -939,7 +1028,14 @@ def produce(
                     cut_board(board, keep)
                     total = storyboard.time_beats(beats)
             if total <= limit:
-                return beats, storyboard.fill_to(beats, seconds), None
+                length = storyboard.fill_to(beats, seconds)
+                try:
+                    storyboard.check_mix(beats, length)
+                except storyboard.StoryboardError as exc:
+                    if not last:
+                        return beats, length, f"{exc}: use fewer footage refs, or put them on shorter beats"
+                    length = trim_real(beats, board, seconds)
+                return beats, length, None
             too_long += 1
             if (out_dir / "voice").is_dir():
                 (out_dir / "voice").rename(out_dir / f"voice-too-long-{too_long}")
@@ -953,6 +1049,27 @@ def produce(
             return beats, total, (f"the script is too long: spoken by the chosen voice it runs {total:.1f} seconds, and "
                                   f"the film must be about {seconds} seconds. This voice speaks about {rate:.1f} words a "
                                   f"second, so use {script_budget(seconds, rate)['words']} words in all at most")
+
+        def trim_real(beats: list[storyboard.Beat], board: list[dict[str, Any]], seconds: float) -> float:
+            """With no fixes left, the longest real beats stand on a moving background until footage fills a third
+            of the film or less, each one noted."""
+            length = storyboard.fill_to(beats, seconds)
+            while True:
+                try:
+                    storyboard.check_mix(beats, length)
+                    return length
+                except storyboard.StoryboardError:
+                    beat = max((b for b in beats if b.real), key=lambda b: b.span)
+                    row = board[beat.number - 1]
+                    production.checks.append({
+                        "render": "all", "check": "real footage cut to a third", "ok": True,
+                        "detail": f"after {SCRIPT_FIXES} fixes real footage still filled more than a third of the "
+                                  f"film, so beat {beat.number} ({row['base'].get('ref')}) stands on a moving "
+                                  f"background instead"})
+                    row["base"] = {"kind": "living"}
+                    beat.base, beat.real, beat.hold, beat.meta = {"kind": "living"}, False, row.get("hold"), None
+                    beat.layers = [lay for lay in beat.layers if lay.get("kind") != "terminal"]
+                    length = storyboard.fill_to(beats, seconds)
 
         task = script_prompt(brief, seconds, facts)
         prompt, role = task, "script"
@@ -1004,8 +1121,15 @@ def produce(
                                       f"in the beats is left out and times and paces play at their default: "
                                       f"{'; '.join(dropped)}"})
             if problem is None and board is not None:
-                if any(row["base"]["kind"] == "generate" for row in board) and (not visual_provider or not visual_model):
-                    raise StudioError("generated pictures need --visual-provider and --visual-model (see `proofhouse media list`)")
+                unmade = [n for n, row in enumerate(board, start=1) if row["base"]["kind"] == "generate"]
+                if unmade and (not visual_provider or not visual_model):  # no picture service: the motion layers carry it
+                    for number in unmade:
+                        board[number - 1]["base"] = {"kind": "living"}
+                    production.checks = [c for c in production.checks if c["check"] != "no picture service"]
+                    production.checks.append({
+                        "render": "all", "check": "no picture service", "ok": True,
+                        "detail": f"no --visual-provider was given, so beats {', '.join(map(str, unmade))} stand on a "
+                                  f"moving background instead of a generated picture (see `proofhouse media list`)"})
                 if any(row.get("say") for row in board) and not voice_provider:
                     raise StudioError("a film with words needs a voice service to speak them (--voice-provider)")
                 timed, length, problem = voice_board(board, attempt == SCRIPT_FIXES)
@@ -1024,7 +1148,8 @@ def produce(
                     "detail": f"after {SCRIPT_FIXES} fixes the script still ran over {seconds} seconds, so these middle "
                               f"beats were cut and the opening and close kept: {quoted}"})
             production.title, production.music_brief = str(data.get("title", "")).strip(), str(data.get("music", "")).strip()
-            script = {"title": production.title, "music": production.music_brief, "beats": board}
+            # a model's beats are sparse, so the engine's own words fill their quiet stretches (storyboard.EXTRAS)
+            script = {"title": production.title, "music": production.music_brief, "extras": "fill", "beats": board}
             for row, beat in zip(board, timed):  # keep the spoken files, so nothing is spoken twice
                 if beat.phrases and row.pop("say", None) is not None:
                     row["phrases"] = [{"text": p.text, "file": Path(p.file).relative_to(out_dir).as_posix()}
@@ -1034,8 +1159,7 @@ def produce(
             for number, (row, beat) in enumerate(zip(board, timed), start=1):
                 base, target = row["base"], out_dir / "shots" / f"beat-{number:02d}"
                 if base["kind"] == "capture":
-                    file = capture_still(base["ref"], target)
-                    row["base"] = {"kind": "capture", "file": Path(file).relative_to(out_dir).as_posix()}
+                    board[number - 1] = with_footage(row)
                 elif base["kind"] == "generate":
                     params = ({"seconds": max(2, min(10, math.ceil(beat.frames / beat.fps)))} if visual_kind == "video"
                               else {"size": "1792x1024"})

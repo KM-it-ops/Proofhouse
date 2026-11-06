@@ -35,6 +35,10 @@ BASE_KINDS = ("video", "image", "capture", "recording", "living", "color")
 REAL_KINDS = ("capture", "recording")
 CUTS = ("auto", "cut", "dissolve", "whip", "zoom", "wipe", "flash")
 ENERGIES = ("low", "mid", "high")
+# Words the engine adds by itself to keep a still picture lively (see ``liven``). "auto" only fills a beat the
+# script left without layers of its own; "fill" also fills the quiet stretches between a beat's own layers (the
+# films a model writes); "off" adds nothing. Set for the whole film, or per beat.
+EXTRAS = ("auto", "fill", "off")
 JOIN_SECONDS = {"cut": 0.0, "dissolve": 0.5, "whip": 0.35, "zoom": 0.45, "flash": 0.3, "wipe": 0.7}
 XFADE = {"dissolve": "fade", "zoom": "zoomin", "flash": "fadewhite", "whip": "slideleft"}
 # How far a window or phone frame sits outside its picture, in design pixels (left, top, right, bottom).
@@ -68,6 +72,7 @@ class Beat:
     real: bool = False
     hold: float | None = None
     meta: dict | None = None
+    extras: str = "auto"  # see EXTRAS
     fps: float = FPS
     start_f: int = 0  # film frame where this beat's clip begins
     frames: int = 0  # length of its clip
@@ -236,7 +241,13 @@ def _base(row: dict, root: Path, where: str) -> dict:
     return base
 
 
-def _beat(number: int, row: Any, root: Path) -> Beat:
+def _extras(value: Any, where: str) -> str:
+    if value not in EXTRAS:
+        raise StoryboardError(f"{where}: extras must be one of: {', '.join(EXTRAS)}")
+    return value
+
+
+def _beat(number: int, row: Any, root: Path, extras: str = "auto") -> Beat:
     where = f"beat {number}"
     if not isinstance(row, dict):
         raise StoryboardError(f"{where} must be an object")
@@ -276,16 +287,19 @@ def _beat(number: int, row: Any, root: Path) -> Beat:
             if not length:
                 raise StoryboardError(f"{where}: cannot read how long the recording is")
             hold = max(MIN_BEAT, (length - base.get("start", 0.0)) / base.get("speed", 1.0))
-    return Beat(number, phrases, base, layers, [dict(s) for s in sounds], cut, energy, real, hold, meta)
+    extras = _extras(row.get("extras", extras), where)
+    return Beat(number, phrases, base, layers, [dict(s) for s in sounds], cut, energy, real, hold, meta, extras)
 
 
 def parse(data: Any, folder: Path) -> list[Beat]:
-    """Read a storyboard: a list of beats, or {"beats": [...]}, with files named inside ``folder``."""
+    """Read a storyboard: a list of beats, or {"beats": [...]}, with files named inside ``folder``. A storyboard
+    object may set ``extras`` for every beat (see ``EXTRAS``); a beat's own ``extras`` wins."""
     rows = data.get("beats") if isinstance(data, dict) else data
     if not isinstance(rows, list) or not rows:
         raise StoryboardError("a storyboard needs a list of beats")
+    extras = _extras(data.get("extras", "auto"), "the storyboard") if isinstance(data, dict) else "auto"
     root = Path(folder).resolve()
-    return [_beat(i, row, root) for i, row in enumerate(rows, start=1)]
+    return [_beat(i, row, root, extras) for i, row in enumerate(rows, start=1)]
 
 
 # --- the clock ---------------------------------------------------------------------------------------
@@ -357,13 +371,15 @@ def time_beats(beats: list[Beat], fps: float = FPS) -> float:
 
 def fill_to(beats: list[Beat], target: float, fps: float = FPS) -> float:
     """Time the beats, and when the film comes out shorter than ``target`` seconds, hold every beat a little
-    longer after its words until it fills that length. A film already that long is left as it is."""
+    longer after its words until it fills that length. A film already that long is left as it is. Real footage
+    already runs its own length, so while there are other beats the extra time goes to them."""
     total = time_beats(beats, fps)
     short = target - total
     if short < 1 / fps or not beats:
         return total
-    for beat in beats:
-        beat.hold = (beat.own_f - beat.into_f) / fps + short / len(beats)
+    grow = [b for b in beats if not b.real] or beats
+    for beat in grow:
+        beat.hold = (beat.own_f - beat.into_f) / fps + short / len(grow)
     return time_beats(beats, fps)
 
 
@@ -566,7 +582,8 @@ def _tall(layer: dict, size: tuple[int, int]) -> dict:
 # --- keeping every second lively ---------------------------------------------------------------------
 # A beat that leaves the picture standing still (a still image, a capture, a layer that has finished arriving)
 # gets motion made from its own words: the key words of each line land one by one as they are said, and a row
-# of them pops in and out over any stretch that would otherwise hold still.
+# of them pops in and out over any stretch that would otherwise hold still. What a script laid out by hand is
+# never covered: by default only a beat with no layers of its own is filled (see ``EXTRAS``).
 
 LIVELY_GAP = 0.8  # the longest a beat may go with nothing new on screen; the film is measured a second at a time
 MOVING = 0.45  # how long one entrance keeps the picture changing
@@ -637,9 +654,14 @@ def liven(beat: Beat, layers: list[dict], words: str = "") -> list[dict]:
 
     ``layers`` are the beat's own, already timed. A beat with no words on screen of its own gets each line's key
     words as a title that builds word by word while the line is said; any stretch still left standing gets a row
-    of key words that pop in one at a time and leave. ``words`` stands in for a beat that says nothing."""
-    if beat.base["kind"] == "video":
-        return []  # moving pictures move by themselves
+    of key words that pop in one at a time and leave. ``words`` stands in for a beat that says nothing.
+
+    Nothing is added when the beat's ``extras`` is "off", over moving pictures or a recording (they move by
+    themselves), or, with "auto", to a beat that has layers of its own: the script already laid that beat out."""
+    if beat.extras == "off" or beat.base["kind"] in ("video", "recording"):
+        return []
+    if beat.extras == "auto" and beat.layers:
+        return []
     spans = [s for layer in layers for s in _moving(layer, beat.seconds)]
     if beat.into:
         spans.append((0.0, beat.into))

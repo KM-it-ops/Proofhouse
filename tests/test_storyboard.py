@@ -467,6 +467,20 @@ def test_a_film_shorter_than_asked_is_filled_out_to_the_asked_length(tmp_path: P
     assert storyboard.fill_to(beats, 1.0) == pytest.approx(filled)  # never cut short to fit
 
 
+
+def test_real_footage_runs_its_own_length_and_the_other_beats_take_the_extra_time(tmp_path: Path) -> None:
+    rows = [{"say": "Say what you want.", "base": {"kind": "living"}},
+            {"say": "Watch it run.", "base": {"kind": "living"}, "real": True, "hold": 2.0},
+            {"say": "Pick any model.", "base": {"kind": "living"}}]
+    beats, total = _planned(rows, tmp_path)
+    real_span = beats[1].span
+    assert storyboard.fill_to(beats, total + 4) == pytest.approx(total + 4, abs=1 / storyboard.FPS)
+    assert beats[1].span == pytest.approx(real_span, abs=1 / storyboard.FPS)
+    only_real = storyboard.parse([rows[1]], tmp_path)
+    storyboard.voice(only_real, _speaker(tmp_path), _wav_seconds)
+    alone = storyboard.time_beats(only_real)
+    assert storyboard.fill_to(only_real, alone + 2) == pytest.approx(alone + 2, abs=1 / storyboard.FPS)  # nothing else to grow
+
 # --- every second lively ---------------------------------------------------------------------------------
 
 def _quiet(beat: storyboard.Beat, sc: dict) -> list[tuple[float, float]]:
@@ -511,3 +525,53 @@ def test_moving_pictures_get_nothing_added(tmp_path: Path) -> None:
     beat = beats[0]
     beat.base = {"kind": "video", "file": "clip.mp4"}
     assert storyboard.liven(beat, []) == []
+
+
+def _laid_out() -> list[dict]:
+    return [{"base": {"kind": "living"}, "say": "It asks what it needs. Then it says back what it understood.",
+             "layers": [{"kind": "title", "text": "It asks first.", "at": "phrase 1"}]},
+            {"base": {"kind": "living"}, "say": "Pick any model from any provider and watch it run."}]
+
+
+def _added(sc: dict) -> list[dict]:
+    return [layer for layer in sc["layers"] if layer.get("quiet") or layer.get("size") == storyboard.TITLE_SIZE]
+
+
+def test_a_beat_the_script_laid_out_gets_nothing_added_and_an_empty_one_is_still_filled(tmp_path: Path) -> None:
+    beats, total = _planned(_laid_out(), tmp_path)
+    storyboard.fill_to(beats, total + 6)  # long quiet stretches after the title has landed
+    laid, empty = storyboard.scenes(beats, (1920, 1080))
+    assert [layer["kind"] for layer in laid["layers"]] == ["title"] and _added(laid) == []
+    assert _added(empty) and _quiet(beats[1], empty) == []
+
+
+def test_fill_also_fills_the_quiet_stretches_between_a_beats_own_layers(tmp_path: Path) -> None:
+    beats, total = _planned({"extras": "fill", "beats": _laid_out()}, tmp_path)
+    storyboard.fill_to(beats, total + 6)
+    laid = storyboard.scenes(beats, (1920, 1080))[0]
+    assert _added(laid) and _quiet(beats[0], laid) == []
+
+
+def test_off_adds_nothing_anywhere_and_a_beat_may_choose_for_itself(tmp_path: Path) -> None:
+    rows = _laid_out()
+    beats, total = _planned({"extras": "off", "beats": rows}, tmp_path)
+    storyboard.fill_to(beats, total + 6)
+    assert all(_added(sc) == [] for sc in storyboard.scenes(beats, (1920, 1080)))
+    beats, total = _planned({"extras": "off", "beats": [rows[0], {**rows[1], "extras": "auto"}]}, tmp_path)
+    storyboard.fill_to(beats, total + 6)
+    first, second = storyboard.scenes(beats, (1920, 1080))
+    assert _added(first) == [] and _added(second)
+
+
+def test_a_recording_gets_nothing_added(tmp_path: Path) -> None:
+    beats, _ = _planned([{"say": "This one splits a bill, and it really does the math.", "base": {"kind": "living"}}],
+                        tmp_path)
+    beats[0].base = {"kind": "recording", "file": "app.mp4"}
+    assert storyboard.liven(beats[0], []) == []
+
+
+def test_an_unknown_extras_setting_is_refused(tmp_path: Path) -> None:
+    with pytest.raises(storyboard.StoryboardError, match="extras must be one of"):
+        storyboard.parse({"extras": "lots", "beats": [{"base": {"kind": "living"}}]}, tmp_path)
+    with pytest.raises(storyboard.StoryboardError, match="beat 1: extras"):
+        storyboard.parse([{"base": {"kind": "living"}, "extras": True}], tmp_path)
