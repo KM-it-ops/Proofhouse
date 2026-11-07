@@ -15,6 +15,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
@@ -305,8 +306,17 @@ def parse(data: Any, folder: Path) -> list[Beat]:
 # --- the clock ---------------------------------------------------------------------------------------
 
 def voice(beats: list[Beat], speak: Callable[[str, str], Path],
-          measure: Callable[[Path], float | None] = motion._duration) -> None:
-    """Speak every phrase that has no file yet, then measure each one. ``speak(text, name)`` returns the file."""
+          measure: Callable[[Path], float | None] = motion._duration, workers: int = 1) -> None:
+    """Speak every phrase that has no file yet, then measure each one. ``speak(text, name)`` returns the file.
+    With ``workers`` above 1 the lines are spoken at the same time (``speak`` must then be safe to call from
+    several threads); the files, the order and the measuring are the same as one at a time."""
+    todo = [(phrase, f"beat{beat.number:02d}-{j:02d}") for beat in beats
+            for j, phrase in enumerate(beat.phrases, start=1) if phrase.file is None]
+    if workers > 1 and len(todo) > 1:
+        with ThreadPoolExecutor(max_workers=min(workers, len(todo))) as pool:
+            files = list(pool.map(lambda item: Path(speak(item[0].text, item[1])), todo))
+        for (phrase, _), file in zip(todo, files):
+            phrase.file = file
     for beat in beats:
         for j, phrase in enumerate(beat.phrases, start=1):
             if phrase.file is None:
@@ -835,10 +845,32 @@ def join_command(clips: list[Path], beats: list[Beat], out: Path) -> list[str]:
                   "-preset", "medium", "-crf", "14", "-pix_fmt", "yuv420p", str(out)]
 
 
+DELIVERY_CAP = 25 * 1024 * 1024  # bytes: under the 30 MiB file limit of the upload paths used so far
+AUDIO_BPS = 192_000
+MIN_VIDEO_BPS = 150_000
+WRAPPER_SHARE = 0.95  # what is left for picture and sound once the container's own bytes are counted
+
+
+def video_rate(total: float, cap: int = DELIVERY_CAP, audio_bps: int = AUDIO_BPS) -> int:
+    """The picture's bits per second that keeps a film of ``total`` seconds, sound included, under ``cap`` bytes."""
+    return max(MIN_VIDEO_BPS, int(cap * 8 * WRAPPER_SHARE / max(total, 1.0)) - audio_bps)
+
+
+def squeeze_commands(source: Path, total: float, cap: int, out: Path, passlog: Path) -> tuple[list[str], list[str]]:
+    """Two passes that land a film under ``cap`` bytes when the first encode came out over: the first reads the whole
+    picture, the second spends a rate set 10% under the cap's budget. The sound is copied, not re-made."""
+    rate = str(int(video_rate(total, cap) * 0.9))
+    base = ["ffmpeg", "-v", "error", "-y", "-i", str(source), "-c:v", "libx264", "-preset", "medium", "-b:v", rate,
+            "-pix_fmt", "yuv420p", "-passlogfile", str(passlog)]
+    return (base + ["-pass", "1", "-an", "-f", "null", "-"],
+            base + ["-pass", "2", "-c:a", "copy", "-movflags", "+faststart", str(out)])
+
+
 def mix_command(picture: Path, voice_track: Path | None, music: Path | None, sounds: Path | None, total: float,
-                spans: list[tuple[float, float]], out: Path, *, loudness: str, picture_filter: str = "") -> list[str]:
+                spans: list[tuple[float, float]], out: Path, *, loudness: str, picture_filter: str = "",
+                cap: int | None = DELIVERY_CAP) -> list[str]:
     """The finished film: the picture with its fades, the voice cleaned up, music and sound design dipping under
-    every line, all brought to one loudness."""
+    every line, all brought to one loudness. With a ``cap`` the picture's rate is held to what keeps the file under it."""
     T = f"{total:.3f}"
     edge = min(0.5, total / 6)
     fit = f"aresample=48000,aformat=channel_layouts=stereo"
@@ -864,6 +896,10 @@ def mix_command(picture: Path, voice_track: Path | None, music: Path | None, sou
     parts.append(f"{mixed}{loudness},afade=t=in:d={edge:.3f},afade=t=out:st={total - edge:.3f}:d={edge:.3f}[a]")
     parts.append(f"[0:v]{picture_filter + ',' if picture_filter else ''}fade=t=in:d={edge:.3f},"
                  f"fade=t=out:st={total - edge:.3f}:d={edge:.3f}[v]")
+    held: list[str] = []
+    if cap is not None:
+        rate = video_rate(total, cap)
+        held = ["-maxrate", str(rate), "-bufsize", str(2 * rate)]
     return cmd + ["-filter_complex", ";".join(parts), "-map", "[v]", "-map", "[a]", "-c:v", "libx264", "-preset",
-                  "medium", "-crf", "18", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-t", T,
+                  "medium", "-crf", "18", *held, "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", str(AUDIO_BPS), "-t", T,
                   "-movflags", "+faststart", str(out)]

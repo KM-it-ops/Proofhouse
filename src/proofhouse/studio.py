@@ -28,9 +28,11 @@ import base64
 import copy
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
+import threading
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
@@ -104,6 +106,8 @@ FAST_RATE = 3.2  # a quick voice: a script too long even at this pace is sent ba
 BEAT_OVERHEAD = storyboard.LEAD + storyboard.BREATH + 0.45  # seconds each beat adds around its words, join included
 BRIEF_SLACK = 0.15  # share of the asked length a film may run over
 BLANK_LINE = "."  # what a beat's narration becomes when the writer left it empty (the owner's choice)
+VOICE_WORKERS = max(1, min(4, os.cpu_count() or 1))  # lines of a voice on this machine spoken at the same time
+RENDER_WORKERS = max(1, min(6, (os.cpu_count() or 2) // 2))  # beats drawn at the same time, one process each
 SCRIPT_FIXES = 2  # times the script writer is sent its own reply back to fix
 SCRIPT_ROOM = 6000  # a script's output cap: a model that thinks first spends half of 2048 thinking and cuts its JSON off
 
@@ -1703,6 +1707,7 @@ def produce(
     out_dir = out_dir.resolve()  # FFmpeg runs inside this folder, so every path in it must be absolute
     out_dir.mkdir(parents=True, exist_ok=False)
     production = Production(out_dir)
+    books = threading.Lock()  # lines of a local voice are spoken at the same time; the budget and the call log are not
 
     def record(role: str, result: Any, figure: Any) -> None:
         production.calls.append({"role": role, "status": result.status, "code": result.code, "usd": figure})
@@ -1715,12 +1720,15 @@ def produce(
         lookup = _facts_lookup(facts) if facts else {}
 
         def make_media(kind: str, service: str, model_id: str, prompt: str, target: Path, params: dict[str, Any]) -> str:
+            with books:
+                limit = budget.next_limit()
             result = media.generate(kind, service, model_id, prompt=prompt, out=target, params=params,
-                                    max_cost_usd=budget.next_limit(), transport=media_transport, get=media_get)
+                                    max_cost_usd=limit, transport=media_transport, get=media_get)
             figure = (result.cost or {}).get("usd")
-            if result.status != "refused":
-                budget.charge(figure)
-            record(f"{kind}: {prompt[:40]}", result, figure)
+            with books:
+                if result.status != "refused":
+                    budget.charge(figure)
+                record(f"{kind}: {prompt[:40]}", result, figure)
             return str(result.path)
 
         def capture_still(ref: str | None, target: Path) -> str:
@@ -1798,6 +1806,11 @@ def produce(
             return Path(make_media("speech", voice_provider or "", voice_model or "", text, out_dir / "voice" / name,
                                    {"voice": voice} if voice else {}))
 
+        # a voice on this machine costs nothing, so its lines are spoken at the same time; a paid one stays one at a
+        # time, because each call is priced against what is left after the one before
+        voice_profile = media.find(voice_provider) if voice_provider else None
+        voice_workers = VOICE_WORKERS if voice_profile is not None and voice_profile.local else 1
+
         too_long = 0
         cut_said: list[str] = []  # the words of middle beats cut to fit, once the writer had no fixes left
         quiet_said: list[str] = []  # the words of middle beats that kept their shots but lost their words to fit
@@ -1820,7 +1833,7 @@ def produce(
                 beats = storyboard.parse([with_footage(row) for row in board], out_dir)
                 asked = [b.cut for b in beats]  # timing settles the joins left on auto; a shorter film settles its own
                 if any(b.phrases for b in beats):
-                    storyboard.voice(beats, speak)
+                    storyboard.voice(beats, speak, workers=voice_workers)
             except storyboard.StoryboardError as exc:
                 raise StudioError(str(exc)) from exc
 
@@ -2316,9 +2329,8 @@ def assemble_beats(
             w, h = FORMATS[name]
             size = (int(w * size_scale) // 2 * 2, int(h * size_scale) // 2 * 2)
             planned = storyboard.scenes(beats, size)
-            clips = []
-            for beat, sc in zip(beats, planned):
-                clips.append(motion.render(sc, work / f"{name}-beat-{beat.number:02d}.mp4"))
+            clips = motion.render_all([(sc, work / f"{name}-beat-{beat.number:02d}.mp4")
+                                       for beat, sc in zip(beats, planned)], workers=RENDER_WORKERS)
             joined = clips[0]
             if len(clips) > 1:
                 joined = work / f"{name}-joined.mp4"
@@ -2329,8 +2341,10 @@ def assemble_beats(
             _run(storyboard.mix_command(joined, Path(production.voice_file) if production.voice_file else None,
                                         Path(music_file) if music_file else None, effects, total, spans, final,
                                         loudness=LOUDNESS, picture_filter=burn), out_dir, production)
+            _fit_delivery(final, total, work, production)
             production.renders[name] = str(final)
             production.checks += _render_checks(name, final, total, size, True, 0.1)
+            production.checks.append(_size_check(name, final))
         last = max((p.start + p.seconds for b in beats for p in b.phrases), default=0.0)
         production.checks += [
             {"render": "all", "check": "voice fits the film", "ok": last <= total + 0.01,
@@ -2350,6 +2364,23 @@ def assemble_beats(
     shutil.rmtree(work, ignore_errors=True)
     _set_aside_failed(production)
     return production
+
+
+def _fit_delivery(final: Path, total: float, work: Path, production: Production, cap: int = storyboard.DELIVERY_CAP) -> None:
+    """A finished film over the size cap is squeezed in two passes, so it can be uploaded. One under it is left alone."""
+    if final.stat().st_size <= cap:
+        return
+    small = final.with_name(final.stem + ".small.mp4")
+    one, two = storyboard.squeeze_commands(final, total, cap, small, work / f"{final.stem}-pass")
+    _run(one, work, production)
+    _run(two, work, production)
+    small.replace(final)
+
+
+def _size_check(name: str, final: Path, cap: int = storyboard.DELIVERY_CAP) -> dict[str, Any]:
+    size = final.stat().st_size
+    return {"render": name, "check": "small enough to upload", "ok": size <= cap,
+            "detail": f"{size / 2**20:.1f} MiB of {cap / 2**20:.0f} MiB"}
 
 
 def _set_aside_failed(production: Production) -> None:

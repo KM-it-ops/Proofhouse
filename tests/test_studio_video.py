@@ -638,6 +638,16 @@ def test_a_script_too_long_once_spoken_is_sent_back_with_the_voice_s_own_pace(tm
     fits = next(c for c in made.checks if c["check"] == "length matches the brief")
     assert fits["ok"] and "of the 6s asked" in fits["detail"], fits
     assert next(c for c in made.checks if c["check"] == "length")["ok"]
+    assert next(c for c in made.checks if c["check"] == "small enough to upload")["ok"]
+
+
+def test_a_film_over_the_cap_is_squeezed_and_one_under_it_is_left_alone(tmp_path: Path) -> None:
+    production = studio.Production(tmp_path)
+    film = tmp_path / "film.mp4"
+    film.write_bytes(b"x" * 100)
+    studio._fit_delivery(film, 5.0, tmp_path, production, cap=200)
+    assert production.commands == [] and film.read_bytes() == b"x" * 100
+    assert studio._size_check("16x9", film, cap=200)["ok"] and not studio._size_check("16x9", film, cap=50)["ok"]
 
 
 @needs_ffmpeg
@@ -1508,3 +1518,35 @@ def test_a_saved_script_that_cannot_be_made_says_so_and_asks_no_one(tmp_path: Pa
                           text_transport=_writer_of(BEATS, asked=asked), media_transport=_media(services))
     assert made.renders == {} and "the saved script cannot be made into a film" in made.stopped, made.stopped
     assert asked == []
+
+
+@needs_ffmpeg
+def test_a_voice_on_this_machine_speaks_its_lines_at_the_same_time_and_every_call_is_logged(tmp_path: Path, services) -> None:
+    import threading
+    import time
+
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.2", str(tmp_path / "phrase.wav"))
+    assets = {**services, "wav": (tmp_path / "phrase.wav").read_bytes()}
+    inner, live_now, peak, lock = _media(assets), 0, 0, threading.Lock()
+
+    def post(request: media.MediaRequest) -> media.MediaResponse:
+        nonlocal live_now, peak
+        if not request.url.endswith("/tts"):
+            return inner(request)
+        with lock:
+            live_now += 1
+            peak = max(peak, live_now)
+        time.sleep(0.3)
+        with lock:
+            live_now -= 1
+        return inner(request)
+
+    made = studio.produce(
+        "a hype video for Proofhouse", provider_id="ollama", model="llama3",
+        visual_provider="local-images", visual_model="sdxl", voice_provider="local-voice", voice_model="tts",
+        music_file=services["bed"], seconds=6, formats=("16x9",), out_dir=tmp_path / "video", size_scale=0.1,
+        text_transport=_beats_writer, media_transport=post,
+    )
+    assert made.stopped == "finished", made.stopped
+    assert peak > 1
+    assert sum(1 for c in made.calls if c["role"].startswith("speech")) == 3

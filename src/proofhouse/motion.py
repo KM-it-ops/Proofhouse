@@ -1879,6 +1879,24 @@ def render(scene: dict, out: Path, *, renderer: str = "builtin", table: Path | N
     return out.resolve()
 
 
+def render_all(jobs: list[tuple[dict, Path]], workers: int = 1) -> list[Path]:
+    """Render several scenes and return their files in the order given. Scenes do not depend on each other, so with
+    ``workers`` above 1 they are drawn in separate processes (drawing is the slow part and uses one core each).
+    The first scene that fails stops the rest and its own error comes back."""
+    if workers <= 1 or len(jobs) <= 1:
+        return [render(scene, out) for scene, out in jobs]
+    from concurrent.futures import ProcessPoolExecutor
+
+    with ProcessPoolExecutor(max_workers=min(workers, len(jobs))) as pool:
+        futures = [pool.submit(render, scene, out) for scene, out in jobs]
+        try:
+            return [f.result() for f in futures]
+        except BaseException:
+            for f in futures:
+                f.cancel()
+            raise
+
+
 def renderers(table: Path | None = None) -> list[dict]:
     """Every renderer: the shipped table, then the user's motion_renderers.json, then ``table``."""
     from . import providers
