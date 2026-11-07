@@ -34,7 +34,7 @@ import subprocess
 from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any, Callable, Collection
 
 from . import __version__, capture, live, media, motion, providers, recording, sound, storyboard
 
@@ -605,6 +605,7 @@ def _line(board: list[dict[str, Any]], number: int) -> str:
     return repr(said if len(said) <= 60 else said[:57].rstrip() + "...")
 
 
+PLAN_HEADING = "\n\nPLAN:\n"  # where a brief's plan starts: what a model wrote, never what the owner gave
 DEFAULT_LOOK = "deep navy and teal palette with warm amber highlights, soft volumetric light, 35mm lens, shallow depth of field"
 PICTURE_RULES = ("cinematic film look; no readable text, numbers, logos or brand names; no hooded hackers, glowing "
                  "padlocks or other stock-photo cliches")
@@ -636,8 +637,9 @@ def _without_figures(prompt: str, figures: list[str]) -> str:
 def _invented(board: list[dict[str, Any]], brief: str,
               facts: dict[str, Any]) -> list[tuple[int, int | str | None, list[str]]]:
     """Figures the film shows or says that the brief and the fact sheet never give: (beat, layer, "picture" for
-    its picture prompt or None for the narration, the figures)."""
-    source = " ".join([brief, str(facts.get("product", "")), str(facts.get("summary", ""))]
+    its picture prompt or None for the narration, the figures). Only the owner's part of the brief counts: the plan
+    a model wrote after it, and anything after that, gives no figure."""
+    source = " ".join([brief.split(PLAN_HEADING, 1)[0], str(facts.get("product", "")), str(facts.get("summary", ""))]
                       + [str(f) for f in facts.get("facts") or []]
                       + [str(item.get(k, "")) for item in (facts.get("commands") or []) + (facts.get("pages") or [])
                          for k in ("shows", "display")])
@@ -1612,16 +1614,18 @@ def quiet_rows(board: list[dict[str, Any]], quiet: list[int]) -> list[dict[str, 
     return out
 
 
-def _quiet_to_fit(count: int, size: Callable[[int], float], fits: Callable[[list[int]], bool]) -> list[int] | None:
+def _quiet_to_fit(count: int, size: Callable[[int], float], fits: Callable[[list[int]], bool],
+                  footage: Collection[int] = ()) -> list[int] | None:
     """The middle beats to leave without words, the longest spoken first, until the film fits: every shot stays,
-    and the opening and close keep their words. None when even every middle beat without words does not fit."""
+    and the opening and close keep their words. Beats showing real ``footage`` lose their words last, because
+    footage with nothing said over it proves nothing. None when even every middle beat without words does not fit."""
     quiet: list[int] = []
     talking = [i for i in range(1, count - 1) if size(i) > 0]
     while not fits(quiet):
         left = [i for i in talking if i not in quiet]
         if not left:
             return None
-        quiet.append(max(left, key=size))
+        quiet.append(max(left, key=lambda i: (i not in footage, size(i))))
     return quiet
 
 
@@ -1825,7 +1829,8 @@ def produce(
             total = storyboard.time_beats(beats)
             if total > limit and last:  # words go before shots: a beat without words still shows its picture
                 spoken = lambda i: sum(p.seconds for p in beats[i].phrases)  # noqa: E731
-                quiet = _quiet_to_fit(len(beats), spoken, lambda q: storyboard.time_beats(hushed(q)) <= limit)
+                quiet = _quiet_to_fit(len(beats), spoken, lambda q: storyboard.time_beats(hushed(q)) <= limit,
+                                       [i for i, beat in enumerate(beats) if beat.real])
                 if quiet is not None:
                     beats = hushed(quiet)
                     quiet_board(board, quiet)
@@ -1945,7 +1950,8 @@ def produce(
                     if guess > limit and attempt == SCRIPT_FIXES:  # no fixes left: quiet middle beats, then cut them
                         rows = board
                         talk = lambda i: _spoken_guess([rows[i]]) if rows[i].get("say") else 0.0  # noqa: E731
-                        quiet = _quiet_to_fit(len(rows), talk, lambda q: _spoken_guess(quiet_rows(rows, q)) <= limit)
+                        quiet = _quiet_to_fit(len(rows), talk, lambda q: _spoken_guess(quiet_rows(rows, q)) <= limit,
+                                              [i for i, row in enumerate(rows) if row["base"]["kind"] == "capture"])
                         if quiet is not None:
                             quiet_board(board, quiet)
                         else:

@@ -455,7 +455,7 @@ def _render_video(folder: Path, vdir: Path, version: dict[str, Any], parts: dict
     limit = budget.for_next_call()
     if budget.spent_out():
         raise make._Stop("spending limit reached")
-    text = f"{brief}\n\nPLAN:\n{plan['prompt']}"
+    text = f"{brief}{studio.PLAN_HEADING}{plan['prompt']}"
     if previous[0] or previous[1]:
         text += ("\n\nWHAT THE LAST VERSION MISSED:\n" + "\n".join(f"- {m}" for m in previous[0])
                  + f"\n\nHOW TO FIX IT:\n{previous[1]}")

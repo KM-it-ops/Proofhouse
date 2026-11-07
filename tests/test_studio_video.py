@@ -1122,6 +1122,23 @@ def test_a_figure_the_facts_spell_out_in_words_is_not_invented() -> None:
     assert any("states 3" in g for g in studio.script_gaps(studio.beats_from(_counted(3), facts), **ask))
 
 
+def test_a_figure_only_the_model_written_plan_gives_is_invented() -> None:
+    ask = {"seconds": 12, "facts": TERMINAL_FACTS, "footage": ["hi"], "voiced": False}
+    board = studio.beats_from(_counted(7), TERMINAL_FACTS)
+    planned = f"a 12 second film{studio.PLAN_HEADING}Show version 7 saved."
+    assert any("beat 3 layer 2 states 7" in g for g in studio.script_gaps(board, brief=planned, **ask))
+    owned = f"a 12 second film about 7 fixes{studio.PLAN_HEADING}Show the fixes."
+    assert studio.script_gaps(board, brief=owned, **ask) == []
+
+
+def test_real_footage_keeps_its_words_longest_when_the_film_is_trimmed() -> None:
+    spoken = {1: 9.0, 2: 3.0, 3: 2.0}
+    size = lambda i: spoken.get(i, 1.0)  # noqa: E731
+    assert studio._quiet_to_fit(5, size, lambda quiet: len(quiet) >= 1) == [1]  # no footage: longest goes first
+    assert studio._quiet_to_fit(5, size, lambda quiet: len(quiet) >= 1, footage=[1]) == [2]
+    assert studio._quiet_to_fit(5, size, lambda quiet: len(quiet) >= 3, footage=[1]) == [2, 3, 1]
+
+
 def test_narration_too_thin_for_the_film_is_sent_back_and_accepted_at_the_last_chance() -> None:
     board = studio.beats_from(BEATS)  # ten words
     fit = studio.script_budget(45)
