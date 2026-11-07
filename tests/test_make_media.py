@@ -678,3 +678,48 @@ def test_make_reads_a_saved_script_file_and_refuses_one_that_is_not_a_script(
     good.write_text(json.dumps({"title": "Fox", "beats": []}), encoding="utf-8")
     assert cli.main(base + ["--out", str(tmp_path / "c"), "--script", str(good)]) == live_cli.EXIT_WAITING
     assert f"--script {good}" in capsys.readouterr().out  # the run it asks for again keeps the saved script
+
+
+
+# --- a judge of its own ---------------------------------------------------------------------------------
+
+@needs_ffmpeg
+def test_the_judge_can_be_another_model_that_sees_and_only_the_judge_goes_there(tmp_path: Path, programs: None) -> None:
+    assert cli.main(["providers", "add", "eye-box", "--base-url", "http://localhost:8081/v1"]) == 0
+    model = Director(scores=[9])
+    went: list[tuple[str, str, str]] = []
+
+    def routed(request: live.Request) -> live.Response:
+        reply = model(request)
+        went.append((model.calls[-1], request.url, json.loads(request.body_bytes)["model"]))
+        return reply
+
+    folder = tmp_path / "o"
+    made = make_media.make_media("a fox at dawn", kind="image", provider_id="ollama", model="m", out_dir=folder,
+                                 interviewer=Answers("my-painter", {}, [True]), transport=routed, rounds=1,
+                                 judge="eye-box/qwen-vl")
+    assert made.best_score == 9 and made.judged_by == "eye-box/qwen-vl"
+    judged = [(url, which) for role, url, which in went if role == "judge"]
+    assert judged and all("localhost:8081" in url and which == "qwen-vl" for url, which in judged)
+    assert all("localhost:8081" not in url and which == "m" for role, url, which in went if role != "judge")
+    assert len(model.pictures) == 1  # the picture went to the judge that sees
+    assert _record(folder)["judge"] == "eye-box/qwen-vl"
+
+
+def test_a_paid_judge_needs_a_spending_limit_even_when_the_maker_is_local(tmp_path: Path, programs: None) -> None:
+    with pytest.raises(make.MakeError, match="spending limit"):
+        make_media.make_media("a fox", kind="image", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                              interviewer=Answers("my-painter", {}, [True]), transport=Director(), judge="openai/gpt-x")
+    with pytest.raises(make.MakeError, match="no provider named 'nope' to judge with"):
+        make_media.make_media("a fox", kind="image", provider_id="ollama", model="m", out_dir=tmp_path / "p",
+                              interviewer=Answers("my-painter", {}, [True]), transport=Director(), judge="nope/x")
+
+
+def test_the_run_it_asks_for_again_keeps_the_judge(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                   capsys: pytest.CaptureFixture[str]) -> None:
+    assert cli.main(["providers", "add", "eye-box", "--base-url", "http://localhost:8081/v1"]) == 0
+    _route(monkeypatch, Director())
+    code = cli.main(["make", "a fox at dawn", "--kind", "video", "--provider", "ollama", "--model", "m",
+                     "--out", str(tmp_path / "o"), "--judge", "eye-box/qwen-vl"])
+    assert code == live_cli.EXIT_WAITING
+    assert "--judge eye-box/qwen-vl" in capsys.readouterr().out

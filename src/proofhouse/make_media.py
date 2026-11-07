@@ -214,6 +214,7 @@ def make_media(
     video: dict[str, Any] | None = None,
     shapes: list[str] | None = None,
     shared: str = "",
+    judge: str | None = None,
 ) -> make.MakeResult:
     entry = media_kinds().get(kind)
     if entry is None:
@@ -228,16 +229,20 @@ def make_media(
     profile = providers.find(provider_id)
     if profile is None:
         raise make.MakeError(f"no provider named {provider_id!r}; see `proofhouse providers list`")
-    if max_cost_usd is None and not profile.local:
+    judger = make.judge_profile(judge) if judge else None
+    local = profile.local and (judger is None or judger[0].local)
+    if max_cost_usd is None and not local:
         raise make.MakeError("name a spending limit for the whole make (--max-cost-usd)")
     try:
-        budget = make.Budget(max_cost_usd, profile.local)
+        budget = make.Budget(max_cost_usd, local)
     except InvalidOperation:
         raise make.MakeError("--max-cost-usd must be a decimal such as 0.50") from None
     video = video or {}
 
     folder = out_dir or Path.cwd() / f"make-{make._slug(request)}-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     result = make.MakeResult(folder, kind, "rounds used up", None, None, Decimal(0), delivered={})
+    if judger is not None:
+        result.judged_by = f"{judger[0].id}/{judger[1]}"
     interview = None
     if (folder / "interview.json").is_file() and not (folder / "record.json").exists():
         try:
@@ -258,7 +263,9 @@ def make_media(
         limit = budget.for_next_call()
         if budget.spent_out():
             raise make._Stop("spending limit reached")
-        reply = live.run_prompt(profile.id, model, prompt=prompt, input_text=input_text, images=images,
+        # The judge alone may be another model, such as one that sees pictures (--judge); every other role is the maker's.
+        where, which = judger if role == "judge" and judger is not None else (profile, model)
+        reply = live.run_prompt(where.id, which, prompt=prompt, input_text=input_text, images=images,
                                 max_output_tokens=2048, max_cost_usd=limit, transport=transport,
                                 json_reply=role in _JSON_ROLES)
         cost = reply.cost or {}
@@ -602,6 +609,7 @@ def _write_record(folder: Path, request: str, kind: str, provider_id: str, model
         "interview": result.interview.to_dict() if result.interview is not None else None,
         "roles": {role: {k: v for k, v in entry.items() if k != "kind" or made == "video"} for role, entry in parts.items()},
         "stood_in": stood_in,
+        "judge": result.judged_by,
         "versions": [{**{k: v[k] for k in ("version", "plan", "files", "checks", "score", "missing", "fix")},
                       "judged_on": v.get("judged_on")} for v in versions],
         "best_version": result.best_version,

@@ -83,6 +83,8 @@ proofhouse providers add ollama --base-url http://localhost:11434/v1 --also-send
 
 On a plain PC, llama.cpp (`llama-server`) is the quickest engine on your machine: `proofhouse setup` shows the command that starts it with room for a film script and thinking off (`--reasoning-budget 0`). It answers whatever `--model` you name with the model it loaded.
 
+`--judge PROVIDER/MODEL` lets another model judge each version while `--model` does the rest. For a film or a picture, use a model that sees pictures, so the judge looks at the shots instead of reading about them: for example a second `llama-server` on port 8081 started with `--mmproj`, added once with `proofhouse providers add llamacpp-eyes --base-url http://localhost:8081/v1`, then `--judge llamacpp-eyes/local`. A paid judge needs `--max-cost-usd`, even when the maker is on your machine.
+
 `--also-send FIELD=VALUE` adds a field to every request to that provider. On a slow machine, switching a thinking model's thinking off (`reasoning_effort=none` on Ollama) can turn a three-minute answer into a few seconds. These extra fields go only to a provider on your machine, where nothing is charged. For a paid provider the spend gate refuses them, because it cannot tell what they would add to the bill.
 
 ### Same job, many models

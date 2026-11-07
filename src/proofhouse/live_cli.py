@@ -221,7 +221,7 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
         made = make_media.make_media(
             args.request, kind=args.kind, provider_id=args.provider, model=args.model, max_cost_usd=args.max_cost_usd,
             rounds=args.rounds, target=args.target, out_dir=out, interviewer=interviewer, preset=args.preset,
-            video=video, shapes=shapes)
+            video=video, shapes=shapes, judge=args.judge)
     except (make.MakeError, mi.InterviewError, providers.ProviderError, OSError) as exc:
         return _fail(str(exc))
     if made.waiting is not None:
@@ -233,7 +233,8 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
                             ("--voice-provider", args.voice_provider), ("--voice-model", args.voice_model),
                             ("--voice", args.voice), ("--music-provider", args.music_provider),
                             ("--music-model", args.music_model), ("--music-file", args.music_file),
-                            ("--facts", args.facts), ("--script", getattr(args, "script", None)), ("--preset", args.preset)):
+                            ("--facts", args.facts), ("--script", getattr(args, "script", None)), ("--preset", args.preset),
+                            ("--judge", args.judge)):
             if value:
                 again += f" {flag} {value}"
         if args.rounds != make.DEFAULT_ROUNDS:
@@ -368,6 +369,7 @@ def _cmd_make(args: argparse.Namespace) -> int:
             interviewer=interviewer,
             preset=args.preset,
             try_on=args.try_on,
+            judge=args.judge,
         )
     except (make.MakeError, mi.InterviewError, providers.ProviderError, OSError) as exc:
         return _fail(str(exc))
@@ -375,6 +377,8 @@ def _cmd_make(args: argparse.Namespace) -> int:
         again = f"proofhouse make {args.request!r} --kind {args.kind} --provider {args.provider} --model {args.model}"
         if args.max_cost_usd:
             again += f" --max-cost-usd {args.max_cost_usd}"
+        if args.judge:
+            again += f" --judge {args.judge}"
         again += f" --answers {made.folder / 'answers.json'}"
         if args.json:
             print(json.dumps({"folder": str(made.folder), "kind": made.kind, "stopped": made.stopped,
@@ -497,6 +501,9 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     talk.add_argument("--try-on", default=None,
                       help="PROVIDER/MODEL to try each version on (default: the tool's local agent bridge, "
                            "agent-<tool>, when you added one).")
+    p_make.add_argument("--judge", default=None,
+                        help="PROVIDER/MODEL that judges each version (default: --model). For a film or picture, a "
+                             "model that sees pictures, such as a second llama-server started with --mmproj.")
     p_make.add_argument("--json", action="store_true", help="Emit a JSON summary.")
     p_make.set_defaults(func=_cmd_make)
 

@@ -192,6 +192,8 @@ class MakeResult:
     interview: Any = None
     tried_on: str | None = None
     tried_on_note: str | None = None
+    # ``provider/model`` that judged each version when it was not the maker's own model (--judge).
+    judged_by: str | None = None
     # Media makes: the shape (or file type) to the delivered file, relative to the folder.
     delivered: dict[str, str] | None = None
     # Media makes: the shapes the best version should have been delivered in but could not be.
@@ -294,6 +296,7 @@ def make(
     preset: str = "balanced",
     try_on: str | None = None,
     shared: str = "",
+    judge: str | None = None,
 ) -> MakeResult:
     from . import addons, learn
     from . import make_interview as mi
@@ -330,7 +333,8 @@ def make(
     if profile is None:
         raise MakeError(f"no provider named {provider_id!r}; see `proofhouse providers list`")
     tester = _try_on_profile(try_on) if try_on else None
-    local = profile.local and (tester is None or tester[0].local)
+    judger = judge_profile(judge) if judge else None
+    local = profile.local and (tester is None or tester[0].local) and (judger is None or judger[0].local)
     if max_cost_usd is None and not local:
         raise MakeError("name a spending limit for the whole make (--max-cost-usd)")
     try:
@@ -341,6 +345,8 @@ def make(
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S")
     folder = out_dir or Path.cwd() / f"make-{_slug(request)}-{stamp}"
     result = MakeResult(folder, kind, "rounds used up", None, None, Decimal(0))
+    if judger is not None:
+        result.judged_by = f"{judger[0].id}/{judger[1]}"
     interviewing = interviewer is not None
     interview = None
     # An interview that paused for answers goes on in its own folder: same request, same kind, nothing made yet.
@@ -487,7 +493,7 @@ def make(
                     subject += f"\n\nTRIED ON {tool.upper()} WITH THIS TASK:\n{task}\n\nWHAT IT DID:\n{did}"
                     subject += _JUDGE_TRIED.format(kind=kind)
                     tried = True
-            score, missing, fix = _judgement(call("judge", _JUDGE.format(request=brief, subject=subject)))
+            score, missing, fix = _judgement(call("judge", _JUDGE.format(request=brief, subject=subject), on=judger))
             result.rounds.append(Round(version, current, output, score, missing, fix))
             if kind not in ("site", "app", "rule", "mcp", "hook"):
                 (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
@@ -531,13 +537,18 @@ class _Stop(Exception):
     pass
 
 
-def _try_on_profile(value: str) -> tuple[Any, str]:
+def _try_on_profile(value: str, purpose: str = "to try it on") -> tuple[Any, str]:
     """``PROVIDER/MODEL`` (or a bare provider, model ``default``) that each version is tried on."""
     provider_id, _, which = value.strip().partition("/")
     found = providers.find(provider_id)
     if found is None:
-        raise MakeError(f"no provider named {provider_id!r} to try it on; see `proofhouse providers list`")
+        raise MakeError(f"no provider named {provider_id!r} {purpose}; see `proofhouse providers list`")
     return found, which.strip() or "default"
+
+
+def judge_profile(value: str) -> tuple[Any, str]:
+    """``PROVIDER/MODEL`` that judges each version instead of the maker's model (--judge)."""
+    return _try_on_profile(value, "to judge with")
 
 
 def _agent_for(tool_id: str) -> tuple[Any, str] | None:
@@ -880,4 +891,6 @@ def _write_record(
     if result.tried_on is not None:
         record["tried_on"] = result.tried_on
         record["tried_on_note"] = result.tried_on_note
+    if result.judged_by is not None:
+        record["judge"] = result.judged_by
     (folder / "record.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")

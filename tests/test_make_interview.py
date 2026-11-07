@@ -480,3 +480,18 @@ def test_without_a_trial_the_judge_and_revise_get_no_trial_note(tmp_path: Path) 
     model = Owner([5, 9])
     make.make("x", provider_id="ollama", model="m", kind="skill", out_dir=tmp_path / "o", transport=model)
     assert "could not run" not in model.seen["judge"] and "trial run" not in model.seen["revise"]
+
+
+
+def test_a_text_make_can_be_judged_by_another_model(tmp_path: Path) -> None:
+    assert cli.main(["providers", "add", "my-judge", "--base-url", "http://localhost:8081/v1"]) == 0
+    model = Owner([9], kind="prompt")
+    made = make.make("a prompt for refunds", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                     transport=model, interviewer=Answers("Claude Code", {}, [True]), judge="my-judge/qwen")
+    assert made.best_version == 1 and made.judged_by == "my-judge/qwen"
+    judged = [n for n, role in enumerate(model.calls) if role == "judge"]
+    assert judged and all("localhost:8081" in model.where[n] for n in judged)
+    assert all("localhost:8081" not in url for n, url in enumerate(model.where) if n not in judged)
+    assert json.loads((tmp_path / "o" / "record.json").read_text(encoding="utf-8"))["judge"] == "my-judge/qwen"
+    with pytest.raises(make.MakeError, match="spending limit"):
+        make.make("x", provider_id="ollama", model="m", out_dir=tmp_path / "p", transport=Owner(), judge="openai/gpt-x")
