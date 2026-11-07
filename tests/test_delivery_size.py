@@ -68,3 +68,13 @@ def test_a_film_that_comes_out_over_the_cap_is_squeezed_under_it(tmp_path: Path)
     kinds = subprocess.run(["ffprobe", "-v", "error", "-show_entries", "stream=codec_type", "-of", "csv=p=0", str(out)],
                            capture_output=True, text=True, timeout=60).stdout.split()
     assert sorted(kinds) == ["audio", "video"]
+
+
+def test_the_joined_middle_step_is_fast_and_the_kept_encode_is_not() -> None:
+    beats = storyboard.parse({"beats": [{"say": "One.", "show": {"type": "title", "text": "A"}},
+                                        {"say": "Two.", "show": {"type": "title", "text": "B"}}]}, Path("."))
+    beats[1].cut = "cut"
+    join = storyboard.join_command([Path("a.mp4"), Path("b.mp4")], beats, Path("j.mp4"))
+    assert join[join.index("-preset") + 1] == storyboard.JOIN_PRESET == "veryfast"
+    final = storyboard.mix_command(Path("p.mp4"), None, None, None, 45.0, [], Path("o.mp4"), loudness="anull")
+    assert final[final.index("-preset") + 1] == "medium"

@@ -842,9 +842,10 @@ def join_command(clips: list[Path], beats: list[Beat], out: Path) -> list[str]:
                 label = f"w{k}"
         prev = label
     return cmd + ["-filter_complex", ";".join(parts), "-map", f"[{prev}]", "-an", "-c:v", "libx264",
-                  "-preset", "medium", "-crf", "14", "-pix_fmt", "yuv420p", str(out)]
+                  "-preset", JOIN_PRESET, "-crf", "14", "-pix_fmt", "yuv420p", str(out)]
 
 
+JOIN_PRESET = "veryfast"  # the joined picture is only a middle step: the final encode below is the one that is kept
 DELIVERY_CAP = 25 * 1024 * 1024  # bytes: under the 30 MiB file limit of the upload paths used so far
 AUDIO_BPS = 192_000
 MIN_VIDEO_BPS = 150_000
