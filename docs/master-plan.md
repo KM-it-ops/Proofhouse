@@ -425,6 +425,19 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      spelled-out "one" no longer licenses a counter to 1), and a blank caption line, which now says a full stop.
      To do: write the script one beat at a time so no request is long, fix the rounds that resend it all,
      and speed up the voice.
+     **Fixed 2026-11-07, each with a test, proven by re-rendering the saved film8 at $0.** The final film was
+     59.7 MiB, over the 30 MiB upload limit; it now comes out at 22.45 MiB because the picture rate is worked
+     out from a 25 MiB cap and a film still over it is squeezed with a two-pass encode. Drawing the 14 beats was
+     serial; it now runs 6 at a time (10 and 14 were slower on this 14-core PC), and the voice runs several
+     lines at once for a local voice. The joined middle step uses a fast encoder setting; the kept encode stays
+     on `medium`. Whole assemble of film8 went from over 4 minutes to 138 s (draw 71 s, join 22 s, final mix
+     36 s, checks 6 s). A drawing process that dies now says so in plain words. The 0/10 had a plain cause: the
+     writer asked for invented scenes (labs, workers, machines), and a real-footage beat cut for the "a third at
+     most" rule was replaced by an invented picture. Now the writer is told to use the moving background (not
+     an invented scene) when it has no footage for a line, and a beat cut from footage stands on a moving
+     background. Still to do: a new full film run to show the judge score moves (waits on the owner's go and a
+     picture choice), the "a third at most" rule against briefs that say "show the real terminal" (the owner's
+     call), the writer repeating one command across beats, and writing the script a beat at a time.
 
 ## What is left (updated 2026-10-27)
 

@@ -136,9 +136,14 @@ _SCRIPT_FACTS = (
     "{seconds} seconds long, for the product {product}, as a storyboard of beats.\n\n"
     "PRODUCT SUMMARY:\n{summary}\n\n"
     "FACTS ABOUT THE PRODUCT:\n{facts_block}\n\n"
-    "REAL PRODUCT FOOTAGE YOU CAN SHOW (a beat's base is either {{\"ref\": \"<one of these ids>\"}}, or "
+    "REAL PRODUCT FOOTAGE YOU CAN SHOW (a beat's base is {{\"ref\": \"<one of these ids>\"}}, or "
+    "{{\"kind\": \"living\"}} for a moving background that carries the beat's words and layers, or "
     "{{\"prompt\": \"...\"}} for a generated picture). Put each piece of footage under the line it proves, the line "
     "that says what it shows; use every piece that proves a line, in a third of the film at most:\n{capture_list}\n\n"
+    "A beat with no footage to prove its line takes the moving background. Ask for a generated picture only when "
+    "the brief asks for pictures, and then only of this product's own subject: never invent scenes, people, "
+    "machines, labs, offices or places the product does not have, because the picture model will draw exactly "
+    "what you name and a viewer will see that it has nothing to do with the product.\n\n"
     + _BEATS.replace("{base}", '{{"prompt": "a detailed prompt about the actual product subject: setting, camera '
                                'move, light, style; no stock-footage metaphors; no text in the picture"}}')
     + " Use only footage ids from the list above. On-screen words and narration state only what the brief and "
@@ -1899,15 +1904,14 @@ def produce(
                 except storyboard.StoryboardError:
                     beat = max((b for b in beats if b.real), key=lambda b: b.span)
                     row = board[beat.number - 1]
-                    instead = ("shows a picture of what it says instead" if visual_provider and visual_model
-                               else "stands on a moving background instead")
+                    # footage only exists for a product with a fact sheet, and a picture model would draw whatever the
+                    # line names (labs, workers, machines) and none of it is the product: a moving background it is
+                    instead = "stands on a moving background instead"
                     production.checks.append({
                         "render": "all", "check": "real footage cut to a third", "ok": True,
                         "detail": f"after {SCRIPT_FIXES} fixes real footage still filled more than a third of the "
                                   f"film, so beat {beat.number} ({row['base'].get('ref')}) {instead}"})
-                    # a picture is made for the beat later, with the others; timing treats it as a background
-                    row["base"] = ({"kind": "generate", "prompt": scene_for(board, beat.number)}
-                                   if visual_provider and visual_model else {"kind": "living"})
+                    row["base"] = {"kind": "living"}
                     beat.base, beat.real, beat.hold, beat.meta = {"kind": "living"}, False, row.get("hold"), None
                     beat.layers = [lay for lay in beat.layers if lay.get("kind") != "terminal"]
                     length = storyboard.fill_to(beats, seconds)

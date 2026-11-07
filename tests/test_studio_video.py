@@ -1002,12 +1002,14 @@ def test_real_footage_that_stays_too_long_is_cut_to_a_third_and_noted(tmp_path: 
     assert made.stopped == "finished", made.stopped
     assert len(_scripted(asked)) == 1 + studio.SCRIPT_FIXES
     cut = [c for c in made.checks if c["check"] == "real footage cut to a third"]
-    assert cut and all("shows a picture of what it says instead" in c["detail"] for c in cut)
+    # a beat taken off the footage stands on a moving background, never on an invented picture of its words
+    assert cut and all("stands on a moving background instead" in c["detail"] for c in cut)
     rows = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))["beats"]
     assert 1 <= sum(1 for r in rows if r.get("real")) < 3
-    pictured = [n for n, r in enumerate(rows, start=1) if not r.get("real")]  # a picture, not an empty frame
-    assert all(rows[n - 1]["base"]["kind"] == "image" for n in pictured), rows
-    assert sorted(p.name for p in (tmp_path / "v" / "shots").iterdir()) == [f"beat-{n:02d}.png" for n in pictured]
+    cut_rows = [r for r in rows if not r.get("real")]
+    assert cut_rows and all(r["base"]["kind"] == "living" for r in cut_rows), rows
+    assert not any(p.name == f"beat-{n:02d}.png" for n, r in enumerate(rows, start=1) if not r.get("real")
+                   for p in (tmp_path / "v" / "shots").iterdir()), "no picture was made for a cut beat"
     assert all(r["layers"][0]["kind"] != "terminal" for r in rows if not r.get("real"))
     assert next(c for c in made.checks if c["check"] == "real footage share")["ok"]
 
@@ -1247,6 +1249,12 @@ def test_the_writer_is_asked_for_plain_spoken_sentences_without_advert_words_or_
     asked = studio.script_prompt("a launch film", 45, TERMINAL_FACTS)
     assert "the way a person says it aloud" in asked and "5 to 10 words" in asked
     assert "No advert words such as unlock" in asked and "never repeat these instructions" in asked
+
+
+def test_a_writer_with_a_fact_sheet_is_told_to_use_the_moving_background_and_not_to_invent_scenes() -> None:
+    asked = studio.script_prompt("a launch film", 45, TERMINAL_FACTS)
+    assert '{"kind":"living"}' in asked or '"kind": "living"' in asked
+    assert "never invent scenes, people, machines, labs, offices or places the product does not have" in asked
 
 
 def test_advert_words_and_sentences_about_the_film_s_own_rules_are_sent_back_then_the_rules_go() -> None:
