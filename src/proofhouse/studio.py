@@ -628,6 +628,62 @@ def split_beats(board: list[dict[str, Any]], fewest: int) -> int:
     return added
 
 
+# where a long sentence can be cut in two, the strongest pause first: a dash, colon or semicolon ends a thought;
+# a comma before a joining word starts a new one; a plain comma or a joining word is a lighter pause
+_CLAUSE_BREAKS = (re.compile(r"\s*[;:\u2014\u2013]\s+|\s+-\s+"),
+                  re.compile(r",\s+(?=(?:and|but|so|while|then|yet)\b)", re.IGNORECASE),
+                  re.compile(r",\s+"),
+                  re.compile(r"\s+(?=(?:and|but|so|while|then)\b)", re.IGNORECASE))
+CLAUSE_WORDS = 4  # the fewest words either half of a split sentence keeps, so each still says something
+
+
+def clause_split(sentence: str) -> tuple[str, str] | None:
+    """A long sentence cut in two at its strongest pause nearest the middle, each half a sentence of its own, or
+    None when no pause leaves ``CLAUSE_WORDS`` words on both sides."""
+    text = sentence.strip()
+    middle = len(text.split()) / 2
+    for breaks in _CLAUSE_BREAKS:
+        cuts = []
+        for found in breaks.finditer(text):
+            head, tail = text[:found.start()].strip(), text[found.end():].strip()
+            if len(head.split()) >= CLAUSE_WORDS and len(tail.split()) >= CLAUSE_WORDS:
+                cuts.append((abs(len(head.split()) - middle), head, tail))
+        if cuts:
+            _, head, tail = min(cuts)
+            return head.rstrip(",;:-\u2014\u2013 ") + ".", tail[0].upper() + tail[1:]
+    return None
+
+
+def split_clauses(board: list[dict[str, Any]], fewest: int) -> int:
+    """Still too few beats once every beat says one sentence: the longest sentence that has a natural pause is cut
+    there, and its second half gets a shot of its own, until the film has ``fewest`` beats or no sentence can be
+    cut. Real footage is never split. Returns how many beats were added."""
+    added, tried = 0, set()
+    while len(board) < fewest:
+        open_ = [(len(row["say"].split()), i) for i, row in enumerate(board)
+                 if row["base"]["kind"] != "capture" and isinstance(row.get("say"), str) and i not in tried
+                 and len(storyboard.split_phrases(row["say"])) == 1]
+        if not open_:
+            break
+        _, pick = max(open_)
+        halves = clause_split(board[pick]["say"])
+        if halves is None:
+            tried.add(pick)
+            continue
+        row = board[pick]
+        row["say"] = halves[0]
+        base = dict(row["base"])
+        if base["kind"] == "generate":
+            base["prompt"] = f"{base['prompt'].rstrip('.')}, seen closer from another angle"
+        new = {"say": halves[1], "base": base}
+        if row.get("energy"):
+            new["energy"] = row["energy"]
+        board.insert(pick + 1, new)
+        tried = {i + 1 if i > pick else i for i in tried}
+        added += 1
+    return added
+
+
 def _bare(board: list[dict[str, Any]]) -> list[int]:
     """Beats (numbered from 1) that stand on a plain moving background: no picture and no footage behind them."""
     return [n for n, row in enumerate(board, start=1) if row["base"]["kind"] == "living"]
@@ -882,6 +938,11 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
         if split_beats(board, fit["fewest"]):
             notes.append(f"beats with several sentences were split so each sentence has its own shot: {before} beats "
                          f"became {len(board)}")
+        if len(board) < fit["fewest"]:
+            split = len(board)
+            if split_clauses(board, fit["fewest"]):
+                notes.append(f"long sentences were split at a natural pause so each half has its own shot: {split} "
+                             f"beats became {len(board)}")
         if len(board) < fit["fewest"]:
             notes.append(f"the film stays at {len(board)} beats, fewer than the {fit['fewest']} {seconds} seconds needs")
     if pictures and len(_bare(board)) > bare_allowed(board):
@@ -1374,6 +1435,54 @@ def _spoken_guess(board: list[dict[str, Any]], rate: float = FAST_RATE) -> float
     return storyboard.time_beats(beats)
 
 
+QUIET_STEP = 0.3  # seconds apart that overlays timed to the sentences of a beat left without words appear
+
+
+def _quiet_time(value: Any, field: str) -> Any:
+    """A time set by a sentence that is no longer said, set by the picture instead: overlays keep their order a
+    moment apart from the start, and anything held until a sentence ends is held until the beat ends."""
+    m = storyboard._ANCHOR.fullmatch(value.strip()) if isinstance(value, str) else None
+    if m is None or m.group(2) is None:
+        return value
+    if field == "until":
+        return "end"
+    t = QUIET_STEP * (int(m.group(2)) - 1 + (1 if m.group(3) else 0))
+    if m.group(4):
+        t += float(m.group(5)) * (1 if m.group(4) == "+" else -1)
+    return round(max(t, 0.0), 2)
+
+
+def _quiet_items(items: list[Any]) -> list[Any]:
+    return [{k: _quiet_time(v, k) for k, v in item.items()} if isinstance(item, dict) else item for item in items]
+
+
+def quiet_rows(board: list[dict[str, Any]], quiet: list[int]) -> list[dict[str, Any]]:
+    """The storyboard with the beats at ``quiet`` (counted from 0) keeping their pictures and overlays but saying
+    nothing, every time set by their sentences set by the picture instead."""
+    out = []
+    for i, row in enumerate(board):
+        if i in quiet:
+            row = {k: v for k, v in row.items() if k != "say"}
+            for key in ("layers", "sounds"):
+                if isinstance(row.get(key), list):
+                    row[key] = _quiet_items(row[key])
+        out.append(row)
+    return out
+
+
+def _quiet_to_fit(count: int, size: Callable[[int], float], fits: Callable[[list[int]], bool]) -> list[int] | None:
+    """The middle beats to leave without words, the longest spoken first, until the film fits: every shot stays,
+    and the opening and close keep their words. None when even every middle beat without words does not fit."""
+    quiet: list[int] = []
+    talking = [i for i in range(1, count - 1) if size(i) > 0]
+    while not fits(quiet):
+        left = [i for i in talking if i not in quiet]
+        if not left:
+            return None
+        quiet.append(max(left, key=size))
+    return quiet
+
+
 def _cut_to_fit(count: int, size: Callable[[int], float], fits: Callable[[list[int]], bool]) -> list[int] | None:
     """The beats to keep when whole middle beats are cut, the longest first, until the rest fits: the opening and
     the close always stay. None when even those two alone do not fit."""
@@ -1534,7 +1643,12 @@ def produce(
 
         too_long = 0
         cut_said: list[str] = []  # the words of middle beats cut to fit, once the writer had no fixes left
+        quiet_said: list[str] = []  # the words of middle beats that kept their shots but lost their words to fit
         limit = seconds + brief_slack(seconds)
+
+        def quiet_board(board: list[dict[str, Any]], quiet: list[int]) -> None:
+            quiet_said.extend(str(board[i].get("say") or "").strip() for i in sorted(quiet))
+            board[:] = quiet_rows(board, quiet)
 
         def cut_board(board: list[dict[str, Any]], keep: list[int]) -> None:
             cut_said.extend(str(row.get("say") or "").strip() for i, row in enumerate(board) if i not in keep)
@@ -1559,14 +1673,27 @@ def produce(
                     beat.number, beat.cut = n, asked[i]
                 return run
 
+            def hushed(quiet: list[int]) -> list[storyboard.Beat]:
+                run = trial(list(range(len(beats))))
+                for i in quiet:
+                    run[i].phrases = []
+                    run[i].layers, run[i].sounds = _quiet_items(run[i].layers), _quiet_items(run[i].sounds)
+                return run
+
             total = storyboard.time_beats(beats)
-            if total > limit and last:
-                keep = _cut_to_fit(len(beats), lambda i: sum(p.seconds for p in beats[i].phrases),
-                                   lambda kept: storyboard.time_beats(trial(kept)) <= limit)
-                if keep is not None:
-                    beats = trial(keep)
-                    cut_board(board, keep)
+            if total > limit and last:  # words go before shots: a beat without words still shows its picture
+                spoken = lambda i: sum(p.seconds for p in beats[i].phrases)  # noqa: E731
+                quiet = _quiet_to_fit(len(beats), spoken, lambda q: storyboard.time_beats(hushed(q)) <= limit)
+                if quiet is not None:
+                    beats = hushed(quiet)
+                    quiet_board(board, quiet)
                     total = storyboard.time_beats(beats)
+                else:
+                    keep = _cut_to_fit(len(beats), spoken, lambda kept: storyboard.time_beats(trial(kept)) <= limit)
+                    if keep is not None:
+                        beats = trial(keep)
+                        cut_board(board, keep)
+                        total = storyboard.time_beats(beats)
             if total <= limit:
                 length = storyboard.fill_to(beats, seconds)
                 try:
@@ -1673,12 +1800,17 @@ def produce(
                 if "beats" in data or "shots" not in data:
                     board = beats_from(data, facts)
                     guess = _spoken_guess(board)
-                    if guess > limit and attempt == SCRIPT_FIXES:  # no fixes left: cut middle beats, not the film
-                        keep = _cut_to_fit(len(board), lambda i: _spoken_guess([board[i]]),
-                                           lambda kept: _spoken_guess([board[i] for i in kept]) <= limit)
-                        if keep is not None:
-                            cut_board(board, keep)
-                            guess = _spoken_guess(board)
+                    if guess > limit and attempt == SCRIPT_FIXES:  # no fixes left: quiet middle beats, then cut them
+                        rows = board
+                        talk = lambda i: _spoken_guess([rows[i]]) if rows[i].get("say") else 0.0  # noqa: E731
+                        quiet = _quiet_to_fit(len(rows), talk, lambda q: _spoken_guess(quiet_rows(rows, q)) <= limit)
+                        if quiet is not None:
+                            quiet_board(board, quiet)
+                        else:
+                            keep = _cut_to_fit(len(rows), talk, lambda kept: _spoken_guess([rows[i] for i in kept]) <= limit)
+                            if keep is not None:
+                                cut_board(board, keep)
+                        guess = _spoken_guess(board)
                     if guess > limit:
                         fit = script_budget(seconds)
                         problem = (f"the script is too long: even read quickly it runs about {guess:.0f} seconds, and "
@@ -1756,6 +1888,12 @@ def produce(
             prompt, role = _FIX.format(problem=problem, task=task, reply=said[:6000]), "script fix"
 
         if board is not None:
+            if quiet_said:
+                quoted = ", ".join(f"'{s}'" for s in quiet_said)
+                production.checks.append({
+                    "render": "all", "check": "middle beats kept without words to fit", "ok": True,
+                    "detail": f"after {SCRIPT_FIXES} fixes the script still ran over {seconds} seconds, so these middle "
+                              f"beats keep their pictures but no longer say: {quoted}"})
             if cut_said:
                 quoted = ", ".join(f"'{s}'" for s in cut_said)
                 production.checks.append({
