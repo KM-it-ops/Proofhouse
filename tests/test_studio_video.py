@@ -1118,9 +1118,21 @@ def test_figures_from_the_brief_or_facts_and_version_tags_are_not_invented() -> 
 def test_a_figure_the_facts_spell_out_in_words_is_not_invented() -> None:
     facts = {**TERMINAL_FACTS, "facts": ["Adding a provider is one line.", "It keeps twelve versions."]}
     ask = {"brief": "a 12 second film", "seconds": 12, "facts": facts, "footage": ["hi"], "voiced": False}
-    for figure in (1, 12):
-        assert studio.script_gaps(studio.beats_from(_counted(figure), facts), **ask) == []
+    assert studio.script_gaps(studio.beats_from(_counted(12), facts), **ask) == []
+    # a counter to 1 is not licensed by a spelled 'one': see the counter-to-one test below
     assert any("states 3" in g for g in studio.script_gaps(studio.beats_from(_counted(3), facts), **ask))
+
+
+def test_a_counter_to_one_is_not_licensed_by_the_word_one_in_the_facts() -> None:
+    # 'One command line tool' and 'one line' made a "Version 1" counter pass, which only flashed a stray 1 on screen
+    facts = {**TERMINAL_FACTS, "summary": "One command line tool.", "facts": ["Adding a provider is one line."]}
+    ask = {"brief": "a 12 second film", "seconds": 12, "facts": facts, "footage": ["hi"], "voiced": False}
+    board = studio.beats_from(_counted(1), facts)
+    assert any("states 1" in g for g in studio.script_gaps(board, **ask))
+    studio.settle_gaps(board, **ask)
+    assert [lay["kind"] for lay in board[2]["layers"]] == ["lower_third"]  # the stray counter is gone
+    digits = {**facts, "facts": ["It runs 1 check first."]}  # written as a digit, the figure is the owner's
+    assert studio.script_gaps(studio.beats_from(_counted(1), digits), **{**ask, "facts": digits}) == []
 
 
 def test_a_figure_only_the_model_written_plan_gives_is_invented() -> None:

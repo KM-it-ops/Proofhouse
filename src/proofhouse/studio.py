@@ -644,11 +644,15 @@ def _invented(board: list[dict[str, Any]], brief: str,
                       + [str(f) for f in facts.get("facts") or []]
                       + [str(item.get(k, "")) for item in (facts.get("commands") or []) + (facts.get("pages") or [])
                          for k in ("shows", "display")])
-    known = _numbers(source) | _spelled(source)  # 'one line' in the facts makes a counter to 1 a known figure
+    known = _numbers(source) | _spelled(source)
+    # a counter counts up, so 'one command line tool' or 'one line' in the facts is no reason to count to 1 or 0:
+    # that only flashes a stray digit on screen. Such a counter needs the figure written as a digit.
+    counted = _numbers(source) | (_spelled(source) - {"0", "1"})
     found = []
     for number, row in enumerate(board, start=1):
         for index, layer in enumerate(row.get("layers") or [], start=1):
-            new = sorted(_numbers(" ".join(_shown(layer))) - known)
+            given = counted if isinstance(layer, dict) and layer.get("kind") == "counter" else known
+            new = sorted(_numbers(" ".join(_shown(layer))) - given)
             if new:
                 found.append((number, index, new))
         new = sorted(_numbers(_spoken(row)) - known)
