@@ -1886,11 +1886,15 @@ def render_all(jobs: list[tuple[dict, Path]], workers: int = 1) -> list[Path]:
     if workers <= 1 or len(jobs) <= 1:
         return [render(scene, out) for scene, out in jobs]
     from concurrent.futures import ProcessPoolExecutor
+    from concurrent.futures.process import BrokenProcessPool
 
     with ProcessPoolExecutor(max_workers=min(workers, len(jobs))) as pool:
         futures = [pool.submit(render, scene, out) for scene, out in jobs]
         try:
             return [f.result() for f in futures]
+        except BrokenProcessPool:
+            raise MotionError("a drawing process stopped without an error, most likely out of memory; "
+                              "draw the beats one at a time instead") from None
         except BaseException:
             for f in futures:
                 f.cancel()

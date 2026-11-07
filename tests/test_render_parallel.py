@@ -43,3 +43,23 @@ def test_a_beat_that_cannot_be_drawn_stops_the_rest_with_its_own_error(tmp_path:
     jobs = [(_scene("fine"), tmp_path / "a.mp4"), (bad, tmp_path / "b.mp4"), (_scene("also fine"), tmp_path / "c.mp4")]
     with pytest.raises(motion.MotionError):
         motion.render_all(jobs, workers=2)
+
+
+def test_a_drawing_process_that_dies_gives_a_plain_message(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    import concurrent.futures
+    from concurrent.futures.process import BrokenProcessPool
+
+    class Dying:
+        def __init__(self, max_workers: int) -> None: ...
+        def __enter__(self) -> "Dying": return self
+        def __exit__(self, *exc: object) -> None: ...
+
+        def submit(self, fn: object, *args: object) -> "Dying": return self
+
+        def result(self) -> None: raise BrokenProcessPool("gone")
+
+        def cancel(self) -> None: ...
+
+    monkeypatch.setattr(concurrent.futures, "ProcessPoolExecutor", Dying)
+    with pytest.raises(motion.MotionError, match="one at a time"):
+        motion.render_all([(_scene("a"), tmp_path / "a.mp4"), (_scene("b"), tmp_path / "b.mp4")], workers=2)
