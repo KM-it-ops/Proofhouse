@@ -413,6 +413,18 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      quick text model writes; Qwen3-VL-4B on this PC reads 140 and writes 10 tokens a second. Still to do: a
      whole film judged by it, and making the pictures and the final render, which still take the whole run past
      5 minutes.
+     **Measured 2026-11-07, one model for everything** (Qwen3-VL-4B Q4_K_M, plain `-c 8192 --jinja`; the
+     quantised-cache flags hang on this build). The film was written, judged and rendered on this PC at $0,
+     and the judge looked at the pictures: it gave 0/10 because the pictures showed factory scenes, not the
+     terminal the brief asked for. That is a fair verdict, so the plan is still not met. Steps over 5 minutes:
+     the script writer (three tries of 276, 321 and 317 s; the whole script is 4 to 6 thousand tokens at about
+     7 a second, and each fix round sends it all again), the voice (40 clips, about 15 s each, 10 minutes), and
+     the pictures (made by hand through Gemini in the browser, about 19 minutes for 10). Under 5 minutes: music
+     (seconds), final render (about 4 minutes), judge (about 12 s). Whole run 51 minutes. Two film faults are
+     fixed with a test each: a version counter that showed a stray "1" because the facts said "one line" (a
+     spelled-out "one" no longer licenses a counter to 1), and a blank caption line, which now says a full stop.
+     To do: write the script one beat at a time so no request is long, fix the rounds that resend it all,
+     and speed up the voice.
 
 ## What is left (updated 2026-10-27)
 
