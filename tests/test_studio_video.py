@@ -777,7 +777,7 @@ def test_the_script_writer_is_told_every_problem_at_once_so_one_fix_can_mend_the
     _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.0", str(tmp_path / "phrase.wav"))
     broken = json.loads(json.dumps(BEATS))
     broken["beats"][0]["layers"].append({"kind": "counter", "text": "1"})  # a counter with nothing to count to
-    broken["beats"][1]["layers"][0]["at"] = "phrase 2"  # the beat has one phrase
+    broken["beats"][1]["layers"][0]["at"] = "phrase 5"  # the beat has one phrase, the film three
     broken["beats"][2]["layers"].append({"kind": "card", "items": ["x"]})  # a kind the engine does not have
     asked: list[str] = []
     made = studio.produce("a hype video", provider_id="ollama", model="llama3", visual_provider="local-images",
@@ -788,7 +788,7 @@ def test_the_script_writer_is_told_every_problem_at_once_so_one_fix_can_mend_the
     assert len(asked) == 2 and made.stopped == "finished", made.stopped  # one fix was enough
     fix = asked[1]
     assert "beat 1: layer 2 (counter)" in fix and "needs 'to'" in fix
-    assert "beat 2: layer 1 at:" in fix and "no phrase 2" in fix
+    assert "beat 2: layer 1 at:" in fix and "no phrase 5" in fix
     assert "beat 3: layer 2 has" in fix and "unknown kind 'card'" in fix
 
 
@@ -1149,6 +1149,39 @@ def test_a_phrase_counted_across_the_whole_film_is_read_as_that_sentence_in_its_
     with pytest.raises(studio.StudioError, match="no phrase 9"):
         studio.beats_from({**script, "beats": [{**script["beats"][2], "layers": [],
                                                 "sounds": [{"kind": "pop", "at": "phrase 9"}]}]})
+
+
+def test_a_phrase_counted_across_the_whole_film_is_not_sent_back_or_dropped_as_unreadable() -> None:
+    script = {**BEATS, "beats": [BEATS["beats"][0], BEATS["beats"][1],
+                                 {**BEATS["beats"][2], "sounds": [{"kind": "pop", "at": "phrase 3"}]}]}
+    assert studio.script_problems(script) == []
+    settled, notes = studio.untime_unreadable(script)
+    assert settled["beats"][2]["sounds"] == [{"kind": "pop", "at": "phrase 3"}] and notes == []
+    assert studio.beats_from(settled)[2]["sounds"][0]["at"] == "phrase 1"
+
+
+def test_a_writer_told_there_is_no_phrase_2_learns_what_phrase_n_counts() -> None:
+    script = {**BEATS, "beats": [{**BEATS["beats"][0], "sounds": [{"kind": "pop", "at": "phrase 2"}]}]}
+    [problem] = studio.script_problems(script)
+    assert problem.startswith("beat 1: sound 1 ") and "there is no phrase 2 in this beat" in problem
+    assert "counts only this beat's own sentences, and its say has 1" in problem and "'phrase 1 + seconds'" in problem
+
+
+def test_later_phrases_a_one_sentence_beat_does_not_have_are_spread_across_its_sentence_at_the_last_chance() -> None:
+    one = {"say": "It builds images, runs video and composes music.", "base": {"prompt": "a studio"},
+           "layers": [{"kind": "title", "text": "Images", "at": "phrase 1"},
+                      {"kind": "label", "text": "Video", "at": "phrase 2"},
+                      {"kind": "label", "text": "Music", "at": "phrase 3", "until": "phrase 3 end"}],
+           "sounds": [{"kind": "pop", "at": "phrase 2"}]}
+    settled, notes = studio.untime_unreadable({**BEATS, "beats": [one]})
+    spoken = 8 / studio.SPEAKING_RATE  # the sentence's eight words at the speaking pace
+    row = settled["beats"][0]
+    assert [(lay["at"], lay.get("until")) for lay in row["layers"]] == [
+        ("phrase 1", None), (f"phrase 1 + {round(spoken / 3, 1)}", None),
+        (f"phrase 1 + {round(spoken * 2 / 3, 1)}", f"phrase 1 + {round(spoken, 1)}")]
+    assert row["sounds"] == [{"kind": "pop", "at": f"phrase 1 + {round(spoken / 3, 1)}"}]
+    assert notes[0] == f"beat 1 layer 2 time 'phrase 2' as 'phrase 1 + {round(spoken / 3, 1)}'"
+    studio.beats_from(settled)  # every time now reads
 
 
 def test_beats_with_no_picture_are_sent_back_then_given_one_in_the_film_s_world() -> None:

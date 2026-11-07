@@ -381,6 +381,50 @@ def _local_phrases(item: Any, before: int, said: int) -> Any:
     return out
 
 
+def _film_counts(rows: list[Any]) -> list[tuple[int, int]]:
+    """For each beat: how many sentences the beats before it say, and how many it says itself."""
+    counts, before = [], 0
+    for raw in rows:
+        say = raw.get("say") if isinstance(raw, dict) else None
+        said = len(storyboard.split_phrases(say)) if isinstance(say, str) else 0
+        counts.append((before, said))
+        before += said
+    return counts
+
+
+_PHRASE_WHEN = re.compile(r"^\s*phrase\s+(\d+)(\s+end)?\s*$")
+
+
+def _phrase_top(row: dict[str, Any], said: int) -> int:
+    """The highest sentence a beat's overlays and sounds are timed to, counting the ones it says."""
+    top = said
+    for key in ("layers", "sounds"):
+        items = row.get(key)
+        for item in items if isinstance(items, list) else []:
+            for field in ("at", "until"):
+                value = item.get(field) if isinstance(item, dict) else None
+                match = _PHRASE_WHEN.match(value) if isinstance(value, str) else None
+                if match:
+                    top = max(top, int(match.group(1)))
+    return top
+
+
+def _spread_phrases(item: Any, said: int, last_words: int, top: int) -> Any:
+    """An overlay or sound timed to a sentence its beat does not say, read as a moment inside the beat's last
+    sentence: a writer that times a one-sentence beat to 'phrase 2' and 'phrase 3' means later moments in it, so
+    they are spread across that sentence in order instead of all playing at the default moment."""
+    if not isinstance(item, dict) or said < 1:
+        return item
+    out = dict(item)
+    spoken = max(last_words, 1) / SPEAKING_RATE
+    for field in ("at", "until"):
+        match = _PHRASE_WHEN.match(out[field]) if isinstance(out.get(field), str) else None
+        if match and int(match.group(1)) > said:
+            step = int(match.group(1)) - said + (1 if match.group(2) else 0)
+            out[field] = f"phrase {said} + {round(spoken * step / (top - said + 1), 1)}"
+    return out
+
+
 def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """The storyboard rows from a model's beats plan, checked before anything is spent on them.
 
@@ -856,10 +900,12 @@ def script_problems(data: dict[str, Any], facts: dict[str, Any] | None = None) -
     if not isinstance(rows, list) or not rows:
         return []
     found: list[str] = []
+    counts = _film_counts(rows)
     for number, raw in enumerate(rows, start=1):
         if not isinstance(raw, dict):
             found.append(_not_a_beat(number, raw))
             continue
+        before, said = counts[number - 1]
         bare = {k: v for k, v in raw.items() if k not in ("layers", "sounds")}
         try:
             beats_from({"beats": [bare]}, facts)
@@ -877,11 +923,14 @@ def script_problems(data: dict[str, Any], facts: dict[str, Any] | None = None) -
                     found.append(re.sub(r"^beat \d+:", f"beat {number}:", str(exc)))
                 continue
             for i, item in enumerate(items, start=1):
-                try:
-                    beats_from({"beats": [{**bare, key: [item]}]}, facts)
+                try:  # a phrase counted across the whole film is read in its beat, as the film itself reads it
+                    beats_from({"beats": [{**bare, key: [_local_phrases(item, before, said)]}]}, facts)
                 except StudioError as exc:
-                    said = re.sub(r"^(layer|sound)s?( \d+)?:? ?", "", re.sub(r"^beat \d+: ", "", str(exc)))
-                    found.append(f"beat {number}: {key[:-1]} {i} {said}")
+                    told = re.sub(r"^(layer|sound)s?( \d+)?:? ?", "", re.sub(r"^beat \d+: ", "", str(exc)))
+                    if "there is no phrase" in told:
+                        told += (f": phrase N counts only this beat's own sentences, and its say has {said}, so time "
+                                 f"a later moment as 'phrase {max(said, 1)} + seconds' or 'end'")
+                    found.append(f"beat {number}: {key[:-1]} {i} {told}")
     return found
 
 
@@ -902,6 +951,7 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
     out: list[Any] = []
     if not any(isinstance(raw, dict) for raw in rows):
         return data, []
+    counts = _film_counts(rows)
     for number, raw in enumerate(rows, start=1):
         if not isinstance(raw, dict):
             if not isinstance(raw, str):
@@ -927,14 +977,29 @@ def untime_unreadable(data: dict[str, Any], facts: dict[str, Any] | None = None)
             beats_from({"beats": [bare]}, facts)
         except StudioError:
             return data, []
+        before, said = counts[number - 1]
+        sentences = storyboard.split_phrases(raw["say"]) if isinstance(raw.get("say"), str) else []
+        last_words = len(sentences[-1].split()) if sentences else 0
+        top = _phrase_top(raw, said)
         for key in ("layers", "sounds"):
             if not isinstance(raw.get(key), list):
                 continue
             keep = []
             for i, item in enumerate(raw[key], start=1):
-                try:
-                    beats_from({"beats": [{**bare, key: [item]}]}, facts)
+                try:  # the film reads a phrase counted across the whole film as that sentence in its beat
+                    beats_from({"beats": [{**bare, key: [_local_phrases(item, before, said)]}]}, facts)
                 except StudioError:
+                    spread = _spread_phrases(item, said, last_words, top)
+                    try:
+                        beats_from({"beats": [{**bare, key: [spread]}]}, facts)
+                    except StudioError:
+                        pass
+                    else:
+                        times = ", ".join(f"{item[k]!r} as {spread[k]!r}" for k in ("at", "until")
+                                          if k in item and spread[k] != item[k])
+                        dropped.append(f"beat {number} {key[:-1]} {i} time {times}")
+                        keep.append(spread)
+                        continue
                     plain = {k: v for k, v in item.items() if k not in ("at", "until")} if isinstance(item, dict) else item
                     try:
                         beats_from({"beats": [{**bare, key: [plain]}]}, facts)
