@@ -405,6 +405,13 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      Runs on 2026-11-04: llama3.2 plus the local picture program made the 10-second film at $0 each time.
      After the last fixes, all three versions were made with none lost (9 calls); llama3.2 cannot see
      pictures, so it judged on the words alone, and the record says so.
+   - **8g. Quick local films.** No step of a film waits minutes on a model on this machine.
+     **Started.** llama.cpp (`llama-server`) is the first local engine `proofhouse setup` suggests, started with
+     room for a film script (`-c 16384`) and thinking off (`--reasoning-budget 0`); Ollama, LM Studio and vLLM
+     still work. Run on 2026-11-07 with LFM2.5-8B-A1B on the Vulkan build: every model step took under 80 s and
+     the judge gave 9/10, at $0. Still to do: a local model that sees pictures (a vision model, started with
+     `--mmproj`), so the picture check and the judge look at the shots; the text-only model answered the picture
+     check with an error. Making the pictures and the final render still take the whole run past 5 minutes.
 
 ## What is left (updated 2026-10-27)
 

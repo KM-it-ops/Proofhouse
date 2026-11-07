@@ -15,9 +15,9 @@
     {"id": "ffprobe", "name": "ffprobe", "programs": ["ffprobe"], "unlocks": "measure a video so it can be checked", "get": "https://ffmpeg.org/download.html (it comes with ffmpeg)"}
   ],
   "servers": {
+    "llamacpp": {"programs": ["llama-server"], "start": "llama-server -m <model .gguf file> -c 16384 --jinja --reasoning-budget 0 (room for a film script, thinking off so each step stays quick; with Intel or AMD graphics use the Vulkan build and add -ngl 99; for a model that sees pictures add --mmproj <its mmproj file>)", "get": "https://github.com/ggml-org/llama.cpp/releases"},
     "ollama": {"programs": ["ollama"], "start": "ollama serve (or open the Ollama app), then `ollama pull <model>`", "get": "https://ollama.com"},
     "lmstudio": {"programs": ["lms"], "start": "open LM Studio and start its local server", "get": "https://lmstudio.ai"},
-    "vllm": {"programs": ["vllm"], "start": "vllm serve <model>", "get": "pip install vllm"},
-    "llamacpp": {"programs": ["llama-server"], "start": "llama-server -m <model file>", "get": "https://github.com/ggml-org/llama.cpp"}
+    "vllm": {"programs": ["vllm"], "start": "vllm serve <model>", "get": "pip install vllm"}
   }
 }

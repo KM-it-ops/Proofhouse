@@ -12,9 +12,9 @@
     {"id": "openrouter", "name": "OpenRouter", "base_url": "https://openrouter.ai/api/v1", "shape": "openai-compatible", "key_env": "OPENROUTER_API_KEY"},
     {"id": "deepseek", "name": "DeepSeek", "base_url": "https://api.deepseek.com/v1", "shape": "openai-compatible", "key_env": "DEEPSEEK_API_KEY"},
     {"id": "xai", "name": "xAI", "base_url": "https://api.x.ai/v1", "shape": "openai-compatible", "key_env": "XAI_API_KEY"},
+    {"id": "llamacpp", "name": "llama.cpp server (on this machine)", "base_url": "http://localhost:8080/v1", "shape": "openai-compatible", "key_env": null},
     {"id": "ollama", "name": "Ollama (on this machine)", "base_url": "http://localhost:11434/v1", "shape": "openai-compatible", "key_env": null},
     {"id": "lmstudio", "name": "LM Studio (on this machine)", "base_url": "http://localhost:1234/v1", "shape": "openai-compatible", "key_env": null},
-    {"id": "vllm", "name": "vLLM (on this machine)", "base_url": "http://localhost:8000/v1", "shape": "openai-compatible", "key_env": null},
-    {"id": "llamacpp", "name": "llama.cpp server (on this machine)", "base_url": "http://localhost:8080/v1", "shape": "openai-compatible", "key_env": null}
+    {"id": "vllm", "name": "vLLM (on this machine)", "base_url": "http://localhost:8000/v1", "shape": "openai-compatible", "key_env": null}
   ]
 }

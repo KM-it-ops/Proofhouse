@@ -238,3 +238,14 @@ def test_setup_is_in_the_command_map() -> None:
 
 def test_the_user_file_lives_next_to_the_other_settings_files() -> None:
     assert setup_check.user_path() == providers.proofhouse_home() / "tools.json"
+
+
+def test_llama_cpp_is_the_engine_on_this_machine_setup_suggests_first() -> None:
+    report = setup_check.build_report(FakeProbe(programs=("llama-server",)))
+    assert report.servers[0].id == "llamacpp"  # the quickest engine on a plain PC is listed first
+    llamacpp = report.servers[0]
+    assert llamacpp.installed and not llamacpp.answering
+    # its start command gives room for a film script and turns thinking off, so no step waits minutes on thinking
+    assert "-c 16384" in llamacpp.start and "--reasoning-budget 0" in llamacpp.start
+    missing = _abilities(setup_check.build_report(FakeProbe()))["free-local-model"]
+    assert not missing.ok and missing.get.startswith("start a local model server: llama.cpp")

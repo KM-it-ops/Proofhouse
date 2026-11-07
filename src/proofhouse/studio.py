@@ -2038,7 +2038,7 @@ def produce(
             if attempt == SCRIPT_FIXES:  # keep what it said last, so the failure can be read
                 (out_dir / "script-reply.txt").write_text(reply_text, encoding="utf-8")
                 after = ("the reply was cut off because the model ran out of room. A model on this machine may have a "
-                         "small window: for Ollama, start it with OLLAMA_CONTEXT_LENGTH=16384, or try another model"
+                         "small window: start llama-server with -c 16384 (for Ollama, OLLAMA_CONTEXT_LENGTH=16384), or try another model"
                          if cut else "try another model")
                 if script is not None:
                     raise StudioError(f"the saved script cannot be made into a film: {problem}")

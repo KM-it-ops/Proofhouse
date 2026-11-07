@@ -25,7 +25,7 @@ proofhouse demo
 
 | You want | Command |
 |---|---|
-| A prompt, skill, agent or announcement copy | `proofhouse make "a prompt that answers refund emails warmly" --provider ollama --model llama3` |
+| A prompt, skill, agent or announcement copy | `proofhouse make "a prompt that answers refund emails warmly" --provider llamacpp --model local` |
 | A rule, MCP server (a tool an AI app can call) or hook (a small program a coding tool runs on events) | `proofhouse make "..." --kind mcp` |
 | A website | `proofhouse make "a landing page for my bakery" --kind site` |
 | An app for the web, Windows, macOS, Linux, iOS or Android | `proofhouse make "..." --kind app --platform pwa --platform android` |
@@ -55,7 +55,7 @@ Every command, flag and option is in the [usage guide](https://github.com/KM-it-
 
 ## How it behaves
 
-- **Any provider, any model.** OpenAI, Anthropic, Google, Mistral, Groq, Together, Fireworks, OpenRouter, DeepSeek, xAI, models on your own machine (Ollama, LM Studio, vLLM, llama.cpp), or anything else you add with one command. Providers are data, not code.
+- **Any provider, any model.** OpenAI, Anthropic, Google, Mistral, Groq, Together, Fireworks, OpenRouter, DeepSeek, xAI, models on your own machine (llama.cpp, Ollama, LM Studio, vLLM), or anything else you add with one command. Providers are data, not code.
 - **A spending limit on every paid call.** A call is refused before it is sent if its worst-case estimate is over your `--max-cost-usd`, or if the model has no price. Dollar figures are estimates, not your bill.
 - **Your keys stay in your environment.** Proofhouse reads them from there when a call is made.
 - **Every version is kept** with its test output, score and cost, in one folder. Judge scores are a model's advice, not proof.

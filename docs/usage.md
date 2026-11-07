@@ -73,13 +73,15 @@ Both entries use the same framework ([`proofhouse-framework.json`](../proofhouse
 
 ```bash
 proofhouse providers list                     # shipped providers, and whether each key is set
-proofhouse run --provider ollama --model llama3 --prompt "Say hi"          # on your machine: free, no key
+proofhouse run --provider llamacpp --model local --prompt "Say hi"        # on your machine: free, no key
 export MISTRAL_API_KEY=...                                                 # your key stays in your environment
 proofhouse providers price mistral mistral-large --input 2 --output 6      # USD per million tokens, if none ships
 proofhouse run --provider mistral --model mistral-large --prompt "Say hi" --max-cost-usd 0.05
 proofhouse providers add myhost --base-url https://api.myhost.ai/v1 --key-env MYHOST_KEY   # any other provider
 proofhouse providers add ollama --base-url http://localhost:11434/v1 --also-send reasoning_effort=none  # thinking off
 ```
+
+On a plain PC, llama.cpp (`llama-server`) is the quickest engine on your machine: `proofhouse setup` shows the command that starts it with room for a film script and thinking off (`--reasoning-budget 0`). It answers whatever `--model` you name with the model it loaded.
 
 `--also-send FIELD=VALUE` adds a field to every request to that provider. On a slow machine, switching a thinking model's thinking off (`reasoning_effort=none` on Ollama) can turn a three-minute answer into a few seconds. These extra fields go only to a provider on your machine, where nothing is charged. For a paid provider the spend gate refuses them, because it cannot tell what they would add to the bill.
 
@@ -106,7 +108,7 @@ Give at least two `--entry LABEL=path` pairs (label is free text, for example an
 ### Make it
 
 ```bash
-proofhouse make "a prompt that answers refund emails warmly" --provider ollama --model llama3
+proofhouse make "a prompt that answers refund emails warmly" --provider llamacpp --model local
 proofhouse make "a skill that reviews pull requests for security issues" --kind skill \
   --provider anthropic --model <model> --max-cost-usd 1.00
 ```
