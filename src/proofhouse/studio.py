@@ -607,6 +607,112 @@ def brief_line(board: list[dict[str, Any]]) -> str:
     return next((_spoken(row).strip() for row in board if _spoken(row).strip()), "the subject of the film")
 
 
+def scene_for(board: list[dict[str, Any]], number: int, framing: str = "") -> str:
+    """A picture prompt for beat ``number`` (from 1) drawn from its own words, so it shows what is being said."""
+    said = _spoken(board[number - 1]).strip() or brief_line(board)
+    return f"{framing}, at the moment this describes: {said}" if framing else f"a scene that shows what this describes: {said}"
+
+
+# Words in a picture prompt that ask the picture model to draw lettering, which it renders as made-up text.
+_PICTURE_TEXT = re.compile(r"\b(?:text|texts|words?|messages?|labels?|captions?|titles?|logos?|headlines?|letters|"
+                           r"lettering|typography|slogans?|banners?|signage|signs?)\b|[\"“][^\"”]+[\"”]", re.I)
+_NEGATED = re.compile(r"\b(?:no|without|free of)\b[^,.;]*", re.I)
+_TEXT_LEAD = re.compile(r"\s+(?:with|showing|displaying|where|while|and|as|reading|saying|that says|that reads)\s",
+                        re.I)
+
+
+def _asks_text(prompt: str) -> list[str]:
+    """The lettering a picture prompt asks for (its words, lowercased), leaving out what it says to avoid."""
+    found = (m.group(0) for m in _PICTURE_TEXT.finditer(_NEGATED.sub("", prompt)))
+    return sorted({"quoted words" if word[0] in "\"“" else word.lower() for word in found})
+
+
+def text_asks(board: list[dict[str, Any]]) -> list[tuple[int, list[str]]]:
+    """The beats (from 1) whose picture prompt asks for lettering, with what it asks for."""
+    return [(n, asked) for n, row in enumerate(board, start=1) if row["base"]["kind"] == "generate"
+            for asked in [_asks_text(str(row["base"].get("prompt", "")))] if asked]
+
+
+def _without_text(prompt: str) -> str:
+    """``prompt`` with each part that asks for lettering cut back to what comes before it ("a terminal screen with a
+    success message" becomes "a terminal screen"); parts that are only lettering are left out."""
+    kept = []
+    for part in re.split(r"[,;]", prompt):
+        hit = _PICTURE_TEXT.search(_NEGATED.sub(lambda m: " " * len(m.group(0)), part))
+        if hit is None:
+            kept.append(part.strip())
+            continue
+        leads = [m.start() for m in _TEXT_LEAD.finditer(part[:hit.start()])]
+        if leads and part[:leads[-1]].strip():
+            kept.append(part[:leads[-1]].strip())
+    return ", ".join(p for p in kept if p)
+
+
+_SUBJECT_STOP = {"showing", "with", "of", "in", "on", "at", "displaying", "where", "that", "and", "while", "as",
+                 "from", "under", "over", "behind", "filled", "full", "lit", "glowing", "seen", "for", "into", "to",
+                 "by", "near", "against", "beside", "around"}
+_SUBJECT_LEAD = {"a", "an", "the", "one", "single", "close-up", "closeup", "close", "up", "wide", "shot", "of",
+                 "extreme", "medium", "view", "cinematic", "photo", "image", "picture"}
+
+
+def picture_subject(prompt: str) -> str:
+    """The thing a picture prompt shows, as its head word: "screen" for "a dark terminal screen showing a command",
+    so a film whose every picture is the same thing can be told apart from one with varied scenes."""
+    words = re.findall(r"[a-z][a-z'-]*", prompt.lower().split(",")[0])
+    while words and words[0] in _SUBJECT_LEAD:
+        words.pop(0)
+    out: list[str] = []
+    for word in words:
+        if out and word in _SUBJECT_STOP:  # a first word such as "glowing" describes the thing; it does not end it
+            break
+        out.append(word)
+    return out[-1] if out else ""
+
+
+# The kinds of scene a film with every picture on one subject is told to use, and the engine uses when it must vary
+# the pictures itself: people, places, close and wide, all in the film's one look.
+SCENE_FRAMINGS = ("a person at work, seen over the shoulder", "a close-up of hands at work",
+                  "a wide shot of the room where the work happens", "a face lit by the glow of a screen",
+                  "a city at night seen through a window", "a team around a table, seen from across the room")
+
+
+def same_subject(board: list[dict[str, Any]]) -> tuple[str, list[int]] | None:
+    """The subject most of a film's pictures share, and their beats (from 1), when more pictures show it than a
+    film with varied scenes would: a third of its pictures, and at least two. None when the pictures vary."""
+    prompts = {n: picture_subject(str(row["base"].get("prompt", ""))) for n, row in enumerate(board, start=1)
+               if row["base"]["kind"] == "generate"}
+    counts: dict[str, list[int]] = {}
+    for number, subject in prompts.items():
+        if subject:
+            counts.setdefault(subject, []).append(number)
+    if not counts:
+        return None
+    subject, beats = max(counts.items(), key=lambda item: len(item[1]))
+    return (subject, beats) if len(prompts) >= 3 and len(beats) > subject_allowed(len(prompts)) else None
+
+
+def subject_allowed(pictures: int) -> int:
+    """How many of a film's pictures may show the same subject: a third of them, and at least two."""
+    return max(2, pictures // 3)
+
+
+def vary_pictures(board: list[dict[str, Any]]) -> list[int]:
+    """Past a third of a film's pictures on one subject, the rest show a scene of their own: a person, a place, a
+    close-up or a wide shot, in turn, for what that beat says. Returns the beats that changed."""
+    found = same_subject(board)
+    if found is None:
+        return []
+    _, beats = found
+    keep = subject_allowed(sum(row["base"]["kind"] == "generate" for row in board))
+    # the writer's own prompts are kept before the engine's copies of them ("..., seen from another angle")
+    copied = {n for n in beats if "another angle" in str(board[n - 1]["base"].get("prompt", ""))}
+    changed = sorted(sorted(beats, key=lambda n: (n in copied, n))[keep:])
+    for turn, number in enumerate(changed):
+        board[number - 1]["base"] = {"kind": "generate",
+                                     "prompt": scene_for(board, number, SCENE_FRAMINGS[turn % len(SCENE_FRAMINGS)])}
+    return changed
+
+
 def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, facts: dict[str, Any] | None,
                 footage: list[str], voiced: bool, pictures: bool = False) -> list[str]:
     """What a readable storyboard still lacks to make a good film, each said so the writer can fix it: no real
@@ -625,6 +731,10 @@ def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
             where = f"beat {number} layer {layer}" if layer else f"beat {number}'s narration"
             gaps.append(f"{where} states {', '.join(new)}, which the brief and facts never give: say only what they "
                         f"say, with no invented numbers, timings or results")
+    if pictures:
+        for number, asked in text_asks(board):
+            gaps.append(f"beat {number}'s picture prompt asks for {', '.join(asked)}: describe a scene with no "
+                        f"writing in it, because a picture model draws words as made-up text")
     fit = script_budget(seconds)
     if len(board) < fit["fewest"]:
         gaps.append(f"the film has only {len(board)} beats, and {seconds} seconds needs {fit['fewest']} to "
@@ -634,6 +744,11 @@ def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
         gaps.append(f"beats {', '.join(map(str, _bare(board)))} have no picture and stand on a plain background, "
                     f"which looks empty: give most of them a base prompt, so {bare_allowed(board) or 'no'} beats at "
                     f"most have no picture")
+    same = same_subject(board) if pictures else None
+    if same:
+        gaps.append(f"beats {', '.join(map(str, same[1]))} all picture a {same[0]}, so the film shows one thing over "
+                    f"and over: give each beat its own scene from the same world and look, such as people at work, "
+                    f"the places they work in, close-ups of hands and faces, and wide shots")
     if narration_thin(board, seconds, voiced):
         gaps.append(f"the narration is too thin: {_words(board)} words over {seconds} seconds leaves long silences; "
                     f"use {fit['least']} to {fit['words']} words in full flowing sentences")
@@ -667,6 +782,12 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
         for number, row in enumerate(board, start=1):
             if row.get("layers"):
                 row["layers"] = [lay for i, lay in enumerate(row["layers"], start=1) if (number, i) not in drop]
+    if pictures:
+        for number, asked in text_asks(board):
+            base = board[number - 1]["base"]
+            base["prompt"] = _without_text(base["prompt"]) or scene_for(board, number)
+            notes.append(f"beat {number}'s picture prompt no longer asks for {', '.join(asked)}, which a picture "
+                         f"model draws as made-up text")
     fit = script_budget(seconds)
     if len(board) < fit["fewest"]:
         before = len(board)
@@ -679,6 +800,12 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
         given = picture_bare(board)
         if given:
             notes.append(f"beats {', '.join(map(str, given))} had no picture, so each now shows one in the film's look")
+    if pictures:
+        same = same_subject(board)
+        varied = vary_pictures(board)
+        if varied and same:
+            notes.append(f"beats {', '.join(map(str, varied))} pictured a {same[0]} like the rest, so each now shows "
+                         f"a scene of its own in the film's look")
     if narration_thin(board, seconds, voiced):
         notes.append(f"the narration stays thin: {_words(board)} words over {seconds} seconds")
     return notes
@@ -1365,12 +1492,15 @@ def produce(
                 except storyboard.StoryboardError:
                     beat = max((b for b in beats if b.real), key=lambda b: b.span)
                     row = board[beat.number - 1]
+                    instead = ("shows a picture of what it says instead" if visual_provider and visual_model
+                               else "stands on a moving background instead")
                     production.checks.append({
                         "render": "all", "check": "real footage cut to a third", "ok": True,
                         "detail": f"after {SCRIPT_FIXES} fixes real footage still filled more than a third of the "
-                                  f"film, so beat {beat.number} ({row['base'].get('ref')}) stands on a moving "
-                                  f"background instead"})
-                    row["base"] = {"kind": "living"}
+                                  f"film, so beat {beat.number} ({row['base'].get('ref')}) {instead}"})
+                    # a picture is made for the beat later, with the others; timing treats it as a background
+                    row["base"] = ({"kind": "generate", "prompt": scene_for(board, beat.number)}
+                                   if visual_provider and visual_model else {"kind": "living"})
                     beat.base, beat.real, beat.hold, beat.meta = {"kind": "living"}, False, row.get("hold"), None
                     beat.layers = [lay for lay in beat.layers if lay.get("kind") != "terminal"]
                     length = storyboard.fill_to(beats, seconds)

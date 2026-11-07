@@ -931,9 +931,12 @@ def test_real_footage_that_stays_too_long_is_cut_to_a_third_and_noted(tmp_path: 
     assert made.stopped == "finished", made.stopped
     assert len(_scripted(asked)) == 1 + studio.SCRIPT_FIXES
     cut = [c for c in made.checks if c["check"] == "real footage cut to a third"]
-    assert cut and all("moving background" in c["detail"] for c in cut)
+    assert cut and all("shows a picture of what it says instead" in c["detail"] for c in cut)
     rows = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))["beats"]
     assert 1 <= sum(1 for r in rows if r.get("real")) < 3
+    pictured = [n for n, r in enumerate(rows, start=1) if not r.get("real")]  # a picture, not an empty frame
+    assert all(rows[n - 1]["base"]["kind"] == "image" for n in pictured), rows
+    assert sorted(p.name for p in (tmp_path / "v" / "shots").iterdir()) == [f"beat-{n:02d}.png" for n in pictured]
     assert all(r["layers"][0]["kind"] != "terminal" for r in rows if not r.get("real"))
     assert next(c for c in made.checks if c["check"] == "real footage share")["ok"]
 
@@ -1158,11 +1161,14 @@ def test_beats_with_no_picture_are_sent_back_then_given_one_in_the_film_s_world(
         "them a base prompt, so 2 beats at most have no picture"]
     assert studio.script_gaps(board, **{**ask, "pictures": False}) == []  # no picture service: plain is all there is
     notes = studio.settle_gaps(board, **ask)
-    assert notes == ["beats 2, 3, 6, 7 had no picture, so each now shows one in the film's look"], notes
-    assert [row["base"].get("prompt") for row in board] == [
-        "a glowing workshop", "a glowing workshop, seen from another angle",
-        "a glowing workshop, seen from another angle", None, "a glowing workshop",
-        "a glowing workshop, seen from another angle", "a glowing workshop, seen from another angle", None]
+    assert notes == ["beats 2, 3, 6, 7 had no picture, so each now shows one in the film's look",
+                     "beats 2, 3, 6, 7 pictured a workshop like the rest, so each now shows a scene of its own in the "
+                     "film's look"], notes
+    assert [row["base"].get("prompt") for row in board] == [  # the writer's two kept, the copies varied
+        "a glowing workshop", "a person at work, seen over the shoulder, at the moment this describes: Line 2.",
+        "a close-up of hands at work, at the moment this describes: Line 3.", None, "a glowing workshop",
+        "a wide shot of the room where the work happens, at the moment this describes: Line 6.",
+        "a face lit by the glow of a screen, at the moment this describes: Line 7.", None]
     assert studio.script_gaps(board, **ask) == []
 
 
@@ -1176,3 +1182,59 @@ def test_a_film_with_no_picture_at_all_gets_scenes_from_its_own_words() -> None:
 def test_thin_narration_is_grown_toward_what_the_film_can_hold_not_just_the_floor() -> None:
     fit = studio.script_budget(45)
     assert fit["least"] < studio.narration_aim(45) < fit["words"]
+
+
+def test_a_film_whose_every_picture_shows_one_thing_is_sent_back_then_given_varied_scenes() -> None:
+    rows = [{"say": f"Line {n}.", "base": {"prompt": f"a dark terminal screen showing step {n}"}} for n in range(1, 7)]
+    board = studio.beats_from({"beats": rows})
+    ask = {"brief": "x", "seconds": 20, "facts": None, "footage": [], "voiced": False, "pictures": True}
+    assert studio.script_gaps(board, **ask) == [
+        "beats 1, 2, 3, 4, 5, 6 all picture a screen, so the film shows one thing over and over: give each beat its "
+        "own scene from the same world and look, such as people at work, the places they work in, close-ups of "
+        "hands and faces, and wide shots"]
+    assert studio.script_gaps(board, **{**ask, "pictures": False}) == []  # no picture service: nothing to vary
+    notes = studio.settle_gaps(board, **ask)
+    assert notes == ["beats 3, 4, 5, 6 pictured a screen like the rest, so each now shows a scene of its own in the "
+                     "film's look"], notes
+    prompts = [row["base"]["prompt"] for row in board]
+    assert prompts[:2] == ["a dark terminal screen showing step 1", "a dark terminal screen showing step 2"]
+    assert prompts[2] == "a person at work, seen over the shoulder, at the moment this describes: Line 3."
+    assert len({studio.picture_subject(p) for p in prompts}) == 5 and studio.script_gaps(board, **ask) == []
+
+
+def test_varied_scenes_are_not_sent_back() -> None:
+    prompts = ["a dark terminal screen", "a developer at a desk", "a city at night", "a terminal window up close"]
+    board = studio.beats_from({"beats": [{"say": f"Line {n}.", "base": {"prompt": p}} for n, p in enumerate(prompts)]})
+    assert studio.same_subject(board) is None and studio.vary_pictures(board) == []
+
+
+def test_a_picture_prompt_that_asks_for_text_is_sent_back_and_stripped_at_the_last_chance() -> None:
+    prompts = ["a terminal screen with a success message", 'a laptop showing the words "Ship it", soft light',
+               "a calm desk at dawn, no text or logos", "a poster with the product logo"]
+    board = studio.beats_from({"beats": [{"say": f"Line {n}.", "base": {"prompt": p}}
+                                         for n, p in enumerate(prompts, start=1)]})
+    ask = {"brief": "x", "seconds": 14, "facts": None, "footage": [], "voiced": False, "pictures": True}
+    gaps = studio.script_gaps(board, **ask)
+    assert gaps == [
+        "beat 1's picture prompt asks for message: describe a scene with no writing in it, because a picture model "
+        "draws words as made-up text",
+        "beat 2's picture prompt asks for quoted words, words: describe a scene with no writing in it, because a "
+        "picture model draws words as made-up text",
+        "beat 4's picture prompt asks for logo: describe a scene with no writing in it, because a picture model "
+        "draws words as made-up text"], gaps  # beat 3 says to leave text out, which is what is wanted
+    notes = studio.settle_gaps(board, **ask)
+    assert [n for n in notes if "no longer asks" in n] == [
+        "beat 1's picture prompt no longer asks for message, which a picture model draws as made-up text",
+        "beat 2's picture prompt no longer asks for quoted words, words, which a picture model draws as made-up text",
+        "beat 4's picture prompt no longer asks for logo, which a picture model draws as made-up text"], notes
+    assert [row["base"]["prompt"] for row in board] == ["a terminal screen", "a laptop, soft light",
+                                                         "a calm desk at dawn, no text or logos", "a poster"]
+    assert studio.text_asks(board) == []
+
+
+def test_a_picture_prompt_that_is_only_text_becomes_a_scene_from_its_words() -> None:
+    board = studio.beats_from({"beats": [{"say": "Say what you want.", "base": {"prompt": "big bold words"}},
+                                         {"say": "Pick any model.", "base": {"prompt": "a quiet studio"}}]})
+    ask = {"brief": "x", "seconds": 6, "facts": None, "footage": [], "voiced": False, "pictures": True}
+    studio.settle_gaps(board, **ask)
+    assert board[0]["base"]["prompt"] == "a scene that shows what this describes: Say what you want."
