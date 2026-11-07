@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import html
+import os
+import re
 import subprocess
+import tempfile
 from pathlib import Path
 
 from . import sitecheck
@@ -20,6 +23,39 @@ def private_text() -> tuple[str, ...]:
     return tuple(sorted(found, key=len, reverse=True))
 
 
+def _shown_places() -> list[tuple[str, str]]:
+    """Folders this machine's output may name, longest first, each with what a viewer sees instead: the Proofhouse
+    folder as ~/.proofhouse (where it is by default), the temp folder as nothing (only the file name stays), and the
+    home folder as ~."""
+    places = []
+    own = os.environ.get("PROOFHOUSE_HOME")
+    if own:
+        places.append((own, "~/.proofhouse"))
+    places += [(tempfile.gettempdir(), ""), (str(Path.home()), "~")]
+    return sorted(((p.rstrip("\\/"), shown) for p, shown in places if len(p.rstrip("\\/")) > 3),
+                  key=lambda item: len(item[0]), reverse=True)
+
+
+_PATH_TAIL = r"(?:[\\/]+[^\s'\"<>|()\[\]{},;]*)?(?![\w.-])"
+
+
+def clean_paths(text: str) -> str:
+    """``text`` with every path inside this machine's private folders shown as a viewer would expect: a settings file
+    under ~/.proofhouse, a home file under ~, a temp file by its name alone, so no frame shows a folder of this
+    machine."""
+    flags = re.IGNORECASE if os.name == "nt" else 0
+    for real, shown in _shown_places():
+        spellings = {real, real.replace("\\", "/"), real.replace("/", "\\"), real.replace("\\", "\\\\")}
+        for spelling in sorted(spellings, key=len, reverse=True):
+            def swap(found: re.Match[str], size: int = len(spelling), shown: str = shown) -> str:
+                tail = re.sub(r"[\\/]+", "/", found.group(0)[size:])
+                if shown:
+                    return shown + tail
+                return tail.rstrip("/").rsplit("/", 1)[-1] or "temp"
+            text = re.sub(re.escape(spelling) + _PATH_TAIL, swap, text, flags=flags)
+    return text
+
+
 class CaptureError(Exception):
     """A capture could not be made; the message says why."""
 
@@ -33,7 +69,7 @@ def card_html(
     title: str = "",
 ) -> str:
     """Self-contained dark terminal page sized for a full HD screenshot."""
-    cmd, text = command, output
+    cmd, text = clean_paths(command), clean_paths(output)
     for secret in redact:
         if secret:
             cmd, text = cmd.replace(secret, _REDACTED), text.replace(secret, _REDACTED)

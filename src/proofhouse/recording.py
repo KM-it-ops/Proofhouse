@@ -36,6 +36,7 @@ class Chunk:
 
 
 def _hide(text: str, secrets: tuple[str, ...]) -> str:
+    text = capture.clean_paths(text)
     for secret in secrets:
         if secret:
             text = text.replace(secret, capture._REDACTED)

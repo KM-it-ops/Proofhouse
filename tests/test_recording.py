@@ -43,6 +43,16 @@ def test_terminal_recording_hides_private_text(tmp_path: Path) -> None:
     assert capture._REDACTED in text
 
 
+def test_terminal_recording_shows_no_private_folder(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    own = tmp_path / "kit" / "phhome"
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(own))
+    code = "import os; print('(saved in ' + os.path.join(os.environ['PROOFHOUSE_HOME'], 'providers.json') + ')')"
+    chunks = recording.record_command([sys.executable, "-c", code], cwd=tmp_path)
+    text = "".join(c.text for c in chunks)
+    assert str(tmp_path) not in text and "kit" not in text, text
+    assert "(saved in ~/.proofhouse/providers.json)" in text
+
+
 def test_terminal_recording_never_uses_a_shell(tmp_path: Path) -> None:
     with pytest.raises(capture.CaptureError):
         recording.record_command("echo hi && echo there", cwd=tmp_path)  # type: ignore[arg-type]

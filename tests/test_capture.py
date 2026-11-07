@@ -201,6 +201,45 @@ def test_private_text_lists_the_home_folder_in_every_spelling_and_the_user_name(
     assert list(found) == sorted(found, key=len, reverse=True)
 
 
+def _machine(monkeypatch: pytest.MonkeyPatch, own: str | None) -> None:
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: Path("C:/Users/alice")))
+    monkeypatch.setattr(capture.tempfile, "gettempdir", lambda: r"C:\Users\alice\AppData\Local\Temp")
+    if own:
+        monkeypatch.setenv("PROOFHOUSE_HOME", own)
+    else:
+        monkeypatch.delenv("PROOFHOUSE_HOME", raising=False)
+
+
+def test_a_settings_folder_in_temp_shows_as_the_usual_proofhouse_folder(monkeypatch: pytest.MonkeyPatch) -> None:
+    own = r"C:\Users\alice\AppData\Local\Temp\claude\9f3e\scratchpad\kit\phhome"
+    _machine(monkeypatch, own)
+    doubled = own.replace("\\", "\\\\")  # as JSON writes it
+    said = (rf"(saved in {own}\providers.json)" + "\n"
+            + rf'{{"file": "{doubled}\\media.json"}}' + "\n"
+            + f"also {own.replace(chr(92), '/')}/keys.json.")
+    shown = capture.clean_paths(said)
+    assert "scratchpad" not in shown and "Temp" not in shown and "9f3e" not in shown and "alice" not in shown, shown
+    assert "(saved in ~/.proofhouse/providers.json)" in shown
+    assert '"~/.proofhouse/media.json"' in shown and "also ~/.proofhouse/keys.json." in shown
+
+
+def test_a_temp_file_shows_by_its_name_and_a_home_file_under_the_tilde(monkeypatch: pytest.MonkeyPatch) -> None:
+    _machine(monkeypatch, None)
+    shown = capture.clean_paths(r"wrote C:\Users\alice\AppData\Local\Temp\tmpab12\run.log and "
+                                r"read c:/users/alice/code/app.py from C:\Users\alicex\notes")
+    assert "wrote run.log and" in shown, shown
+    assert ("read ~/code/app.py" if capture.os.name == "nt" else "read c:/users/alice/code/app.py") in shown
+    assert r"C:\Users\alicex\notes" in shown  # another folder that only starts the same is not touched
+
+
+def test_the_card_shows_no_private_folder(monkeypatch: pytest.MonkeyPatch) -> None:
+    own = r"C:\Users\alice\AppData\Local\Temp\kit\phhome"
+    _machine(monkeypatch, own)
+    page = capture.card_html("proofhouse providers list", rf"(saved in {own}\providers.json)",
+                             redact=capture.private_text())
+    assert "Temp" not in page and "alice" not in page and "~/.proofhouse/providers.json" in page
+
+
 def test_the_video_command_hands_facts_and_allow_commands_over_once_and_needs_no_visual_service_up_front(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
