@@ -1052,6 +1052,46 @@ def _counted(to: object, say: str = "Proofhouse makes it.") -> dict:
     return {**BEATS, "beats": [BEATS["beats"][0], {**BEATS["beats"][1], "base": {"ref": "hi"}}, third]}
 
 
+LISTS_FACTS = {"product": "Proofhouse", "summary": "a test", "commands": [
+    {"id": "providers", "argv": [sys.executable, "-c", "print('ollama')"], "display": "proofhouse providers list",
+     "shows": "every model provider Proofhouse can use, listed in the terminal"},
+    {"id": "media", "argv": [sys.executable, "-c", "print('kokoro')"], "display": "proofhouse media list",
+     "shows": "the image, video, voice and music services, local ones free"}]}
+
+
+def _lines(*said: str, refs: dict[int, str] | None = None) -> list[dict]:
+    rows = [{"say": s, "base": {"ref": (refs or {})[n]} if n in (refs or {}) else {"prompt": "a studio at night"}}
+            for n, s in enumerate(said, start=1)]
+    return studio.beats_from({"title": "t", "beats": rows}, LISTS_FACTS)
+
+
+def test_footage_under_a_line_it_does_not_show_is_sent_back_and_moved_and_unused_footage_is_placed() -> None:
+    board = _lines("Say what you want.", "Pick any model from any provider.", "It makes images, video, voice and music.",
+                   "It keeps every version.", "Every paid call has a limit.", "Proofhouse makes it.", refs={4: "providers"})
+    ask = {"brief": "a 24 second film", "seconds": 24, "facts": LISTS_FACTS, "footage": ["providers", "media"],
+           "voiced": False, "pictures": True}
+    gaps = studio.script_gaps(board, **ask)
+    assert any("beat 4 shows the footage 'providers', which proves what beat 2 says" in g for g in gaps), gaps
+    assert any("the footage 'media' shows what beat 3 says" in g and '{"ref": "media"}' in g for g in gaps), gaps
+    notes = studio.settle_gaps(board, **ask)
+    assert [row["base"].get("ref") for row in board] == [None, "providers", "media", None, None, None]
+    assert board[3]["base"] == {"kind": "generate", "prompt": studio.scene_for(board, 4)}  # its own words now
+    assert "beat 2 shows the real footage 'providers', under the line it proves, moved from beat 4" in notes, notes
+    assert "beat 3 shows the real footage 'media', under the line it proves" in notes, notes
+    assert not any("footage" in g for g in studio.script_gaps(board, **ask))  # settled for good
+
+
+def test_footage_already_under_a_line_it_proves_stays_and_more_than_a_third_is_never_asked_for() -> None:
+    board = _lines("Any model, any provider.", "Pick a model from a provider you trust.", "Images, voice and music.",
+                   refs={2: "providers"})
+    ask = {"brief": "a 9 second film", "seconds": 9, "facts": LISTS_FACTS, "footage": ["providers", "media"],
+           "voiced": False}
+    assert studio.footage_moves(board, LISTS_FACTS, ["providers", "media"]) == []  # one beat in three is real already
+    assert not any("footage" in g for g in studio.script_gaps(board, **ask))
+    board[1]["base"] = {"kind": "living"}
+    assert studio.footage_moves(board, LISTS_FACTS, ["providers", "media"]) == [("providers", 1, [])]
+
+
 def test_a_figure_the_facts_never_give_is_sent_back_and_left_out_at_the_last_chance() -> None:
     ask = {"brief": "a 12 second film", "seconds": 12, "facts": TERMINAL_FACTS, "footage": ["hi"], "voiced": True}
     board = studio.beats_from(_counted(42, "Done in 0.4s."), TERMINAL_FACTS)

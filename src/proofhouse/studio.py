@@ -131,8 +131,8 @@ _SCRIPT_FACTS = (
     "PRODUCT SUMMARY:\n{summary}\n\n"
     "FACTS ABOUT THE PRODUCT:\n{facts_block}\n\n"
     "REAL PRODUCT FOOTAGE YOU CAN SHOW (a beat's base is either {{\"ref\": \"<one of these ids>\"}}, or "
-    "{{\"prompt\": \"...\"}} for a generated picture). Show real footage where it proves a point: in at least one "
-    "beat, and a third of the film at most:\n{capture_list}\n\n"
+    "{{\"prompt\": \"...\"}} for a generated picture). Put each piece of footage under the line it proves, the line "
+    "that says what it shows; use every piece that proves a line, in a third of the film at most:\n{capture_list}\n\n"
     + _BEATS.replace("{base}", '{{"prompt": "a detailed prompt about the actual product subject: setting, camera '
                                'move, light, style; no stock-footage metaphors; no text in the picture"}}')
     + " Use only footage ids from the list above. On-screen words and narration state only what the brief and "
@@ -526,6 +526,85 @@ def usable_footage(facts: dict[str, Any] | None, allow_commands: bool) -> list[s
     return ids + [p["id"] for p in facts.get("pages") or []]
 
 
+# Words too common to say what a line or a piece of footage is about.
+_MATCH_STOP = {"the", "and", "a", "an", "of", "to", "in", "on", "for", "with", "from", "by", "or", "at", "as", "is",
+               "are", "be", "it", "its", "it's", "you", "your", "we", "our", "they", "their", "this", "that", "these",
+               "those", "can", "use", "used", "using", "any", "every", "each", "all", "one", "ones", "here", "there",
+               "what", "which", "who", "how", "so", "too", "also", "just", "then", "than", "into", "out", "up", "not",
+               "no", "yes", "list", "listed", "show", "shows", "shown", "see", "terminal", "screen", "page", "command",
+               "output", "typed", "real", "now", "get", "got", "has", "have", "had", "does", "do", "did", "will"}
+
+
+def _about(text: str, skip: set[str] = frozenset()) -> set[str]:
+    """The words ``text`` is about, lower case and singular, so 'providers' meets 'provider'."""
+    words = {w[:-1] if len(w) > 3 and w.endswith("s") and not w.endswith("ss") else w
+             for w in re.findall(r"[a-z]+", text.lower()) if w not in _MATCH_STOP and len(w) > 2}
+    return words - skip
+
+
+def _footage_topics(facts: dict[str, Any] | None, footage: list[str]) -> dict[str, set[str]]:
+    """Each piece of footage's subject words, from what the fact sheet says it shows and the command it types."""
+    if not facts:
+        return {}
+    lookup = _facts_lookup(facts)
+    skip = _about(str(facts.get("product", "")))
+    topics = {}
+    for ref in footage:
+        item = lookup.get(ref)
+        if item:
+            words = _about(" ".join(str(item.get(k) or "") for k in ("shows", "display", "id")), skip)
+            if words:
+                topics[ref] = words
+    return topics
+
+
+def footage_moves(board: list[dict[str, Any]], facts: dict[str, Any] | None,
+                  footage: list[str]) -> list[tuple[str, int, list[int]]]:
+    """Where real footage belongs and is not yet: (footage id, the beat whose line it proves, the beats it is on now,
+    empty when it is on none). Footage already under a line it proves as well as any stays; each beat holds one
+    piece; footage that matches no line is left where it is; unused footage is placed only while real footage
+    stays within a third of the beats."""
+    topics = _footage_topics(facts, footage)
+    said = [_about(_spoken(row)) for row in board]
+
+    def score(number: int, ref: str) -> int:
+        return len(topics[ref] & said[number - 1])
+
+    numbers = range(1, len(board) + 1)
+    best = {ref: max((score(n, ref) for n in numbers), default=0) for ref in topics}
+    best = {ref: top for ref, top in best.items() if top >= 1}
+    holding = {n: row["base"].get("ref") for n, row in enumerate(board, start=1) if row["base"].get("kind") == "capture"}
+    placed: dict[str, int] = {}
+    taken: set[int] = set()
+    for n, ref in holding.items():
+        if ref in best and ref not in placed and score(n, ref) == best[ref]:
+            placed[ref] = n
+            taken.add(n)
+    order = sorted(((score(n, ref), n, footage.index(ref), ref) for ref in best for n in numbers),
+                   key=lambda item: (-item[0], item[1], item[2]))
+    for points, n, _, ref in order:
+        if points >= 1 and ref not in placed and n not in taken:
+            placed[ref] = n
+            taken.add(n)
+    room = max(1, len(board) // 3) - len(holding)
+    moves = []
+    for ref in sorted(placed, key=lambda r: (not any(h == r for h in holding.values()), placed[r])):
+        now = [n for n, held in holding.items() if held == ref]
+        if placed[ref] in now:
+            continue
+        if not now:
+            if room <= 0:
+                continue
+            room -= 1
+        moves.append((ref, placed[ref], now))
+    return moves
+
+
+def _line(board: list[dict[str, Any]], number: int) -> str:
+    said = _spoken(board[number - 1]).strip()
+    return repr(said if len(said) <= 60 else said[:57].rstrip() + "...")
+
+
 DEFAULT_LOOK = "deep navy and teal palette with warm amber highlights, soft volumetric light, 35mm lens, shallow depth of field"
 PICTURE_RULES = ("cinematic film look; no readable text, numbers, logos or brand names; no hooded hackers, glowing "
                  "padlocks or other stock-photo cliches")
@@ -883,9 +962,18 @@ def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
     """What a readable storyboard still lacks to make a good film, each said so the writer can fix it: no real
     footage when the fact sheet has some, figures nobody gave it, too few beats, narration too thin to fill it."""
     gaps = []
-    if footage and not any(row["base"]["kind"] == "capture" for row in board):
+    moves = footage_moves(board, facts, footage)
+    if footage and not moves and not any(row["base"]["kind"] == "capture" for row in board):
         gaps.append(f"the film shows no real product footage: make at least one beat's base {{\"ref\": \"<id>\"}} "
                     f"using one of: {', '.join(footage)}")
+    for ref, number, now in moves:
+        if now:
+            gaps.append(f"beat{'s' if len(now) > 1 else ''} {', '.join(map(str, now))} show{'' if len(now) > 1 else 's'} "
+                        f"the footage {ref!r}, which proves what beat {number} says ({_line(board, number)}): move it "
+                        f"there, under the line it shows, and give the other beat a picture of its own words")
+        else:
+            gaps.append(f"the footage {ref!r} shows what beat {number} says ({_line(board, number)}) but is never "
+                        f"used: make that beat's base {{\"ref\": \"{ref}\"}}")
     if facts:
         for number, layer, new in _invented(board, brief, facts):
             if layer == "picture":
@@ -935,6 +1023,15 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
     beat shows real footage, overlays with invented figures are left out and picture prompts lose them, beats with
     several sentences are split until the film has enough shots, and thin narration is noted."""
     notes = []
+    moves = footage_moves(board, facts, footage)
+    left = {n for _, _, now in moves for n in now} - {number for _, number, _ in moves}
+    for ref, number, now in moves:
+        board[number - 1]["base"] = {"kind": "capture", "ref": ref}
+        moved = f", moved from beat{'s' if len(now) > 1 else ''} {', '.join(map(str, now))}" if now else ""
+        notes.append(f"beat {number} shows the real footage {ref!r}, under the line it proves{moved}")
+    for number in sorted(left):
+        board[number - 1]["base"] = ({"kind": "generate", "prompt": scene_for(board, number)} if pictures
+                                     else {"kind": "living"})
     if footage and not any(row["base"]["kind"] == "capture" for row in board):
         middle = len(board) // 2
         board[middle]["base"] = {"kind": "capture", "ref": footage[0]}
