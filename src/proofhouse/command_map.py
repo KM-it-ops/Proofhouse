@@ -81,6 +81,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "check": (SPINE, "", "host mode: tries a site, MCP server, hook, rule, skill or agent the host's own model wrote, with no key (Proofhouse itself makes no network calls)"),
     "record": (SPINE, "", "host mode: keeps each version the host's model wrote with its checks and score, and delivers the best in the make layout"),
     "render video": (SPINE, "", "host mode: assembles a finished video from the host's script, shots, voice and music with FFmpeg, no paid call"),
+    "watch": (SPINE, "", "media engine: reviews films side by side, shots, pacing, words and sound, with FFmpeg on this machine, no paid call"),
     "adapters": (SPINE, "", "utility: alias of parts limited to request builders, with its 0.4.1 output"),
     "models list": (SPINE, "", "utility: model-notes registry"),
     "models update": (SPINE, "", "utility: adds newly released models and workspaces from each provider's own list and the official release notes"),

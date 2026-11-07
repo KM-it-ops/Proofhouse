@@ -170,6 +170,8 @@ add("agent-server", 1, "The named agent is not in the shipped or user agent tabl
 add("agent-server", 2, "The port is not a number, which must fail argument parsing before anything listens.", ["agent-server", "codex", "--port", "abc"], must=("invalid int value",), home_clean=True)
 add("setup", 1, "A tool is declared as a program but no program name is given, and nothing may be saved.", ["setup", "add", "mygen", "--name", "My generator", "--how", "cli"], must=("command",), home_clean=True)
 add("setup", 2, "Forgetting a tool that was never declared must say so and leave other state alone.", ["setup", "remove", "never-declared"], must=("no declared tool",), home_clean=True)
+add("watch", 1, "A film file is really text, so FFmpeg cannot read a picture and nothing is written.", ["watch", "film.mp4", "--out", "w"], fixtures=(file("film.mp4", "not a film"),), must=("could not read the picture",), absent=("w/watch.md",))
+add("watch", 2, "More labels than films must fail before any film is read.", ["watch", "film.mp4", "--name", "a", "--name", "b", "--out", "w"], fixtures=(file("film.mp4", "not a film"),), must=("more --captions or --name values than films",), absent=("w/watch.md",))
 add("parts", 1, "The part registry must serialize in an isolated home with no keys.", ["parts", "--json"], exits=(0,), must=('"parts"',))
 add("parts", 2, "An unsupported filter must fail rather than print an incomplete part list.", ["parts", "--kind", "video"], must=("unrecognized arguments",))
 

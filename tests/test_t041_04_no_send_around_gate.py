@@ -60,6 +60,7 @@ ALLOWED = {
     ("agent_server.py", "subprocess"),  # starts the coding agent you are logged in to (claude, codex, grok), billed to that agent's plan, no shell
     ("optimize/reference_workflow.py", "subprocess"),  # runs the proofhouse CLI itself, offline
     ("studio.py", "subprocess"),  # runs ffmpeg and ffprobe on local files; no network
+    ("watch.py", "subprocess"),  # runs ffmpeg on local films to read their frames; no shell, no network
     ("local_voice.py", "subprocess"),  # the speech engine this machine already has (Windows speech, say, espeak, piper); words on stdin, no shell, no network
     ("sitecheck.py", "subprocess"),
     ("capture.py", "subprocess"),  # fact-sheet commands for real video shots; no shell, only with --allow-commands
