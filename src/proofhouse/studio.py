@@ -103,6 +103,7 @@ SPEAKING_RATE = 2.5  # words a second from an ordinary voice
 FAST_RATE = 3.2  # a quick voice: a script too long even at this pace is sent back before anything is spoken
 BEAT_OVERHEAD = storyboard.LEAD + storyboard.BREATH + 0.45  # seconds each beat adds around its words, join included
 BRIEF_SLACK = 0.15  # share of the asked length a film may run over
+BLANK_LINE = "."  # what a beat's narration becomes when the writer left it empty (the owner's choice)
 SCRIPT_FIXES = 2  # times the script writer is sent its own reply back to fix
 SCRIPT_ROOM = 6000  # a script's output cap: a model that thinks first spends half of 2048 thinking and cuts its JSON off
 
@@ -447,7 +448,9 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
     before = 0  # sentences in the beats before this one, to read a phrase counted across the whole film
     for number, raw in enumerate(rows, start=1):
         row = {k: v for k, v in raw.items() if k in ("say", "layers", "sounds", "cut", "energy", "hold")}
-        said = len(storyboard.split_phrases(raw["say"])) if isinstance(raw.get("say"), str) else 0
+        if isinstance(row.get("say"), str) and not row["say"].strip():
+            row["say"] = BLANK_LINE  # a line the writer left empty would be an empty caption: a full stop stands in
+        said = len(storyboard.split_phrases(row["say"])) if isinstance(row.get("say"), str) else 0
         for key in ("layers", "sounds"):
             if isinstance(row.get(key), list):
                 row[key] = [_local_phrases(item, before, said) for item in row[key]]

@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 import proofhouse
-from proofhouse import cli, live, media, studio
+from proofhouse import cli, live, media, storyboard, studio
 
 needs_ffmpeg = pytest.mark.skipif(shutil.which("ffmpeg") is None or shutil.which("ffprobe") is None, reason="FFmpeg not installed")
 
@@ -1121,6 +1121,21 @@ def test_a_figure_the_facts_spell_out_in_words_is_not_invented() -> None:
     assert studio.script_gaps(studio.beats_from(_counted(12), facts), **ask) == []
     # a counter to 1 is not licensed by a spelled 'one': see the counter-to-one test below
     assert any("states 3" in g for g in studio.script_gaps(studio.beats_from(_counted(3), facts), **ask))
+
+
+def test_a_beat_the_writer_left_empty_says_a_full_stop_so_no_caption_is_blank() -> None:
+    plan = {"beats": [{"say": "Hello there.", "base": {"prompt": "a desk"}},
+                      {"say": "", "base": {"prompt": "a window"}},
+                      {"say": "   ", "base": {"prompt": "a street"}},
+                      {"base": {"prompt": "a lamp"}}]}  # no say at all stays silent: only an empty line is filled
+    board = studio.beats_from(plan)
+    assert [row.get("say") for row in board] == ["Hello there.", studio.BLANK_LINE, studio.BLANK_LINE, None]
+    beats = storyboard.parse([dict(row, base={"kind": "living"}) for row in board], Path("."))
+    for beat in beats:
+        for phrase in beat.phrases:
+            phrase.start, phrase.seconds = 0.0, 1.0
+    cues = [block.splitlines()[2] for block in storyboard.captions(beats).split("\n\n")]
+    assert cues == ["Hello there.", ".", "."]  # no cue is empty
 
 
 def test_a_counter_to_one_is_not_licensed_by_the_word_one_in_the_facts() -> None:
