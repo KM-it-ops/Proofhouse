@@ -114,8 +114,19 @@ def _timeout_seconds(url: str = "") -> float:
     return seconds if 0 < seconds < float("inf") else fallback
 
 
+def _client_headers(headers: dict[str, str]) -> dict[str, str]:
+    """The request's headers, naming Proofhouse as the client unless the provider set its own name: some providers'
+    front doors (Groq's Cloudflare, error 1010) refuse Python's default client name with a 403."""
+    if any(name.lower() == "user-agent" for name in headers):
+        return headers
+    from . import __version__
+
+    return {**headers, "User-Agent": f"proofhouse/{__version__}"}
+
+
 def _httpx_post(request: Request) -> Response:
     timeout = _timeout_seconds(request.url)
+    headers = _client_headers(request.headers)
     # Optional extra: a default install must not import httpx at module load. Without it, the standard library sends.
     try:
         import httpx
@@ -124,7 +135,7 @@ def _httpx_post(request: Request) -> Response:
         import urllib.error
         import urllib.request
 
-        sent = urllib.request.Request(request.url, data=request.body_bytes, headers=request.headers, method="POST")
+        sent = urllib.request.Request(request.url, data=request.body_bytes, headers=headers, method="POST")
         try:
             with urllib.request.urlopen(sent, timeout=timeout) as answer:
                 status, raw = answer.status, answer.read()
@@ -136,7 +147,7 @@ def _httpx_post(request: Request) -> Response:
             decoded = {"text": raw.decode("utf-8", "replace")}
         return Response(status, decoded if isinstance(decoded, dict) else {"value": decoded})
     with httpx.Client(timeout=timeout) as client:
-        reply = client.post(request.url, headers=request.headers, content=request.body_bytes)
+        reply = client.post(request.url, headers=headers, content=request.body_bytes)
         try:
             payload = reply.json()
         except ValueError:

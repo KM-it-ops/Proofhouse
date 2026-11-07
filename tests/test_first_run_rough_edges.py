@@ -113,6 +113,34 @@ def test_without_httpx_a_plain_install_still_reaches_a_model(monkeypatch: pytest
     assert seen["url"] == "http://localhost:11434/v1/chat/completions"
 
 
+def test_requests_name_proofhouse_as_the_client_unless_the_provider_names_one(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Groq's front door answers 403 (Cloudflare 1010) to Python's default client name, so every request names Proofhouse.
+    monkeypatch.setitem(sys.modules, "httpx", None)
+    seen: list[str | None] = []
+
+    class Reply:
+        status = 200
+
+        def read(self) -> bytes:
+            return b"{}"
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc: object) -> None:
+            return None
+
+    def fake_urlopen(request, timeout=None):
+        seen.append(request.get_header("User-agent"))
+        return Reply()
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    live._httpx_post(live.Request("https://api.groq.com/openai/v1/chat/completions", {"Content-Type": "application/json"}, {}, b"{}"))
+    live._httpx_post(live.Request("https://example.test/v1", {"User-Agent": "their-client/2"}, {}, b"{}"))
+    assert seen[0] is not None and seen[0].startswith("proofhouse/")
+    assert seen[1] == "their-client/2"
+
+
 def test_a_slow_model_gets_a_plain_message_and_a_setting(monkeypatch: pytest.MonkeyPatch) -> None:
     def too_slow(request: live.Request) -> live.Response:
         raise TimeoutError("timed out")
