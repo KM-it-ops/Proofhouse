@@ -62,6 +62,10 @@ _BEATS = (
     "Cut is how a beat joins the one before: auto, cut, dissolve, whip, zoom, wipe or flash; auto lets the story "
     "pick. Energy is low, mid or high and sets the pace of the joins. "
     "Write {fewest} to {most} beats, one flowing passage across them that fills the film, no slogans or lists. "
+    "Write the narration the way a person says it aloud: short, concrete sentences of about 5 to 10 words, each "
+    "about what the viewer is seeing or what the product does, in plain words. No advert words such as unlock, "
+    "unleash, seamless, effortless, instantly, materialize, limitless or possibilities, and never repeat these "
+    "instructions or the brief's own rules to the viewer (no 'no made up stats' or 'verified facts'). "
     "Spoken, the whole film lasts about {seconds} seconds, so use {least} words at least and {words} words in all "
     "at most. "
     "Something new must appear on screen at least every 3 seconds: use two or three layers in most beats, a sound "
@@ -586,6 +590,28 @@ def narration_aim(seconds: float) -> int:
     return script_budget(seconds)["words"] * 9 // 10
 
 
+# words that make narration sound like an advert rather than a person talking
+HYPE_WORDS = ("unlock", "unleash", "seamless", "seamlessly", "effortless", "effortlessly", "instantly", "materialize",
+              "materializes", "possibilities", "limitless", "infinite", "revolutionize", "revolutionary",
+              "game-changer", "game-changing", "supercharge", "next-level", "cutting-edge", "empower", "elevate")
+# a sentence that tells the viewer the film's own rules, which only the writer needed to hear
+_RULE_ECHO = re.compile(r"\b(?:made[- ]up|invented|fake)\s+(?:stats|statistics|numbers|figures|claims)\b|"
+                        r"\bverified\s+facts\b|\bno\s+invented\b", re.IGNORECASE)
+
+
+def narration_slips(board: list[dict[str, Any]]) -> list[tuple[int, list[str], list[str]]]:
+    """Beats (numbered from 1) whose narration sounds like an advert or repeats the film's own rules: each with
+    the advert words it uses and the sentences that echo the rules."""
+    found = []
+    for number, row in enumerate(board, start=1):
+        say = row.get("say") if isinstance(row.get("say"), str) else ""
+        words = sorted({w for w in re.findall(r"[a-z]+(?:-[a-z]+)*", say.lower()) if w in HYPE_WORDS})
+        echoes = [s for s in storyboard.split_phrases(say) if _RULE_ECHO.search(s)] if say else []
+        if words or echoes:
+            found.append((number, words, echoes))
+    return found
+
+
 def narration_thin(board: list[dict[str, Any]], seconds: float, voiced: bool) -> bool:
     """True when a voiced film says fewer words than the script was asked for at least, so it would sit in silence."""
     words = _words(board)
@@ -876,6 +902,13 @@ def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
                       "instead of a screen") if screen_shown(str(board[number - 1]["base"].get("prompt", ""))) else ""
             gaps.append(f"beat {number}'s picture prompt asks for {', '.join(asked)}: describe a scene with no "
                         f"writing in it, because a picture model draws words as made-up text{screen}")
+    for number, words, echoes in narration_slips(board):
+        if words:
+            gaps.append(f"beat {number}'s narration says {', '.join(words)}, which sounds like an advert, not a person: "
+                        f"say what it does in plain, concrete words")
+        for said in echoes:
+            gaps.append(f"beat {number}'s narration {said!r} tells the viewer the film's own rules, which only you "
+                        f"needed: say what the product does instead")
     fit = script_budget(seconds)
     if len(board) < fit["fewest"]:
         gaps.append(f"the film has only {len(board)} beats, and {seconds} seconds needs {fit['fewest']} to "
@@ -932,6 +965,18 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
                 base["prompt"] = _without_text(base["prompt"]) or scene_for(board, number)
             notes.append(f"beat {number}'s picture prompt no longer asks for {', '.join(asked)}, which a picture "
                          f"model draws as made-up text")
+    for number, words, echoes in narration_slips(board):
+        row = board[number - 1]
+        if echoes:  # a sentence about the rules says nothing to the viewer, so it goes
+            kept = [s for s in storyboard.split_phrases(row["say"]) if s not in echoes]
+            if kept:
+                row["say"] = " ".join(kept)
+            else:
+                row.pop("say")
+            notes.append(f"beat {number} no longer says {', '.join(map(repr, echoes))}, which told the viewer the "
+                         f"film's own rules")
+        if words:
+            notes.append(f"beat {number}'s narration still says {', '.join(words)}")
     fit = script_budget(seconds)
     if len(board) < fit["fewest"]:
         before = len(board)

@@ -1148,6 +1148,33 @@ def test_a_film_with_too_few_beats_for_its_length_is_sent_back_then_its_long_bea
     assert notes == ["beats with several sentences were split so each sentence has its own shot: 2 beats became 4"]
 
 
+def test_the_writer_is_asked_for_plain_spoken_sentences_without_advert_words_or_its_own_rules() -> None:
+    asked = studio.script_prompt("a launch film", 45, TERMINAL_FACTS)
+    assert "the way a person says it aloud" in asked and "5 to 10 words" in asked
+    assert "No advert words such as unlock" in asked and "never repeat these instructions" in asked
+
+
+def test_advert_words_and_sentences_about_the_film_s_own_rules_are_sent_back_then_the_rules_go() -> None:
+    board = studio.beats_from({"beats": [
+        {"say": "Add any provider in one line to unlock infinite possibilities.", "base": {"prompt": "a desk"}},
+        {"say": "No made up stats, just the verified facts of your work. It keeps every version.",
+         "base": {"prompt": "a shelf"}},
+        {"say": "No invented numbers here.", "base": {"prompt": "a window"}},
+        {"say": "Say what you want.", "base": {"prompt": "a door"}}]}, None)
+    ask = {"brief": "x", "seconds": 8, "facts": None, "footage": [], "voiced": False}
+    gaps = studio.script_gaps(board, **ask)
+    assert ("beat 1's narration says infinite, possibilities, unlock, which sounds like an advert, not a person: say "
+            "what it does in plain, concrete words") in gaps
+    assert any(g.startswith("beat 2's narration 'No made up stats, just the verified facts of your work.' tells the "
+                            "viewer the film's own rules") for g in gaps), gaps
+    assert any(g.startswith("beat 3's narration") for g in gaps) and not any(g.startswith("beat 4") for g in gaps)
+    notes = studio.settle_gaps(board, **ask)
+    assert board[1]["say"] == "It keeps every version." and "say" not in board[2]  # the shot stays, the rule goes
+    assert board[0]["say"].endswith("possibilities.")  # an advert word is the writer's to fix, so it is only noted
+    assert "beat 1's narration still says infinite, possibilities, unlock" in notes
+    assert any(n.startswith("beat 2 no longer says 'No made up stats") for n in notes), notes
+
+
 def test_every_picture_prompt_carries_the_film_s_one_look_and_its_rules() -> None:
     said = studio.picture_prompt("a glowing workshop at night.", "cold blue dawn, 50mm")
     assert said == f"a glowing workshop at night. Look: cold blue dawn, 50mm. {studio.PICTURE_RULES}."
