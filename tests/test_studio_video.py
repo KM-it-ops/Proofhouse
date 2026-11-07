@@ -548,7 +548,8 @@ def test_a_script_cut_off_by_a_small_window_says_so_and_how_to_give_it_room(tmp_
                           seconds=6, out_dir=tmp_path / "v", size_scale=0.1, text_transport=cut_short,
                           media_transport=_media(services))
     assert made.renders == {} and "cut off" in made.stopped and "OLLAMA_CONTEXT_LENGTH" in made.stopped, made.stopped
-    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("cut off before it ended" in a for a in asked[1:])
+    # each round is sent twice: a local model's cut-off JSON gets one free retry with room before the fix is asked for
+    assert len(asked) == 2 * (1 + studio.SCRIPT_FIXES) and all("cut off before it ended" in a for a in asked[2:])
 
 
 @needs_ffmpeg

@@ -231,3 +231,28 @@ def test_a_reply_that_stopped_at_the_cap_says_it_was_cut_off() -> None:
     whole = live.run_prompt("ollama", "m", prompt="plan it", transport=answer("stop"))
     assert cut.status == "success" and cut.cut_off and cut.to_dict()["cut_off"] is True
     assert not whole.cut_off
+
+
+def test_a_local_json_reply_cut_off_at_the_cap_gets_room_to_finish() -> None:
+    caps: list[int] = []
+
+    def half_json(request: live.Request) -> live.Response:
+        cap = json.loads(request.body_bytes)["max_tokens"]
+        caps.append(cap)
+        if cap > 2048:
+            return _reply('{"beats": []}')
+        return live.Response(200, {"choices": [{"message": {"content": '{"beats": [{"say": "Th'},
+                                                "finish_reason": "length"}]})
+
+    result = live.run_prompt("ollama", "m", prompt="plan it", max_output_tokens=2048, transport=half_json, json_reply=True)
+    assert result.output_text == '{"beats": []}' and not result.cut_off
+    assert caps == [2048, live.LOCAL_THINKING_ROOM]
+    caps.clear()
+    plain = live.run_prompt("ollama", "m", prompt="plan it", max_output_tokens=2048, transport=half_json)
+    assert plain.cut_off and caps == [2048]  # plain words that stop at the cap are kept as they are
+
+
+def test_the_script_writer_gets_room_for_a_model_that_thinks_first() -> None:
+    from proofhouse import studio
+
+    assert studio.SCRIPT_ROOM >= 6000  # gpt-oss-120b on Groq used 3396 tokens for one script, 1723 of them thinking

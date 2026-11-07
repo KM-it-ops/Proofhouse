@@ -104,6 +104,7 @@ FAST_RATE = 3.2  # a quick voice: a script too long even at this pace is sent ba
 BEAT_OVERHEAD = storyboard.LEAD + storyboard.BREATH + 0.45  # seconds each beat adds around its words, join included
 BRIEF_SLACK = 0.15  # share of the asked length a film may run over
 SCRIPT_FIXES = 2  # times the script writer is sent its own reply back to fix
+SCRIPT_ROOM = 6000  # a script's output cap: a model that thinks first spends half of 2048 thinking and cuts its JSON off
 
 
 def brief_slack(seconds: float) -> float:
@@ -1939,7 +1940,7 @@ def produce(
             if script is not None:  # a saved script stands in for the writer, with no fixes left to ask for
                 reply, reply_text = None, json.dumps(script, ensure_ascii=False)
             else:
-                reply = live.run_prompt(provider_id, model, prompt=prompt, max_output_tokens=2048,
+                reply = live.run_prompt(provider_id, model, prompt=prompt, max_output_tokens=SCRIPT_ROOM,
                                         max_cost_usd=budget.next_limit(), transport=text_transport, json_reply=True)
                 figure = (reply.cost or {}).get("usd")
                 budget.charge(figure if reply.status != "refused" else 0)

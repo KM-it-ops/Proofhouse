@@ -295,9 +295,10 @@ def run_prompt(
         error = payload.get("error")
         reason = error.get("message") if isinstance(error, dict) else None
         message = f"PHC-RUN-0006: {profile.name} answered HTTP {status_code}" + (f": {reason}" if isinstance(reason, str) else "")
-    if ok and profile.local and not (text or "").strip() and _cut_off(payload) and max_output_tokens < LOCAL_THINKING_ROOM:
-        # A model that thinks before it answers can spend the whole cap thinking and say nothing. On this machine the
-        # call is free, so ask once more with room to finish rather than hand back an empty reply.
+    unfinished = json_reply or not (text or "").strip()  # nothing said, or JSON that may stop mid-object
+    if ok and profile.local and unfinished and _cut_off(payload) and max_output_tokens < LOCAL_THINKING_ROOM:
+        # A model that thinks before it answers can spend the whole cap thinking and say nothing, or stop its JSON
+        # halfway. On this machine the call is free, so ask once more with room to finish rather than hand it back.
         return run_prompt(provider_id, model, prompt=prompt, input_text=input_text, images=images,
                           max_output_tokens=LOCAL_THINKING_ROOM, max_cost_usd=max_cost_usd, transport=transport,
                           json_reply=json_reply)
