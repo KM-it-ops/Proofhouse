@@ -481,6 +481,19 @@ def _numbers(text: str) -> set[str]:
     return {n.replace(",", "") for n in _NUMBER.findall(text) if not n.lower().startswith("v")}
 
 
+_SPELLED = {word: str(n) for n, word in enumerate(
+    "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen sixteen "
+    "seventeen eighteen nineteen twenty".split())}
+_SPELLED.update({"thirty": "30", "forty": "40", "fifty": "50", "sixty": "60", "seventy": "70", "eighty": "80",
+                 "ninety": "90", "hundred": "100", "thousand": "1000", "million": "1000000", "once": "1",
+                 "twice": "2", "single": "1", "dozen": "12"})
+
+
+def _spelled(text: str) -> set[str]:
+    """The figures ``text`` spells out in words: 'one line' gives 1, 'twelve providers' gives 12."""
+    return {_SPELLED[w] for w in re.findall(r"[a-z]+", text.lower()) if w in _SPELLED}
+
+
 def _shown(value: Any, key: str = "") -> list[str]:
     """Every piece of text a layer puts on screen."""
     if key in _PLACING:
@@ -545,7 +558,7 @@ def _invented(board: list[dict[str, Any]], brief: str,
                       + [str(f) for f in facts.get("facts") or []]
                       + [str(item.get(k, "")) for item in (facts.get("commands") or []) + (facts.get("pages") or [])
                          for k in ("shows", "display")])
-    known = _numbers(source)
+    known = _numbers(source) | _spelled(source)  # 'one line' in the facts makes a counter to 1 a known figure
     found = []
     for number, row in enumerate(board, start=1):
         for index, layer in enumerate(row.get("layers") or [], start=1):

@@ -1014,6 +1014,14 @@ def test_figures_from_the_brief_or_facts_and_version_tags_are_not_invented() -> 
                               footage=[], voiced=False) == []  # with no fact sheet there is nothing to hold it to
 
 
+def test_a_figure_the_facts_spell_out_in_words_is_not_invented() -> None:
+    facts = {**TERMINAL_FACTS, "facts": ["Adding a provider is one line.", "It keeps twelve versions."]}
+    ask = {"brief": "a 12 second film", "seconds": 12, "facts": facts, "footage": ["hi"], "voiced": False}
+    for figure in (1, 12):
+        assert studio.script_gaps(studio.beats_from(_counted(figure), facts), **ask) == []
+    assert any("states 3" in g for g in studio.script_gaps(studio.beats_from(_counted(3), facts), **ask))
+
+
 def test_narration_too_thin_for_the_film_is_sent_back_and_accepted_at_the_last_chance() -> None:
     board = studio.beats_from(BEATS)  # ten words
     fit = studio.script_budget(45)
