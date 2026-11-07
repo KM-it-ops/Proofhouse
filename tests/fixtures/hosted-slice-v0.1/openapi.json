@@ -1267,6 +1267,10 @@
                     "description": "Most improvement rounds (default 3).",
                     "type": "integer"
                   },
+                  "script": {
+                    "description": "Rebuild from a saved script (a version's script-written.json) instead of asking the writer again.",
+                    "type": "string"
+                  },
                   "seconds": {
                     "description": "Length in seconds (default 30).",
                     "type": "integer"
