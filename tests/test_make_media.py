@@ -647,3 +647,34 @@ def test_with_no_speech_engine_here_the_voice_gap_stays_open(tmp_path: Path, pro
     make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
                           interviewer=Answers("my-painter", {"must": "short"}, [True]), transport=Director())
     assert seen[0]["voice_provider"] is None and seen[0]["music_provider"] == "local-music"
+
+
+def test_a_saved_script_builds_the_first_version_and_later_rounds_rewrite_from_the_notes(
+        tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    saved = {"title": "Fox", "beats": [{"say": "Foxes brew.", "base": {"prompt": "a fox at a cafe"}}]}
+    make_media.make_media("a hype video for a fox cafe", kind="video", provider_id="ollama", model="m",
+                          out_dir=tmp_path / "o", interviewer=Answers("my-painter, my-voice", {}, [True]),
+                          transport=Director(scores=[4, 9], shapes=["9x16"]), rounds=3, video={"script": saved})
+    assert len(seen) == 2
+    assert seen[0]["script"] == saved and "script" not in seen[1]
+
+
+def test_make_reads_a_saved_script_file_and_refuses_one_that_is_not_a_script(
+        tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    _route(monkeypatch, Director())
+    base = ["make", "a fox film", "--kind", "video", "--provider", "ollama", "--model", "m",
+            "--visual-provider", "my-painter", "--visual-model", "local"]
+    listed = tmp_path / "list.json"
+    listed.write_text("[1, 2]", encoding="utf-8")
+    assert cli.main(base + ["--out", str(tmp_path / "a"), "--script", str(listed)]) != 0
+    assert "is not a JSON object" in capsys.readouterr().err
+    assert cli.main(base + ["--out", str(tmp_path / "b"), "--script", str(tmp_path / "missing.json")]) != 0
+    assert "cannot read the saved script" in capsys.readouterr().err
+    good = tmp_path / "script-written.json"
+    good.write_text(json.dumps({"title": "Fox", "beats": []}), encoding="utf-8")
+    assert cli.main(base + ["--out", str(tmp_path / "c"), "--script", str(good)]) == live_cli.EXIT_WAITING
+    assert f"--script {good}" in capsys.readouterr().out  # the run it asks for again keeps the saved script

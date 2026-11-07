@@ -1446,3 +1446,37 @@ def test_a_picture_prompt_that_is_only_text_becomes_a_scene_from_its_words() -> 
     ask = {"brief": "x", "seconds": 6, "facts": None, "footage": [], "voiced": False, "pictures": True}
     studio.settle_gaps(board, **ask)
     assert board[0]["base"]["prompt"] == "a scene that shows what this describes: Say what you want."
+
+
+@needs_ffmpeg
+def test_a_film_is_rebuilt_from_its_saved_script_without_asking_the_writer_again(tmp_path: Path, services) -> None:
+    _ffmpeg("-f", "lavfi", "-i", "sine=frequency=440:duration=1.2", str(tmp_path / "phrase.wav"))
+    assets = {**services, "wav": (tmp_path / "phrase.wav").read_bytes()}
+    film = dict(provider_id="ollama", model="llama3", visual_provider="local-images", visual_model="sdxl",
+                voice_provider="local-voice", voice_model="tts", music_file=services["bed"], seconds=6,
+                formats=("16x9",), size_scale=0.1, media_transport=_media(assets))
+    asked: list[str] = []
+    first = studio.produce("a hype video for Proofhouse", out_dir=tmp_path / "v1",
+                           text_transport=_writer_of(BEATS, asked=asked), **film)
+    assert first.stopped == "finished", first.stopped
+    saved = json.loads((tmp_path / "v1" / "script-written.json").read_text(encoding="utf-8"))
+    assert saved == BEATS  # what the writer gave, before the engine fitted it into the film
+    again: list[str] = []
+    rebuilt = studio.produce("a hype video for Proofhouse", out_dir=tmp_path / "v2", script=saved,
+                             text_transport=_writer_of(BEATS, asked=again), **film)
+    assert rebuilt.stopped == "finished", rebuilt.stopped
+    assert _scripted(again) == []  # the writer was never asked for a script or a fix
+    said = lambda folder: [p["text"] for b in json.loads((folder / "studio.json").read_text(encoding="utf-8"))["beats"]  # noqa: E731
+                           for p in b["phrases"]]
+    assert said(tmp_path / "v2") == said(tmp_path / "v1")
+    assert json.loads((tmp_path / "v2" / "script-written.json").read_text(encoding="utf-8")) == BEATS
+
+
+@needs_ffmpeg
+def test_a_saved_script_that_cannot_be_made_says_so_and_asks_no_one(tmp_path: Path, services) -> None:
+    asked: list[str] = []
+    made = studio.produce("x", provider_id="ollama", model="m", visual_provider="local-images", visual_model="m",
+                          seconds=6, out_dir=tmp_path / "v", size_scale=0.1, script={"title": "t", "beats": []},
+                          text_transport=_writer_of(BEATS, asked=asked), media_transport=_media(services))
+    assert made.renders == {} and "the saved script cannot be made into a film" in made.stopped, made.stopped
+    assert asked == []

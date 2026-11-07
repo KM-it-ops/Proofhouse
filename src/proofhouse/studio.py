@@ -1666,7 +1666,10 @@ def produce(
     media_get: Any = None,
     facts: dict[str, Any] | None = None,
     allow_commands: bool = False,
+    script: dict[str, Any] | None = None,
 ) -> Production:
+    """`script` is a writer's reply saved as script-written.json: the film is rebuilt from it without asking
+    the writer again, and the engine still settles, fits and voices it as on a last try."""
     for tool in ("ffmpeg", "ffprobe"):
         if shutil.which(tool) is None:
             raise StudioError(f"{tool} is not installed; install FFmpeg (https://ffmpeg.org) and try again")
@@ -1931,19 +1934,24 @@ def produce(
 
         task = script_prompt(brief, seconds, facts)
         prompt, role = task, "script"
-        for attempt in range(1 + SCRIPT_FIXES):
-            reply = live.run_prompt(provider_id, model, prompt=prompt, max_output_tokens=2048,
-                                    max_cost_usd=budget.next_limit(), transport=text_transport, json_reply=True)
-            figure = (reply.cost or {}).get("usd")
-            budget.charge(figure if reply.status != "refused" else 0)
-            record(role, reply, figure)
-            reply_text = reply.output_text or ""
+        written: dict[str, Any] | None = None  # the writer's reply the film is built from, saved to rebuild it
+        for attempt in range(SCRIPT_FIXES, 1 + SCRIPT_FIXES) if script is not None else range(1 + SCRIPT_FIXES):
+            if script is not None:  # a saved script stands in for the writer, with no fixes left to ask for
+                reply, reply_text = None, json.dumps(script, ensure_ascii=False)
+            else:
+                reply = live.run_prompt(provider_id, model, prompt=prompt, max_output_tokens=2048,
+                                        max_cost_usd=budget.next_limit(), transport=text_transport, json_reply=True)
+                figure = (reply.cost or {}).get("usd")
+                budget.charge(figure if reply.status != "refused" else 0)
+                record(role, reply, figure)
+                reply_text = reply.output_text or ""
             board: list[dict[str, Any]] | None = None
             plan: tuple[str, str, str, list[Shot]] | None = None
             problem: str | None = None
             data: dict[str, Any] | None = None
             try:
                 data = _json_object(reply_text)
+                written = copy.deepcopy(data)
                 if "beats" in data or "shots" not in data:
                     board = beats_from(data, facts)
                     guess = _spoken_guess(board)
@@ -1973,6 +1981,7 @@ def produce(
             if problem is not None and attempt == SCRIPT_FIXES and board is None and plan is None and data:
                 cleaned, dropped = untime_unreadable(data, facts)  # the last chance is gone: keep what can be read
                 if dropped:
+                    written = copy.deepcopy(cleaned)
                     try:
                         board = beats_from(cleaned, facts)
                     except StudioError:
@@ -2022,7 +2031,7 @@ def produce(
                 timed, length, problem = voice_board(board, attempt == SCRIPT_FIXES)
             if problem is None:
                 break
-            cut = reply.cut_off
+            cut = reply is not None and reply.cut_off
             if cut:
                 problem += "; your reply was cut off before it ended, so keep it shorter"
             if attempt == SCRIPT_FIXES:  # keep what it said last, so the failure can be read
@@ -2030,10 +2039,15 @@ def produce(
                 after = ("the reply was cut off because the model ran out of room. A model on this machine may have a "
                          "small window: for Ollama, start it with OLLAMA_CONTEXT_LENGTH=16384, or try another model"
                          if cut else "try another model")
+                if script is not None:
+                    raise StudioError(f"the saved script cannot be made into a film: {problem}")
                 raise StudioError(f"{problem} (the script writer's last reply is in script-reply.txt); {after}")
             # what it wrote goes back without its indents, so the fix fits in a small model's window
             said = reply_text if data is None else json.dumps(data, ensure_ascii=False, separators=(",", ":"))
             prompt, role = _FIX.format(problem=problem, task=task, reply=said[:6000]), "script fix"
+        if written is not None:
+            (out_dir / "script-written.json").write_text(json.dumps(written, indent=2, ensure_ascii=False) + "\n",
+                                                         encoding="utf-8")
 
         if board is not None:
             if quiet_said:

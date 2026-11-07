@@ -196,6 +196,14 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
             facts = studio.load_facts(Path(args.facts))
         except studio.StudioError as exc:
             return _fail(str(exc))
+    script = None
+    if getattr(args, "script", None):
+        try:
+            script = json.loads(Path(args.script).read_text(encoding="utf-8"))
+        except (OSError, ValueError) as exc:
+            return _fail(f"cannot read the saved script {args.script}: {exc}")
+        if not isinstance(script, dict):
+            return _fail(f"the saved script {args.script} is not a JSON object (use a version's script-written.json)")
     if not args.for_target and not args.answers:
         args.for_target = _media_target_text(args)
         args.target_from = "the service flags"
@@ -203,7 +211,8 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
         args.flag_target = _media_target_text(args)
     options = _video_options(args)
     video = {"visual_kind": options["visual_kind"], "voice": options["voice"], "music_file": options["music_file"],
-             "captions": options["captions"], "facts": facts, "allow_commands": options["allow_commands"]}
+             "captions": options["captions"], "facts": facts, "allow_commands": options["allow_commands"],
+             "script": script}
     if args.seconds != 30:  # the parser default means "not asked for": the plan sets the length
         video["seconds"] = args.seconds
     shapes = None if args.formats == "16x9,9x16,1x1" else [f.strip() for f in args.formats.split(",") if f.strip()]
@@ -224,7 +233,7 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
                             ("--voice-provider", args.voice_provider), ("--voice-model", args.voice_model),
                             ("--voice", args.voice), ("--music-provider", args.music_provider),
                             ("--music-model", args.music_model), ("--music-file", args.music_file),
-                            ("--facts", args.facts), ("--preset", args.preset)):
+                            ("--facts", args.facts), ("--script", getattr(args, "script", None)), ("--preset", args.preset)):
             if value:
                 again += f" {flag} {value}"
         if args.rounds != make.DEFAULT_ROUNDS:
@@ -456,6 +465,9 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     video.add_argument("--visual-model", default=None, help="Image or video model for the shots.")
     video.add_argument("--visual-kind", default="image", choices=("image", "video"), help="Shots as images (animated) or video clips.")
     video.add_argument("--facts", default=None, help="Product fact sheet JSON for real capture shots and a fact-based script.")
+    video.add_argument("--script", default=None,
+                       help="Rebuild from a saved script (a version's script-written.json) instead of asking the "
+                            "writer again.")
     video.add_argument("--voice-provider", default=None, help="Speech service for the voice-over (optional).")
     video.add_argument("--voice-model", default=None)
     video.add_argument("--voice", default=None, help="Voice id.")

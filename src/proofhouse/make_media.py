@@ -464,6 +464,8 @@ def _render_video(folder: Path, vdir: Path, version: dict[str, Any], parts: dict
     options: dict[str, Any] = {"seconds": min(600, max(3, seconds)), "captions": video.get("captions", True),
                                "music_file": video.get("music_file"), "facts": video.get("facts"),
                                "allow_commands": bool(video.get("allow_commands"))}
+    if video.get("script") is not None and not (previous[0] or previous[1]):  # later rounds rewrite from the notes
+        options["script"] = video["script"]
     visuals, voice, music = parts.get("visuals"), parts.get("voice"), parts.get("music")
     chosen = video.get("voice") or plan.get("voice")
     visual_kind = "image"
