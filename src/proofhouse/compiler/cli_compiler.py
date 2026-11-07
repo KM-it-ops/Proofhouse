@@ -43,6 +43,7 @@ from ..deploy_cli import add_deploy_commands
 from ..setup_cli import add_setup_commands
 from ..agent_server import add_agent_server_command
 from ..media_cli import add_media_commands
+from ..watch_cli import add_watch_commands
 from .hosted_slice import HostedSlice, HostedSliceError, HostedStore, ViewMode
 from .missionrig import (
     WorkspaceWritebackError,
@@ -934,6 +935,7 @@ def build_parser() -> argparse.ArgumentParser:
     add_host_commands(subparsers)
     add_setup_commands(subparsers)
     add_media_commands(subparsers)
+    add_watch_commands(subparsers)
     add_agent_server_command(subparsers)
     add_harness_commands(subparsers)
 

@@ -1769,6 +1769,7 @@
     "uninstall",
     "uninstall-skill",
     "validate",
+    "watch",
     "workspace-consume"
   ],
   "x-default-hosted-slice": [
@@ -1813,7 +1814,8 @@
     "scan",
     "setup",
     "uninstall",
-    "uninstall-skill"
+    "uninstall-skill",
+    "watch"
   ],
   "x-opt-in-live": [
     "compare",
