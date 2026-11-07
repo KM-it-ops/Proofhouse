@@ -454,7 +454,7 @@ def test_a_storyboard_layer_the_engine_cannot_draw_is_sent_back_before_any_pictu
                           voice_provider="local-voice", voice_model="tts", seconds=6, formats=("1x1",),
                           out_dir=tmp_path / "v", size_scale=0.1, media_transport=post,
                           text_transport=_writer_of(bad, asked=asked))
-    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("hologram" in a for a in asked[1:])
+    assert len(_scripted(asked)) == 1 + studio.SCRIPT_FIXES and all("hologram" in a for a in _scripted(asked)[1:])
     assert calls and min(calls) == len(asked)  # nothing was made until the writer had every chance to fix it
     assert made.stopped == "finished", made.stopped
     assert "hologram" not in (tmp_path / "v" / "script.json").read_text(encoding="utf-8")
@@ -586,6 +586,11 @@ def _writer_of(*replies: dict | str, asked: list[str]):  # noqa: ANN202
         return live.Response(200, {"choices": [{"message": {"content": text}}],
                                    "usage": {"prompt_tokens": 30, "completion_tokens": 20}})
     return write
+
+
+def _scripted(asked: list[str]) -> list[str]:
+    """The writer's storyboard rounds, without the asks to add narration that follow them."""
+    return [a for a in asked if '{"add": "the new sentences"}' not in a]
 
 
 @needs_ffmpeg
@@ -924,7 +929,7 @@ def test_real_footage_that_stays_too_long_is_cut_to_a_third_and_noted(tmp_path: 
     asked: list[str] = []
     made = _footage_film(tmp_path, services, _with_refs("hi", "hi", "hi"), asked=asked)
     assert made.stopped == "finished", made.stopped
-    assert len(asked) == 1 + studio.SCRIPT_FIXES
+    assert len(_scripted(asked)) == 1 + studio.SCRIPT_FIXES
     cut = [c for c in made.checks if c["check"] == "real footage cut to a third"]
     assert cut and all("moving background" in c["detail"] for c in cut)
     rows = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))["beats"]
@@ -960,7 +965,8 @@ def test_with_no_picture_service_generated_beats_stand_on_a_moving_background_an
 def test_a_film_with_footage_on_hand_but_none_used_is_sent_back_then_given_the_terminal(tmp_path: Path, services) -> None:
     asked: list[str] = []
     made = _footage_film(tmp_path, services, BEATS, asked=asked)
-    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("no real product footage" in a and "hi" in a for a in asked[1:])
+    assert len(_scripted(asked)) == 1 + studio.SCRIPT_FIXES and all("no real product footage" in a and "hi" in a
+                                                                     for a in _scripted(asked)[1:])
     assert made.stopped == "finished", made.stopped
     row = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))["beats"][1]
     assert row["real"] is True and row["layers"][0]["kind"] == "terminal", row
@@ -1026,7 +1032,7 @@ def test_narration_too_thin_for_the_film_is_sent_back_and_accepted_at_the_last_c
 def test_a_footage_ref_not_in_the_fact_sheet_is_left_out_at_the_last_chance_not_the_film(tmp_path: Path, services) -> None:
     asked: list[str] = []
     made = _footage_film(tmp_path, services, _with_refs(None, "a_neon_city", None), asked=asked)
-    assert len(asked) == 1 + studio.SCRIPT_FIXES and all("a_neon_city" in a for a in asked[1:])
+    assert len(_scripted(asked)) == 1 + studio.SCRIPT_FIXES and all("a_neon_city" in a for a in _scripted(asked)[1:])
     assert made.stopped == "finished", made.stopped
     left = next(c for c in made.checks if c["check"] == "unreadable parts dropped")["detail"]
     assert "beat 2 footage ref 'a_neon_city' (not in the fact sheet)" in left, left
@@ -1095,15 +1101,18 @@ def test_thin_narration_is_grown_beat_by_beat_and_every_picture_shares_the_look(
                           music_file=services["bed"], seconds=12, formats=("1x1",), out_dir=tmp_path / "v",
                           size_scale=0.1, media_transport=post,
                           text_transport=_writer_of(looked, looked, looked, {"add": "It keeps every version"},
-                                                    asked=asked))
+                                                    {"add": "It runs every check"}, asked=asked))
     assert made.stopped == "finished", made.stopped
-    assert len(asked) == 2 + studio.SCRIPT_FIXES and all("too thin" in a for a in asked[1:-1])
-    assert '"add"' in asked[-1] and "1. Say what you want." in asked[-1]
-    assert [c["role"] for c in made.calls if c["role"] == "narration"] == ["narration"]
+    # the writer's fixes first, then one beat at a time until the film says what its length can hold (17 words)
+    assert len(asked) == 3 + studio.SCRIPT_FIXES and all("too thin" in a for a in asked[1:-2])
+    assert all('"add"' in a and "1. Say what you want." in a for a in asked[-2:])
+    assert "follow beat 1's" in asked[-2] and "follow beat 2's" in asked[-1]
+    assert [c["role"] for c in made.calls if c["role"] == "narration"] == ["narration"] * 2
     script = json.loads((tmp_path / "v" / "script.json").read_text(encoding="utf-8"))
     assert [p["text"] for p in script["beats"][0]["phrases"]] == ["Say what you want.", "It keeps every version."]
+    assert [p["text"] for p in script["beats"][1]["phrases"]] == ["Pick any model.", "It runs every check."]
     grown = next(c for c in made.checks if c["check"] == "narration grown")
-    assert "10 words" in grown["detail"] and "14 words" in grown["detail"], grown
+    assert "10 words" in grown["detail"] and "18 words" in grown["detail"], grown
     assert script["look"] == "cold blue dawn" and len(pictures) == 3
     assert all("Look: cold blue dawn." in p and "no readable text" in p for p in pictures)
 
@@ -1119,3 +1128,51 @@ def test_grown_narration_that_states_a_figure_the_facts_never_give_is_not_used(t
     said = [p["text"] for row in script["beats"] for p in row["phrases"]]
     assert "It keeps every version." in said and not any("500" in s for s in said), said
     assert "- Proofhouse\n- a test" in asked[-1]
+
+
+def test_a_phrase_counted_across_the_whole_film_is_read_as_that_sentence_in_its_beat() -> None:
+    script = {**BEATS, "beats": [BEATS["beats"][0], BEATS["beats"][1],
+                                 {"say": "Proofhouse makes it. It keeps it.", "base": {"prompt": "a desk"},
+                                  "layers": [{"kind": "title", "text": "Kept", "at": "phrase 4 end",
+                                              "until": "phrase 3"},
+                                             {"kind": "title", "text": "Made", "at": "phrase 1 + 0.2"}],
+                                  "sounds": [{"kind": "pop", "at": "phrase 4"}]}]}
+    board = studio.beats_from(script)
+    assert [(lay["at"], lay.get("until")) for lay in board[2]["layers"]] == [("phrase 2 end", "phrase 1"),
+                                                                           ("phrase 1 + 0.2", None)]
+    assert board[2]["sounds"][0]["at"] == "phrase 2"
+    assert script["beats"][2]["layers"][0]["at"] == "phrase 4 end"  # the writer's own plan is not changed
+    with pytest.raises(studio.StudioError, match="no phrase 9"):
+        studio.beats_from({**script, "beats": [{**script["beats"][2], "layers": [],
+                                                "sounds": [{"kind": "pop", "at": "phrase 9"}]}]})
+
+
+def test_beats_with_no_picture_are_sent_back_then_given_one_in_the_film_s_world() -> None:
+    rows = [{"say": f"Line {n}.", "base": {"prompt": "a glowing workshop"} if n in (1, 5) else {}}
+            for n in range(1, 9)]
+    rows[3]["layers"] = [{"kind": "title", "text": "Busy"}, {"kind": "title", "text": "Busier", "at": "end"}]
+    board = studio.beats_from({"beats": rows})
+    ask = {"brief": "x", "seconds": 28, "facts": None, "footage": [], "voiced": False, "pictures": True}
+    assert studio.script_gaps(board, **ask) == [
+        "beats 2, 3, 4, 6, 7, 8 have no picture and stand on a plain background, which looks empty: give most of "
+        "them a base prompt, so 2 beats at most have no picture"]
+    assert studio.script_gaps(board, **{**ask, "pictures": False}) == []  # no picture service: plain is all there is
+    notes = studio.settle_gaps(board, **ask)
+    assert notes == ["beats 2, 3, 6, 7 had no picture, so each now shows one in the film's look"], notes
+    assert [row["base"].get("prompt") for row in board] == [
+        "a glowing workshop", "a glowing workshop, seen from another angle",
+        "a glowing workshop, seen from another angle", None, "a glowing workshop",
+        "a glowing workshop, seen from another angle", "a glowing workshop, seen from another angle", None]
+    assert studio.script_gaps(board, **ask) == []
+
+
+def test_a_film_with_no_picture_at_all_gets_scenes_from_its_own_words() -> None:
+    board = studio.beats_from({"beats": [{"say": "Say what you want."}, {"say": "Pick any model."}]})
+    assert studio.picture_bare(board) == [1, 2]
+    assert board[1]["base"] == {"kind": "generate",
+                                "prompt": "a scene that shows what these words describe: Pick any model."}
+
+
+def test_thin_narration_is_grown_toward_what_the_film_can_hold_not_just_the_floor() -> None:
+    fit = studio.script_budget(45)
+    assert fit["least"] < studio.narration_aim(45) < fit["words"]

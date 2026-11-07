@@ -364,6 +364,23 @@ def plan_from(data: dict[str, Any], seconds: int, facts: dict[str, Any] | None =
     return str(data.get("title", "")).strip(), str(data.get("voiceover", "")).strip(), str(data.get("music", "")).strip(), shots
 
 
+_PHRASE_N = re.compile(r"^(\s*phrase\s+)(\d+)")
+
+
+def _local_phrases(item: Any, before: int, said: int) -> Any:
+    """An overlay or sound timed to 'phrase N' counted across the whole film, read as its sentence in this beat: a
+    writer that numbers every sentence of the film in one run means the same moment. A number this beat has is
+    left as it is."""
+    if not isinstance(item, dict):
+        return item
+    out = dict(item)
+    for field in ("at", "until"):
+        match = _PHRASE_N.match(out[field]) if isinstance(out.get(field), str) else None
+        if match and int(match.group(2)) > said and 1 <= int(match.group(2)) - before <= said:
+            out[field] = f"{match.group(1)}{int(match.group(2)) - before}{out[field][match.end():]}"
+    return out
+
+
 def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     """The storyboard rows from a model's beats plan, checked before anything is spent on them.
 
@@ -378,8 +395,14 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
         if not isinstance(raw, dict):
             raise StudioError(_not_a_beat(number, raw))
     out = []
+    before = 0  # sentences in the beats before this one, to read a phrase counted across the whole film
     for number, raw in enumerate(rows, start=1):
         row = {k: v for k, v in raw.items() if k in ("say", "layers", "sounds", "cut", "energy", "hold")}
+        said = len(storyboard.split_phrases(raw["say"])) if isinstance(raw.get("say"), str) else 0
+        for key in ("layers", "sounds"):
+            if isinstance(row.get(key), list):
+                row[key] = [_local_phrases(item, before, said) for item in row[key]]
+        before += said
         base = raw.get("base") or {}
         if not isinstance(base, dict):
             raise StudioError(f"beat {number}: base must be an object with a prompt or a ref")
@@ -500,6 +523,12 @@ def _words(board: list[dict[str, Any]]) -> int:
     return sum(len(_spoken(row).split()) for row in board)
 
 
+def narration_aim(seconds: float) -> int:
+    """Words the engine grows thin narration to: nine tenths of what the film can hold, so the voice fills it
+    without long silences and still leaves room for the joins."""
+    return script_budget(seconds)["words"] * 9 // 10
+
+
 def narration_thin(board: list[dict[str, Any]], seconds: float, voiced: bool) -> bool:
     """True when a voiced film says fewer words than the script was asked for at least, so it would sit in silence."""
     words = _words(board)
@@ -542,8 +571,44 @@ def split_beats(board: list[dict[str, Any]], fewest: int) -> int:
     return added
 
 
+def _bare(board: list[dict[str, Any]]) -> list[int]:
+    """Beats (numbered from 1) that stand on a plain moving background: no picture and no footage behind them."""
+    return [n for n, row in enumerate(board, start=1) if row["base"]["kind"] == "living"]
+
+
+def bare_allowed(board: list[dict[str, Any]]) -> int:
+    """How many beats may stand on a plain background in a film with pictures: a quarter of them, as the
+    reference films do, so most of the film has something real to look at."""
+    return len(board) // 4
+
+
+def picture_bare(board: list[dict[str, Any]]) -> list[int]:
+    """Give the plain-background beats past a quarter of the film a picture of their own, the emptiest first: the
+    nearest picture in the film seen from another angle, so it stays one world, or a scene for its words when the
+    film has no picture yet. Returns the beats that got one."""
+    bare = [n for n in _bare(board)
+            if not any(isinstance(lay, dict) and lay.get("kind") == "terminal" for lay in board[n - 1].get("layers") or [])]
+    extra = len(_bare(board)) - bare_allowed(board)
+    picked = sorted(sorted(bare, key=lambda n: len(board[n - 1].get("layers") or []))[:max(0, extra)])
+    for number in picked:
+        near = sorted((abs(n - number), n) for n, row in enumerate(board, start=1)
+                      if row["base"]["kind"] == "generate" and n not in picked)
+        if near:
+            prompt = f"{board[near[0][1] - 1]['base']['prompt'].rstrip('.')}, seen from another angle"
+        else:
+            words = _spoken(board[number - 1]).strip() or brief_line(board)
+            prompt = f"a scene that shows what these words describe: {words}"
+        board[number - 1]["base"] = {"kind": "generate", "prompt": prompt}
+    return picked
+
+
+def brief_line(board: list[dict[str, Any]]) -> str:
+    """The film's first words, for a picture with nothing else to go on."""
+    return next((_spoken(row).strip() for row in board if _spoken(row).strip()), "the subject of the film")
+
+
 def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, facts: dict[str, Any] | None,
-                footage: list[str], voiced: bool) -> list[str]:
+                footage: list[str], voiced: bool, pictures: bool = False) -> list[str]:
     """What a readable storyboard still lacks to make a good film, each said so the writer can fix it: no real
     footage when the fact sheet has some, figures nobody gave it, too few beats, narration too thin to fill it."""
     gaps = []
@@ -565,6 +630,10 @@ def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
         gaps.append(f"the film has only {len(board)} beats, and {seconds} seconds needs {fit['fewest']} to "
                     f"{fit['most']}, so something new is on screen every few seconds: split long beats and add beats, "
                     f"each with its own picture")
+    if pictures and len(_bare(board)) > bare_allowed(board):
+        gaps.append(f"beats {', '.join(map(str, _bare(board)))} have no picture and stand on a plain background, "
+                    f"which looks empty: give most of them a base prompt, so {bare_allowed(board) or 'no'} beats at "
+                    f"most have no picture")
     if narration_thin(board, seconds, voiced):
         gaps.append(f"the narration is too thin: {_words(board)} words over {seconds} seconds leaves long silences; "
                     f"use {fit['least']} to {fit['words']} words in full flowing sentences")
@@ -572,7 +641,7 @@ def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
 
 
 def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, facts: dict[str, Any] | None,
-                footage: list[str], voiced: bool) -> list[str]:
+                footage: list[str], voiced: bool, pictures: bool = False) -> list[str]:
     """With no fixes left, the engine settles what ``script_gaps`` found itself, and says what it did: the middle
     beat shows real footage, overlays with invented figures are left out and picture prompts lose them, beats with
     several sentences are split until the film has enough shots, and thin narration is noted."""
@@ -606,6 +675,10 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
                          f"became {len(board)}")
         if len(board) < fit["fewest"]:
             notes.append(f"the film stays at {len(board)} beats, fewer than the {fit['fewest']} {seconds} seconds needs")
+    if pictures and len(_bare(board)) > bare_allowed(board):
+        given = picture_bare(board)
+        if given:
+            notes.append(f"beats {', '.join(map(str, given))} had no picture, so each now shows one in the film's look")
     if narration_thin(board, seconds, voiced):
         notes.append(f"the narration stays thin: {_words(board)} words over {seconds} seconds")
     return notes
@@ -1306,19 +1379,19 @@ def produce(
             """With no fixes left and narration too thin to fill the film, the writer adds a sentence or two to one
             beat at a time, from the brief and the facts only, until the film says enough. An addition that states a
             figure the facts never give is not used. Returns the words before and after, or None if nothing ran."""
-            fit = script_budget(seconds)
+            aim = narration_aim(seconds)
             before = _words(board)
-            if not narration_thin(board, seconds, bool(voice_provider)):
+            if not voice_provider or not before or before >= aim:
                 return None
             lines_known = [str(facts.get(k, "")).strip() for k in ("product", "summary")] if facts else []
             lines_known += [str(f) for f in (facts or {}).get("facts") or []]
             known = "\n".join(f"- {line}" for line in lines_known if line) or "- (none listed)"
             for index, row in enumerate(board):
-                if _words(board) >= fit["least"]:
+                if _words(board) >= aim:
                     break
                 if not isinstance(row.get("say"), str) or not row["say"].strip():
                     continue  # a beat written to be silent stays silent
-                need = max(8, math.ceil((fit["least"] - _words(board)) / (len(board) - index)))
+                need = max(8, math.ceil((aim - _words(board)) / (len(board) - index)))
                 lines = "\n".join(f"{n}. {_spoken(r)}" for n, r in enumerate(board, start=1))
                 reply = live.run_prompt(provider_id, model, prompt=_GROW.format(
                     seconds=seconds, lines=lines, words=need, number=index + 1, brief=brief, facts=known),
@@ -1395,7 +1468,8 @@ def produce(
                                       f"{'; '.join(dropped)}"})
             if problem is None and board is not None:
                 ask = {"brief": brief, "seconds": seconds, "facts": facts,
-                       "footage": usable_footage(facts, allow_commands), "voiced": bool(voice_provider)}
+                       "footage": usable_footage(facts, allow_commands), "voiced": bool(voice_provider),
+                       "pictures": bool(visual_provider and visual_model)}
                 if attempt < SCRIPT_FIXES:
                     problem = "; ".join(script_gaps(board, **ask)) or None
                 else:  # no fixes left: the engine settles what is missing itself and says what it did
