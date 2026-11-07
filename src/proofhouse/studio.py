@@ -43,7 +43,8 @@ FPS = 30
 
 _BEATS = (
     "Reply with JSON only, in this shape: "
-    '{{"title": "...", "music": "a prompt for the music bed: genre, mood, tempo", "beats": [{{'
+    '{{"title": "...", "music": "a prompt for the music bed: genre, mood, tempo", '
+    '"look": "one line every picture in the film shares: palette, light, lens, film stock", "beats": [{{'
     '"say": "the words a narrator speaks over this beat: one or two full sentences in plain words, each ending with . ! or ?", '
     '"base": {base}, '
     '"layers": [{{"kind": "title", "text": "two to five words", "at": "phrase 1"}}], '
@@ -64,7 +65,18 @@ _BEATS = (
     "Spoken, the whole film lasts about {seconds} seconds, so use {least} words at least and {words} words in all "
     "at most. "
     "Something new must appear on screen at least every 3 seconds: use two or three layers in most beats, a sound "
-    "where something lands, and a different layer kind from one beat to the next."
+    "where something lands, and a different layer kind from one beat to the next. "
+    "Every picture shares the look, so the film reads as one piece; picture prompts name no figures, because a "
+    "picture model draws them as made-up text."
+)
+
+_GROW = (
+    "Here is the narration of a {seconds} second film, beat by beat:\n{lines}\n\n"
+    "Write about {words} more words of narration to follow beat {number}'s words, in the same voice: one or two "
+    "full sentences, each ending with . ! or ?, that carry the story on toward the next beat. State only what the "
+    "brief and the facts say: no numbers, timings or results they never give.\n\n"
+    "BRIEF:\n{brief}\n\nFACTS:\n{facts}\n\n"
+    'Reply with JSON only, in this shape: {{"add": "the new sentences"}}'
 )
 
 _FIX = (
@@ -430,9 +442,38 @@ def usable_footage(facts: dict[str, Any] | None, allow_commands: bool) -> list[s
     return ids + [p["id"] for p in facts.get("pages") or []]
 
 
-def _invented(board: list[dict[str, Any]], brief: str, facts: dict[str, Any]) -> list[tuple[int, int | None, list[str]]]:
-    """Figures the film shows or says that the brief and the fact sheet never give: (beat, layer or None for the
-    narration, the figures)."""
+DEFAULT_LOOK = "deep navy and teal palette with warm amber highlights, soft volumetric light, 35mm lens, shallow depth of field"
+PICTURE_RULES = ("cinematic film look; no readable text, numbers, logos or brand names; no hooded hackers, glowing "
+                 "padlocks or other stock-photo cliches")
+# A figure a picture would draw: $50, 32.40, 12%, but not the 35 of "35mm" or the 1.8 of "f/1.8".
+_PICTURE_FIGURE = re.compile(r"(?<![\w./])[$€£¥]?\d+(?:[.,]\d+)*%?(?!\w)")
+
+
+def picture_prompt(prompt: str, look: str = "") -> str:
+    """What a picture service is asked for: the beat's own prompt, the film's shared look and the rules every
+    picture keeps, so the pictures read as one film and carry no made-up words or figures."""
+    shared = look.strip().rstrip(".") or DEFAULT_LOOK
+    return f"{prompt.strip().rstrip('.')}. Look: {shared}. {PICTURE_RULES}."
+
+
+def _figure(text: str) -> str:
+    return text.lstrip("$€£¥").rstrip("%").replace(",", "")
+
+
+def _picture_figures(prompt: str) -> set[str]:
+    return {_figure(n) for n in _PICTURE_FIGURE.findall(prompt)}
+
+
+def _without_figures(prompt: str, figures: list[str]) -> str:
+    """``prompt`` with ``figures`` (and their currency or percent signs) taken out."""
+    out = _PICTURE_FIGURE.sub(lambda m: "" if _figure(m.group(0)) in figures else m.group(0), prompt)
+    return re.sub(r"\s{2,}", " ", re.sub(r"\s+([,.;:])", r"\1", out)).strip()
+
+
+def _invented(board: list[dict[str, Any]], brief: str,
+              facts: dict[str, Any]) -> list[tuple[int, int | str | None, list[str]]]:
+    """Figures the film shows or says that the brief and the fact sheet never give: (beat, layer, "picture" for
+    its picture prompt or None for the narration, the figures)."""
     source = " ".join([brief, str(facts.get("product", "")), str(facts.get("summary", ""))]
                       + [str(f) for f in facts.get("facts") or []]
                       + [str(item.get(k, "")) for item in (facts.get("commands") or []) + (facts.get("pages") or [])
@@ -447,44 +488,109 @@ def _invented(board: list[dict[str, Any]], brief: str, facts: dict[str, Any]) ->
         new = sorted(_numbers(_spoken(row)) - known)
         if new:
             found.append((number, None, new))
+        base = row.get("base") or {}
+        if base.get("kind") == "generate":
+            new = sorted(_picture_figures(str(base.get("prompt", ""))) - known)
+            if new:
+                found.append((number, "picture", new))
     return found
+
+
+def _words(board: list[dict[str, Any]]) -> int:
+    return sum(len(_spoken(row).split()) for row in board)
+
+
+def narration_thin(board: list[dict[str, Any]], seconds: float, voiced: bool) -> bool:
+    """True when a voiced film says fewer words than the script was asked for at least, so it would sit in silence."""
+    words = _words(board)
+    return voiced and bool(words) and words < script_budget(seconds)["least"]
+
+
+_PHRASE_AT = re.compile(r"^\s*phrase\s+(\d+)")
+
+
+def split_beats(board: list[dict[str, Any]], fewest: int) -> int:
+    """Too few beats for the film: the beat with the most sentences gives its last sentence a shot of its own, the
+    same picture seen closer from another angle, until the film has ``fewest`` beats or no beat has two sentences.
+    Real footage is never split. Overlays and sounds stay on the first part, and any timed to a sentence that moved
+    land at the end of its last one. Returns how many beats were added."""
+    added = 0
+    while len(board) < fewest:
+        counts = {i: len(storyboard.split_phrases(_spoken(row))) for i, row in enumerate(board)
+                  if row["base"]["kind"] != "capture" and isinstance(row.get("say"), str)}
+        pick = max((i for i, n in counts.items() if n > 1), key=lambda i: counts[i], default=None)
+        if pick is None:
+            break
+        row = board[pick]
+        said = storyboard.split_phrases(row["say"])
+        kept = len(said) - 1
+        row["say"] = " ".join(said[:kept])
+        for key in ("layers", "sounds"):
+            for item in row.get(key) or []:
+                for field in ("at", "until"):
+                    match = _PHRASE_AT.match(str(item.get(field, ""))) if isinstance(item, dict) else None
+                    if match and int(match.group(1)) > kept:
+                        item[field] = f"phrase {kept} end"
+        base = dict(row["base"])
+        if base["kind"] == "generate":
+            base["prompt"] = f"{base['prompt'].rstrip('.')}, seen closer from another angle"
+        new = {"say": said[-1], "base": base}
+        if row.get("energy"):
+            new["energy"] = row["energy"]
+        board.insert(pick + 1, new)
+        added += 1
+    return added
 
 
 def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, facts: dict[str, Any] | None,
                 footage: list[str], voiced: bool) -> list[str]:
     """What a readable storyboard still lacks to make a good film, each said so the writer can fix it: no real
-    footage when the fact sheet has some, figures nobody gave it, narration too thin to fill the film."""
+    footage when the fact sheet has some, figures nobody gave it, too few beats, narration too thin to fill it."""
     gaps = []
     if footage and not any(row["base"]["kind"] == "capture" for row in board):
         gaps.append(f"the film shows no real product footage: make at least one beat's base {{\"ref\": \"<id>\"}} "
                     f"using one of: {', '.join(footage)}")
     if facts:
         for number, layer, new in _invented(board, brief, facts):
+            if layer == "picture":
+                gaps.append(f"beat {number}'s picture prompt asks for {', '.join(new)}, which the brief and facts "
+                            f"never give: describe the scene with no figures, because a picture model draws them as "
+                            f"made-up text")
+                continue
             where = f"beat {number} layer {layer}" if layer else f"beat {number}'s narration"
             gaps.append(f"{where} states {', '.join(new)}, which the brief and facts never give: say only what they "
                         f"say, with no invented numbers, timings or results")
-    words = sum(len(_spoken(row).split()) for row in board)
-    if voiced and words:
-        fit = script_budget(seconds)
-        if words < fit["words"] // 2:
-            gaps.append(f"the narration is too thin: {words} words over {seconds} seconds leaves long silences; "
-                        f"use {fit['least']} to {fit['words']} words in full flowing sentences")
+    fit = script_budget(seconds)
+    if len(board) < fit["fewest"]:
+        gaps.append(f"the film has only {len(board)} beats, and {seconds} seconds needs {fit['fewest']} to "
+                    f"{fit['most']}, so something new is on screen every few seconds: split long beats and add beats, "
+                    f"each with its own picture")
+    if narration_thin(board, seconds, voiced):
+        gaps.append(f"the narration is too thin: {_words(board)} words over {seconds} seconds leaves long silences; "
+                    f"use {fit['least']} to {fit['words']} words in full flowing sentences")
     return gaps
 
 
 def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, facts: dict[str, Any] | None,
                 footage: list[str], voiced: bool) -> list[str]:
     """With no fixes left, the engine settles what ``script_gaps`` found itself, and says what it did: the middle
-    beat shows real footage, overlays with invented figures are left out, thin narration stays as written."""
+    beat shows real footage, overlays with invented figures are left out and picture prompts lose them, beats with
+    several sentences are split until the film has enough shots, and thin narration is noted."""
     notes = []
     if footage and not any(row["base"]["kind"] == "capture" for row in board):
         middle = len(board) // 2
         board[middle]["base"] = {"kind": "capture", "ref": footage[0]}
         notes.append(f"beat {middle + 1} shows the real footage {footage[0]!r}")
     if facts:
-        drop = {(number, layer) for number, layer, _ in _invented(board, brief, facts) if layer}
-        for number, layer, new in _invented(board, brief, facts):
-            if layer:
+        found = _invented(board, brief, facts)
+        drop = {(number, layer) for number, layer, _ in found if isinstance(layer, int)}
+        for number, layer, new in found:
+            if layer == "picture":
+                base = board[number - 1]["base"]
+                base["prompt"] = _without_figures(base["prompt"], new)
+                notes.append(f"beat {number}'s picture prompt no longer asks for {', '.join(new)}, which the facts "
+                             f"never give")
+            elif layer:
                 notes.append(f"beat {number} layer {layer} left out: it showed {', '.join(new)}, which the facts "
                              f"never give")
             else:
@@ -492,9 +598,16 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
         for number, row in enumerate(board, start=1):
             if row.get("layers"):
                 row["layers"] = [lay for i, lay in enumerate(row["layers"], start=1) if (number, i) not in drop]
-    words = sum(len(_spoken(row).split()) for row in board)
-    if voiced and words and words < script_budget(seconds)["words"] // 2:
-        notes.append(f"the narration stays thin: {words} words over {seconds} seconds")
+    fit = script_budget(seconds)
+    if len(board) < fit["fewest"]:
+        before = len(board)
+        if split_beats(board, fit["fewest"]):
+            notes.append(f"beats with several sentences were split so each sentence has its own shot: {before} beats "
+                         f"became {len(board)}")
+        if len(board) < fit["fewest"]:
+            notes.append(f"the film stays at {len(board)} beats, fewer than the {fit['fewest']} {seconds} seconds needs")
+    if narration_thin(board, seconds, voiced):
+        notes.append(f"the narration stays thin: {_words(board)} words over {seconds} seconds")
     return notes
 
 
@@ -1189,6 +1302,47 @@ def produce(
                     beat.layers = [lay for lay in beat.layers if lay.get("kind") != "terminal"]
                     length = storyboard.fill_to(beats, seconds)
 
+        def grow_narration(board: list[dict[str, Any]]) -> tuple[int, int] | None:
+            """With no fixes left and narration too thin to fill the film, the writer adds a sentence or two to one
+            beat at a time, from the brief and the facts only, until the film says enough. An addition that states a
+            figure the facts never give is not used. Returns the words before and after, or None if nothing ran."""
+            fit = script_budget(seconds)
+            before = _words(board)
+            if not narration_thin(board, seconds, bool(voice_provider)):
+                return None
+            lines_known = [str(facts.get(k, "")).strip() for k in ("product", "summary")] if facts else []
+            lines_known += [str(f) for f in (facts or {}).get("facts") or []]
+            known = "\n".join(f"- {line}" for line in lines_known if line) or "- (none listed)"
+            for index, row in enumerate(board):
+                if _words(board) >= fit["least"]:
+                    break
+                if not isinstance(row.get("say"), str) or not row["say"].strip():
+                    continue  # a beat written to be silent stays silent
+                need = max(8, math.ceil((fit["least"] - _words(board)) / (len(board) - index)))
+                lines = "\n".join(f"{n}. {_spoken(r)}" for n, r in enumerate(board, start=1))
+                reply = live.run_prompt(provider_id, model, prompt=_GROW.format(
+                    seconds=seconds, lines=lines, words=need, number=index + 1, brief=brief, facts=known),
+                    max_output_tokens=400, max_cost_usd=budget.next_limit(), transport=text_transport,
+                    json_reply=True)
+                figure = (reply.cost or {}).get("usd")
+                budget.charge(figure if reply.status != "refused" else 0)
+                production.calls.append({"role": "narration", "status": reply.status, "code": reply.code,
+                                         "usd": figure})
+                if reply.status != "success":
+                    break  # the film goes on with what it has; nothing more is asked
+                try:
+                    add = " ".join(str(_json_object(reply.output_text).get("add", "")).split())
+                except StudioError:
+                    continue
+                if not add or len(add.split()) > 3 * need:
+                    continue
+                if add[-1] not in ".!?…":
+                    add += "."
+                if facts and _invented([{"say": add, "base": {"kind": "living"}}], brief, facts):
+                    continue
+                row["say"] = f"{row['say'].strip()} {add}"
+            return before, _words(board)
+
         task = script_prompt(brief, seconds, facts)
         prompt, role = task, "script"
         for attempt in range(1 + SCRIPT_FIXES):
@@ -1245,7 +1399,15 @@ def produce(
                 if attempt < SCRIPT_FIXES:
                     problem = "; ".join(script_gaps(board, **ask)) or None
                 else:  # no fixes left: the engine settles what is missing itself and says what it did
-                    production.checks = [c for c in production.checks if c["check"] != "script settled"]
+                    production.checks = [c for c in production.checks
+                                         if c["check"] not in ("script settled", "narration grown")]
+                    grown = grow_narration(board)
+                    if grown:
+                        production.checks.append({
+                            "render": "all", "check": "narration grown", "ok": True,
+                            "detail": f"after {SCRIPT_FIXES} fixes the narration was still {grown[0]} words over "
+                                      f"{seconds} seconds, so the engine had the writer add to it beat by beat from "
+                                      f"the brief and facts: it now says {grown[1]} words"})
                     notes = settle_gaps(board, **ask)
                     if notes:
                         production.checks.append({
@@ -1289,7 +1451,9 @@ def produce(
                               f"beats were cut and the opening and close kept: {quoted}"})
             production.title, production.music_brief = str(data.get("title", "")).strip(), str(data.get("music", "")).strip()
             # a model's beats are sparse, so the engine's own words fill their quiet stretches (storyboard.EXTRAS)
-            script = {"title": production.title, "music": production.music_brief, "extras": "fill", "beats": board}
+            look = str(data.get("look", "")).strip() or DEFAULT_LOOK  # every picture shares it, so they read as one film
+            script = {"title": production.title, "music": production.music_brief, "look": look, "extras": "fill",
+                      "beats": board}
             for row, beat in zip(board, timed):  # keep the spoken files, so nothing is spoken twice
                 if beat.phrases and row.pop("say", None) is not None:
                     row["phrases"] = [{"text": p.text, "file": Path(p.file).relative_to(out_dir).as_posix()}
@@ -1303,7 +1467,8 @@ def produce(
                 elif base["kind"] == "generate":
                     params = ({"seconds": max(2, min(10, math.ceil(beat.frames / beat.fps)))} if visual_kind == "video"
                               else {"size": "1792x1024"})
-                    file = make_media(visual_kind, visual_provider, visual_model, base["prompt"], target, params)
+                    file = make_media(visual_kind, visual_provider, visual_model, picture_prompt(base["prompt"], look),
+                                      target, params)
                     row["base"] = {"kind": visual_kind, "file": Path(file).relative_to(out_dir).as_posix()}
             if music_file is not None:
                 production.music_file = str(shutil.copy2(music_file, out_dir / f"music{music_file.suffix}"))
