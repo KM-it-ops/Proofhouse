@@ -435,9 +435,18 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      writer asked for invented scenes (labs, workers, machines), and a real-footage beat cut for the "a third at
      most" rule was replaced by an invented picture. Now the writer is told to use the moving background (not
      an invented scene) when it has no footage for a line, and a beat cut from footage stands on a moving
-     background. Still to do: a new full film run to show the judge score moves (waits on the owner's go and a
-     picture choice), the "a third at most" rule against briefs that say "show the real terminal" (the owner's
-     call), the writer repeating one command across beats, and writing the script a beat at a time.
+     background. **New film run (film9, 2026-11-07, local one-model, $0):** 50.2 s film, 20.8 MiB (cap 25),
+     every check ok, judge 2/10 (film8: 0/10, 59.7 MiB). Rerun from the saved script took 10 min 6 s end to
+     end; that is not the same as film8's 51 min, because the script (77 min on CPU) was reused, not rewritten.
+     The judge is the same 4B model that wrote the script, so its score is weak evidence; the contact sheet
+     shows the real faults: label chips drawn over the headline text, the same chip row repeating, no real
+     generated pictures (no picture service given). Found on the way: the Vulkan build of llama.cpp on this
+     PC's Intel graphics hangs on prompts over about 2,000 tokens (cause not proven; CPU build works, about
+     3 tokens/s out); a voice file path coming back as `\\?\C:\...` crashed the render, now kept as a plain
+     path. Still to do: chips drawn over headlines, a real image and video provider run (the owner's choice
+     and cost), the "a third at most" rule against briefs that say "show the real terminal" (the owner's
+     call), the writer repeating one command across beats, writing the script a beat at a time (the one-shot
+     writer hit its 6000-token cap on CPU and needed several fix rounds), and the GPU hang.
 
 ## What is left (updated 2026-10-27)
 
