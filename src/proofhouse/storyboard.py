@@ -16,7 +16,7 @@ import json
 import math
 import re
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable
 
@@ -729,7 +729,9 @@ def scene(beat: Beat, size: tuple[int, int], following: Beat | None = None, word
             base.pop(key, None)
         if base["kind"] == "video":
             base.setdefault("push", 0.04)
+    free = [False] * len(layers)  # which layers the film may move to keep words apart (see ``motion.arrange``)
     for i, layer in enumerate(beat.layers, start=1):
+        free.append(not any(k in layer for k in ("x", "y", "box", "map")))
         layer = _tall(_on_footage(beat, dict(layer), i, size), size)
         layer["at"] = when(beat, layer.get("at", 0))
         if "until" in layer:
@@ -744,7 +746,13 @@ def scene(beat: Beat, size: tuple[int, int], following: Beat | None = None, word
         dur = max(1 / beat.fps, beat.cover - 1 / beat.fps)  # full cover on the clip's last frame
         wipes.append({"kind": "wipe", "mode": "cover", "at": round(beat.seconds - beat.cover, 4),
                       "duration": round(dur, 4)})
-    layers += [_tall(layer, size) for layer in liven(beat, layers + wipes, words)] + wipes
+    lively = liven(beat, layers + wipes, words)
+    free += [not any(k in layer for k in ("x", "y", "box")) for layer in lively] + [False] * len(wipes)
+    layers += [_tall(layer, size) for layer in lively] + wipes
+    try:
+        layers = motion.arrange(layers, size, free, beat.seconds)
+    except motion.MotionError as exc:
+        raise StoryboardError(f"beat {beat.number}: {exc}") from exc
     sc = {"size": list(size), "fps": beat.fps, "seconds": beat.seconds, "base": base, "layers": layers}
     try:
         return motion.check_scene(sc)
@@ -756,10 +764,24 @@ def scenes(beats: list[Beat], size: tuple[int, int]) -> list[dict]:
     """Every beat's scene. A beat that says nothing borrows the nearest line before it (or after it) to show."""
     lines = [" ".join(p.text for p in b.phrases) for b in beats]
     out = []
+    shown: set[tuple[str, ...]] = set()  # chip rows already on screen in an earlier beat
     for k, b in enumerate(beats):
         near = [lines[i] for i in [*range(k - 1, -1, -1), *range(k + 1, len(beats))] if lines[i]]
+        rows = [_chip_row(layer) for layer in b.layers]
+        kept = [layer for layer, row in zip(b.layers, rows) if row is None or row not in shown]
+        shown.update(row for row in rows if row is not None)
+        if len(kept) != len(b.layers):
+            b = replace(b, layers=kept)
         out.append(scene(b, size, beats[k + 1] if k + 1 < len(beats) else None, near[0] if near else ""))
     return out
+
+
+def _chip_row(layer: dict) -> tuple[str, ...] | None:
+    """The words of a chips layer, or None for any other layer: a row said again in a later beat adds nothing."""
+    items = layer.get("items")
+    if layer.get("kind") != "chips" or not isinstance(items, list) or not items:
+        return None
+    return tuple(str(item).strip().lower() for item in items)
 
 
 # --- sound -------------------------------------------------------------------------------------------

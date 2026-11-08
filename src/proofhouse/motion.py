@@ -1367,6 +1367,192 @@ _DRAW = {
 }
 
 
+# --- keeping words apart ------------------------------------------------------------------------------
+# A title, a row of chips, a counter and a panel all default to the middle of the frame, so a beat that asks for
+# two of them draws one over the other. ``arrange`` gives each layer that did not say where it goes (no x, y or
+# box) a free place; ``collisions`` lists the pairs of words that still land on each other.
+
+APART = 14  # design pixels of air kept between two layers that are on screen together
+_EDGE_X, _EDGE_TOP, _EDGE_BOTTOM = 40, 30, 190  # the margins the arranged layers stay inside (captions sit below)
+CAPTION_BAND = 0.22  # the bottom share of the frame the burned-in captions use (see ``studio.caption_style``)
+CAPTION_TOP = 0.66  # where a name plate with no place of its own starts, as a share of the frame's height
+_STEP_X, _STEP_Y = 40, 20  # how finely a free place is looked for
+_ARRANGED = ("title", "chips", "counter", "panel", "cards", "terminal")  # may be moved; others stay where written
+_BOXED = ("panel", "cards", "terminal")
+_BOX_DEFAULT = {"panel": (560, 190, 800, 700), "cards": (160, 330, 1600, 420), "terminal": (210, 140, 1500, 800)}
+_MEASURED = (*_ARRANGED, "label", "lower_third")
+_SHRINK = (1.0, 0.8, 0.64)
+
+
+def extent(layer: dict, dh: float = 1080) -> tuple[float, float, float, float] | None:
+    """The space a layer's words fill once they have arrived, as (left, top, right, bottom) in design pixels, or
+    ``None`` for a layer with no words of its own (a picture, a pointer, a join)."""
+    kind = layer.get("kind")
+    if kind not in _MEASURED:
+        return None
+    if kind in _BOXED:
+        x, y, w, h = layer.get("box", _BOX_DEFAULT[kind])
+        return float(x), float(y), float(x + w), float(y + h)
+    cx, cy = float(layer.get("x", 120 if kind == "lower_third" else 960)), None
+    if kind == "lower_third":
+        cy = float(layer.get("y", dh - 200))
+        _img, _m, w, h = _plate(str(layer["title"]), str(layer.get("subtitle", "")), _text_scale(layer))
+        return cx, cy, cx + w, cy + h
+    if kind == "label":
+        role, px = layer.get("font", "mono"), _px(layer.get("size", 22))
+        text = layer["text"].upper() if layer.get("upper", True) else layer["text"]
+        w, cap = _text_width(font(role, px), text, _px(layer.get("tracking", 4))), _cap(role, px)
+        cy = float(layer.get("y", 160))
+        left = {"center": cx - w / 2, "left": cx}.get(layer.get("align", "center"), cx - w)
+        return left, cy - cap / 2, left + w, cy + cap / 2
+    if kind == "title":
+        role, px = layer.get("font", "display"), _px(layer.get("size", 96))
+        f = font(role, px)
+        lines = _wrap(layer["text"], f, layer.get("width", 1600))
+        w, cap, lead = max(f.getlength(ln) for ln in lines), _cap(role, px), px * layer.get("leading", 1.12)
+        cy = float(layer.get("y", dh / 2))
+        first = cy - ((len(lines) - 1) * lead - cap) / 2
+        left = {"center": cx - w / 2, "left": cx}.get(layer.get("align", "center"), cx - w)
+        return left, first - cap, left + w, first + (len(lines) - 1) * lead + 0.2 * px
+    if kind == "counter":
+        role, px = layer.get("font", "display"), _px(layer.get("size", 160))
+        cap = _cap(role, px)
+        w = font(role, px).getlength(_counter_text(layer, layer["to"]))
+        cy = float(layer.get("y", dh / 2))
+        bottom = cy + cap / 2
+        if layer.get("label"):
+            lpx = _px(30)
+            w = max(w, font("ui", lpx).getlength(str(layer["label"])))
+            bottom += 0.5 * px + _cap("ui", lpx)
+        return cx - w / 2, cy - cap / 2, cx + w / 2, bottom
+    px = _px(layer.get("size", 34))  # chips
+    chips = []
+    for item in layer["items"]:
+        text = item if isinstance(item, str) else str(item.get("text", ""))
+        chips.append(_chip(text, px, False, 1.0)[2:])
+    gap, row_gap, max_w = 0.55 * px, 0.6 * px, layer.get("width", 1640)
+    rows, cur, cur_w = 1, 0, 0.0
+    widest = 0.0
+    for w, _h in chips:
+        wider = w if not cur else cur_w + gap + w
+        if cur and wider > max_w:
+            rows, cur, cur_w = rows + 1, 1, float(w)
+        else:
+            cur, cur_w = cur + 1, wider
+        widest = max(widest, cur_w)
+    h = chips[0][1]
+    total = rows * h + (rows - 1) * row_gap
+    cy = float(layer.get("y", dh / 2))
+    return cx - widest / 2, cy - total / 2, cx + widest / 2, cy + total / 2
+
+
+def _span(layer: dict, seconds: float) -> tuple[float, float]:
+    until = layer.get("until")
+    return float(layer.get("at", 0.0)), float(until) if until is not None else seconds
+
+
+def _meet(a: tuple[float, float, float, float], b: tuple[float, float, float, float], gap: float = 0.0) -> bool:
+    return a[0] < b[2] + gap and b[0] < a[2] + gap and a[1] < b[3] + gap and b[1] < a[3] + gap
+
+
+def collisions(scene: dict) -> list[tuple[int, int]]:
+    """Pairs of layer numbers (from 0) whose words are on screen together and land on each other."""
+    size = scene.get("size", [1920, 1080])
+    dh, seconds = 1920 * size[1] / size[0], float(scene.get("seconds", 1.0))
+    boxes = [(i, extent(layer, dh), _span(layer, seconds)) for i, layer in enumerate(scene.get("layers", []))]
+    boxes = [b for b in boxes if b[1] is not None]
+    out = []
+    for n, (i, a, ta) in enumerate(boxes):
+        for j, b, tb in boxes[n + 1:]:
+            if ta[0] < tb[1] and tb[0] < ta[1] and _meet(a, b):
+                out.append((i, j))
+    return out
+
+
+def _fit(layer: dict, scale: float, dx: float, dy: float, dh: float) -> dict:
+    """A copy of a layer drawn at ``scale`` of its size and moved by (dx, dy) from where it would otherwise sit."""
+    kind = layer["kind"]
+    out = dict(layer)
+    if kind in _BOXED:
+        x, y, w, h = layer.get("box", _BOX_DEFAULT[kind])
+        nw, nh = w * scale, h * scale
+        out["box"] = [round(x + w / 2 - nw / 2 + dx, 2), round(y + h / 2 - nh / 2 + dy, 2), round(nw, 2), round(nh, 2)]
+        if scale < 1 and kind != "cards":
+            out["text_scale"] = round(layer.get("text_scale", 1.0) * scale, 4)
+        return out
+    out["x"], out["y"] = round(layer.get("x", 960) + dx, 2), round(layer.get("y", dh / 2) + dy, 2)
+    if scale < 1:
+        out["size"] = round(layer.get("size", {"title": 96, "chips": 34, "counter": 160}[kind]) * scale, 2)
+    return out
+
+
+_SHIFTS = sorted(((ix * _STEP_X, iy * _STEP_Y) for ix in range(-48, 49) for iy in range(-60, 61)),
+                 key=lambda d: abs(d[0]) + abs(d[1]))
+
+
+def arrange(layers: list[dict], size: tuple[int, int], free: list[bool] | None = None,
+            seconds: float = 1e9) -> list[dict]:
+    """The layers with every one that did not say where it goes given a place clear of the words on screen with it.
+
+    ``free`` says which layers may be moved (default: those with no x, y or box of their own). A layer keeps its
+    default place when that is clear, otherwise it takes the nearest clear place inside the frame. A panel or a row
+    of cards may first move to one side so the rest can stack beside it. Only when nothing else works is a layer
+    drawn smaller, and a row of chips that still fits nowhere is left out. Anything else raises ``MotionError``."""
+    dh = 1920 * size[1] / size[0]
+    if free is None:
+        free = [not any(k in layer for k in ("x", "y", "box")) for layer in layers]
+    layers = [dict(layer, y=round(dh * CAPTION_TOP, 2)) if free[i] and layer.get("kind") == "lower_third" else layer
+              for i, layer in enumerate(layers)]  # a name plate that did not say where it goes sits above the captions
+    bottom = dh - max(_EDGE_BOTTOM, dh * CAPTION_BAND)
+    movable = [i for i, layer in enumerate(layers) if free[i] and layer.get("kind") in _ARRANGED]
+    fixed = [i for i, layer in enumerate(layers) if i not in movable and extent(layer, dh) is not None]
+    if not movable or len(movable) + len(fixed) < 2:
+        return layers
+    order = sorted(movable, key=lambda i: (layers[i]["kind"] not in _BOXED, layers[i]["kind"] != "title", i))
+    spans = [_span(layer, seconds) for layer in layers]
+    boxed = any(layers[i]["kind"] in _BOXED for i in movable)
+
+    def place(i: int, start: dict, placed: dict[int, tuple], scales: tuple[float, ...]) -> dict | None:
+        for scale in scales:
+            base = _fit(start, scale, 0, 0, dh)
+            x0, y0, x1, y1 = extent(base, dh)
+            for dx, dy in _SHIFTS:
+                if layers[i]["kind"] not in _BOXED and dx:
+                    dx *= 3  # a centred line would rather move up or down than sideways
+                box = (x0 + dx, y0 + dy, x1 + dx, y1 + dy)
+                home = (x0, y0, x1, y1)
+                if (box[0] < min(_EDGE_X, home[0]) or box[2] > max(1920 - _EDGE_X, home[2])
+                        or box[1] < min(_EDGE_TOP, home[1]) or box[3] > max(bottom, home[3])):
+                    continue
+                if any(spans[i][0] < spans[j][1] and spans[j][0] < spans[i][1] and _meet(box, other, APART)
+                       for j, other in placed.items()):
+                    continue
+                return _fit(start, scale, dx, dy, dh)
+        return None
+
+    levels = [((1.0,), False), (_SHRINK, False), (_SHRINK, True)]
+    for scales, may_drop in levels:
+        for side in ((0, -1, 1) if boxed else (0,)):
+            out, dropped = list(layers), set()
+            placed = {j: extent(layers[j], dh) for j in fixed}
+            for i in order:
+                start = layers[i]
+                if side and start["kind"] in _BOXED:
+                    x, y, w, h = start.get("box", _BOX_DEFAULT[start["kind"]])
+                    start = dict(start, box=[_EDGE_X + 40 if side < 0 else 1920 - _EDGE_X - 40 - w, y, w, h])
+                found = place(i, start, placed, scales)
+                if found is None:
+                    if may_drop and start["kind"] == "chips":
+                        dropped.add(i)
+                        continue
+                    break
+                out[i], placed[i] = found, extent(found, dh)
+            else:
+                return [layer for k, layer in enumerate(out) if k not in dropped]
+    raise MotionError("the words of layers " + ", ".join(str(i + 1) for i in movable)
+                      + " have no clear place on screen together; give some of them an x, y or box, or an earlier until")
+
+
 # --- video sources ----------------------------------------------------------------------------------
 
 @functools.lru_cache(maxsize=64)

@@ -443,10 +443,23 @@ The agent bridge (`proofhouse agent-server`) was added in this run; its API entr
      generated pictures (no picture service given). Found on the way: the Vulkan build of llama.cpp on this
      PC's Intel graphics hangs on prompts over about 2,000 tokens (cause not proven; CPU build works, about
      3 tokens/s out); a voice file path coming back as `\\?\C:\...` crashed the render, now kept as a plain
-     path. Still to do: chips drawn over headlines, a real image and video provider run (the owner's choice
-     and cost), the "a third at most" rule against briefs that say "show the real terminal" (the owner's
-     call), the writer repeating one command across beats, writing the script a beat at a time (the one-shot
-     writer hit its 6000-token cap on CPU and needed several fix rounds), and the GPU hang.
+     path.
+     **Fixed 2026-11-08, with tests, proven by re-rendering the saved film9 at $0: words drawn on top of each
+     other.** Cause: a layer that did not say where it goes was drawn at its default spot (title, chips and
+     counter all at the middle of the frame, name plate at the bottom left), and nothing checked whether two
+     layers landed on each other, or on the captions burned in at the bottom. `motion.arrange` now measures the
+     words of every layer in a beat (`motion.collisions`), leaves any layer that says its own place exactly
+     where it is, and moves only layers that did not say: it tries a shift, then a smaller size, and keeps
+     them clear of the screen edge and of the caption band (bottom 22%). A name plate that did not say where it
+     goes sits above the captions. If the words truly cannot share the screen it stops with the beat number
+     and says to give a layer a place. A chip row already shown in an earlier beat is not shown again
+     (`storyboard._chip_row`; quiet filler rows are untouched). Film9 re-rendered from its saved script with no
+     model and no spend: 21.13 MiB (cap 25), 11 of 11 checks ok, new contact sheet shows the headline clear of
+     the chips, no repeated chip row, and the name plate above the captions.
+     Still to do: a real image and video provider run (the owner's choice and cost), the "a third at most"
+     rule against briefs that say "show the real terminal" (the owner's call), the writer repeating one command
+     across beats, writing the script a beat at a time (the one-shot writer hit its 6000-token cap on CPU and
+     needed several fix rounds), and the GPU hang.
 
 ## What is left (updated 2026-10-27)
 

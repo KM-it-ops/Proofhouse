@@ -296,6 +296,87 @@ def test_a_callout_stays_in_design_pixels_when_the_footage_does_not_hold_still(t
             storyboard.scenes(beats, (640, 360))
 
 
+FILM9_BEATS = [  # layers written without a place, as the local model wrote them for film9
+    [{"kind": "title", "text": "Say what you want", "at": "start"}, {"kind": "label", "text": "Pick any model", "at": "start"},
+     {"kind": "chips", "items": ["cloud", "local", "open", "commercial"]}],
+    [{"kind": "panel", "title": "Version History", "rows": ["Version 1", "Version 2", "Version 3"]},
+     {"kind": "counter", "to": 3, "label": "versions"}, {"kind": "label", "text": "Every result saved"},
+     {"kind": "chips", "items": ["image", "video", "voice", "music"]}],
+    [{"kind": "lower_third", "title": "Spending Limit", "subtitle": "You set it"}, {"kind": "counter", "to": 5, "label": "calls"},
+     {"kind": "chips", "items": ["cloud", "local", "open", "commercial"]}],
+    [{"kind": "panel", "title": "Components", "rows": ["Prompt", "Agent", "Skill", "Rule", "MCP", "Hook"]},
+     {"kind": "chips", "items": ["prompt", "agent", "skill", "rule", "server", "hook"]}, {"kind": "label", "text": "All built"}],
+    [{"kind": "title", "text": "Compare", "at": "start"}, {"kind": "panel", "title": "History", "rows": ["Version 1", "Version 2"]},
+     {"kind": "counter", "to": 3, "label": "versions"}],
+]
+
+
+@pytest.mark.parametrize("size", [(1920, 1080), (1080, 1920), (1080, 1080)])
+def test_layers_written_without_a_place_never_land_on_each_other(tmp_path: Path, size: tuple[int, int]) -> None:
+    pytest.importorskip("PIL")
+    beats, _ = _planned([{"say": "Say what you want. Pick any model.", "layers": layers} for layers in FILM9_BEATS], tmp_path)
+    for k, sc in enumerate(storyboard.scenes(beats, size), start=1):
+        assert motion.collisions(sc) == [], f"beat {k}: {[(sc['layers'][i]['kind'], sc['layers'][j]['kind']) for i, j in motion.collisions(sc)]}"
+        for layer in sc["layers"]:
+            box = motion.extent(layer, 1920 * size[1] / size[0])
+            if box:
+                assert 0 <= box[0] and box[2] <= 1920 and 0 <= box[1] and box[3] <= 1920 * size[1] / size[0]
+
+
+def test_layers_that_say_where_they_go_stay_where_they_are(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    layers = [{"kind": "title", "text": "Hello", "y": 300}, {"kind": "chips", "items": ["a", "b"], "y": 700},
+              {"kind": "panel", "rows": ["x"], "box": [100, 100, 300, 300]}]
+    beats, _ = _planned([{"say": "Hello there.", "layers": layers}], tmp_path)
+    sc = storyboard.scenes(beats, (1920, 1080))[0]
+    assert [{k: v for k, v in layer.items() if k != "at"} for layer in sc["layers"]] == layers
+
+
+def test_a_chip_row_shown_in_an_earlier_beat_is_not_shown_again(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    rows = [{"say": "One thing.", "layers": [{"kind": "chips", "items": ["Cloud", "local"]}]},
+            {"say": "Two things.", "layers": [{"kind": "title", "text": "Two"}, {"kind": "chips", "items": ["cloud", " Local "]}]},
+            {"say": "Three things.", "layers": [{"kind": "chips", "items": ["cloud", "open"]}]}]
+    beats, _ = _planned(rows, tmp_path)
+    first, second, third = storyboard.scenes(beats, (1920, 1080))
+    written = lambda sc: [layer["items"] for layer in sc["layers"] if layer["kind"] == "chips" and not layer.get("quiet")]  # noqa: E731
+    assert written(first) == [["Cloud", "local"]] and written(second) == [] and written(third) == [["cloud", "open"]]
+    assert [layer["text"] for layer in second["layers"] if layer["kind"] == "title"] == ["Two"]
+    assert beats[1].layers[1]["items"] == ["cloud", " Local "]  # the written film is not changed
+
+
+@pytest.mark.parametrize("size", [(1920, 1080), (1080, 1920)])
+def test_words_written_without_a_place_stay_clear_of_the_captions(tmp_path: Path, size: tuple[int, int]) -> None:
+    pytest.importorskip("PIL")
+    layers = [{"kind": "lower_third", "title": "Spending Limit", "subtitle": "You set it"}, {"kind": "chips", "items": ["a", "b"]},
+              {"kind": "panel", "rows": ["x"]}]
+    beats, _ = _planned([{"say": "Every paid call goes through your limit.", "layers": layers}], tmp_path)
+    sc = storyboard.scenes(beats, size)[0]
+    dh = 1920 * size[1] / size[0]
+    for layer in sc["layers"]:
+        box = motion.extent(layer, dh)
+        if box and layer["kind"] != "panel":  # a panel written at its default size may reach down; it is never moved there
+            assert box[3] <= dh * (1 - motion.CAPTION_BAND) + 1, layer["kind"]
+    assert motion.collisions(sc) == []
+    plate = next(layer for layer in sc["layers"] if layer["kind"] == "lower_third")
+    assert plate["y"] == pytest.approx(dh * motion.CAPTION_TOP, abs=0.01)
+
+
+def test_a_layer_that_is_alone_keeps_its_default_place(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    beats, _ = _planned([{"say": "Hello there.", "layers": [{"kind": "title", "text": "Hello"}]}], tmp_path)
+    layer = storyboard.scenes(beats, (1920, 1080))[0]["layers"][0]
+    assert "x" not in layer and "y" not in layer
+
+
+def test_words_that_cannot_share_the_screen_are_refused_with_the_beat_number(tmp_path: Path) -> None:
+    pytest.importorskip("PIL")
+    layers = [{"kind": "panel", "rows": ["x"], "box": [0, 0, 1920, 1080]}, {"kind": "panel", "rows": ["y"]}]
+    beats, _ = _planned([{"say": "Hello there.", "layers": layers}], tmp_path)
+    with pytest.raises(StoryboardError, match="beat 1: .*no clear place"):
+        storyboard.scenes(beats, (1920, 1080))
+
+
 def test_a_vertical_film_spreads_the_layout_down_the_frame_and_enlarges_the_words(tmp_path: Path) -> None:
     pytest.importorskip("PIL")
     layers = [{"kind": "title", "text": "Hello", "y": 380},
@@ -304,10 +385,11 @@ def test_a_vertical_film_spreads_the_layout_down_the_frame_and_enlarges_the_word
               {"kind": "panel", "rows": ["x", "y"], "box": [560, 190, 800, 700]},
               {"kind": "counter", "to": 9, "size": 120},
               {"kind": "link", "from": [400, 300], "to": [1500, 800]}]
-    beats, _ = _planned([{"say": "Intro.", "layers": layers}], tmp_path)
-    wide = storyboard.scenes(beats, (1920, 1080))[0]
+    # one layer to a beat: this test is about scaling, and words that share a beat may not share a spot
+    beats, _ = _planned([{"say": "Intro.", "layers": [layer]} for layer in layers], tmp_path)
+    wide = {"layers": [lay for scene in storyboard.scenes(beats, (1920, 1080)) for lay in scene["layers"]]}
     assert [{k: v for k, v in layer.items() if k not in ("at",)} for layer in wide["layers"]] == layers  # unchanged
-    tall = storyboard.scenes(beats, (1080, 1920))[0]
+    tall = {"layers": [lay for scene in storyboard.scenes(beats, (1080, 1920)) for lay in scene["layers"]]}
     f = (1920 * 1920 / 1080) / 1080
     title, label, cards, panel, counter, link = (_layer(tall, k) for k in ("title", "label", "cards", "panel", "counter", "link"))
     assert title["y"] == pytest.approx(380 * f) and title["size"] == pytest.approx(144)
@@ -330,16 +412,18 @@ def test_a_vertical_film_enlarges_the_words_drawn_inside_plates_boxes_and_labels
               {"kind": "cards", "items": ["a", "b"]},
               {"kind": "panel", "rows": ["x"], "box": [160, 190, 1600, 700]},
               {"kind": "terminal", "timeline": timeline}]
-    beats, _ = _planned([{"say": "Intro.", "layers": layers}], tmp_path)
-    wide = storyboard.scenes(beats, (1920, 1080))[0]
+    beats, _ = _planned([{"say": "Intro.", "layers": [layer]} for layer in layers], tmp_path)  # one to a beat: no shared spot
+    wide = {"layers": [lay for scene in storyboard.scenes(beats, (1920, 1080)) for lay in scene["layers"]]}
     assert not any("text_scale" in layer for layer in wide["layers"])
-    tall = storyboard.scenes(beats, (1080, 1920))[0]
+    tall_scenes = storyboard.scenes(beats, (1080, 1920))
+    tall = {"layers": [lay for scene in tall_scenes for lay in scene["layers"]]}
     scale = {k: _layer(tall, k)["text_scale"] for k in ("lower_third", "callout", "cards", "panel", "terminal")}
     assert scale["lower_third"] == scale["callout"] == scale["cards"] == pytest.approx(1.5)
     assert scale["panel"] == pytest.approx(1840 / 1600, abs=1e-4)  # a wide box can only grow so far, and its words with it
     assert scale["terminal"] == pytest.approx(1840 / 1500, abs=1e-4)
     assert _layer(tall, "panel")["box"][2] == pytest.approx(1840)
-    motion.check_scene(tall)
+    for scene in tall_scenes:
+        motion.check_scene(scene)
 
 
 def test_vertical_footage_fills_more_of_the_width(tmp_path: Path) -> None:
