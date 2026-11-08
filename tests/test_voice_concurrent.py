@@ -79,3 +79,18 @@ def test_a_silent_file_is_still_caught_after_concurrent_speaking(tmp_path: Path)
 
     with pytest.raises(StoryboardError, match="no sound"):
         storyboard.voice(beats, speak, lambda path: 0.0, workers=3)
+
+
+@pytest.mark.parametrize("workers", [1, 3])
+def test_a_spoken_file_with_the_windows_long_path_prefix_is_kept_as_a_plain_path(tmp_path: Path, workers: int) -> None:
+    beats = _beats(tmp_path, 3)
+    long_form = storyboard._LONG_PATH  # the form Windows sometimes hands back
+
+    def speak(text: str, name: str) -> Path:
+        return Path(long_form + str(tmp_path / "voice" / f"{name}.wav"))
+
+    storyboard.voice(beats, speak, measure=lambda _f: 1.0, workers=workers)
+    for beat in beats:
+        for phrase in beat.phrases:
+            assert phrase.file is not None and not str(phrase.file).startswith(long_form)
+            assert phrase.file.relative_to(tmp_path).parts[0] == "voice"

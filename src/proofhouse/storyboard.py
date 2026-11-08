@@ -305,6 +305,19 @@ def parse(data: Any, folder: Path) -> list[Beat]:
 
 # --- the clock ---------------------------------------------------------------------------------------
 
+_LONG_PATH = "\\\\?\\"  # the four characters Windows puts in front of a path in its long form
+
+
+def _plain(file: str | Path) -> Path:
+    """A spoken file as a plain path. Windows can hand back the long form (C:\\... behind four extra characters),
+    which no longer compares equal to the same folder written plainly, so a file could not be named relative to
+    its film's folder."""
+    text = str(file)
+    if text.startswith(_LONG_PATH) and not text[len(_LONG_PATH):].upper().startswith("UNC\\"):
+        text = text[len(_LONG_PATH):]
+    return Path(text)
+
+
 def voice(beats: list[Beat], speak: Callable[[str, str], Path],
           measure: Callable[[Path], float | None] = motion._duration, workers: int = 1) -> None:
     """Speak every phrase that has no file yet, then measure each one. ``speak(text, name)`` returns the file.
@@ -314,13 +327,13 @@ def voice(beats: list[Beat], speak: Callable[[str, str], Path],
             for j, phrase in enumerate(beat.phrases, start=1) if phrase.file is None]
     if workers > 1 and len(todo) > 1:
         with ThreadPoolExecutor(max_workers=min(workers, len(todo))) as pool:
-            files = list(pool.map(lambda item: Path(speak(item[0].text, item[1])), todo))
+            files = list(pool.map(lambda item: _plain(speak(item[0].text, item[1])), todo))
         for (phrase, _), file in zip(todo, files):
             phrase.file = file
     for beat in beats:
         for j, phrase in enumerate(beat.phrases, start=1):
             if phrase.file is None:
-                phrase.file = Path(speak(phrase.text, f"beat{beat.number:02d}-{j:02d}"))
+                phrase.file = _plain(speak(phrase.text, f"beat{beat.number:02d}-{j:02d}"))
             seconds = measure(phrase.file)
             if not seconds or seconds <= 0:
                 raise StoryboardError(f"beat {beat.number}: phrase {j}: {phrase.file.name} has no sound in it")
