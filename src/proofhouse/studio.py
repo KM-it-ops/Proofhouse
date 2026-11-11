@@ -641,12 +641,14 @@ def _figure(text: str) -> str:
 
 
 def _picture_figures(prompt: str) -> set[str]:
-    return {_figure(n) for n in _PICTURE_FIGURE.findall(prompt)}
+    return {_figure(n) for n in _PICTURE_FIGURE.findall(prompt)} | _spelled(prompt)
 
 
 def _without_figures(prompt: str, figures: list[str]) -> str:
     """``prompt`` with ``figures`` (and their currency or percent signs) taken out."""
     out = _PICTURE_FIGURE.sub(lambda m: "" if _figure(m.group(0)) in figures else m.group(0), prompt)
+    out = re.sub(r"\b[a-zA-Z]+\b",
+                 lambda m: "" if _SPELLED.get(m.group(0).lower()) in figures else m.group(0), out)
     return re.sub(r"\s{2,}", " ", re.sub(r"\s+([,.;:])", r"\1", out)).strip()
 
 
@@ -667,10 +669,12 @@ def _invented(board: list[dict[str, Any]], brief: str,
     for number, row in enumerate(board, start=1):
         for index, layer in enumerate(row.get("layers") or [], start=1):
             given = counted if isinstance(layer, dict) and layer.get("kind") == "counter" else known
-            new = sorted(_numbers(" ".join(_shown(layer))) - given)
+            shown = " ".join(_shown(layer))
+            new = sorted((_numbers(shown) | _spelled(shown)) - given)
             if new:
                 found.append((number, index, new))
-        new = sorted(_numbers(_spoken(row)) - known)
+        spoken = _spoken(row)
+        new = sorted((_numbers(spoken) | _spelled(spoken)) - known)
         if new:
             found.append((number, None, new))
         base = row.get("base") or {}
