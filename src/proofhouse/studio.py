@@ -198,15 +198,17 @@ class _Budget:
         # refused there, and that refusal stops the film with "spending limit reached"
         return format(max(self.left, Decimal(0)), "f")
 
-    def charge(self, figure: Any) -> None:
-        try:
-            amount = Decimal(str(figure))
-        except (InvalidOperation, ValueError):
-            return
-        if amount.is_finite() and amount >= 0:
-            self.spent += amount
-            if self.left is not None:
-                self.left -= amount
+    def charge(self, figure: Any, worst: Any = None) -> None:
+        for candidate in (figure, worst):
+            try:
+                amount = Decimal(str(candidate))
+            except (InvalidOperation, ValueError):
+                continue
+            if amount.is_finite() and amount >= 0:
+                self.spent += amount
+                if self.left is not None:
+                    self.left -= amount
+                return
 
 
 def _json_object(text: str | None) -> dict[str, Any]:
@@ -1752,7 +1754,7 @@ def produce(
             figure = (result.cost or {}).get("usd")
             with books:
                 if result.status != "refused":
-                    budget.charge(figure)
+                    budget.charge(figure, (getattr(result, "admission", None) or {}).get("worst_case_usd"))
                 record(f"{kind}: {prompt[:40]}", result, figure)
             return str(result.path)
 
@@ -1959,7 +1961,8 @@ def produce(
                     max_output_tokens=400, max_cost_usd=budget.next_limit(), transport=text_transport,
                     json_reply=True)
                 figure = (reply.cost or {}).get("usd")
-                budget.charge(figure if reply.status != "refused" else 0)
+                if reply.status != "refused":
+                    budget.charge(figure, (getattr(reply, "admission", None) or {}).get("worst_case_usd"))
                 production.calls.append({"role": "narration", "status": reply.status, "code": reply.code,
                                          "usd": figure})
                 if reply.status != "success":
@@ -1987,7 +1990,8 @@ def produce(
                 reply = live.run_prompt(provider_id, model, prompt=prompt, max_output_tokens=SCRIPT_ROOM,
                                         max_cost_usd=budget.next_limit(), transport=text_transport, json_reply=True)
                 figure = (reply.cost or {}).get("usd")
-                budget.charge(figure if reply.status != "refused" else 0)
+                if reply.status != "refused":
+                    budget.charge(figure, (getattr(reply, "admission", None) or {}).get("worst_case_usd"))
                 record(role, reply, figure)
                 reply_text = reply.output_text or ""
             board: list[dict[str, Any]] | None = None
