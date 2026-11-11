@@ -18,6 +18,7 @@
 ### Fixed
 
 - A storyboard layer or sound that had to be left out after the writer's fixes is now recorded as a failed check instead of passing.
+- A prompted `"image"` or `"video"` storyboard layer is now made in the kind it asks for instead of being dropped when no file is given.
 
 ## 0.10.3 - app goals, a zero ceiling and film shots from real captures
 

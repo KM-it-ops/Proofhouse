@@ -480,7 +480,10 @@ def beats_from(data: dict[str, Any], facts: dict[str, Any] | None = None) -> lis
     try:
         beats = storyboard.parse(dry, Path.cwd())
         for beat in beats:
-            layers = [{**lay, "at": 0, **({"until": 1} if "until" in lay else {})} for lay in beat.layers]
+            layers = [{**lay, "at": 0, **({"until": 1} if "until" in lay else {}),
+                       **({"file": __file__} if lay.get("kind") in ("image", "video") and "file" not in lay
+                          and isinstance(lay.get("prompt"), str) and lay["prompt"].strip() else {})}
+                      for lay in beat.layers]
             motion.check_scene({"size": [64, 64], "seconds": 1, "layers": layers})
     except storyboard.StoryboardError as exc:
         raise StudioError(str(exc)) from exc
@@ -2052,6 +2055,14 @@ def produce(
                         "render": "all", "check": "no picture service", "ok": True,
                         "detail": f"no --visual-provider was given, so beats {', '.join(map(str, unmade))} stand on a "
                                   f"moving background instead of a generated picture (see `proofhouse media list`)"})
+                for number, row in enumerate(board, start=1):
+                    for lay in row.get("layers") or []:
+                        if (isinstance(lay, dict) and lay.get("kind") in ("image", "video") and "file" not in lay
+                                and isinstance(lay.get("prompt"), str) and lay["prompt"].strip()
+                                and (not visual_provider or not visual_model)):
+                            raise StudioError(
+                                f"beat {number}: {lay['kind']} layers need --visual-provider and --visual-model "
+                                f"(see `proofhouse media list`)")
                 if any(row.get("say") for row in board) and not voice_provider:
                     raise StudioError("a film with words needs a voice service to speak them (--voice-provider)")
                 timed, length, problem = voice_board(board, attempt == SCRIPT_FIXES)
@@ -2116,6 +2127,16 @@ def produce(
                     file = make_media(visual_kind, visual_provider, visual_model, picture_prompt(base["prompt"], look),
                                       target, params)
                     row["base"] = {"kind": visual_kind, "file": Path(file).relative_to(out_dir).as_posix()}
+                for index, lay in enumerate(row.get("layers") or [], start=1):
+                    if (isinstance(lay, dict) and lay.get("kind") in ("image", "video") and "file" not in lay
+                            and isinstance(lay.get("prompt"), str) and lay["prompt"].strip()):
+                        lkind = lay["kind"]
+                        lparams = ({"seconds": max(2, min(10, math.ceil(beat.frames / beat.fps)))} if lkind == "video"
+                                   else {"size": "1792x1024"})
+                        lfile = make_media(lkind, visual_provider, visual_model, picture_prompt(lay["prompt"], look),
+                                           out_dir / "shots" / f"beat-{number:02d}-layer-{index:02d}", lparams)
+                        row["layers"][index - 1] = {**{k: v for k, v in lay.items() if k != "prompt"},
+                                                    "file": Path(lfile).relative_to(out_dir).as_posix()}
             if music_file is not None:
                 production.music_file = str(shutil.copy2(music_file, out_dir / f"music{music_file.suffix}"))
             elif music_provider and production.music_brief:
