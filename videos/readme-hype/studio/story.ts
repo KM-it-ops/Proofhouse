@@ -37,4 +37,4 @@ export const story: Data = {
   ],
 };
 
-export const MODEL_HEAD = "OPTIMIZED PROMPT · GEMINI 3.8 FLASH";
+export const MODEL_HEAD = "PROMPT · MADE FOR GEMINI 3.8 FLASH";

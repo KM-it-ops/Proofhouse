@@ -46,7 +46,7 @@ export const MENU = { x: 64, y: 376, w: 620, pad: 8, item: 58 };
 export const BTN_RECT = { x: 64, y: 660, w: 340, h: 84 };
 export const CHECK = { x: 64, y: 408, s: 34 };
 export const PILL = { x: 64, y: 530, w: 190, h: 60, pad: 6 };
-export const MODELS = ["Claude Opus 5", "Claude Sonnet 5", "GPT-5.6 Sol", "Gemini 3.8 Flash", "Grok 4.6", "Kimi K3"];
+export const MODELS = ["Claude Code", "Cursor", "Codex", "Gemini 3.8 Flash", "GPT-5.6 Sol", "Kimi K3"];
 export const MODEL_FROM = 1;
 export const MODEL_TO = 3;
 export const rowTop = (i: number) => 168 + (i === 0 ? 0 : 130 + 80 * (i - 1));

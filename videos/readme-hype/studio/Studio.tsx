@@ -277,14 +277,14 @@ const InputScreen: React.FC<{ f: number }> = ({ f }) => {
 
   return (
     <>
-      <Label x={64} y={104}>Objective</Label>
+      <Label x={64} y={104}>What you want</Label>
       <div style={{ position: "absolute", left: 64, top: 132, width: 1152, height: 104, borderRadius: 18, border: `1.5px solid rgba(${G},${0.16 + 0.55 * objFocus})`, background: `rgba(${G},${0.035 + 0.03 * objFocus})`, boxShadow: `0 0 0 ${5 * objFocus}px rgba(${G},${0.1 * objFocus}), 0 0 50px rgba(${G},${0.2 * objFocus})` }} />
       <div style={{ position: "absolute", left: 92, top: 132, height: 104, display: "flex", alignItems: "center", fontFamily: DISPLAY, fontWeight: 600, fontSize: 36, color: MINT, whiteSpace: "nowrap", opacity: f >= INPUT_AT - 1 ? 1 : 0 }}>
         <span>{story.objective}</span>
         {f < 214 && <Caret f={f} />}
       </div>
 
-      <Label x={64} y={264}>Target model / provider</Label>
+      <Label x={64} y={264}>Made for · any tool or model, any provider</Label>
       <div style={{ position: "absolute", left: MODEL_RECT.x, top: MODEL_RECT.y, width: MODEL_RECT.w, height: MODEL_RECT.h, borderRadius: 16, overflow: "hidden", border: `1.5px solid rgba(${G},${0.18 + 0.3 * modelH + 0.5 * modelFocus})`, background: `rgba(${G},${0.035 + 0.05 * modelH + 0.04 * modelFocus})`, boxShadow: `0 0 0 ${4 * modelFocus}px rgba(${G},${0.1 * modelFocus}), 0 0 ${40 * modelFocus}px rgba(${G},${0.22 * modelFocus})` }}>
         <div style={{ position: "absolute", left: 26, top: 0, height: "100%", display: "flex", alignItems: "center", fontFamily: UI, fontWeight: 600, fontSize: 28, color: MINT, transform: `translateY(${-swap * 34}px)`, opacity: 1 - swap }}>{MODELS[MODEL_FROM]}</div>
         <div style={{ position: "absolute", left: 26, top: 0, height: "100%", display: "flex", alignItems: "center", fontFamily: UI, fontWeight: 600, fontSize: 28, color: MINT, transform: `translateY(${(1 - swap) * 34}px)`, opacity: swap }}>{MODELS[MODEL_TO]}</div>
@@ -298,12 +298,12 @@ const InputScreen: React.FC<{ f: number }> = ({ f }) => {
           <div style={{ position: "absolute", inset: -2 }}><Tick p={chkP} size={CHECK.s} /></div>
         </div>
         <div style={{ fontFamily: MONO, fontSize: 19, letterSpacing: 1.5, whiteSpace: "nowrap" }}>
-          <span style={{ color: GREEN, fontWeight: 700 }}>LOOP / RECURRING TASK</span>
-          <span style={{ color: chkP > 0.5 ? SOFT : DIM }}> — trigger, verify, exit, checkpoints</span>
+          <span style={{ color: GREEN, fontWeight: 700 }}>IMPROVE IT</span>
+          <span style={{ color: chkP > 0.5 ? SOFT : DIM }}> — try each version for real, judge it, revise it</span>
         </div>
       </div>
 
-      <Label x={64} y={500}>Token efficiency</Label>
+      <Label x={64} y={500}>How many questions</Label>
       <div style={{ position: "absolute", left: PILL.x, top: PILL.y, width: PILL.w * 3 + PILL.pad * 2, height: PILL.h + PILL.pad * 2, borderRadius: 18, border: `1.5px solid rgba(${G},0.16)`, background: "rgba(255,255,255,0.02)" }}>
         <div style={{ position: "absolute", left: PILL.pad + PILL.w * pillPos, top: PILL.pad, width: PILL.w, height: PILL.h, borderRadius: 13, background: `linear-gradient(180deg, rgba(${G},0.34), rgba(${G},0.2))`, border: `1.5px solid rgba(${G},0.7)`, boxShadow: `0 0 28px rgba(${G},0.25)` }} />
         {["Efficient", "Balanced", "Thorough"].map((t, i) => {
@@ -317,8 +317,8 @@ const InputScreen: React.FC<{ f: number }> = ({ f }) => {
 
       <div style={{ position: "absolute", left: BTN_RECT.x, top: BTN_RECT.y, width: BTN_RECT.w, height: BTN_RECT.h, borderRadius: 18, overflow: "hidden", transform: `translateY(${-3 * btnH}px) scale(${1 - 0.045 * press})`, background: `linear-gradient(180deg, #52e896, ${GREEN})`, boxShadow: `0 ${10 + 14 * btnH}px ${30 + 30 * btnH}px rgba(${G},${0.22 + 0.25 * btnH}), inset 0 1px 0 rgba(255,255,255,0.45)`, color: INK }}>
         <div style={{ position: "absolute", left: clickPos[0] - PANEL.x - BTN_RECT.x - 140 * rip, top: clickPos[1] - PANEL.y - BTN_RECT.y - 140 * rip, width: 280 * rip, height: 280 * rip, borderRadius: "50%", background: "rgba(255,255,255,0.5)", opacity: rip > 0 && rip < 1 ? 0.7 * (1 - rip) : 0 }} />
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: UI, fontWeight: 700, fontSize: 30, opacity: 1 - busy, transform: `translateY(${-busy * 18}px)` }}>Initialize &gt;</div>
-        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: UI, fontWeight: 700, fontSize: 30, opacity: busy, transform: `translateY(${(1 - busy) * 18}px)` }}>Analyzing...</div>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: UI, fontWeight: 700, fontSize: 30, opacity: 1 - busy, transform: `translateY(${-busy * 18}px)` }}>Make it &gt;</div>
+        <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", fontFamily: UI, fontWeight: 700, fontSize: 30, opacity: busy, transform: `translateY(${(1 - busy) * 18}px)` }}>Thinking...</div>
         {busy > 0 && (
           <div style={{ position: "absolute", top: 0, bottom: 0, width: 110, left: ((f - THINK.busyAt) * 9) % 460 - 110, background: "linear-gradient(100deg, transparent, rgba(255,255,255,0.55), transparent)" }} />
         )}
@@ -457,7 +457,7 @@ const OutputScreen: React.FC<{ f: number }> = ({ f }) => {
 
 
       <div style={{ position: "absolute", left: 64, bottom: 30, fontFamily: MONO, fontSize: 16, letterSpacing: 1, color: DIM }}>
-        ~{Math.round(promptChars / 4)} tokens (est.) · efficient mode · loop-structured
+        ~{Math.round(promptChars / 4)} tokens (est.) · tried, judged, revised · every version kept
       </div>
     </>
   );
@@ -551,9 +551,9 @@ const Hook: React.FC<{ f: number }> = ({ f }) => {
 };
 
 // ---------------------------------------------------------------- outro
-const OUTRO_LINES = ["Say it.", "Answer it.", "Trace it."];
+const OUTRO_LINES = ["Say it.", "Answer it.", "Get it made."];
 const CMD1 = "uv tool install proofhouse";
-const CMD2 = "proofhouse-compiler demo";
+const CMD2 = "proofhouse demo";
 const Outro: React.FC<{ f: number }> = ({ f }) => {
   const l = f - OUTRO_AT;
   if (l < 0) return null;
@@ -584,7 +584,8 @@ const Outro: React.FC<{ f: number }> = ({ f }) => {
         );
       })}
       <div style={{ position: "absolute", left: 120, top: 880, fontFamily: MONO, fontSize: 21, letterSpacing: 1.5, color: SOFT, opacity: foot, transform: `translateY(${(1 - foot) * 10}px)` }}>
-        local · no API key · MIT · github.com/KM-it-ops/Proofhouse
+        <div>prompts · agents · skills · sites · apps · video · launches</div>
+        <div style={{ marginTop: 10, color: DIM }}>any provider · any model · local · MIT · github.com/KM-it-ops/Proofhouse</div>
       </div>
     </>
   );
@@ -641,9 +642,9 @@ export const Studio: React.FC = () => {
       <Backdrop f={f} />
       <AbsoluteFill style={{ transform: `perspective(2200px) rotateX(${rotX}deg) rotateY(${rotY}deg) scale(${push})`, transformOrigin: "50% 50%" }}>
         <Hook f={f} />
-        <Chapter f={f} at={INPUT_AT} until={CLARIFY_AT} no="01" text="SAY IT" x={PANEL.x} />
+        <Chapter f={f} at={INPUT_AT} until={CLARIFY_AT} no="01" text="SAY WHAT YOU WANT" x={PANEL.x} />
         <Chapter f={f} at={CLARIFY_AT} until={OUTPUT_AT} no="02" text="ANSWER SEVEN QUESTIONS" x={PANEL.x} />
-        <Chapter f={f} at={OUTPUT_AT} until={OUTRO_AT - 4} no="03" text="FROM YOUR ANSWERS" x={PANEL.xOut} />
+        <Chapter f={f} at={OUTPUT_AT} until={OUTRO_AT - 4} no="03" text="MADE, TRIED, IMPROVED" x={PANEL.xOut} />
         <PanelFrame f={f} />
         <Outro f={f} />
         <CursorLayer f={f} />
