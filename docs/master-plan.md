@@ -423,6 +423,301 @@ film record pointing at the tracked MP4, zod forced to 4.6.6, and the full 0.10.
 Settled: the owner judged the example videos' sound and motion fine; the train-2 upload gap is accepted
 with no live key; the film MP4 stays out of the repo and the record points at `../video/final-premium.mp4`.
 
+## Road to 1.0 (planned 2026-11-10)
+
+Two finish lines, in this order: first the installed skill (`resq:proofhouse`) is current and tells the
+truth; then Proofhouse ships as 1.0 Stable. The plan lives here, not in a separate file, because this
+repo keeps one master plan. "The live-proof table" below means the table under "How far each part has
+been proved".
+
+### Goal Capsule
+
+- Objective: a person who installs `resq:proofhouse` gets today's product with instructions that match
+  it; then anyone who installs `proofhouse` 1.0.0 can trust each claim in its docs, because someone other
+  than the writer reviewed every change since v0.10.3 and each part was run live at least once, except
+  the parts the live-proof table still marks "not run live" (Key Decisions), which the README and the
+  assurance statement name as not proven in 1.0.
+- Means: review with Codex, hand the long fix loops to other plans through `resq:delegate`, keep writing
+  and judging in Claude (KTD1, KTD2, KTD3).
+- Authority: the repo `CLAUDE.md` first, then the completion criteria in `docs/product-scope.md`, then
+  this section. The owner asked for delegated loops and Codex reviews in this run; that covers the
+  delegated jobs running side by side (each in its own worktree) and the per-unit reviews below.
+- Stop when: a review finds a defect in spend or command-running code that cannot be fixed test-first; a
+  paid run would pass the ceiling in KTD5; a delegated job fails twice (then do it here once, then report).
+- Nothing leaves the machine without the owner's word: no push, merge, closed pull request, tag, release
+  or PyPI upload.
+
+### Product Contract
+
+#### Summary
+
+Bring the repo's skill text up to date with main, land it in `resq` through the sync job, and close the
+stale sync pull requests. Then review everything merged since v0.10.3 plus #102, fix what the reviews
+find, close the gaps in the live-proof table, get the stranger test done, re-sync the skill to the
+release commit, and release 1.0.0.
+
+#### Problem Frame
+
+The installed skill was last synced from 0c63d33 on 2026-10-09. Ten sync pull requests (#32 to #41 in
+`host-skills`) are stacked and unmerged. The repo's `skills/proofhouse/SKILL.md` still sends people to the
+retired `proofhouse-compiler optimize`, says model profiles cite no sources (10 do), and never mentions the
+`proofhouse make` interview. On the release side, main holds #97 to #101 (58 files, +11,305 lines) that
+nobody but their writer has reviewed, #102 is open, and the live-proof table shows parts never run live.
+
+#### Requirements
+
+Skill (phase A)
+
+- R1. `skills/proofhouse/SKILL.md` describes main as it is: one front door `proofhouse`, the `make`
+  interview (`--for`, `--answers`, `--preset`, `--try-on`), the true count of sourced model profiles, and
+  no retired command as the main path.
+- R2. The `resq` copy of the skill equals the repo bundle at the commit that holds R1, and it got there
+  only through the sync job.
+- R3. No stale sync pull request stays open.
+
+Review and fixes (phase B)
+
+- R4. Every change from v0.10.3 to the release commit, #102 included, has an independent review record;
+  each finding is fixed test-first or written into Known limits with its reason. Findings in R5 code are
+  always fixed, never moved to Known limits.
+- R5. Code that spends money or runs commands (`spend.py`, `--allow-commands`, `recording.py`,
+  `make_media.py`, `studio.py`) also gets a Claude Opus `reviewer` pass.
+- R4b. #102 is merged into main, after its findings are fixed, on the owner's word.
+
+Live proof (phase B)
+
+- R6. The MCP-server kind passes its own check in a live run. (Refusing a `jsonrpc` other than `"2.0"`
+  is already done: `tests/test_example_mcp_server.py::test_a_request_without_jsonrpc_2_0_is_refused`.)
+- R7. The app kind's live run passes every check, or each failing check is fixed, or named as caused by
+  the model with the reviewer agreeing; the score meets the bar in Q4.
+- R8. The Claude agent bridge, the Grok agent bridge and Ollama each have one live run in the live-proof
+  table, at least as many passing as Q4 sets. Learning an unknown kind and the model-list update are run
+  live too if they can be at $0; otherwise they join the Key Decisions list.
+- R9. Screen recordings are reachable from the `proofhouse` command, or the note under the live-proof
+  table says why not (Q1).
+- R10. A fresh user completes the reference workflow (completion criterion 6).
+
+Release (phase B)
+
+- R11. A new assurance statement covers the release commit, and the docs, CHANGELOG, version (1.0.0),
+  classifier (`Development Status :: 5 - Production/Stable`) and the installed skill agree with it.
+- R12. v1.0.0 is published to GitHub and PyPI through `resq:ship-release`.
+
+#### Key Decisions
+
+- Skill first, then 1.0 Stable. Governs R1 to R12 order. (session-settled: user-directed — chosen over
+  release-first: the owner wants the installed skill right before the release work.)
+- Parts with no live proof that need a paid key (paid image, voice, music and video services, training
+  start, and any of R8's two extra parts that turn out to need one) stay marked "not run live" in 1.0,
+  unless the owner gives keys and a ceiling (Q2).
+
+#### Scope Boundaries
+
+- Not in this plan: new kinds, new providers, new media services, a hosted service.
+- `C:\AI\host-skills\skills\proofhouse` is never edited by hand; only the sync job writes it.
+- The existing host-mode `proofhouse record` (saves a version the host's model wrote) stays as it is.
+
+#### Open Questions
+
+- Q1 (decide before U9): does 1.0 add a screen-recording command? `proofhouse record` is taken by host
+  mode, so the name would be `proofhouse screen-record`. Default: add it, because the repo rule is one
+  front door.
+- Q2 (decide before U8): do the paid services stay "not run live" in 1.0? Default: yes. A "no" adds their
+  live runs to U8, with the owner's keys and ceiling.
+- Q3 (decide after U5): ship an interim 0.11.0 so PyPI has the `make` interview before 1.0?
+  Default: no.
+- Q4 (decide before U7): the least 1.0 Stable accepts. Default: the app kind scores at least 7/10 with
+  every Proofhouse-caused failure fixed; at least two of the three providers in R8 pass live.
+
+### Planning Contract
+
+#### Key Technical Decisions
+
+- KTD1. Codex reviews the code (`codex exec review`), because Claude wrote #97 to #102 and a review must
+  come from another company. Each review is saved as a record that `resq:fix-findings` works from.
+- KTD2. Long fix loops go to Codex through `delegate.py --job loop --timeout 1800`; `cursor --model
+  grok-4.7-high` takes them when Codex's quota is short. Every delegated diff is cross-checked by a tool
+  from another company: `agy` for Codex's, `codex exec review` for Cursor's.
+- KTD3. Claude writes the skill text and the release docs itself: they need judgment and this
+  session's findings, and no command can prove them right beyond the bundle tests.
+- KTD4. Small test-first fixes go to Cursor (`composer-2.5`, `--job quick`), because Cursor's monthly
+  pool is spent first.
+- KTD5. Live runs use the logged-in agent bridge and local programs, as on 2026-10-29, so paid spend is
+  $0. Any paid call goes through `spend.send_within_ceiling` with `--max-cost-usd 0` unless the owner
+  sets a ceiling.
+- KTD6. If the v0.10.3-to-main diff is too large for one Codex review, `agy` (1M-token context) reads the
+  whole range and Codex reviews each part.
+- KTD7. No Vibe: it is the least steady hand (passed 2 of 3, once rewrote line endings), and the other
+  pools cover every job. Grok CLI is the spare for quick fixes only.
+
+#### Sequencing
+
+```
+Phase A:  U1 skill text ──> U2 land and sync
+Phase B:  U3 review main ─┐
+          U4 review #102 ─┴─> U5 fix findings, merge #102 ─┬─> U6 MCP ──────┐
+                                                           ├─> U7 app ──────┤
+                                                           ├─> U8 providers ┼─> U10 docs, final review,
+                                                           └─> U9 recording ┘     skill re-sync
+                                                                                   ──> U11 stranger ──> U12 ship
+```
+
+U3 and U4 can run at the same time. U6 to U9 can run at the same time, each in its own worktree; their
+live-proof table rows are merged into this file by Claude, one unit at a time.
+
+### Implementation Units
+
+| U-ID | Title | Files touched | Depends on | Tool |
+|------|-------|---------------|-----------|------|
+| U1 | Skill text matches main | `skills/proofhouse/SKILL.md`, both `proofhouse.skill` bundles | none | Claude, Codex review |
+| U2 | Land the skill and the sync | `host-skills` sync pull requests | U1 | Claude with `gh` |
+| U3 | Review v0.10.3 to main | review record | U2 (order only) | Codex, Opus reviewer |
+| U4 | Review #102 | review record | U2 (order only) | Codex |
+| U5 | Fix the findings, merge #102 | `src/proofhouse/*`, `tests/*` | U3, U4 | Codex loop, agy cross-check |
+| U6 | MCP live check | MCP kind, `tests/*` | U5 | Cursor, then a live run |
+| U7 | App checks | `src/proofhouse/*` app kind, `tests/*` | U5, Q4 | Codex loop, then a live run |
+| U8 | Other providers live | the live-proof table | U5, Q2 | Claude, live runs |
+| U9 | Recording command | `src/proofhouse/cli.py`, `recording.py`, `tests/*` | U5, Q1 | Codex loop |
+| U10 | Assurance, release docs, final review, skill re-sync | `docs/assurance/*`, `CHANGELOG.md`, `pyproject.toml`, `README.md`, `skills/proofhouse/*` | U6 to U9 | Claude, Codex review |
+| U11 | Stranger test | `dist-tester/` | U10 | the owner's tester |
+| U12 | Ship 1.0.0 | tag, GitHub release, PyPI | U11 | `resq:ship-release` |
+
+#### U1. Skill text matches main
+
+- Goal: R1.
+- Approach: rewrite the sections that name commands, the interview and the sources line. Keep the
+  description's trigger list. Then rebuild both bundles with `uv run python scripts/build_skill_bundle.py`
+  (it writes `skills/proofhouse/proofhouse.skill` and `src/proofhouse/optimize/data/proofhouse.skill`) and
+  commit both; the sync job installs from the package copy.
+- Test scenarios: the bundle and root-parity tests pass; every command the text shows runs on main with
+  `--help`; no line names `proofhouse-compiler optimize` as the main path.
+- Verification: `tests/test_skill_bundle.py`, `tests/test_skill_root_parity.py`, `tests/test_host_mode.py`
+  pass; Codex review of the diff raises nothing left unfixed.
+
+#### U2. Land the skill and the sync
+
+- Goal: R2, R3.
+- Approach: on the owner's word, open the pull request and merge after CI passes. Dispatch
+  `sync-proofhouse` right after that merge, before anything else lands on main (the job always reads
+  main's head), and check that the new sync pull request names that commit. Close #32 to #41 with a note
+  naming the new one, and merge it.
+- Test scenarios: `resq:proofhouse` loads in a fresh Claude Code session.
+- Verification: each file inside `skills/proofhouse/proofhouse.skill` at that commit equals the same file
+  under `C:\AI\host-skills\skills\proofhouse` (line endings aside), and no extra files are there.
+
+#### U3. Review v0.10.3 to main
+
+- Goal: R4, R5.
+- Approach: Codex reviews the range (KTD1, KTD6). An Opus `reviewer` reads the R5 files. Both write
+  findings into one review record. A finding that a test can show comes with that failing test; one that
+  cannot (docs, design) is written with a one-line reason and its fix or Known limits line. The record
+  also carries the known test defect:
+  `tests/test_any_provider.py::test_cli_run_prints_the_output_and_a_cost_line` fails on any machine with
+  `GROQ_API_KEY` set, because it never clears that variable.
+- Test scenarios: each testable finding names a file, a line and a test that fails on main.
+- Verification: the record exists, and each testable finding's test fails on main.
+
+#### U4. Review #102
+
+- Goal: R4.
+- Approach: Codex reviews the `fix/film-free-pictures` diff and writes a review record.
+- Verification: the review record exists.
+
+#### U5. Fix the findings, merge #102
+
+- Goal: R4, R4b.
+- Approach: `resq:fix-findings` rules, run as a Codex loop (KTD2): the failing test is added unchanged,
+  then fixed, one commit per finding. Findings on #102 are fixed on its branch; then, on the owner's word,
+  #102 merges. `agy` cross-checks the diff; the Opus `reviewer` re-reads fixes to R5 code.
+- Test scenarios: each finding's test fails before and passes after; the full suite passes.
+- Verification: the summary shows `baseline_failed: true` and `passed: true`; a Codex re-review finds
+  nothing new; CI passes on the #102 merge.
+
+#### U6. MCP live check
+
+- Goal: R6.
+- Approach: find why the 2026-10-29 run's one check failed, fix it test-first (Cursor, KTD4), and run the
+  MCP kind live again through the agent bridge.
+- Test scenarios: the cause's test fails before and passes after; the live run passes its check.
+- Verification: the new test passes; the live-proof table row shows the live result.
+
+#### U7. App checks
+
+- Goal: R7.
+- Approach: re-run the app kind live once to get a fresh record of failed checks (the 2026-10-29 record
+  is not in the repo), write a test for each cause that lives in Proofhouse, and fix them in a Codex loop.
+  Run the app kind live again.
+- Test scenarios: each cause's test fails before and passes after; each check named as caused by the
+  model has the Codex reviewer's agreement in the review record.
+- Verification: the live-proof table row shows the new live score and checks, meeting Q4.
+
+#### U8. Other providers live
+
+- Goal: R8.
+- Approach: one prompt-kind run each through Ollama (local), the Claude agent bridge and the Grok agent
+  bridge, at $0 paid spend (KTD5). Try learning an unknown kind and the model-list update the same way;
+  if either needs a paid key, say so in the table and leave it to Q2.
+- Test scenarios: each run ends with a record and a score; a provider that fails gets a test-first fix,
+  then a second run.
+- Verification: the "Another provider" row shows three results, at least as many passing as Q4 sets.
+
+#### U9. Recording command
+
+- Goal: R9.
+- Approach: if Q1 is yes, a `proofhouse screen-record` subcommand over `proofhouse.recording`, with its
+  help text, in a Codex loop; the host-mode `proofhouse record` is untouched. If Q1 is no, only reword the
+  note under the live-proof table to give the reason, and end.
+- Test scenarios: `--help` lists it; a short recording on this machine makes a file (skipped where
+  ffmpeg or Playwright is missing, as on CI); a bad option exits with the usage code; host-mode
+  `record` tests still pass.
+- Verification: new tests pass; the note "recordings have no `proofhouse` command yet" is gone or gives
+  the reason.
+
+#### U10. Assurance, release docs, final review, skill re-sync
+
+- Goal: R4 (final part), R11.
+- Approach: Codex reviews everything changed since U5's merge (U6 to U9 and their fixes), and its
+  findings go through U5's rules. Then a new statement under `docs/assurance/` checks the 10 completion
+  criteria against the release commit; set version 1.0.0 and the Stable classifier; write the CHANGELOG
+  entry from the merged pull requests; mark the "not run live" parts in the README. Bring `SKILL.md` up to
+  date with the release commit (the screen-recording command if Q1 is yes), rebuild both bundles, and
+  run U2's sync steps again.
+- Test scenarios: every command the README and CHANGELOG show runs; the version test passes.
+- Verification: Codex review of the docs diff; the full suite passes; the installed skill equals the
+  bundle at the release commit.
+
+#### U11. Stranger test
+
+- Goal: R10. No agent can do this.
+- Approach: rebuild the wheel into `dist-tester/`; the owner's tester follows the README from a clean
+  machine and reports where they got stuck. If any stuck point is fixed in code or docs, run U10 again on
+  the new commit before U12.
+- Verification: the tester's report, with each stuck point fixed or written down.
+
+#### U12. Ship 1.0.0
+
+- Goal: R12.
+- Approach: `resq:ship-release` on the owner's word, after its own checks pass on the exact commit.
+- Verification: the tag, the GitHub release and the PyPI page show 1.0.0; a fresh install in a clean
+  virtual environment, with no cache, runs `proofhouse --version` and one offline `proofhouse` command.
+
+### Verification Contract
+
+- Full suite: `uv run --python 3.12 --extra test --extra live --extra video python -m pytest -q`.
+- Skill: `tests/test_skill_bundle.py`, `tests/test_skill_root_parity.py`, `tests/test_host_mode.py`.
+- CI passes on all three systems before any merge.
+- A delegated job counts only when `delegate.py` reports `baseline_failed: true` and `passed: true`, and
+  the cross-check in KTD2 raises nothing left unfixed.
+- Release: `resq:ship-release` runs every command the docs show and installs the built package fresh.
+
+### Definition of Done
+
+- Phase A: R1 to R3 hold, and the installed skill equals the repo bundle.
+- Phase B: R4 to R12 hold; the live-proof table has no "not run live" row except those Key Decisions
+  keeps; the installed skill equals the bundle at the release commit; the owner has said go for each
+  push, merge and release.
+- No code is left from attempts that did not work; delegate worktrees and branches are removed.
+
 ## Known limits
 
 - `--allow-commands` is an opt-in, not a sandbox. Made MCP servers, hooks and app builds run
