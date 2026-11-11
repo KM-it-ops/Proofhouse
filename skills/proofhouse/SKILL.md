@@ -1,13 +1,14 @@
 ---
 name: proofhouse
-description: Meta prompt-optimizer that turns a natural-language objective into a fully optimized, model-specific prompt through branching upfront clarification and a self-heal refinement loop. Use this whenever the user wants help crafting, refining, or optimizing a prompt for a specific AI model or provider (Claude Fable 5.1, Opus 5.5, Sonnet 5.5, Haiku 5.5, Mythos 5.1, GPT-6 Astra, GPT-6.1 Sol, GPT-6 Sol, GPT-6 Luna, Gemini 4 Argon, Gemini 3.8 Flash, Grok 4.7, Muse Spark 1.3, Kimi K3, or any other model/tool) -- especially when they say "Proofhouse," "optimize this prompt," "write a prompt for [model]," ask for clarifying questions before drafting a prompt, care about token efficiency or prompt caching, are building a recurring/looping/autonomous task and need it engineered as a loop, want an unfamiliar model's prompting quirks researched, or want a "self-heal" pass on a prompt that isn't working right. Trigger even if they don't use the word "prompt" explicitly -- "help me get better output from Opus 5.5 for X" or "this isn't working with GPT" both qualify.
+description: Turns a plain-words request into a model-specific result -- a prompt in chat, and through the `proofhouse` CLI also agents, skills, MCP servers, hooks, sites, apps and videos -- via one batch of upfront questions and a self-heal loop. Use whenever the user wants a prompt crafted, refined or optimized for an AI model (Claude Fable 5.1, Opus 5.5, Sonnet 5.5, Haiku 5.5, Mythos 5.1, GPT-6 Astra, GPT-6.1 Sol, GPT-6 Sol, GPT-6 Luna, Gemini 4 Argon, Gemini 3.8 Flash, Grok 4.7, Muse Spark 1.3, Kimi K3, or any other) -- especially when they say "Proofhouse," "optimize this prompt," "write a prompt for [model]," want clarifying questions first, care about token efficiency or prompt caching, need a recurring or autonomous task engineered as a loop, want an unfamiliar model researched, or want a "self-heal" pass on a prompt that isn't working. Trigger without the word "prompt" too -- "get better output from Opus 5.5 for X" or "this isn't working with GPT" qualify.
 ---
 
 # Proofhouse
 
-A meta prompt-optimizer, not a single prompt template. Given a raw objective and a target
-model, it runs a fixed four-stage flow and hands back a ready-to-paste, model-specific
-prompt. Full spec, system-prompt text, and JSON schemas live in
+You say what you want and pick any model. Proofhouse asks one batch of questions, makes the
+thing, checks it, improves it and keeps every version. In chat it makes a ready-to-paste,
+model-specific prompt. With the `proofhouse` CLI installed it also makes and runs the real
+thing with any provider (see "The `proofhouse` CLI" below). Full spec, system-prompt text, and JSON schemas live in
 `references/proofhouse-framework.md` (human-readable) and
 `references/proofhouse-framework.json` (machine-readable) -- read whichever is more useful
 for the task at hand. An interactive version that runs the whole flow live (calling the
@@ -39,9 +40,10 @@ conversational walkthrough.
    silently dropping it. Never remove a required test, acceptance check or approval gate for
    brevity, whatever a model note says.
 5. **Evidence (optional)** — when the user wants proof rather than a draft, offer the offline
-   CLI: `proofhouse-compiler optimize` records revisions and the outputs they produced, keeps
-   the answers as constraints, checks both, and reports what passed and what was not measured
-   (see `docs/reference-workflow.md` in the repository).
+   CLI: `proofhouse case` records revisions and the outputs they produced, keeps the answers
+   as constraints, checks both, and reports what passed and what was not measured (see
+   `docs/reference-workflow.md` in the repository). To have a model make and improve the
+   work itself, use `proofhouse make` (below).
 
 Run this conversationally when there's no artifact in play: ask the clarifying batch as a
 single message (numbered, grouped), collect the answers in one reply, then compile. One
@@ -90,7 +92,7 @@ Built-in profiles for Claude Fable 5.1, Claude Opus 5.5, Claude Sonnet 5.5, Clau
 
 1. Check whether you (or a prior Proofhouse run) already have notes on it in this
    conversation's memory, an artifact's persistent storage, or -- when a Proofhouse
-   checkout is at hand -- the local cache (`proofhouse-compiler models show "<name>"`).
+   checkout is at hand -- the local cache (`proofhouse models show "<name>"`).
 2. If not, research it -- web search for the model's actual prompting behavior, context
    window, and known quirks -- before compiling the prompt. Don't guess. Tell the user you
    are researching and why, since it costs time and tokens the built-in profiles don't.
@@ -129,42 +131,56 @@ production systems, add a short section to the compiled prompt covering the rele
 constraints. Omit entirely when not applicable -- don't pad prompts with boilerplate
 security language for tasks that don't need it.
 
-## Offline compiler
+## The `proofhouse` CLI
 
-Reach for the CLI instead of compiling in chat when the user wants a reproducible,
-inspectable compile result rather than a pasteable prompt. Check the environment with
-`proofhouse-compiler doctor`. The closed-loop path takes structured requirements JSON (or
-`-` for stdin) and runs requirements -> IR -> adapter compile -> eval/repair -> evidence:
+One command, `proofhouse` (the old `proofhouse-compiler` name still works and prints a notice).
+Reach for it when the user wants the work made, run and recorded rather than a pasteable prompt.
+Run `proofhouse doctor` to check the setup and `proofhouse --help` for every command.
 
-```
-proofhouse-compiler closed-loop <input.json> [--repair-budget {0,1,2}] [--json]
-```
+- **Make anything:** `proofhouse make "<request>" --provider <id> --model <id> --kind <kind>`.
+  Kinds: prompt, skill, agent, site, app, copy, rule, mcp, hook, video, launch, or any other
+  kind (an add-on's, or a new one the model researches first). It writes, checks, has a judge
+  score each round and keeps the best. `--max-cost-usd` is required for a paid provider.
+  It asks its clarifying questions first: `--answers <file>` answers them, `--preset
+  {efficient,balanced,thorough}` sets how many, `--for <target>` names where the result will
+  run, and `--try-on <input>` tests it on a real input.
+- **Any provider:** `proofhouse providers list` shows cloud and local providers (Ollama,
+  LM Studio, vLLM and llama.cpp need no key). Add any other OpenAI-format endpoint with
+  `proofhouse providers add <id> --base-url <url> --key-env <VAR>`; it is data, not code.
+  Media services for pictures, video, voice and music: `proofhouse media list`.
+- **No API key (host mode):** inside Claude Code, Cursor, Codex, Gemini CLI or Grok CLI, the
+  agent writes the work itself, and `proofhouse check <kind> <path>`, `proofhouse record` and
+  `proofhouse render video` check, keep and assemble it locally. The `proofhouse-host` skill
+  teaches that loop.
+- **Commands from made work** (MCP servers, hooks, app builds, fact-sheet commands) run only
+  with `--allow-commands`. They run with the user's rights; it is not a sandbox, so say so.
+- **Records:** `proofhouse case` for hand-run revisions and checks, `proofhouse compare` to
+  set versions side by side, `proofhouse loop` for repeating runs within limits.
 
-`structured_developer_v0` additionally requires `tool_permissions.allowed_tools` and
-`stop_conditions`.
+The structured compiler path is still there: `proofhouse closed-loop <input.json>
+[--repair-budget {0,1,2}] [--json]` takes requirements JSON (or `-` for stdin) and runs
+requirements -> IR -> adapter compile -> eval/repair -> evidence. `structured_developer_v0`
+additionally requires `tool_permissions.allowed_tools` and `stop_conditions`.
 
 ## Honesty gates
 
-The tested path is offline. Package is `proofhouse` 0.10.3 (`src/proofhouse/`).
-CLIs: `proofhouse` (eval harness) and `proofhouse-compiler` (compiler, including
-`route` / `assay` / `proof`, and the offline optimize / models / install-skill / demo
-commands; optimize renders packets and never calls a model; `demo` replays the
-reference advisory from package data).
-Approved profiles `structured_minimal_v0`, `structured_developer_v0`. Requirements
-compiler maturity is `PARTIAL`. `route` / `assay` / `proof` and media are experimental.
-`execute-openai` is fail-closed and opt-in: it sends every mandatory requirement or refuses,
-and it is experimental. Hosted/MissionRig commands are experimental and hidden behind
-`PROOFHOUSE_EXPERIMENTAL=1`; their tenant label is not isolation. Do not claim a hosted UI,
-live-default providers, or output quality.
+Package is `proofhouse` 0.10.3 (`src/proofhouse/`). Every paid call goes through the spending
+limit (spend gate): it refuses before sending when the worst-case cost is over `--max-cost-usd`
+or the model has no price. The shipped price table has no entries, so a paid model needs a
+price you declare with `proofhouse providers price`; dollar figures are estimates from those
+prices, not the provider's bill. Local providers can run at zero cost.
 
-A PASS from `optimize check` means every declared check passed on that exact revision and its
-recorded outputs, and every accepted constraint has a passing linked check. It does not mean
-the prompt is good in general. Model profiles cite no sources yet and are labeled
-`unverified`; say so when you rely on one. Public decisions are in `docs/decisions/`.
+A PASS from `proofhouse check` or `proofhouse case check` means every declared check passed on
+that exact version and its recorded outputs, and every accepted constraint has a passing linked
+check. It does not mean the work is good in general. A judge score is one model's opinion;
+checks that were not run are reported as not run, never as passed. Do not claim output
+quality, a hosted UI or results you have not seen.
 
-Fable parked remainder is CLOSED (2026-09-20): no IR v0.2, no 008 join, no
-CERTIFIED promotion, no hosted/MissionRig product. Do not describe any of
-these as pending. `execute-openai` refuses before sending when its worst-case
-cost estimate is over `--max-cost-usd` or the model has no price; the shipped
-price table has no entries yet, so it refuses every model. Its dollar figures
-are estimates from that table, not the provider's bill.
+Of the built-in model profiles, 10 cite sources (`sourced`); the rest are `unverified`. Say
+which label applies when you rely on one. Approved compiler profiles are
+`structured_minimal_v0` and `structured_developer_v0`; requirements compiler maturity is
+`PARTIAL`. `route` / `assay` / `proof` and `execute-openai` are experimental; `execute-openai`
+sends every mandatory requirement or refuses. Hosted/MissionRig commands stay hidden behind
+`PROOFHOUSE_EXPERIMENTAL=1`, and their tenant label is not isolation. Fable parked remainder
+is CLOSED (2026-09-20): no IR v0.2, no 008 join, no CERTIFIED promotion, no hosted/MissionRig
+product; do not describe any of these as pending. Public decisions are in `docs/decisions/`.
