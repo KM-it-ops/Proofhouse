@@ -2014,7 +2014,8 @@ def produce(
                     else:
                         data, problem = cleaned, None
                         production.checks.append({
-                            "render": "all", "check": "unreadable parts dropped", "ok": True,
+                            "render": "all", "check": "unreadable parts dropped",
+                            "ok": not any("left out" in d for d in dropped),
                             "detail": f"after {SCRIPT_FIXES} fixes these parts still could not be read, so stray text "
                                       f"and overlays or sounds the engine cannot draw are left out, and times and "
                                       f"paces play at their default: "

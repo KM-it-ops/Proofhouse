@@ -15,6 +15,10 @@
 - A speech, image, video or music service can be a program on your own machine: a `run` block in `media_providers.json` with the command as a list of words. A film can be voiced for free this way, for example with Kokoro. The program runs without a shell, is found on PATH only (never in the folder you run from), and a filled-in word that starts with `-` is refused rather than passed on as a switch.
 - Two more checks on every beat film: "something happens" (no quiet stretch over 3 seconds, and something happens in at least 85% of the film's seconds) and "real footage share" (recordings fill a third of the film at most).
 
+### Fixed
+
+- A storyboard layer or sound that had to be left out after the writer's fixes is now recorded as a failed check instead of passing.
+
 ## 0.10.3 - app goals, a zero ceiling and film shots from real captures
 
 ### Added
