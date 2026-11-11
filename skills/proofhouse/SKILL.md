@@ -8,7 +8,7 @@ description: Turns a plain-words request into a model-specific result -- a promp
 You say what you want and pick any model. Proofhouse asks one batch of questions, makes the
 thing, checks it, improves it and keeps every version. In chat it makes a ready-to-paste,
 model-specific prompt. With the `proofhouse` CLI installed it also makes and runs the real
-thing with any provider (see "The `proofhouse` CLI" below). Full spec, system-prompt text, and JSON schemas live in
+thing with any provider you list: shipped, local or one you add (see "The `proofhouse` CLI" below). Full spec, system-prompt text, and JSON schemas live in
 `references/proofhouse-framework.md` (human-readable) and
 `references/proofhouse-framework.json` (machine-readable) -- read whichever is more useful
 for the task at hand. An interactive version that runs the whole flow live (calling the
@@ -142,10 +142,11 @@ Run `proofhouse doctor` to check the setup and `proofhouse --help` for every com
   kind (an add-on's, or a new one the model researches first). It writes, checks, has a judge
   score each round and keeps the best. `--max-cost-usd` is required for a paid provider.
   It asks its clarifying questions first: `--answers <file>` answers them, `--preset
-  {efficient,balanced,thorough}` sets how many, `--for <target>` names where the result will
-  run, and `--try-on <input>` tests it on a real input.
+  {efficient,balanced,thorough}` sets how many, `--for <tool or model>` names what it is for,
+  `--input-file <file>` gives a real input to test on, and `--try-on PROVIDER/MODEL` picks the
+  model each version is tried on.
 - **Any provider:** `proofhouse providers list` shows cloud and local providers (Ollama,
-  LM Studio, vLLM and llama.cpp need no key). Add any other OpenAI-format endpoint with
+  LM Studio, vLLM and llama.cpp need no key). Add any other endpoint that speaks the OpenAI chat format with
   `proofhouse providers add <id> --base-url <url> --key-env <VAR>`; it is data, not code.
   Media services for pictures, video, voice and music: `proofhouse media list`.
 - **No API key (host mode):** inside Claude Code, Cursor, Codex, Gemini CLI or Grok CLI, the
@@ -167,12 +168,14 @@ additionally requires `tool_permissions.allowed_tools` and `stop_conditions`.
 Package is `proofhouse` 0.10.3 (`src/proofhouse/`). Every paid call goes through the spending
 limit (spend gate): it refuses before sending when the worst-case cost is over `--max-cost-usd`
 or the model has no price. The shipped price table has no entries, so a paid model needs a
-price you declare with `proofhouse providers price`; dollar figures are estimates from those
+price you declare: `proofhouse providers price` for text models, `proofhouse media price` for
+pictures, video, voice and music. Dollar figures are estimates from those
 prices, not the provider's bill. Local providers can run at zero cost.
 
-A PASS from `proofhouse check` or `proofhouse case check` means every declared check passed on
-that exact version and its recorded outputs, and every accepted constraint has a passing linked
-check. It does not mean the work is good in general. A judge score is one model's opinion;
+`proofhouse check <kind> <path>` runs the built-in checks for that kind on the files at that
+path, nothing more. A PASS from `proofhouse case check` means every declared check passed on that
+exact revision and its recorded outputs, and every accepted constraint has a passing linked
+check. Neither means the work is good in general. A judge score is one model's opinion;
 checks that were not run are reported as not run, never as passed. Do not claim output
 quality, a hosted UI or results you have not seen.
 
@@ -180,7 +183,7 @@ Of the built-in model profiles, 10 cite sources (`sourced`); the rest are `unver
 which label applies when you rely on one. Approved compiler profiles are
 `structured_minimal_v0` and `structured_developer_v0`; requirements compiler maturity is
 `PARTIAL`. `route` / `assay` / `proof` and `execute-openai` are experimental; `execute-openai`
-sends every mandatory requirement or refuses. Hosted/MissionRig commands stay hidden behind
+needs `--opt-in` and sends every mandatory requirement or refuses. Hosted/MissionRig commands stay hidden behind
 `PROOFHOUSE_EXPERIMENTAL=1`, and their tenant label is not isolation. Fable parked remainder
 is CLOSED (2026-09-20): no IR v0.2, no 008 join, no CERTIFIED promotion, no hosted/MissionRig
 product; do not describe any of these as pending. Public decisions are in `docs/decisions/`.
