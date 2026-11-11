@@ -1075,7 +1075,20 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
                 notes.append(f"beat {number} layer {layer} left out: it showed {', '.join(new)}, which the facts "
                              f"never give")
             else:
-                notes.append(f"beat {number}'s narration says {', '.join(new)}, which the facts never give")
+                row = board[number - 1]
+                kept = [s for s in storyboard.split_phrases(_spoken(row))
+                        if not ((_numbers(s) | _spelled(s)) & set(new))]
+                if kept:
+                    row["say"] = " ".join(kept)
+                    for key in ("layers", "sounds"):
+                        for item in row.get(key) or []:
+                            for field in ("at", "until"):
+                                match = _PHRASE_AT.match(str(item.get(field, ""))) if isinstance(item, dict) else None
+                                if match and int(match.group(1)) > len(kept):
+                                    item[field] = f"phrase {len(kept)} end"
+                else:
+                    board[number - 1] = quiet_rows([row], [0])[0]
+                notes.append(f"beat {number}'s narration no longer says {', '.join(new)}, which the facts never give")
         for number, row in enumerate(board, start=1):
             if row.get("layers"):
                 row["layers"] = [lay for i, lay in enumerate(row["layers"], start=1) if (number, i) not in drop]

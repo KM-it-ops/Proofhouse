@@ -1113,7 +1113,7 @@ def test_a_figure_the_facts_never_give_is_sent_back_and_left_out_at_the_last_cha
     assert any("beat 3's narration states 0.4" in g for g in gaps), gaps
     notes = studio.settle_gaps(board, **ask)
     assert [lay["kind"] for lay in board[2]["layers"]] == ["lower_third"]
-    assert board[2]["say"] == "Done in 0.4s."  # the narration stays; only what is drawn is left out
+    assert "say" not in board[2]
     assert any("beat 3 layer 2 left out" in n for n in notes), notes
 
 
