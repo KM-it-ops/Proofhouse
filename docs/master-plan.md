@@ -514,7 +514,7 @@ Release (phase B)
 #### Scope Boundaries
 
 - Not in this plan: new kinds, new providers, new media services, a hosted service.
-- `C:\AI\host-skills\skills\proofhouse` is never edited by hand; only the sync job writes it.
+- `skills/proofhouse` in the resq skills repo is never edited by hand; only the sync job writes it.
 - The existing host-mode `proofhouse record` (saves a version the host's model wrote) stays as it is.
 
 #### Open Questions
@@ -603,7 +603,7 @@ live-proof table rows are merged into this file by Claude, one unit at a time.
   naming the new one, and merge it.
 - Test scenarios: `resq:proofhouse` loads in a fresh Claude Code session.
 - Verification: each file inside `skills/proofhouse/proofhouse.skill` at that commit equals the same file
-  under `C:\AI\host-skills\skills\proofhouse` (line endings aside), and no extra files are there.
+  under `skills/proofhouse` in the resq skills repo (line endings aside), and no extra files are there.
 
 #### U3. Review v0.10.3 to main
 
