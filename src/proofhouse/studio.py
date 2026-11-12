@@ -546,6 +546,7 @@ def _spelled_spans(text: str) -> list[tuple[int, int, str]]:
                 nw = nxt.group(0).lower()
                 if (re.fullmatch(r"[\s-]+", text[tok.end():nxt.start()])
                         and (nw in _UNITS or nw in _TEENS or nw in _TENS)):
+                    end = tok.end()
                     i += 1
                     continue
             if w in _UNITS:
@@ -1160,23 +1161,21 @@ def _remap_anchor(value: Any, keep: list[int], is_until: bool) -> tuple[Any, int
     return f"phrase {len(keep)}", old
 
 
-def _remap_kept_phrases(row: dict[str, Any], keep: list[int]) -> None:
+def _remap_kept_phrases(row: dict[str, Any], keep: list[int], phrases: list[str] | None = None) -> None:
     """Keep overlay and sound times valid after dropping sentences not in ``keep`` (1-based)."""
-    probes: list[storyboard.Beat] = []
-    for sec in (0.2, 1.0, 4.0):
-        b = storyboard.Beat(
-            number=1,
-            phrases=[storyboard.Phrase(text="x", seconds=sec) for _ in keep],
-            hold=0.0,
-            base={"kind": "living"},
-            layers=[],
-            sounds=[],
-            energy="mid",
-            cut=None,
-            extras="off",
-        )
-        storyboard.time_beats([b])
-        probes.append(b)
+    lengths = [max(1.5, len(phrases[i - 1].split()) / SPEAKING_RATE) if phrases else 2.0 for i in keep]
+    probe = storyboard.Beat(
+        number=1,
+        phrases=[storyboard.Phrase(text="x", seconds=sec) for sec in lengths],
+        hold=0.0,
+        base={"kind": "living"},
+        layers=[],
+        sounds=[],
+        energy="mid",
+        cut=None,
+        extras="off",
+    )
+    storyboard.time_beats([probe])
     for key in ("layers", "sounds"):
         for item in row.get(key) or []:
             if not isinstance(item, dict):
@@ -1186,11 +1185,12 @@ def _remap_kept_phrases(row: dict[str, Any], keep: list[int]) -> None:
                 item["at"], old_at = _remap_anchor(item["at"], keep, False)
             if "until" in item:
                 item["until"], old_until = _remap_anchor(item["until"], keep, True)
+                if old_at is not None and old_at == old_until and old_at in keep:
+                    continue
                 ref = old_at or old_until or keep[0]
                 near = keep.index(min(keep, key=lambda k: abs(k - ref))) + 1
                 try:
-                    valid = all(storyboard.when(p, item["until"]) > storyboard.when(p, item.get("at", 0))
-                                for p in probes)
+                    valid = storyboard.when(probe, item["until"]) > storyboard.when(probe, item.get("at", 0))
                 except storyboard.StoryboardError:
                     valid = False
                 if not valid:
@@ -1236,7 +1236,7 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
                         if not ((_numbers(s) | _spelled_claims(s)) & set(new))]
                 if keep:
                     row["say"] = " ".join(phrases[i - 1] for i in keep)
-                    _remap_kept_phrases(row, keep)
+                    _remap_kept_phrases(row, keep, phrases)
                 else:
                     board[number - 1] = quiet_rows([row], [0])[0]
                 notes.append(f"beat {number}'s narration no longer says {', '.join(new)}, which the facts never give")

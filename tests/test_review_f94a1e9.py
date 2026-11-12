@@ -30,8 +30,8 @@ def test_a_spelled_out_figure_above_one_is_still_caught() -> None:
 
 
 def test_a_compound_spelled_figure_matching_the_facts_is_accepted() -> None:
-    facts = {**FACTS, "facts": ["Works with 25 providers and 200 templates."]}
-    board = [{"say": "Works with twenty-five providers and two hundred templates.",
+    facts = {**FACTS, "facts": ["Works with 25 providers, 200 templates and 205 checks."]}
+    board = [{"say": "Works with twenty-five providers, two hundred templates and two hundred and five checks.",
               "base": {"kind": "living"}}]
 
     assert studio._invented(board, BRIEF, facts) == []
@@ -45,7 +45,7 @@ def test_dropping_a_middle_sentence_keeps_later_timings_on_their_own_sentence(tm
          "layers": [
              {"kind": "lower_third", "title": "Write", "at": "phrase 1", "until": "phrase 2 end"},
              {"kind": "title", "text": "Only dropped", "at": "phrase 2", "until": "phrase 2 end"},
-             {"kind": "chips", "items": ["Ship", "Fast"], "at": "phrase 3", "until": "phrase 3 end"},
+             {"kind": "chips", "items": ["Ship", "Fast"], "at": "phrase 3 + 0.5", "until": "phrase 3 end"},
          ]},
         {"say": "Try Demo today.", "base": {"kind": "living"}},
     ]
@@ -55,7 +55,7 @@ def test_dropping_a_middle_sentence_keeps_later_timings_on_their_own_sentence(tm
     row = next(r for r in board if "Teams ship faster." in str(r.get("say", "")))
     assert "500" not in row["say"], row
     assert row["layers"][0]["at"] == "phrase 1" and row["layers"][0]["until"] == "phrase 1 end"
-    assert row["layers"][2]["at"] == "phrase 2" and row["layers"][2]["until"] == "phrase 2 end"
+    assert row["layers"][2]["at"] == "phrase 2 + 0.5" and row["layers"][2]["until"] == "phrase 2 end"
     beats = storyboard.parse(board, tmp_path)
     for beat in beats:
         for phrase in beat.phrases:
