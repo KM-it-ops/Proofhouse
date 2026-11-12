@@ -30,11 +30,14 @@ def test_a_spelled_out_figure_above_one_is_still_caught() -> None:
 
 
 def test_a_compound_spelled_figure_matching_the_facts_is_accepted() -> None:
-    facts = {**FACTS, "facts": ["Works with 25 providers, 200 templates and 205 checks."]}
-    board = [{"say": "Works with twenty-five providers, two hundred templates and two hundred and five checks.",
+    facts = {**FACTS, "facts": ["Works with 25 providers, 200 templates, 205 checks in 3.5 seconds."]}
+    board = [{"say": "Works with twenty-five providers, two hundred templates and two hundred and five checks in three point five seconds.",
               "base": {"kind": "living"}}]
 
     assert studio._invented(board, BRIEF, facts) == []
+    assert studio._invented([{"say": "Runs in zero point four seconds.", "base": {"kind": "living"}}], BRIEF, facts) == [
+        (1, None, ["0.4"])
+    ]
 
 
 def test_dropping_a_middle_sentence_keeps_later_timings_on_their_own_sentence(tmp_path: Path) -> None:
@@ -42,10 +45,12 @@ def test_dropping_a_middle_sentence_keeps_later_timings_on_their_own_sentence(tm
         {"say": "Meet Demo.", "base": {"kind": "living"}},
         {"say": "Demo writes prompts. It handles 500 requests a second. Teams ship faster.",
          "base": {"kind": "living"},
+         "hold": 8,
          "layers": [
              {"kind": "lower_third", "title": "Write", "at": "phrase 1", "until": "phrase 2 end"},
              {"kind": "title", "text": "Only dropped", "at": "phrase 2", "until": "phrase 2 end"},
              {"kind": "chips", "items": ["Ship", "Fast"], "at": "phrase 3 + 0.5", "until": "phrase 3 end"},
+             {"kind": "label", "text": "Held tail", "at": "phrase 3 end + 2", "until": "end"},
          ]},
         {"say": "Try Demo today.", "base": {"kind": "living"}},
     ]
@@ -56,12 +61,24 @@ def test_dropping_a_middle_sentence_keeps_later_timings_on_their_own_sentence(tm
     assert "500" not in row["say"], row
     assert row["layers"][0]["at"] == "phrase 1" and row["layers"][0]["until"] == "phrase 1 end"
     assert row["layers"][2]["at"] == "phrase 2 + 0.5" and row["layers"][2]["until"] == "phrase 2 end"
+    assert row["layers"][3]["at"] == "phrase 2 end + 2" and row["layers"][3]["until"] == "end"
     beats = storyboard.parse(board, tmp_path)
     for beat in beats:
         for phrase in beat.phrases:
             phrase.seconds = 1.0
     storyboard.time_beats(beats)
     assert storyboard.scenes(beats, (1920, 1080))
+
+
+def test_a_prompted_layer_asking_for_a_screen_or_text_is_cleaned() -> None:
+    board = [{"say": "Meet Demo.", "base": {"kind": "living"},
+              "layers": [{"kind": "image", "prompt": "a terminal screen showing a success message", "at": 0}]}]
+
+    gaps = studio.script_gaps(board, brief=BRIEF, seconds=12, facts=FACTS, footage=[], voiced=True, pictures=True)
+    assert any("beat 1 layer 1's picture prompt" in g for g in gaps), gaps
+    studio.settle_gaps(board, brief=BRIEF, seconds=12, facts=FACTS, footage=[], voiced=True, pictures=True)
+    prompt = board[0]["layers"][0]["prompt"]
+    assert not studio.screen_shown(prompt) and not studio._asks_text(prompt), prompt
 
 
 def _fake_media(kind, provider, model, *, out, **kwargs):

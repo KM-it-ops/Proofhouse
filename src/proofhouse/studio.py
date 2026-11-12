@@ -587,7 +587,25 @@ def _spelled_spans(text: str) -> list[tuple[int, int, str]]:
                 break
             end = tok.end()
             i += 1
-        spans.append((start, end, str(total + current)))
+        if (i + 1 < len(tokens) and tokens[i].group(0).lower() == "point"
+                and re.fullmatch(r"[\s-]+", text[end:tokens[i].start()])
+                and re.fullmatch(r"[\s-]+", text[tokens[i].end():tokens[i + 1].start()])
+                and tokens[i + 1].group(0).lower() in _UNITS):
+            i += 1
+            frac: list[str] = []
+            while i < len(tokens):
+                dtok = tokens[i]
+                dw = dtok.group(0).lower()
+                if frac and not re.fullmatch(r"[\s-]+", text[end:dtok.start()]):
+                    break
+                if dw not in _UNITS:
+                    break
+                frac.append(str(_UNITS[dw]))
+                end = dtok.end()
+                i += 1
+            spans.append((start, end, f"{total + current}.{''.join(frac)}"))
+        else:
+            spans.append((start, end, str(total + current)))
     return spans
 
 
@@ -973,14 +991,25 @@ def screen_shown(prompt: str) -> str:
     return next((word for word in _subject_words(prompt) if word in _SCREENS), "")
 
 
+def _prompt_text_asks(prompt: str) -> list[str]:
+    screen = screen_shown(prompt)
+    return ([f"a {screen}"] if screen else []) + _asks_text(prompt)
+
+
+def _clean_layer_prompt(board: list[dict[str, Any]], number: int, prompt: str, turn: int = 0) -> str:
+    if screen_shown(prompt):
+        return scene_for(board, number, SCENE_FRAMINGS[turn % len(SCENE_FRAMINGS)])
+    if _asks_text(prompt):
+        return _without_text(prompt) or scene_for(board, number)
+    return prompt
+
+
 def text_asks(board: list[dict[str, Any]]) -> list[tuple[int, list[str]]]:
     """The beats (from 1) whose picture prompt asks for lettering, or is of a screen, with what it asks for."""
     found = []
     for n, row in enumerate(board, start=1):
         if row["base"]["kind"] == "generate":
-            prompt = str(row["base"].get("prompt", ""))
-            screen = screen_shown(prompt)
-            asked = ([f"a {screen}"] if screen else []) + _asks_text(prompt)
+            asked = _prompt_text_asks(str(row["base"].get("prompt", "")))
             if asked:
                 found.append((n, asked))
     return found
@@ -1106,6 +1135,17 @@ def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
                       "instead of a screen") if screen_shown(str(board[number - 1]["base"].get("prompt", ""))) else ""
             gaps.append(f"beat {number}'s picture prompt asks for {', '.join(asked)}: describe a scene with no "
                         f"writing in it, because a picture model draws words as made-up text{screen}")
+        for number, row in enumerate(board, start=1):
+            for index, lay in enumerate(row.get("layers") or [], start=1):
+                if (isinstance(lay, dict) and lay.get("kind") in ("image", "video") and "file" not in lay
+                        and isinstance(lay.get("prompt"), str)):
+                    asked = _prompt_text_asks(lay["prompt"])
+                    if asked:
+                        screen = (" and fills any screen with them, so show the people, hands and places around the "
+                                  "work instead of a screen") if screen_shown(lay["prompt"]) else ""
+                        gaps.append(f"beat {number} layer {index}'s picture prompt asks for {', '.join(asked)}: "
+                                    f"describe a scene with no writing in it, because a picture model draws words as "
+                                    f"made-up text{screen}")
     for number, words, echoes in narration_slips(board):
         if words:
             gaps.append(f"beat {number}'s narration says {', '.join(words)}, which sounds like an advert, not a person: "
@@ -1163,11 +1203,13 @@ def _remap_anchor(value: Any, keep: list[int], is_until: bool) -> tuple[Any, int
 
 def _remap_kept_phrases(row: dict[str, Any], keep: list[int], phrases: list[str] | None = None) -> None:
     """Keep overlay and sound times valid after dropping sentences not in ``keep`` (1-based)."""
+    total = len(phrases) if phrases else max(keep, default=1)
+    dropped = set(range(1, total + 1)) - set(keep)
     lengths = [max(1.5, len(phrases[i - 1].split()) / SPEAKING_RATE) if phrases else 2.0 for i in keep]
     probe = storyboard.Beat(
         number=1,
         phrases=[storyboard.Phrase(text="x", seconds=sec) for sec in lengths],
-        hold=0.0,
+        hold=float(row.get("hold") or 0.0),
         base={"kind": "living"},
         layers=[],
         sounds=[],
@@ -1185,7 +1227,15 @@ def _remap_kept_phrases(row: dict[str, Any], keep: list[int], phrases: list[str]
                 item["at"], old_at = _remap_anchor(item["at"], keep, False)
             if "until" in item:
                 item["until"], old_until = _remap_anchor(item["until"], keep, True)
-                if old_at is not None and old_at == old_until and old_at in keep:
+                shrunk = (
+                    (old_at is not None and old_at not in keep)
+                    or (old_until is not None and old_until not in keep)
+                    or (old_at is not None and old_until is not None
+                        and any(old_at < d < old_until for d in dropped))
+                    or (old_at is None and old_until is not None
+                        and any(d < old_until for d in dropped))
+                )
+                if not shrunk:
                     continue
                 ref = old_at or old_until or keep[0]
                 near = keep.index(min(keep, key=lambda k: abs(k - ref))) + 1
@@ -1252,6 +1302,15 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
                 base["prompt"] = _without_text(base["prompt"]) or scene_for(board, number)
             notes.append(f"beat {number}'s picture prompt no longer asks for {', '.join(asked)}, which a picture "
                          f"model draws as made-up text")
+        for number, row in enumerate(board, start=1):
+            for index, lay in enumerate(row.get("layers") or [], start=1):
+                if (isinstance(lay, dict) and lay.get("kind") in ("image", "video") and "file" not in lay
+                        and isinstance(lay.get("prompt"), str)):
+                    asked = _prompt_text_asks(lay["prompt"])
+                    if asked:
+                        lay["prompt"] = _clean_layer_prompt(board, number, lay["prompt"], number + index)
+                        notes.append(f"beat {number} layer {index}'s picture prompt no longer asks for "
+                                     f"{', '.join(asked)}, which a picture model draws as made-up text")
     for number, words, echoes in narration_slips(board):
         row = board[number - 1]
         if echoes:  # a sentence about the rules says nothing to the viewer, so it goes
@@ -2304,7 +2363,8 @@ def produce(
                         lkind = lay["kind"]
                         lparams = ({"seconds": max(2, min(10, math.ceil(beat.frames / beat.fps)))} if lkind == "video"
                                    else {"size": "1792x1024"})
-                        lfile = make_media(lkind, visual_provider, visual_model, picture_prompt(lay["prompt"], look),
+                        lprompt = _clean_layer_prompt(board, number, lay["prompt"], number + index)
+                        lfile = make_media(lkind, visual_provider, visual_model, picture_prompt(lprompt, look),
                                            out_dir / "shots" / f"beat-{number:02d}-layer-{index:02d}", lparams)
                         row["layers"][index - 1] = {**{k: v for k, v in lay.items() if k != "prompt"},
                                                     "file": Path(lfile).relative_to(out_dir).as_posix()}
