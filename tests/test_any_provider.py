@@ -235,6 +235,7 @@ def test_the_bytes_sent_are_the_bytes_counted(monkeypatch: pytest.MonkeyPatch) -
 
 
 def test_cli_run_prints_the_output_and_a_cost_line(capsys, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
     monkeypatch.setattr(live, "_httpx_post", lambda request: live.Response(200, Recorder().payload))
     code, out, err = front(["run", "--provider", "ollama", "--model", "llama3", "--prompt", "hi"], capsys)
     assert code == 0 and out == "hello back\n"
