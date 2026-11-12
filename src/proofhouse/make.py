@@ -497,7 +497,7 @@ def make(
             result.rounds.append(Round(version, current, output, score, missing, fix))
             if kind not in ("site", "app", "rule", "mcp", "hook"):
                 (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
-            if score is not None and score >= target:
+            if score is not None and score >= target and _written(folder, kind, version):
                 result.stopped = f"reached score {score} (target {target})"
                 break
             if version == rounds:
@@ -581,14 +581,17 @@ CHECKED_KINDS = ("site", "app", "rule", "mcp", "hook")
 
 
 def _written(folder: Path, kind: str, version: int) -> bool:
-    """False when this version's checks say the model's reply could not be written at all."""
+    """Only versions with no failed deterministic checks qualify for delivery.
+
+    Unmeasured checks remain unmeasured; they do not count as passes.
+    """
     if kind not in CHECKED_KINDS:
         return True
     try:
         checks: list[dict[str, Any]] = json.loads((folder / f"v{version}" / "checks.json").read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return False
-    return not any(c.get("ok") is False and c.get("check") in (f"{kind} written", "site written") for c in checks)
+    return bool(checks) and not any(c.get("ok") is False for c in checks)
 
 
 SITE_JUDGE_CHARS = 40_000

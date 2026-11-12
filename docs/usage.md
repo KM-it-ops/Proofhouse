@@ -27,6 +27,43 @@ proofhouse render video ./my-video --formats 16x9,9x16,1x1
 
 Install the teaching skill with `proofhouse install-skill --skill proofhouse-host` (or copy `skills/proofhouse-host/` into your agent's skills folder). Scores on `record` are the agent's own advice; a second agent as judge is better when you have one.
 
+### Authenticated local agent bridge
+
+`proofhouse agent-server codex` (also `claude` or `grok`) asks every request for a private token.
+You do not have to make one. Start the server and add the provider once:
+
+```powershell
+proofhouse agent-server codex
+proofhouse providers add agent-codex --base-url http://127.0.0.1:11802/v1 --key-env PROOFHOUSE_AGENT_TOKEN
+```
+
+When `PROOFHOUSE_AGENT_TOKEN` is not set, the server makes a token, saves it to a file only you can
+read in your Proofhouse settings folder, and prints the file's path with the one line that loads it
+into the shell that will call the bridge (PowerShell and bash forms). The token itself is never
+printed. To use your own token, set `PROOFHOUSE_AGENT_TOKEN` in both shells before starting; never
+put its value in a command argument, repository, or provider file.
+
+The server refuses missing or incorrect bearer tokens and browser-origin requests. It accepts
+JSON bodies up to 1 MB. Binding to localhost alone does not authenticate the caller. The
+bridge consumes the agent account's allowance; a zero dollar estimate does not measure that allowance.
+
+### Delivery and loop file limits
+
+For generated sites, apps, rules, MCP servers and hooks, a failed deterministic check prevents
+that version from being delivered, even when the judge gives it a high score. Failed versions
+and their checks remain in the version folders for diagnosis. A check that did not run is
+still unmeasured; delivery does not turn it into a pass.
+
+Loop file actions refuse common credential files (`.env`, `.env.*`, private key formats, `auth.json`,
+`credentials`, `credentials.json`) and repository metadata or credential folders.
+This is a guard against common accidental disclosure and persistent hooks, not filesystem isolation.
+An allowed shell command still runs with your rights. Arbitrarily named secrets and editable check
+scripts need separate protection; do not treat a loop's own editable tests as an independent oracle.
+
+Model and media transports refuse automatic redirects. A media service that returns a redirect must
+be configured with its direct endpoint; Proofhouse does not replay a paid request or forward keys
+to the redirected destination. Redirects while polling or fetching a media asset are also refused.
+
 A check that did not run (no `--allow-commands`, no browser, a browser that got stuck) shows as `NOT MEASURED` and never counts as passed. `check` and `record` exit 0 when every check ran and passed, 1 when something failed, and 3 when nothing failed but something was not measured; `record` saves that version as "not measured" and delivers it only while no version has passed.
 
 ### What the quality checks catch

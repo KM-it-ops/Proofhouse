@@ -310,7 +310,7 @@ def _headers(profile: MediaProvider, secret: str | None) -> dict[str, str]:
     return headers
 
 
-def _httpx_post(request: MediaRequest, *, follow_redirects: bool = True) -> MediaResponse:
+def _httpx_post(request: MediaRequest, *, follow_redirects: bool = False) -> MediaResponse:
     try:
         import httpx
     except ImportError:
@@ -320,7 +320,7 @@ def _httpx_post(request: MediaRequest, *, follow_redirects: bool = True) -> Medi
         return _as_response(reply)
 
 
-def _httpx_get(url: str, headers: dict[str, str], *, follow_redirects: bool = True) -> MediaResponse:
+def _httpx_get(url: str, headers: dict[str, str], *, follow_redirects: bool = False) -> MediaResponse:
     """A plain read (job status, finished file). It sends no body and costs nothing."""
     try:
         import httpx
@@ -410,7 +410,9 @@ def generate(
             return _refused("PHC-RUN-0002", "name a spending limit for a paid service (--max-cost-usd)", profile.id, model, kind)
         max_cost_usd = "0.000000000001"
     headers = _headers(profile, secret)
-    follow = profile.origin != "add-on learned"
+    # One admission authorizes one destination. Redirects can replay a paid POST
+    # or forward a custom credential header to a different service.
+    follow = False
     read = get or (lambda url, hdrs: _httpx_get(url, hdrs, follow_redirects=follow))
     asked = {**(params or {}), "prompt": prompt}
     target = None
@@ -547,7 +549,7 @@ def _wait_and_fetch(profile: MediaProvider, response: MediaResponse, headers: di
         if profile.origin == "add-on learned" and not _same_service_url(profile, url):
             raise MediaError(f"{profile.name} gave an address that is not https on its own host: {url}")
         answer = read(url, request_headers)
-        if profile.origin == "add-on learned" and (answer.location or 300 <= answer.status_code < 400):
+        if answer.location or 300 <= answer.status_code < 400:
             raise MediaError(f"{profile.name} redirected to {answer.location or 'another address'}; nothing was sent there")
         return answer
 

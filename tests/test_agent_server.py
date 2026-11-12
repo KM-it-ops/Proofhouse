@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import urllib.error
 import urllib.request
@@ -11,6 +12,11 @@ from pathlib import Path
 import pytest
 
 from proofhouse import agent_server, live, providers
+
+
+@pytest.fixture(autouse=True)
+def bridge_token(monkeypatch):
+    monkeypatch.setenv(agent_server.TOKEN_ENV, "synthetic-test-bridge-token")
 
 
 class FakeRunner:
@@ -101,24 +107,61 @@ def test_every_request_needs_the_token_and_a_wrong_one_runs_nothing(served) -> N
     assert status == 200 and len(runner.calls) == 1
 
 
-def test_the_token_can_come_from_the_environment(served) -> None:
-    import os
+def test_the_token_can_come_from_the_environment(served, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv(agent_server.TOKEN_ENV, "env-token-123")
+    server, base = served("codex", FakeRunner())
+    assert server.token == "env-token-123" and server.token_file is None
+    assert _post(base, {"model": "m", "messages": [{"role": "user", "content": "x"}]}, token="env-token-123")[0] == 200
+    assert _post(base, {"model": "m", "messages": [{"role": "user", "content": "x"}]}, token="nope")[0] == 401
 
-    os.environ["PROOFHOUSE_AGENT_SERVER_TOKEN"] = "env-token-123"
-    try:
-        server, base = served("codex", FakeRunner())
-        assert server.token == "env-token-123"
-        assert _post(base, {"model": "m", "messages": [{"role": "user", "content": "x"}]}, token="env-token-123")[0] == 200
-        assert _post(base, {"model": "m", "messages": [{"role": "user", "content": "x"}]}, token="nope")[0] == 401
-    finally:
-        del os.environ["PROOFHOUSE_AGENT_SERVER_TOKEN"]
+
+def test_with_no_token_named_one_is_saved_to_a_private_file_and_never_printed(
+    served, tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path))
+    monkeypatch.delenv(agent_server.TOKEN_ENV, raising=False)
+    runner = FakeRunner()
+    server, base = served("codex", runner)
+    saved = (tmp_path / agent_server.TOKEN_FILE).read_text(encoding="utf-8").strip()
+    assert len(saved) >= 32 and server.token == saved and server.token_file == tmp_path / agent_server.TOKEN_FILE
+    assert _post(base, {"model": "m", "messages": [{"role": "user", "content": "x"}]}, token=None)[0] == 401
+    assert runner.calls == []
+    assert _post(base, {"model": "m", "messages": [{"role": "user", "content": "x"}]}, token=saved)[0] == 200
+    # a second start reuses the same token, so a provider added once keeps working
+    again, _ = served("codex", FakeRunner())
+    assert again.token == saved
+
+
+def test_the_start_message_names_the_token_file_and_both_shells_but_not_the_token(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path))
+    monkeypatch.delenv(agent_server.TOKEN_ENV, raising=False)
+
+    def stop_at_once(self) -> None:
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(agent_server.ThreadingHTTPServer, "serve_forever", stop_at_once)
+    import argparse
+
+    assert agent_server._cmd_agent_server(argparse.Namespace(agent="codex", port=0, timeout=5.0)) == 0
+    out = capsys.readouterr().out
+    saved = (tmp_path / agent_server.TOKEN_FILE).read_text(encoding="utf-8").strip()
+    assert saved not in out
+    assert str(tmp_path / agent_server.TOKEN_FILE) in out
+    assert "PowerShell" in out and "bash" in out and agent_server.TOKEN_ENV in out
+
+
+def test_the_bridge_note_names_the_real_variable_not_a_placeholder() -> None:
+    _, note = agent_server.bridge_notes("agent-codex")
+    assert agent_server.TOKEN_ENV in note and "{TOKEN_ENV}" not in note
 
 
 def test_an_oversized_body_is_refused_before_it_is_read(served) -> None:
     runner = FakeRunner()
     server, base = served("codex", runner)
     status, payload = _post(base, {"model": "m", "messages": [{"role": "user", "content": "x"}]}, token=server.token,
-                            raw_headers={"Content-Length": str(agent_server.MAX_BODY_BYTES + 1)})
+                            raw_headers={"Content-Length": str(agent_server.MAX_REQUEST_BYTES + 1)})
     assert status == 413
     assert runner.calls == []
 
@@ -134,13 +177,12 @@ def test_proofhouse_run_prompt_works_through_the_bridge_with_the_token_and_no_ve
     served, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path))
-    monkeypatch.setenv("PROOFHOUSE_AGENT_SERVER_TOKEN", "bridge-token-abc")
+    monkeypatch.setenv(agent_server.TOKEN_ENV, "bridge-token-abc")
     server, base = served("codex", FakeRunner("a made thing"))
     assert server.token == "bridge-token-abc"
     providers.save_user(
-        {"schema": providers.PROVIDERS_SCHEMA,
-         "providers": [{"id": "bridge-test", "base_url": base, "key_env": "PROOFHOUSE_AGENT_SERVER_TOKEN"}],
-         "prices": [], "media_prices": [], "training_prices": []}
+        {"schema": providers.PROVIDERS_SCHEMA, "providers": [{"id": "bridge-test", "base_url": base, "key_env": agent_server.TOKEN_ENV}], "prices": [],
+         "media_prices": [], "training_prices": []}
     )
     result = live.run_prompt("bridge-test", "codex", prompt="Make a thing.")
     assert result.status == "success", result.message

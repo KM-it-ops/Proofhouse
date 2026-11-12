@@ -135,9 +135,13 @@ def _httpx_post(request: Request) -> Response:
         import urllib.error
         import urllib.request
 
+        class NoRedirect(urllib.request.HTTPRedirectHandler):
+            def redirect_request(self, req, fp, code, msg, headers, newurl):
+                return None
+
         sent = urllib.request.Request(request.url, data=request.body_bytes, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(sent, timeout=timeout) as answer:
+            with urllib.request.build_opener(NoRedirect).open(sent, timeout=timeout) as answer:
                 status, raw = answer.status, answer.read()
         except urllib.error.HTTPError as exc:  # a 4xx or 5xx is still an answer to read
             status, raw = exc.code, exc.read()
