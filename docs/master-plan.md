@@ -575,14 +575,14 @@ Release (phase B)
 #### Open Questions
 
 - Q1 (decide before U9): does 1.0 add a screen-recording command? `proofhouse record` is taken by host
-  mode, so the name would be `proofhouse screen-record`. Default: add it, because the repo rule is one
-  front door.
-- Q2 (decide before U8): do the paid services stay "not run live" in 1.0? Default: yes. A "no" adds their
-  live runs to U8, with the owner's keys and ceiling.
+  mode, so the name would be `proofhouse screen-record`. **Owner, 2026-11-11: yes, add it.**
+- Q2 (decide before U8): do the paid services stay "not run live" in 1.0? **Owner, 2026-11-11: yes, they
+  stay "not run live".**
 - Q3 (decide after U5): ship an interim 0.11.0 so PyPI has the `make` interview before 1.0?
-  Default: no.
-- Q4 (decide before U7): the least 1.0 Stable accepts. Default: the app kind scores at least 7/10 with
-  every Proofhouse-caused failure fixed; at least two of the three providers in R8 pass live.
+  **Owner, 2026-11-11: no.**
+- Q4 (decide before U7): the least 1.0 Stable accepts. **Owner, 2026-11-11: the default**: the app kind
+  scores at least 7/10 with every Proofhouse-caused failure fixed; at least two of the three providers in
+  R8 pass live.
 
 ### Planning Contract
 
