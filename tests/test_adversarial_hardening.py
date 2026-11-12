@@ -77,21 +77,47 @@ def test_stdlib_fallback_does_not_forward_dummy_bearer_to_redirect_destination(m
             thread.join()
 
 
-def test_high_judge_score_cannot_deliver_site_with_known_broken_link(tmp_path, monkeypatch):
-    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
-    monkeypatch.setattr(sitecheck, "find_browser", lambda: None)
-    page = '<html lang="en"><head><title>Review</title><meta name="viewport" content="width=device-width"></head><body><a href="missing.html">Broken</a></body></html>'
+_PAGE = '<html lang="en"><head><title>Review</title><meta name="viewport" content="width=device-width"></head><body>{body}</body></html>'
+_BROKEN = _PAGE.format(body='<a href="missing.html">Broken</a>')
+_SOUND = _PAGE.format(body="<h1>Review</h1><p>Welcome.</p>")
+
+
+def _site_model(pages, scores):
+    """A stand-in model: page N for the Nth write or revise, score N for the Nth judging."""
+    made, judged = [], []
     def model(request):
         text = json.loads(request.body_bytes)["messages"][0]["content"]
-        content = json.dumps({"score": 10, "missing": [], "fix": ""}) if text.startswith("You judge AI work") else json.dumps({"files": {"index.html": page}})
+        if text.startswith("You judge AI work"):
+            judged.append(1)
+            content = json.dumps({"score": scores[len(judged) - 1], "missing": [], "fix": ""})
+        else:
+            made.append(1)
+            content = json.dumps({"files": {"index.html": pages[min(len(made), len(pages)) - 1]}})
         return live.Response(200, {"choices": [{"message": {"content": content}}], "usage": {"prompt_tokens": 1, "completion_tokens": 1}})
+    return model
+
+
+def test_high_judge_score_cannot_stop_early_on_a_site_with_a_known_broken_link(tmp_path, monkeypatch):
+    # 108: draft 106 also delivered nothing here. A failed check now blocks the early stop and loses to any version
+    # that passes, but when every version has one the best is still handed over, with the failure on record.
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    monkeypatch.setattr(sitecheck, "find_browser", lambda: None)
     made = make.make("a usable website", provider_id="ollama", model="synthetic", kind="site", rounds=3,
-                     out_dir=tmp_path / "result", transport=model)
+                     out_dir=tmp_path / "result", transport=_site_model([_BROKEN], [10, 10, 10]))
     checks = json.loads((made.folder / "v1" / "checks.json").read_text())
     assert any(c["ok"] is False for c in checks)
-    assert made.best_version is None and len(made.rounds) == 3
-    assert made.stopped == "rounds used up"
-    assert not (made.folder / "site").exists()
+    assert len(made.rounds) == 3 and made.stopped == "rounds used up"
+    assert made.best_version == 3 and (made.folder / "site" / "index.html").is_file()
+
+
+def test_a_version_that_passes_its_checks_beats_a_higher_scored_one_that_does_not(tmp_path, monkeypatch):
+    monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path / "home"))
+    monkeypatch.setattr(sitecheck, "find_browser", lambda: None)
+    made = make.make("a usable website", provider_id="ollama", model="synthetic", kind="site", rounds=2, target=11,
+                     out_dir=tmp_path / "result", transport=_site_model([_BROKEN, _SOUND], [10, 6]))
+    assert [r.score for r in made.rounds] == [10, 6]
+    assert made.best_version == 2
+    assert "missing.html" not in (made.folder / "site" / "index.html").read_text(encoding="utf-8")
 
 
 def test_loop_cannot_read_dotenv_into_next_prompt(tmp_path):

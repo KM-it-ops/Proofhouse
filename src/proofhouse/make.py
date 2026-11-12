@@ -497,7 +497,7 @@ def make(
             result.rounds.append(Round(version, current, output, score, missing, fix))
             if kind not in ("site", "app", "rule", "mcp", "hook"):
                 (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
-            if score is not None and score >= target and _written(folder, kind, version):
+            if score is not None and score >= target and _checks_pass(folder, kind, version):
                 result.stopped = f"reached score {score} (target {target})"
                 break
             if version == rounds:
@@ -514,7 +514,9 @@ def make(
     # A version whose reply could not be written is never the one made, whatever the judge scored it.
     usable = [r for r in result.rounds if _written(folder, kind, r.version)]
     scored = [r for r in usable if r.score is not None]
-    best = max(scored, key=lambda r: (r.score, r.version)) if scored else (usable[-1] if usable else None)
+    # A version whose built-in checks all pass beats one with a failed check, whatever the judge said; then score.
+    best = (max(scored, key=lambda r: (_checks_pass(folder, kind, r.version), r.score, r.version)) if scored
+            else (max(usable, key=lambda r: (_checks_pass(folder, kind, r.version), r.version)) if usable else None))
     if best is not None:
         result.best_version, result.best_score = best.version, best.score
         if kind == "app":
@@ -580,17 +582,33 @@ def _site_files(text: str) -> dict[str, str]:
 CHECKED_KINDS = ("site", "app", "rule", "mcp", "hook")
 
 
-def _written(folder: Path, kind: str, version: int) -> bool:
-    """Only versions with no failed deterministic checks qualify for delivery.
+def _checks(folder: Path, kind: str, version: int) -> list[dict[str, Any]] | None:
+    try:
+        checks = json.loads((folder / f"v{version}" / "checks.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    return checks if isinstance(checks, list) else None
 
-    Unmeasured checks remain unmeasured; they do not count as passes.
+
+def _written(folder: Path, kind: str, version: int) -> bool:
+    """False when this version's checks say the model's reply could not be written at all."""
+    if kind not in CHECKED_KINDS:
+        return True
+    checks = _checks(folder, kind, version)
+    if checks is None:
+        return False
+    return not any(c.get("ok") is False and c.get("check") in (f"{kind} written", "site written") for c in checks)
+
+
+def _checks_pass(folder: Path, kind: str, version: int) -> bool:
+    """True when none of this version's built-in checks failed. A check that could not be measured is not a failure.
+
+    A high judge score never stops the rounds early on a version with a failed check, and such a version is only
+    delivered when no version passed them all.
     """
     if kind not in CHECKED_KINDS:
         return True
-    try:
-        checks: list[dict[str, Any]] = json.loads((folder / f"v{version}" / "checks.json").read_text(encoding="utf-8"))
-    except (OSError, ValueError):
-        return False
+    checks = _checks(folder, kind, version)
     return bool(checks) and not any(c.get("ok") is False for c in checks)
 
 
