@@ -62,7 +62,9 @@ def test_nothing_is_sent_when_the_check_already_passes(tmp_path: Path, project: 
 
 def test_commands_need_your_permission_and_keys_never_leave(tmp_path: Path, project: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GROQ_API_KEY", "gsk-very-secret-value")
-    echo = {"actions": [{"run": f'{PY} -c "import os; print(os.environ[\'GROQ_API_KEY\'])"'}], "summary": "ran it"}
+    monkeypatch.setenv("GH_TOKEN", "ghp-other-secret-value")
+    echo = {"actions": [{"run": f'{PY} -c "import os; print(os.environ.get(\'GROQ_API_KEY\', \'NOT-SET\')); print(os.environ.get(\'GH_TOKEN\', \'NOT-SET\'))"'}],
+            "summary": "ran it"}
     off = Agent(echo, {"done": True, "summary": "ok"})
     loop.run_loop("x", provider_id="ollama", model="m", workdir=project, out_dir=tmp_path / "a", transport=off)
     assert "running commands is switched off" in off.seen[1]
@@ -72,9 +74,37 @@ def test_commands_need_your_permission_and_keys_never_leave(tmp_path: Path, proj
     on = Agent(echo, {"done": True, "summary": "ok"})
     loop.run_loop("x", provider_id="ollama", model="m", workdir=project, allow_commands=True, out_dir=tmp_path / "b", transport=on)
     first = json.loads((tmp_path / "b" / "rounds.jsonl").read_text(encoding="utf-8").splitlines()[0])
-    assert first["actions"][0]["ok"] is True and "[redacted]" in first["actions"][0]["result"]
-    assert all("gsk-very-secret-value" not in seen for seen in on.seen)
-    assert "gsk-very-secret-value" not in (tmp_path / "b" / "rounds.jsonl").read_text(encoding="utf-8")
+    # the agent's own command never even sees the keys: its environment holds no secret-named variable
+    assert first["actions"][0]["ok"] is True and first["actions"][0]["result"].count("NOT-SET") == 2
+    for secret in ("gsk-very-secret-value", "ghp-other-secret-value"):
+        assert all(secret not in seen for seen in on.seen)
+        assert secret not in (tmp_path / "b" / "rounds.jsonl").read_text(encoding="utf-8")
+
+
+def test_check_output_is_scrubbed_of_secret_named_values_before_it_goes_anywhere(
+    tmp_path: Path, project: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("GH_TOKEN", "ghp-check-secret-value")
+    check = f'{PY} -c "import os; print(os.environ[\'GH_TOKEN\']); raise SystemExit(1)"'
+    agent = Agent({"actions": [], "done": True, "summary": "ok"})
+    loop.run_loop("x", provider_id="ollama", model="m", workdir=project, check=check, max_rounds=2, out_dir=tmp_path / "r", transport=agent)
+    assert "[redacted]" in agent.seen[0]  # the check's output reached the model only scrubbed
+    assert all("ghp-check-secret-value" not in seen for seen in agent.seen)
+    assert "ghp-check-secret-value" not in (tmp_path / "r" / "rounds.jsonl").read_text(encoding="utf-8")
+
+
+def test_a_passing_check_stops_the_loop_even_with_a_watch(tmp_path: Path, project: Path) -> None:
+    agent = Agent()
+    made = loop.run_loop("x", provider_id="ollama", model="m", workdir=project, check=f'{PY} -c "print(1)"',
+                         watch=f'{PY} -c "print(1)"', every=60, out_dir=tmp_path / "r", transport=agent)
+    assert made.stopped == "check passed" and made.done and made.calls == 0 and agent.seen == []
+
+
+def test_the_agent_saying_done_stops_the_loop_with_a_watch_and_no_check(tmp_path: Path, project: Path) -> None:
+    agent = Agent({"actions": [], "done": True, "summary": "all set"})
+    made = loop.run_loop("x", provider_id="ollama", model="m", workdir=project, watch=f'{PY} -c "print(1)"',
+                         every=60, out_dir=tmp_path / "r", transport=agent)
+    assert made.stopped == "the agent says it is done: all set" and made.done and made.calls == 1
 
 
 def test_the_agent_cannot_write_outside_its_folder(tmp_path: Path, project: Path) -> None:

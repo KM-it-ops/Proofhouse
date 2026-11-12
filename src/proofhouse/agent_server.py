@@ -1,10 +1,11 @@
 """Use a coding agent you are already logged in to (Claude Code, Codex, Grok) as a model provider.
 
-``proofhouse agent-server codex`` starts a small server on this machine only. It speaks the
-OpenAI chat shape, so any Proofhouse command that takes a provider can point at it. Each
-request is one headless call to the agent's own command line, billed to that agent's plan,
-not metered per call. Agents are data in ``data/agent_commands.json``; add your own in
-``PROOFHOUSE_HOME/agent_commands.json`` with no code change.
+``proofhouse agent-server codex`` starts a small server on this machine only (127.0.0.1) and asks every
+request for a bearer token it prints when it starts (``PROOFHOUSE_AGENT_SERVER_TOKEN``, or a random one), so
+another local process cannot trigger agent runs. It speaks the OpenAI chat shape, so any Proofhouse command
+that takes a provider can point at it. Each request is one headless call to the agent's own command line,
+billed to that agent's plan, not metered per call. Agents are data in ``data/agent_commands.json``; add your
+own in ``PROOFHOUSE_HOME/agent_commands.json`` with no code change.
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import shutil
 import subprocess
 import tempfile
@@ -25,6 +27,8 @@ from . import providers
 SHIPPED_PATH = Path(__file__).resolve().parent / "data" / "agent_commands.json"
 HOST = "127.0.0.1"
 DEFAULT_TIMEOUT_SECONDS = 600.0
+TOKEN_ENV = "PROOFHOUSE_AGENT_SERVER_TOKEN"
+MAX_BODY_BYTES = 32 * 1024 * 1024
 
 Runner = Callable[[list[str], str, float], str]
 
@@ -56,11 +60,13 @@ def bridge_notes(name: str) -> tuple[str, str] | None:
         return None
     return agent, (
         f"Your own logged-in {agent} coding agent, answering through `proofhouse agent-server {agent}` on this machine "
-        f"only ({HOST}, port {entry.get('port', 'of your choice')}). Which model answers is whatever the agent itself "
+        f"only ({HOST}, port {entry.get('port', 'of your choice')}). The server asks each request for a bearer token it "
+        "prints when it starts, so add the provider with `--key-env {TOKEN_ENV}` and export that token in your shell. "
+        "Which model answers is whatever the agent itself "
         "uses: Proofhouse asks for 'default' unless you name one. Each call runs the agent's own command line and is "
-        "billed to that agent's plan, not metered per call, so there is no key and no price in Proofhouse's table. "
-        "Answers come back with token counts of 0. There are no vendor-checked prompting notes for the model behind it: "
-        "write the prompt for that model."
+        "billed to that agent's plan, not metered per call, so there is no vendor key and no price in Proofhouse's "
+        "table. Answers come back with token counts of 0. There are no vendor-checked prompting notes for the model "
+        "behind it: write the prompt for that model."
     )
 
 
@@ -127,11 +133,14 @@ def complete(agent: str, entry: dict, body: dict, runner: Runner, timeout: float
 
 
 def make_server(agent: str, port: int | None = None, runner: Runner = run_agent,
-                timeout: float = DEFAULT_TIMEOUT_SECONDS) -> ThreadingHTTPServer:
+                timeout: float = DEFAULT_TIMEOUT_SECONDS, token: str | None = None) -> ThreadingHTTPServer:
     known = load_agents()
     if agent not in known:
         raise AgentError(f"unknown agent '{agent}'. Known: {', '.join(sorted(known)) or 'none'}")
     entry = known[agent]
+    # Every caller must present this token: loopback is reachable by every local process and user, and each
+    # accepted request runs the agent's own command line on the owner's plan.
+    token = token or os.environ.get(TOKEN_ENV) or secrets.token_urlsafe(24)
 
     class Handler(BaseHTTPRequestHandler):
         def _send(self, status: int, payload: dict) -> None:
@@ -152,8 +161,20 @@ def make_server(agent: str, port: int | None = None, runner: Runner = run_agent,
             if not self.path.rstrip("/").endswith("/chat/completions"):
                 self._send(404, {"error": {"message": "not found"}})
                 return
+            if self.headers.get("Authorization") != f"Bearer {token}":
+                self._send(401, {"error": {"message": "this server is for this machine and only with the token printed when it started"}})
+                return
             try:
                 size = int(self.headers.get("Content-Length") or 0)
+            except ValueError:
+                size = -1
+            if size < 0:
+                self._send(400, {"error": {"message": "bad request: Content-Length is not a number"}})
+                return
+            if size > MAX_BODY_BYTES:
+                self._send(413, {"error": {"message": f"body over {MAX_BODY_BYTES} bytes is refused"}})
+                return
+            try:
                 body = json.loads(self.rfile.read(size) or b"{}")
                 if not isinstance(body, dict):
                     raise ValueError("body must be a JSON object")
@@ -170,12 +191,13 @@ def make_server(agent: str, port: int | None = None, runner: Runner = run_agent,
 
     server = ThreadingHTTPServer((HOST, entry["port"] if port is None else port), Handler)
     server.daemon_threads = True
+    server.token = token  # type: ignore[attr-defined]
     return server
 
 
 def _cmd_agent_server(args: argparse.Namespace) -> int:
     try:
-        server = make_server(args.agent, port=args.port, timeout=args.timeout)
+        server = make_server(args.agent, port=args.port, timeout=args.timeout, token=args.token)
     except AgentError as exc:
         print(f"error: {exc}")
         return 2
@@ -183,8 +205,10 @@ def _cmd_agent_server(args: argparse.Namespace) -> int:
         print(f"error: could not listen on {HOST}:{args.port}: {exc}")
         return 2
     base = f"http://{HOST}:{server.server_address[1]}/v1"
-    print(f"{args.agent} is answering at {base} (this machine only). Stop with Ctrl+C.")
-    print(f'Add it once:  proofhouse providers add agent-{args.agent} --base-url {base}')
+    print(f"{args.agent} is answering at {base} (this machine only, token required). Stop with Ctrl+C.")
+    if not args.token and not os.environ.get(TOKEN_ENV):
+        print(f"In this shell, once:  export {TOKEN_ENV}='{server.token}'")
+    print(f"Add it once:  proofhouse providers add agent-{args.agent} --base-url {base} --key-env {TOKEN_ENV}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
@@ -199,4 +223,6 @@ def add_agent_server_command(subparsers: argparse._SubParsersAction) -> None:
     p.add_argument("agent", help="Agent name from data/agent_commands.json (claude, codex, grok, or your own).")
     p.add_argument("--port", type=int, default=None, help="Port to listen on (default: the agent's own port).")
     p.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT_SECONDS, help="Seconds to wait for one answer.")
+    p.add_argument("--token", default=None,
+                   help=f"Bearer token clients must send (default: ${TOKEN_ENV} if set, else a random one printed at startup).")
     p.set_defaults(func=_cmd_agent_server)
