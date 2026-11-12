@@ -47,3 +47,20 @@ def priced(monkeypatch: pytest.MonkeyPatch):
     )
     monkeypatch.setattr(spend, "load_price_table", lambda: table)
     return table
+
+
+_NO_LINKS = ("not permitted in this environment", "cannot make symbolic links", "cannot create symlinks",
+             "symlinks needs privileges", "cannot create a file symlink")
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):  # noqa: ANN001, ANN201 - pytest hook
+    """The link tests prove a model cannot write outside its folder. On a locked-down machine they may skip when
+    it refuses to make a folder link; on CI that skip would hide a real hole, so there it is a failure."""
+    import os
+
+    outcome = yield
+    report = outcome.get_result()
+    if report.skipped and os.environ.get("CI") and any(mark in str(report.longrepr) for mark in _NO_LINKS):
+        report.outcome = "failed"
+        report.longrepr = f"a link test may not skip on CI: {report.longrepr}"
