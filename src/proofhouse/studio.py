@@ -516,6 +516,12 @@ def _spelled(text: str) -> set[str]:
     return {_SPELLED[w] for w in re.findall(r"[a-z]+", text.lower()) if w in _SPELLED}
 
 
+def _spelled_claims(text: str) -> set[str]:
+    """The figures a film's words or pictures claim by spelling them out. 'One command', 'a single step' and 'zero
+    setup' are plain speech, not figures to hold to the facts, so 0 and 1 written as words never count."""
+    return _spelled(text) - {"0", "1"}
+
+
 def _shown(value: Any, key: str = "") -> list[str]:
     """Every piece of text a layer puts on screen."""
     if key in _PLACING:
@@ -643,14 +649,14 @@ def _figure(text: str) -> str:
 
 
 def _picture_figures(prompt: str) -> set[str]:
-    return {_figure(n) for n in _PICTURE_FIGURE.findall(prompt)} | _spelled(prompt)
+    return {_figure(n) for n in _PICTURE_FIGURE.findall(prompt)} | _spelled_claims(prompt)
 
 
 def _without_figures(prompt: str, figures: list[str]) -> str:
     """``prompt`` with ``figures`` (and their currency or percent signs) taken out."""
     out = _PICTURE_FIGURE.sub(lambda m: "" if _figure(m.group(0)) in figures else m.group(0), prompt)
     out = re.sub(r"\b[a-zA-Z]+\b",
-                 lambda m: "" if _SPELLED.get(m.group(0).lower()) in figures else m.group(0), out)
+                 lambda m: "" if _spelled_claims(m.group(0)) & set(figures) else m.group(0), out)
     return re.sub(r"\s{2,}", " ", re.sub(r"\s+([,.;:])", r"\1", out)).strip()
 
 
@@ -672,11 +678,11 @@ def _invented(board: list[dict[str, Any]], brief: str,
         for index, layer in enumerate(row.get("layers") or [], start=1):
             given = counted if isinstance(layer, dict) and layer.get("kind") == "counter" else known
             shown = " ".join(_shown(layer))
-            new = sorted((_numbers(shown) | _spelled(shown)) - given)
+            new = sorted((_numbers(shown) | _spelled_claims(shown)) - given)
             if new:
                 found.append((number, index, new))
         spoken = _spoken(row)
-        new = sorted((_numbers(spoken) | _spelled(spoken)) - known)
+        new = sorted((_numbers(spoken) | _spelled_claims(spoken)) - known)
         if new:
             found.append((number, None, new))
         base = row.get("base") or {}
@@ -1078,16 +1084,27 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
                              f"never give")
             else:
                 row = board[number - 1]
-                kept = [s for s in storyboard.split_phrases(_spoken(row))
-                        if not ((_numbers(s) | _spelled(s)) & set(new))]
-                if kept:
-                    row["say"] = " ".join(kept)
+                phrases = storyboard.split_phrases(_spoken(row))
+                keep = [i for i, s in enumerate(phrases, start=1)
+                        if not ((_numbers(s) | _spelled_claims(s)) & set(new))]
+                if keep:
+                    row["say"] = " ".join(phrases[i - 1] for i in keep)
+                    # a time set by a kept sentence follows it to its new place; one set by a dropped sentence
+                    # lands at the end of the kept sentence before it
                     for key in ("layers", "sounds"):
                         for item in row.get(key) or []:
                             for field in ("at", "until"):
-                                match = _PHRASE_AT.match(str(item.get(field, ""))) if isinstance(item, dict) else None
-                                if match and int(match.group(1)) > len(kept):
-                                    item[field] = f"phrase {len(kept)} end"
+                                text = str(item.get(field, "")) if isinstance(item, dict) else ""
+                                match = _PHRASE_AT.match(text)
+                                if not match:
+                                    continue
+                                old = int(match.group(1))
+                                if old in keep:
+                                    item[field] = f"phrase {keep.index(old) + 1}{text[match.end():]}"
+                                else:
+                                    before = [k for k in keep if k < old]
+                                    item[field] = (f"phrase {keep.index(before[-1]) + 1} end" if before
+                                                   else "phrase 1 start")
                 else:
                     board[number - 1] = quiet_rows([row], [0])[0]
                 notes.append(f"beat {number}'s narration no longer says {', '.join(new)}, which the facts never give")
@@ -2148,6 +2165,7 @@ def produce(
                     file = make_media(visual_kind, visual_provider, visual_model, picture_prompt(base["prompt"], look),
                                       target, params)
                     row["base"] = {"kind": visual_kind, "file": Path(file).relative_to(out_dir).as_posix()}
+                row = board[number - 1]  # a footage beat was replaced by its filmed copy just above
                 for index, lay in enumerate(row.get("layers") or [], start=1):
                     if (isinstance(lay, dict) and lay.get("kind") in ("image", "video") and "file" not in lay
                             and isinstance(lay.get("prompt"), str) and lay["prompt"].strip()):

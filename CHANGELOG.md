@@ -18,9 +18,9 @@
 ### Fixed
 
 - A storyboard layer or sound that had to be left out after the writer's fixes is now recorded as a failed check instead of passing.
-- A prompted `"image"` or `"video"` storyboard layer is now made in the kind it asks for instead of being dropped when no file is given.
-- Invented figures written as words (such as "ten" or "twelve") in a film's narration, overlays or picture prompts are now caught alongside digits.
-- When the script writer has no fixes left, sentences in the narration that still state an invented figure are now dropped instead of being spoken.
+- A prompted `"image"` or `"video"` storyboard layer is now made in the kind it asks for instead of being dropped when no file is given, on beats with real footage too.
+- Invented figures written as words (such as "ten" or "twelve") in a film's narration, overlays or picture prompts are now caught alongside digits. Plain speech such as "one command", "a single step" or "zero setup" is not treated as a figure.
+- When the script writer has no fixes left, sentences in the narration that still state an invented figure are now dropped instead of being spoken, and overlays and sounds timed to the sentences that stay still start and end with them.
 - When a film call returns an unknown or missing cost, the studio budget now charges the spend gate's worst-case cost instead of zero.
 
 ## 0.10.3 - app goals, a zero ceiling and film shots from real captures
