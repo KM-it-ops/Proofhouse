@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import shutil
 import subprocess
 import tempfile
@@ -25,6 +26,8 @@ from . import providers
 SHIPPED_PATH = Path(__file__).resolve().parent / "data" / "agent_commands.json"
 HOST = "127.0.0.1"
 DEFAULT_TIMEOUT_SECONDS = 600.0
+TOKEN_ENV = "PROOFHOUSE_AGENT_TOKEN"
+MAX_REQUEST_BYTES = 1_000_000
 
 Runner = Callable[[list[str], str, float], str]
 
@@ -58,7 +61,8 @@ def bridge_notes(name: str) -> tuple[str, str] | None:
         f"Your own logged-in {agent} coding agent, answering through `proofhouse agent-server {agent}` on this machine "
         f"only ({HOST}, port {entry.get('port', 'of your choice')}). Which model answers is whatever the agent itself "
         "uses: Proofhouse asks for 'default' unless you name one. Each call runs the agent's own command line and is "
-        "billed to that agent's plan, not metered per call, so there is no key and no price in Proofhouse's table. "
+        "billed to that agent's plan, not metered per call, so there is no provider API key or table price. "
+        f"The bridge itself requires a private bearer token in {TOKEN_ENV} in the server and client environments. "
         "Answers come back with token counts of 0. There are no vendor-checked prompting notes for the model behind it: "
         "write the prompt for that model."
     )
@@ -132,6 +136,9 @@ def make_server(agent: str, port: int | None = None, runner: Runner = run_agent,
     if agent not in known:
         raise AgentError(f"unknown agent '{agent}'. Known: {', '.join(sorted(known)) or 'none'}")
     entry = known[agent]
+    token = os.environ.get(TOKEN_ENV, "")
+    if not token or not token.strip():
+        raise AgentError(f"set {TOKEN_ENV} to a random private token before starting the bridge")
 
     class Handler(BaseHTTPRequestHandler):
         def _send(self, status: int, payload: dict) -> None:
@@ -152,11 +159,23 @@ def make_server(agent: str, port: int | None = None, runner: Runner = run_agent,
             if not self.path.rstrip("/").endswith("/chat/completions"):
                 self._send(404, {"error": {"message": "not found"}})
                 return
+            if not secrets.compare_digest(self.headers.get("Authorization", "").encode("utf-8"),
+                                          f"Bearer {token}".encode("utf-8")):
+                self._send(401, {"error": {"message": "a valid bridge bearer token is required"}})
+                return
+            if self.headers.get("Origin") or self.headers.get_content_type() != "application/json":
+                self._send(403, {"error": {"message": "browser-origin requests are not allowed; send application/json"}})
+                return
             try:
                 size = int(self.headers.get("Content-Length") or 0)
+                if not 0 < size <= MAX_REQUEST_BYTES:
+                    raise ValueError("body must be between 1 and 1000000 bytes")
                 body = json.loads(self.rfile.read(size) or b"{}")
                 if not isinstance(body, dict):
                     raise ValueError("body must be a JSON object")
+                messages = body.get("messages")
+                if not isinstance(messages, list) or not messages or not all(isinstance(m, dict) for m in messages):
+                    raise ValueError("messages must be a nonempty list of message objects")
             except ValueError as exc:
                 self._send(400, {"error": {"message": f"bad request: {exc}"}})
                 return
@@ -184,7 +203,7 @@ def _cmd_agent_server(args: argparse.Namespace) -> int:
         return 2
     base = f"http://{HOST}:{server.server_address[1]}/v1"
     print(f"{args.agent} is answering at {base} (this machine only). Stop with Ctrl+C.")
-    print(f'Add it once:  proofhouse providers add agent-{args.agent} --base-url {base}')
+    print(f'Add it once:  proofhouse providers add agent-{args.agent} --base-url {base} --key-env {TOKEN_ENV}')
     try:
         server.serve_forever()
     except KeyboardInterrupt:

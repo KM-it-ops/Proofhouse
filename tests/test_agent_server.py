@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import threading
 import urllib.error
 import urllib.request
@@ -11,6 +12,11 @@ from pathlib import Path
 import pytest
 
 from proofhouse import agent_server, live, providers
+
+
+@pytest.fixture(autouse=True)
+def bridge_token(monkeypatch):
+    monkeypatch.setenv(agent_server.TOKEN_ENV, "synthetic-test-bridge-token")
 
 
 class FakeRunner:
@@ -42,7 +48,8 @@ def served():
 
 def _post(base: str, body: dict) -> tuple[int, dict]:
     request = urllib.request.Request(
-        base + "/chat/completions", data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST"
+        base + "/chat/completions", data=json.dumps(body).encode(),
+        headers={"Content-Type": "application/json", "Authorization": f"Bearer {os.environ[agent_server.TOKEN_ENV]}"}, method="POST"
     )
     try:
         with urllib.request.urlopen(request, timeout=10) as answer:
@@ -100,7 +107,7 @@ def test_proofhouse_run_prompt_works_through_the_bridge_with_no_key_and_no_price
     monkeypatch.setenv("PROOFHOUSE_HOME", str(tmp_path))
     _, base = served("codex", FakeRunner("a made thing"))
     providers.save_user(
-        {"schema": providers.PROVIDERS_SCHEMA, "providers": [{"id": "bridge-test", "base_url": base}], "prices": [],
+        {"schema": providers.PROVIDERS_SCHEMA, "providers": [{"id": "bridge-test", "base_url": base, "key_env": agent_server.TOKEN_ENV}], "prices": [],
          "media_prices": [], "training_prices": []}
     )
     result = live.run_prompt("bridge-test", "codex", prompt="Make a thing.")

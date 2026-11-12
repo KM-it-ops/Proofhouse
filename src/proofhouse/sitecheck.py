@@ -48,6 +48,12 @@ def write_site(files: dict[str, str], folder: Path) -> list[str]:
         names.append(str(path))
     if "index.html" not in names:
         raise SiteError("the site has no index.html")
+    from .make_checks import safe_name
+
+    if not all(safe_name(name) for name in files):
+        raise SiteError("unsafe file name in the site")
+    if len({name.casefold() for name in names}) != len(names):
+        raise SiteError("two site file names differ only in letter case")
     folder.mkdir(parents=True, exist_ok=True)
     for name, text in files.items():
         target = folder / name

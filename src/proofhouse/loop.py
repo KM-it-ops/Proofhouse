@@ -128,9 +128,21 @@ def _inside(workdir: Path, relative: Any) -> Path:
         raise LoopError("a path is missing")
     if relative.strip().strip("\"'<>").lower() in _PLACEHOLDER_PATHS:
         raise LoopError(f"{relative!r} is a placeholder, not a real file name; use a real name")
+    # Reject Windows aliases before resolve: a missing `.git.` is not yet canonicalized,
+    # but mkdir would create `.git`. Colons can select NTFS alternate data streams.
+    raw_parts = relative.replace("\\", "/").split("/")
+    if any(":" in part or (part not in (".", "..") and part.endswith((".", " "))) for part in raw_parts):
+        raise LoopError("paths with colons or trailing dots or spaces are not available to loop file actions")
     target = (workdir / relative).resolve()
     if not target.is_relative_to(workdir):
         raise LoopError(f"{relative!r} is outside the folder")
+    parts = {part.lower() for part in target.relative_to(workdir).parts}
+    if parts & {".git", ".hg", ".svn", ".ssh", ".aws", ".azure", ".gnupg"}:
+        raise LoopError("repository metadata and credential folders are not available to loop file actions")
+    name = target.name.lower()
+    if name == ".env" or name.startswith(".env.") or name in {"credentials", "credentials.json", "auth.json"} \
+            or target.suffix.lower() in {".pem", ".key", ".p12", ".pfx"}:
+        raise LoopError("credential files are not available to loop file actions")
     return target
 
 

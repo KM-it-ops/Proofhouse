@@ -35,7 +35,7 @@ local-images = ["pillow>=10.1", "diffusers>=0.30", "torch>=2.2", "transformers>=
 # Recording a real app being used, through the installed Chrome or Edge.
 record = ["playwright>=1.64"]
 # Test runner only. Not a runtime dependency; runtime deps stay jsonschema + rfc8785.
-test = ["pytest>=8", "pillow>=10.1", "playwright>=1.64"]
+test = ["pytest>=8", "pillow>=10.1", "playwright>=1.64", "httpx>=0.27"]
 
 [project.urls]
 Homepage = "https://github.com/KM-it-ops/Proofhouse"
