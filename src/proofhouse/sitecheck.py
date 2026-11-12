@@ -135,6 +135,12 @@ def _open(command: list[str], timeout: int) -> subprocess.CompletedProcess[str] 
     return f"the browser did not finish in {timeout} s, twice"
 
 
+def _only_because_opened_from_a_file(line: str) -> bool:
+    """True for the one script error this check causes itself: no browser registers a service worker for a page
+    opened from disk (origin 'null'). The same app registers it once it is served, so it is not the app's fault."""
+    return "Failed to register a ServiceWorker" in line and "origin ('null')" in line
+
+
 def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, browser: bool = True) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     pages = sorted(folder.rglob("*.html"))
@@ -186,7 +192,8 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, brows
         if run.returncode != 0:  # a browser that exited with an error never showed the page
             stuck.append(f"{label}: the browser exited with code {run.returncode}")
             continue
-        errors += [line for line in run.stderr.splitlines() if "Uncaught" in line or "SyntaxError" in line]
+        errors += [line for line in run.stderr.splitlines()
+                   if ("Uncaught" in line or "SyntaxError" in line) and not _only_because_opened_from_a_file(line)]
     if len(stuck) == 2:
         checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: " + "; ".join(stuck)})
         return checks

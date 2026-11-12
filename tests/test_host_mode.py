@@ -1073,3 +1073,26 @@ def test_delivered_mcp_server_is_the_version_the_record_scored() -> None:
     delivered = (rec_dir / "mcp" / "server.py").read_bytes()
     scored = (rec_dir / f"v{best}" / "mcp" / "server.py").read_bytes()
     assert delivered == scored, "delivered server.py differs from the scored version the record names"
+
+
+def test_check_site_does_not_blame_a_service_worker_for_being_opened_from_a_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    # 108: the check opens the page from disk, where no browser registers a service worker. That refusal is the
+    # check's own doing, not a fault in the app; any other script error on the same page still fails.
+    from proofhouse import sitecheck
+
+    fake = tmp_path / "chrome.exe"
+    fake.write_text("", encoding="utf-8")
+    monkeypatch.setenv("PROOFHOUSE_BROWSER", str(fake))
+    from_file = ('[1:1:ERROR:CONSOLE(1)] "Uncaught (in promise) TypeError: Failed to register a ServiceWorker: '
+                 "The URL protocol of the current origin ('null') is not supported.\", source: file:///x/index.html (1)")
+    seen = {"stderr": from_file}
+
+    def record_launch(command: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(args=command, returncode=0, stdout="", stderr=seen["stderr"])
+
+    monkeypatch.setattr(sitecheck, "_open", record_launch)
+    name = "no JavaScript errors in the browser"
+    assert next(c for c in sitecheck.check_site(site(tmp_path / "s")) if c["check"] == name)["ok"] is True
+    seen["stderr"] = from_file + "\n[error] Uncaught Error: boom"
+    row = next(c for c in sitecheck.check_site(site(tmp_path / "t")) if c["check"] == name)
+    assert row["ok"] is False and "boom" in row["detail"] and "ServiceWorker" not in row["detail"]
