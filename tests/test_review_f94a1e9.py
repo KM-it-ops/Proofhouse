@@ -6,7 +6,7 @@ import wave
 from pathlib import Path
 from types import SimpleNamespace
 
-from proofhouse import studio
+from proofhouse import storyboard, studio
 
 FACTS = {"product": "Demo", "summary": "A tool that makes prompts.", "facts": ["Works with 4 providers."]}
 BRIEF = "Make a film about Demo"
@@ -21,19 +21,32 @@ def test_everyday_one_and_single_are_not_invented_figures() -> None:
 
 
 def test_a_spelled_out_figure_above_one_is_still_caught() -> None:
-    board = [{"say": "It is ten times faster.", "base": {"kind": "generate", "prompt": "twelve robots"}}]
+    board = [{"say": "It is ten times faster across twenty-five regions.",
+              "base": {"kind": "generate", "prompt": "twelve robots"}}]
 
     found = studio._invented(board, BRIEF, FACTS)
 
-    assert (1, None, ["10"]) in found and (1, "picture", ["12"]) in found, found
+    assert (1, None, ["10", "25"]) in found and (1, "picture", ["12"]) in found, found
 
 
-def test_dropping_a_middle_sentence_keeps_later_timings_on_their_own_sentence() -> None:
+def test_a_compound_spelled_figure_matching_the_facts_is_accepted() -> None:
+    facts = {**FACTS, "facts": ["Works with 25 providers and 200 templates."]}
+    board = [{"say": "Works with twenty-five providers and two hundred templates.",
+              "base": {"kind": "living"}}]
+
+    assert studio._invented(board, BRIEF, facts) == []
+
+
+def test_dropping_a_middle_sentence_keeps_later_timings_on_their_own_sentence(tmp_path: Path) -> None:
     board = [
         {"say": "Meet Demo.", "base": {"kind": "living"}},
         {"say": "Demo writes prompts. It handles 500 requests a second. Teams ship faster.",
          "base": {"kind": "living"},
-         "layers": [{"kind": "lower_third", "title": "Ship", "at": "phrase 3 start", "until": "phrase 2 end"}]},
+         "layers": [
+             {"kind": "lower_third", "title": "Write", "at": "phrase 1", "until": "phrase 2 end"},
+             {"kind": "title", "text": "Only dropped", "at": "phrase 2", "until": "phrase 2 end"},
+             {"kind": "chips", "items": ["Ship", "Fast"], "at": "phrase 3", "until": "phrase 3 end"},
+         ]},
         {"say": "Try Demo today.", "base": {"kind": "living"}},
     ]
 
@@ -41,9 +54,14 @@ def test_dropping_a_middle_sentence_keeps_later_timings_on_their_own_sentence() 
 
     row = next(r for r in board if "Teams ship faster." in str(r.get("say", "")))
     assert "500" not in row["say"], row
-    layer = row["layers"][0]
-    assert layer["at"] == "phrase 2 start", f"the overlay timed to 'Teams ship faster.' now starts at {layer['at']}"
-    assert layer["until"] == "phrase 1 end", f"the overlay that ended with the dropped line now ends at {layer['until']}"
+    assert row["layers"][0]["at"] == "phrase 1" and row["layers"][0]["until"] == "phrase 1 end"
+    assert row["layers"][2]["at"] == "phrase 2" and row["layers"][2]["until"] == "phrase 2 end"
+    beats = storyboard.parse(board, tmp_path)
+    for beat in beats:
+        for phrase in beat.phrases:
+            phrase.seconds = 1.0
+    storyboard.time_beats(beats)
+    assert storyboard.scenes(beats, (1920, 1080))
 
 
 def _fake_media(kind, provider, model, *, out, **kwargs):

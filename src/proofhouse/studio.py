@@ -509,11 +509,90 @@ _SPELLED = {word: str(n) for n, word in enumerate(
 _SPELLED.update({"thirty": "30", "forty": "40", "fifty": "50", "sixty": "60", "seventy": "70", "eighty": "80",
                  "ninety": "90", "hundred": "100", "thousand": "1000", "million": "1000000", "once": "1",
                  "twice": "2", "single": "1", "dozen": "12"})
+_UNITS = {w: n for n, w in enumerate("zero one two three four five six seven eight nine".split())}
+_TEENS = {w: 10 + n for n, w in enumerate(
+    "ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen".split())}
+_TENS = {"twenty": 20, "thirty": 30, "forty": 40, "fifty": 50, "sixty": 60, "seventy": 70, "eighty": 80, "ninety": 90}
+_SCALES = {"hundred": 100, "thousand": 1000, "million": 1000000}
+_ALONE = {"once": "1", "twice": "2", "single": "1", "dozen": "12"}
+
+
+def _spelled_spans(text: str) -> list[tuple[int, int, str]]:
+    """Every figure ``text`` spells out in words as (start, end, figure), joining compound number words such as
+    'twenty-five' (25) or 'two hundred' (200)."""
+    tokens = list(re.finditer(r"[a-zA-Z]+", text))
+    spans: list[tuple[int, int, str]] = []
+    i = 0
+    while i < len(tokens):
+        w = tokens[i].group(0).lower()
+        if w in _ALONE:
+            spans.append((tokens[i].start(), tokens[i].end(), _ALONE[w]))
+            i += 1
+            continue
+        if w not in _UNITS and w not in _TEENS and w not in _TENS and w not in _SCALES:
+            i += 1
+            continue
+        start = end = tokens[i].start()
+        total = current = 0
+        last = ""
+        min_scale = 10**9
+        while i < len(tokens):
+            tok = tokens[i]
+            w = tok.group(0).lower()
+            if end > start and not re.fullmatch(r"[\s-]+", text[end:tok.start()]):
+                break
+            if w == "and" and last in ("hundred", "scale") and i + 1 < len(tokens):
+                nxt = tokens[i + 1]
+                nw = nxt.group(0).lower()
+                if (re.fullmatch(r"[\s-]+", text[tok.end():nxt.start()])
+                        and (nw in _UNITS or nw in _TEENS or nw in _TENS)):
+                    i += 1
+                    continue
+            if w in _UNITS:
+                val = _UNITS[w]
+                if last == "" or (val > 0 and last in ("ten", "hundred", "scale")):
+                    current += val
+                    last = "zero" if val == 0 else "unit"
+                else:
+                    break
+            elif w in _TEENS:
+                if last in ("", "hundred", "scale"):
+                    current += _TEENS[w]
+                    last = "teen"
+                else:
+                    break
+            elif w in _TENS:
+                if last in ("", "hundred", "scale"):
+                    current += _TENS[w]
+                    last = "ten"
+                else:
+                    break
+            elif w == "hundred":
+                if last == "" or (last in ("unit", "teen", "ten") and 0 < current < 100):
+                    current = (current or 1) * 100
+                    last = "hundred"
+                else:
+                    break
+            elif w in ("thousand", "million"):
+                scale = _SCALES[w]
+                if (last == "" or current > 0) and scale < min_scale:
+                    total += (current or 1) * scale
+                    current = 0
+                    min_scale = scale
+                    last = "scale"
+                else:
+                    break
+            else:
+                break
+            end = tok.end()
+            i += 1
+        spans.append((start, end, str(total + current)))
+    return spans
 
 
 def _spelled(text: str) -> set[str]:
-    """The figures ``text`` spells out in words: 'one line' gives 1, 'twelve providers' gives 12."""
-    return {_SPELLED[w] for w in re.findall(r"[a-z]+", text.lower()) if w in _SPELLED}
+    """The figures ``text`` spells out in words: 'one line' gives 1, 'twenty-five providers' gives 25."""
+    return {fig for _, _, fig in _spelled_spans(text)}
 
 
 def _spelled_claims(text: str) -> set[str]:
@@ -655,8 +734,10 @@ def _picture_figures(prompt: str) -> set[str]:
 def _without_figures(prompt: str, figures: list[str]) -> str:
     """``prompt`` with ``figures`` (and their currency or percent signs) taken out."""
     out = _PICTURE_FIGURE.sub(lambda m: "" if _figure(m.group(0)) in figures else m.group(0), prompt)
-    out = re.sub(r"\b[a-zA-Z]+\b",
-                 lambda m: "" if _spelled_claims(m.group(0)) & set(figures) else m.group(0), out)
+    drop = set(figures) - {"0", "1"}
+    for start, end, fig in reversed(_spelled_spans(out)):
+        if fig in drop:
+            out = f"{out[:start]}{out[end:]}"
     return re.sub(r"\s{2,}", " ", re.sub(r"\s+([,.;:])", r"\1", out)).strip()
 
 
@@ -1051,6 +1132,72 @@ def script_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
     return gaps
 
 
+def _remap_anchor(value: Any, keep: list[int], is_until: bool) -> tuple[Any, int | None]:
+    if not isinstance(value, str):
+        return value, None
+    m = storyboard._ANCHOR.fullmatch(value.strip())
+    if m is None or m.group(2) is None:
+        return value, None
+    old = int(m.group(2))
+    is_end = bool(m.group(3))
+    tail = f" {m.group(4)} {m.group(5)}" if m.group(4) else ""
+    if old in keep:
+        return f"phrase {keep.index(old) + 1}{' end' if is_end else ''}{tail}", old
+    before = [k for k in keep if k < old]
+    after = [k for k in keep if k > old]
+    if is_until:
+        if not is_end and after:
+            return f"phrase {keep.index(after[0]) + 1}", old
+        if before:
+            return f"phrase {keep.index(before[-1]) + 1} end", old
+        return "phrase 1 end", old
+    if is_end:
+        if before:
+            return f"phrase {keep.index(before[-1]) + 1} end", old
+        return "phrase 1", old
+    if after:
+        return f"phrase {keep.index(after[0]) + 1}", old
+    return f"phrase {len(keep)}", old
+
+
+def _remap_kept_phrases(row: dict[str, Any], keep: list[int]) -> None:
+    """Keep overlay and sound times valid after dropping sentences not in ``keep`` (1-based)."""
+    probes: list[storyboard.Beat] = []
+    for sec in (0.2, 1.0, 4.0):
+        b = storyboard.Beat(
+            number=1,
+            phrases=[storyboard.Phrase(text="x", seconds=sec) for _ in keep],
+            hold=0.0,
+            base={"kind": "living"},
+            layers=[],
+            sounds=[],
+            energy="mid",
+            cut=None,
+            extras="off",
+        )
+        storyboard.time_beats([b])
+        probes.append(b)
+    for key in ("layers", "sounds"):
+        for item in row.get(key) or []:
+            if not isinstance(item, dict):
+                continue
+            old_at = old_until = None
+            if "at" in item:
+                item["at"], old_at = _remap_anchor(item["at"], keep, False)
+            if "until" in item:
+                item["until"], old_until = _remap_anchor(item["until"], keep, True)
+                ref = old_at or old_until or keep[0]
+                near = keep.index(min(keep, key=lambda k: abs(k - ref))) + 1
+                try:
+                    valid = all(storyboard.when(p, item["until"]) > storyboard.when(p, item.get("at", 0))
+                                for p in probes)
+                except storyboard.StoryboardError:
+                    valid = False
+                if not valid:
+                    item["at"] = f"phrase {near}"
+                    item["until"] = f"phrase {near} end"
+
+
 def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, facts: dict[str, Any] | None,
                 footage: list[str], voiced: bool, pictures: bool = False) -> list[str]:
     """With no fixes left, the engine settles what ``script_gaps`` found itself, and says what it did: the middle
@@ -1089,22 +1236,7 @@ def settle_gaps(board: list[dict[str, Any]], *, brief: str, seconds: float, fact
                         if not ((_numbers(s) | _spelled_claims(s)) & set(new))]
                 if keep:
                     row["say"] = " ".join(phrases[i - 1] for i in keep)
-                    # a time set by a kept sentence follows it to its new place; one set by a dropped sentence
-                    # lands at the end of the kept sentence before it
-                    for key in ("layers", "sounds"):
-                        for item in row.get(key) or []:
-                            for field in ("at", "until"):
-                                text = str(item.get(field, "")) if isinstance(item, dict) else ""
-                                match = _PHRASE_AT.match(text)
-                                if not match:
-                                    continue
-                                old = int(match.group(1))
-                                if old in keep:
-                                    item[field] = f"phrase {keep.index(old) + 1}{text[match.end():]}"
-                                else:
-                                    before = [k for k in keep if k < old]
-                                    item[field] = (f"phrase {keep.index(before[-1]) + 1} end" if before
-                                                   else "phrase 1 start")
+                    _remap_kept_phrases(row, keep)
                 else:
                     board[number - 1] = quiet_rows([row], [0])[0]
                 notes.append(f"beat {number}'s narration no longer says {', '.join(new)}, which the facts never give")
