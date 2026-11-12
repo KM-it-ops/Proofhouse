@@ -101,10 +101,6 @@
                   "timeout": {
                     "description": "Seconds to wait for one answer.",
                     "type": "number"
-                  },
-                  "token": {
-                    "description": "Bearer token clients must send (default: $PROOFHOUSE_AGENT_SERVER_TOKEN if set, else a random one printed at startup).",
-                    "type": "string"
                   }
                 },
                 "required": [
