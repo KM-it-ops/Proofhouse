@@ -11,6 +11,7 @@ run ``proofhouse deploy``; ``--dry-run`` shows the exact command first.
 from __future__ import annotations
 
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -139,12 +140,16 @@ def deploy(folder: Path, target_id: str, *, name: str | None = None, dry_run: bo
             text = learn_catalog.suggested(str(target["install"]), target.get("learned_by")) if learned else str(target["install"])
             hint = f"; install it with: {text}"
         raise DeployError(f"{tool} is not installed{hint}")
+    key_env = target.get("key_env") if isinstance(target.get("key_env"), str) else None
     try:
-        env = learn_catalog.command_env(folder, target.get("key_env") if isinstance(target.get("key_env"), str) else None) if learned else None
+        env = learn_catalog.command_env(folder, key_env) if learned else None
         run = subprocess.run(command, capture_output=True, text=True, timeout=timeout, check=False, env=env)
     except subprocess.TimeoutExpired:
         raise DeployError(f"{tool} did not finish in {timeout} seconds") from None
     output = (run.stdout or "") + (run.stderr or "")
+    key_value = os.environ.get(key_env) if key_env else None
+    if key_value:
+        output = output.replace(key_value, "[REDACTED]")  # the tool's own echo of the key never reaches the screen or the log
     urls = _URL.findall(output)
     done = Deployed(target_id, str(folder), command, "deployed" if run.returncode == 0 else "failed",
                     url=urls[-1].rstrip(".,") if urls and run.returncode == 0 else None, output=output[-4000:])

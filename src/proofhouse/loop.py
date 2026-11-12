@@ -94,15 +94,35 @@ class _Stop(Exception):
     pass
 
 
+_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTH", re.IGNORECASE)
+# The agent's own commands see only these variables, so a secret under any name stays out of them.
+_ENV_ALLOWLIST = ("PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "COMSPEC", "TEMP", "TMP", "TMPDIR",
+                  "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA",
+                  "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "COMMONPROGRAMFILES", "NUMBER_OF_PROCESSORS",
+                  "PROCESSOR_ARCHITECTURE", "OS", "USERNAME", "USER", "LOGNAME", "SHELL", "TERM", "LANG", "LC_ALL",
+                  "LC_CTYPE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME")
+
+
 def _secrets() -> list[str]:
-    """Key values for every known provider and media service, so command output never carries them anywhere."""
+    """Values of every known key variable and of any secret-named variable, longest first, so command output
+    never carries them anywhere (the agent's own commands never see them in their environment at all)."""
     names: set[str] = set()
     try:
         names |= {p.key_env for p in providers.all_providers().values() if p.key_env}
         names |= {p.key_env for p in media.all_media_providers().values() if p.key_env}
     except (providers.ProviderError, media.MediaError):
         pass
-    return [value for name in names if len(value := os.environ.get(name, "")) >= 6]
+    names |= {name for name in os.environ if _SECRET_NAME.search(name)}
+    values = {os.environ[name] for name in names if len(os.environ.get(name, "")) >= 6}
+    return sorted(values, key=len, reverse=True)
+
+
+def _agent_env() -> dict[str, str]:
+    """The environment a model-driven ``run`` action gets: the allowlist only, minus secret-named variables."""
+    wanted = {name.upper() for name in _ENV_ALLOWLIST}
+    env = {key: value for key, value in os.environ.items() if key.upper() in wanted and not _SECRET_NAME.search(key)}
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    return env
 
 
 def _clean(text: str, secrets: list[str], limit: int = MAX_OUTPUT) -> str:
@@ -111,9 +131,10 @@ def _clean(text: str, secrets: list[str], limit: int = MAX_OUTPUT) -> str:
     return text if len(text) <= limit else "…" + text[-limit:]
 
 
-def _shell(command: str, cwd: Path, timeout: int, secrets: list[str]) -> dict[str, Any]:
+def _shell(command: str, cwd: Path, timeout: int, secrets: list[str], env: dict[str, str] | None = None) -> dict[str, Any]:
     # No bytecode caches: an edit of the same size in the same second would otherwise run the old Python file.
-    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    if env is None:
+        env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
     try:
         run = subprocess.run(command, shell=True, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout, check=False)
     except subprocess.TimeoutExpired:
@@ -182,7 +203,7 @@ def _act(action: Any, workdir: Path, allow_commands: bool, timeout: int, secrets
             command = str(action["run"])
             if not allow_commands:
                 return {"action": f"run {command}", "ok": False, "result": "running commands is switched off for this agent"}
-            outcome = _shell(command, workdir, timeout, secrets)
+            outcome = _shell(command, workdir, timeout, secrets, env=_agent_env())
             return {"action": f"run {command}", "ok": outcome["exit"] == 0, "result": f"exit {outcome['exit']}\n{outcome['output']}"}
     except (LoopError, OSError) as exc:
         return {"action": json.dumps(action)[:120], "ok": False, "result": str(exc)}
@@ -288,7 +309,7 @@ def run_loop(
             check_now = None
             if check:
                 check_now = last_check if last_check is not None and watch is None else _shell(check, workdir, command_timeout, secrets)
-            if check_now is not None and check_now["exit"] == 0 and watch is None:
+            if check_now is not None and check_now["exit"] == 0:
                 result.done = True
                 raise _Stop("check passed")
             limit = budget.for_next_call()
@@ -312,10 +333,10 @@ def run_loop(
             if check:
                 step.check = last_check = _shell(check, workdir, command_timeout, secrets)
             record(step)
-            if step.check is not None and step.check["exit"] == 0 and watch is None:
+            if step.check is not None and step.check["exit"] == 0:
                 result.done = True
                 raise _Stop("check passed")
-            if plan["done"] and check is None and watch is None:
+            if plan["done"] and (step.check is None or step.check["exit"] == 0):
                 result.done = True
                 raise _Stop(f"the agent says it is done: {plan['summary']}".rstrip(": "))
             if every:
@@ -338,4 +359,4 @@ def _write_record(folder: Path, goal: str, provider: str, model: str, limit: str
         "spent_usd_estimated": format(budget.spent, "f"),
         "note": "Dollar figures are estimates from token counts and prices, not your bill.",
     }
-    (folder / "loop.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    providers.write_atomic(folder / "loop.json", json.dumps(record, indent=2, sort_keys=True) + "\n")

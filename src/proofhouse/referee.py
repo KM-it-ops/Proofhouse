@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import shutil
 import signal
 import subprocess
@@ -16,7 +15,7 @@ from pathlib import Path
 from typing import Any, Callable
 
 from . import __version__
-from .loop import _clean, _secrets
+from .loop import _SECRET_NAME, _clean, _secrets
 
 MAX_SUMMARY = 2000
 MAX_OUTPUT = 4000
@@ -30,8 +29,7 @@ EXIT_USAGE = 2
 class RefereeError(Exception):
     """A referee command cannot run; the message says why."""
 
-_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTH", re.IGNORECASE)
-# The check sees only these variables, so a secret under any name (GH_PAT, POSTGRES_URL, ...) stays out.
+# The check sees only these variables, so a secret under any name stays out.
 _CHECK_ENV_KEYS = ("PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "COMSPEC", "TEMP", "TMP", "TMPDIR",
                    "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA",
                    "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "COMMONPROGRAMFILES", "NUMBER_OF_PROCESSORS",

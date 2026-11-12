@@ -240,7 +240,7 @@ proofhouse loop "when the build breaks, find out why and write it up in BUILD-NO
 
 Each round, the agent sees the goal, the files in its folder, what happened in recent rounds, and the output of your check and watch commands. It reads files, writes files, and (only with `--allow-commands`) runs commands in that folder. It cannot touch anything outside the folder.
 
-The loop stops when your `--check` command passes, or when the agent says it is done. It also stops when `--rounds` or `--for` runs out, when the next call would cross the one spending limit, or when you press Ctrl-C. With `--watch` and `--every`, a look that finds nothing changed sends nothing and costs nothing. Every round is kept in `rounds.jsonl`, with `loop.json` for the totals. Provider keys are blanked out of command output before it goes anywhere.
+The loop stops when your `--check` command passes (with or without `--watch`), or when the agent says it is done (and the check, if any, passes). It also stops when `--rounds` or `--for` runs out, when the next call would cross the one spending limit, or when you press Ctrl-C. With `--watch` and `--every`, a look that finds nothing changed sends nothing and costs nothing. Every round is kept in `rounds.jsonl`, with `loop.json` for the totals. Key values and any secret-named environment value (anything with KEY, TOKEN, SECRET, PASSWORD, CREDENTIAL, AUTH, ... in the name) are blanked out of command output before it goes anywhere, and the agent's own `--allow-commands` runs get a minimal environment with no secret variables in it. Your own `--check` and `--watch` commands keep your full environment.
 
 ### Your agent runs the loop; Proofhouse referees
 
