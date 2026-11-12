@@ -124,6 +124,18 @@ def _client_headers(headers: dict[str, str]) -> dict[str, str]:
     return {**headers, "User-Agent": f"proofhouse/{__version__}"}
 
 
+def _open_without_redirects(sent: Any, timeout: float) -> Any:
+    """Send with the standard library and never follow a redirect: the key in the headers must not travel to
+    wherever the first address points. A 3xx comes back as an HTTPError for the caller to read."""
+    import urllib.request
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+            return None
+
+    return urllib.request.build_opener(NoRedirect).open(sent, timeout=timeout)
+
+
 def _httpx_post(request: Request) -> Response:
     timeout = _timeout_seconds(request.url)
     headers = _client_headers(request.headers)
@@ -135,13 +147,9 @@ def _httpx_post(request: Request) -> Response:
         import urllib.error
         import urllib.request
 
-        class NoRedirect(urllib.request.HTTPRedirectHandler):
-            def redirect_request(self, req, fp, code, msg, headers, newurl):
-                return None
-
         sent = urllib.request.Request(request.url, data=request.body_bytes, headers=headers, method="POST")
         try:
-            with urllib.request.build_opener(NoRedirect).open(sent, timeout=timeout) as answer:
+            with _open_without_redirects(sent, timeout) as answer:
                 status, raw = answer.status, answer.read()
         except urllib.error.HTTPError as exc:  # a 4xx or 5xx is still an answer to read
             status, raw = exc.code, exc.read()

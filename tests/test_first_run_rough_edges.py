@@ -107,7 +107,7 @@ def test_without_httpx_a_plain_install_still_reaches_a_model(monkeypatch: pytest
         seen["url"], seen["timeout"] = request.full_url, timeout
         return Reply()
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(live, "_open_without_redirects", fake_urlopen)
     response = live._httpx_post(live.Request("http://localhost:11434/v1/chat/completions", {"Content-Type": "application/json"}, {}, b"{}"))
     assert response.status_code == 200 and response.payload["choices"][0]["message"]["content"] == "hi"
     assert seen["url"] == "http://localhost:11434/v1/chat/completions"
@@ -134,7 +134,7 @@ def test_requests_name_proofhouse_as_the_client_unless_the_provider_names_one(mo
         seen.append(request.get_header("User-agent"))
         return Reply()
 
-    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+    monkeypatch.setattr(live, "_open_without_redirects", fake_urlopen)
     live._httpx_post(live.Request("https://api.groq.com/openai/v1/chat/completions", {"Content-Type": "application/json"}, {}, b"{}"))
     live._httpx_post(live.Request("https://example.test/v1", {"User-Agent": "their-client/2"}, {}, b"{}"))
     assert seen[0] is not None and seen[0].startswith("proofhouse/")
