@@ -1034,3 +1034,42 @@ def test_check_site_screenshot_at_the_wrong_width_is_not_measured(
     assert row["ok"] is expected
     if expected is None:
         assert "phone" in row["detail"] and "500" in row["detail"] and "390" in row["detail"]
+
+
+ROOT = Path(__file__).resolve().parent.parent
+
+
+def test_an_older_round_whose_browser_check_never_ran_is_not_delivered_as_passed(tmp_path: Path) -> None:
+    site_dir, out = tmp_path / "site", tmp_path / "out"
+    shutil.copytree(ROOT / "examples" / "host-mode" / "site", site_dir)
+    assert host.run_record("site", site_dir, out=out, request="a site", agent="cursor", score=9, judge=None,
+                           judge_score=None, judge_note=None, allow_commands=False, as_json=True) == host.NOT_MEASURED_EXIT
+    rec = json.loads((out / "record.json").read_text(encoding="utf-8"))
+    rec["rounds"] = [{"version": 1, "score": 9, "passed": True, "agent": "cursor"}]
+    (out / "record.json").write_text(json.dumps(rec), encoding="utf-8")
+    assert any(row.get("ok") is None for row in json.loads((out / "v1" / "checks.json").read_text(encoding="utf-8")))
+    host.run_record("site", site_dir, out=out, request="a site", agent="cursor", score=9, judge=None,
+                    judge_score=None, judge_note=None, allow_commands=False, as_json=True)
+    rec = json.loads((out / "record.json").read_text(encoding="utf-8"))
+    assert rec["best_status"] != "passed", rec["rounds"]
+
+
+def test_shipped_example_records_do_not_call_an_unrun_check_passed() -> None:
+    wrong = []
+    for path in sorted((ROOT / "examples" / "host-mode").glob("*/record.json")):
+        for row in json.loads(path.read_text(encoding="utf-8")).get("rounds", []):
+            checks = path.parent / f"v{row['version']}" / "checks.json"
+            if not checks.is_file():
+                continue
+            unrun = [c["check"] for c in json.loads(checks.read_text(encoding="utf-8")) if c.get("ok") is None]
+            if unrun and host._round_status(row) == "passed":
+                wrong.append(f"{path.parent.name} v{row['version']}: {unrun}")
+    assert not wrong, wrong
+
+
+def test_delivered_mcp_server_is_the_version_the_record_scored() -> None:
+    rec_dir = ROOT / "examples" / "host-mode" / "mcp-record"
+    best = json.loads((rec_dir / "record.json").read_text(encoding="utf-8"))["best_version"]
+    delivered = (rec_dir / "mcp" / "server.py").read_bytes()
+    scored = (rec_dir / f"v{best}" / "mcp" / "server.py").read_bytes()
+    assert delivered == scored, "delivered server.py differs from the scored version the record names"

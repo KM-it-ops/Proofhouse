@@ -10,7 +10,6 @@ LEGACY = "prompt" + "rig"
 HISTORICAL_PREFIXES = (
     "tests/fixtures/compiler-contract-freeze-v0.5/",
     "tests/fixtures/requirements-compiler-contract-v0.1/",
-    "apps/dashboard/backups/original-tactical/",
 )
 HISTORICAL_FILES = {"CHANGELOG.md"}
 

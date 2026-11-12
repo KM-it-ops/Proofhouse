@@ -7,7 +7,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.stage3_hard_cases import (CASES, Case, Expected, _captured, _environment, _exit_code, _safety,
+from scripts.stage3_hard_cases import (CASES, Case, Expected, _captured, _environment, _exit_code, _safety, _scrub,
                                        parser_commands)
 
 
@@ -73,3 +73,23 @@ def test_the_runner_fails_when_any_case_broke() -> None:
     assert _exit_code([held, broke], under_two=[]) == 1
     assert _exit_code([held, {"verdict": "held", "unable": True}], under_two=[]) == 1
     assert _exit_code([held], under_two=["make"]) == 1
+
+
+def test_scrub_removes_a_windows_profile_path_written_with_backslashes(tmp_path: Path) -> None:
+    text = f'File "C:{BACKSLASH}Users{BACKSLASH}someone{BACKSLASH}AppData{BACKSLASH}Roaming{BACKSLASH}uv{BACKSLASH}python{BACKSLASH}x.py", line 1'
+    assert "someone" not in _scrub(text, tmp_path)
+
+
+def test_scrub_removes_the_same_path_as_json_writes_it(tmp_path: Path) -> None:
+    text = f'"C:{BACKSLASH*2}Users{BACKSLASH*2}someone{BACKSLASH*2}AppData{BACKSLASH*2}x.json"'
+    assert "someone" not in _scrub(text, tmp_path)
+
+
+def test_scrub_removes_a_profile_name_that_has_a_space(tmp_path: Path) -> None:
+    text = f'File "C:{BACKSLASH}Users{BACKSLASH}Jane Smith{BACKSLASH}AppData{BACKSLASH}x.py", line 1'
+    assert "Smith" not in _scrub(text, tmp_path)
+
+
+def test_scrub_removes_a_lower_case_windows_profile_path(tmp_path: Path) -> None:
+    text = f"c:{BACKSLASH}users{BACKSLASH}someone{BACKSLASH}AppData{BACKSLASH}x.py"
+    assert "someone" not in _scrub(text, tmp_path)

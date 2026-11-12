@@ -1558,3 +1558,232 @@ def test_a_voice_on_this_machine_speaks_its_lines_at_the_same_time_and_every_cal
     assert made.stopped == "finished", made.stopped
     assert peak > 1
     assert sum(1 for c in made.calls if c["role"].startswith("speech")) == 3
+
+
+# ---------------------------------------------------------------- review 6d9e5f7 & f94a1e9
+
+
+def _review_fake_media(kind, provider, model, *, out, **kwargs):
+    """Stand in for the picture and voice services: a tiny picture, or two seconds of quiet sound."""
+    import wave
+    from types import SimpleNamespace
+
+    if kind == "speech":
+        path = out.with_suffix(".wav")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with wave.open(str(path), "wb") as sound:
+            sound.setnchannels(1)
+            sound.setsampwidth(2)
+            sound.setframerate(8000)
+            sound.writeframes(b"\x00\x00" * 16000)
+    else:
+        path = out.with_suffix(".png")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(b"fake image")
+    return SimpleNamespace(status="success", code=None, message=None, path=str(path), cost={"usd": "0"})
+
+
+def _review_pretend_render(out_dir, board, *, production, **kwargs):
+    rendered = out_dir / "video-1x1.mp4"
+    rendered.write_bytes(b"fake film")
+    production.renders["1x1"] = str(rendered)
+    return production
+
+
+def _review_writer(script, cost):
+    from types import SimpleNamespace
+
+    def reply(*args, **kwargs):
+        return SimpleNamespace(status="success", code=None, message=None, cost=cost, cut_off=False,
+                               admission={"worst_case_usd": "0.40"}, output_text=json.dumps(script))
+    return reply
+
+
+def _review_film(tmp_path, monkeypatch, script, cost, **more):
+    monkeypatch.setattr(studio.live, "run_prompt", _review_writer(script, cost))
+    monkeypatch.setattr(studio.media, "generate", _review_fake_media)
+    monkeypatch.setattr(studio, "assemble_beats", _review_pretend_render)
+    return studio.produce("Show Demo", provider_id="ollama", model="local", voice_provider="local-voice",
+                          seconds=6, formats=("1x1",), out_dir=tmp_path / "film", **more)
+
+
+_REVIEW_FACTS = {"product": "Demo", "summary": "A tool that makes prompts.", "facts": ["Works with 4 providers."]}
+_REVIEW_BRIEF = "Make a film about Demo"
+
+
+@needs_ffmpeg
+def test_an_undrawable_overlay_is_not_recorded_as_a_pass(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    script = {"title": "Demo", "beats": [{"say": "Meet Demo.", "base": {"kind": "living"}, "hold": 3,
+                                          "layers": [{"kind": "image", "at": 0}]}]}
+
+    made = _review_film(tmp_path, monkeypatch, script, {"usd": "0"})
+
+    assert made.stopped != "finished" or any(not check["ok"] for check in made.checks), (made.stopped, made.checks)
+
+
+@needs_ffmpeg
+def test_a_requested_video_layer_is_kept_or_refused(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    script = {"title": "Demo", "beats": [{"say": "Meet Demo.", "base": {"kind": "living"}, "hold": 3,
+                                          "layers": [{"kind": "video", "prompt": "moving clouds", "at": 0}]}]}
+
+    made = _review_film(tmp_path, monkeypatch, script, {"usd": "0"},
+                        visual_provider="local-images", visual_model="floor", visual_kind="image")
+    if made.stopped != "finished":
+        return  # refusing a layer it cannot make is a fair answer
+    final_script = json.loads((tmp_path / "film" / "script.json").read_text(encoding="utf-8"))
+    layers = final_script["beats"][0].get("layers") or []
+    assert layers and layers[0]["kind"] == "video", (layers, made.checks)
+
+
+def test_a_spelled_out_invented_figure_in_the_narration_is_caught() -> None:
+    digits = [{"say": "It is 10 times faster with 12 providers.", "base": {"kind": "living"}}]
+    words = [{"say": "It is ten times faster with twelve providers.", "base": {"kind": "living"}}]
+
+    assert studio._invented(digits, _REVIEW_BRIEF, _REVIEW_FACTS), "the digit form is caught (control)"
+    assert studio._invented(words, _REVIEW_BRIEF, _REVIEW_FACTS), (
+        "The same invented figures, written as words, pass the check."
+    )
+
+
+def test_settling_does_not_leave_an_invented_figure_in_the_narration() -> None:
+    board = [
+        {"say": "Meet Demo.", "base": {"kind": "living"}},
+        {"say": "It handles 500 requests a second.", "base": {"kind": "living"}},
+        {"say": "Try Demo today.", "base": {"kind": "living"}},
+    ]
+    try:
+        studio.settle_gaps(board, brief=_REVIEW_BRIEF, seconds=12, facts=_REVIEW_FACTS, footage=[], voiced=True, pictures=False)
+    except studio.StudioError:
+        return  # refusing the film is a fair answer
+    left = [figures for _beat, layer, figures in studio._invented(board, _REVIEW_BRIEF, _REVIEW_FACTS) if layer is None]
+    assert not left, f"The settled script still says {left}, which the facts never give, and the film goes ahead."
+
+
+@needs_ffmpeg
+def test_an_unknown_cost_script_call_is_charged_at_worst_case(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    from decimal import Decimal
+
+    script = {"title": "Demo", "beats": [{"say": "Meet Demo.", "base": {"kind": "living"}, "hold": 3}]}
+
+    made = _review_film(tmp_path, monkeypatch, script, {"usd": "unknown"}, max_cost_usd="1.00")
+
+    assert made.stopped == "finished", made.stopped
+    assert made.spent_usd >= Decimal("0.40"), "A call was sent with an unknown cost, yet the film reports $0 spent."
+
+
+def test_everyday_one_and_single_are_not_invented_figures() -> None:
+    board = [{"say": "One command does it all, in a single step.",
+              "base": {"kind": "generate", "prompt": "a single lighthouse at dusk"}}]
+
+    assert studio._invented(board, _REVIEW_BRIEF, _REVIEW_FACTS) == [], (
+        "Plain words like 'one' and 'single' are treated as figures the facts never give."
+    )
+
+
+def test_a_spelled_out_figure_above_one_is_still_caught() -> None:
+    board = [{"say": "It is ten times faster across twenty-five regions.",
+              "base": {"kind": "generate", "prompt": "twelve robots"}}]
+
+    found = studio._invented(board, _REVIEW_BRIEF, _REVIEW_FACTS)
+
+    assert (1, None, ["10", "25"]) in found and (1, "picture", ["12"]) in found, found
+
+
+def test_a_compound_spelled_figure_matching_the_facts_is_accepted() -> None:
+    facts = {**_REVIEW_FACTS, "facts": ["Works with 25 providers, 200 templates, 205 checks in 3.5 seconds."]}
+    board = [{"say": "Works with twenty-five providers, two hundred templates and two hundred and five checks in three point five seconds.",
+              "base": {"kind": "living"}}]
+
+    assert studio._invented(board, _REVIEW_BRIEF, facts) == []
+    assert studio._invented([{"say": "Runs in zero point four seconds.", "base": {"kind": "living"}}], _REVIEW_BRIEF, facts) == [
+        (1, None, ["0.4"])
+    ]
+
+
+def test_dropping_a_middle_sentence_keeps_later_timings_on_their_own_sentence(tmp_path: Path) -> None:
+    from proofhouse import storyboard
+
+    board = [
+        {"say": "Meet Demo.", "base": {"kind": "living"}},
+        {"say": "Demo writes prompts. It handles 500 requests a second. Teams ship faster.",
+         "base": {"kind": "living"},
+         "hold": 8,
+         "layers": [
+             {"kind": "lower_third", "title": "Write", "at": "phrase 1", "until": "phrase 2 end"},
+             {"kind": "title", "text": "Only dropped", "at": "phrase 2", "until": "phrase 2 end"},
+             {"kind": "chips", "items": ["Ship", "Fast"], "at": "phrase 3 + 0.5", "until": "phrase 3 end"},
+             {"kind": "label", "text": "Held tail", "at": "phrase 3 end + 2", "until": "end"},
+         ]},
+        {"say": "Try Demo today.", "base": {"kind": "living"}},
+    ]
+
+    studio.settle_gaps(board, brief=_REVIEW_BRIEF, seconds=12, facts=_REVIEW_FACTS, footage=[], voiced=True, pictures=False)
+
+    row = next(r for r in board if "Teams ship faster." in str(r.get("say", "")))
+    assert "500" not in row["say"], row
+    assert row["layers"][0]["at"] == "phrase 1" and row["layers"][0]["until"] == "phrase 1 end"
+    assert row["layers"][2]["at"] == "phrase 2 + 0.5" and row["layers"][2]["until"] == "phrase 2 end"
+    assert row["layers"][3]["at"] == "phrase 2 end + 2" and row["layers"][3]["until"] == "end"
+    beats = storyboard.parse(board, tmp_path)
+    for beat in beats:
+        for phrase in beat.phrases:
+            phrase.seconds = 1.0
+    storyboard.time_beats(beats)
+    pytest.importorskip("PIL")
+    assert storyboard.scenes(beats, (1920, 1080))
+
+
+def test_a_prompted_layer_asking_for_a_screen_or_text_is_cleaned() -> None:
+    board = [{"say": "Meet Demo.", "base": {"kind": "living"},
+              "layers": [{"kind": "image", "prompt": "a terminal screen showing a success message", "at": 0}]}]
+
+    gaps = studio.script_gaps(board, brief=_REVIEW_BRIEF, seconds=12, facts=_REVIEW_FACTS, footage=[], voiced=True, pictures=True)
+    assert any("beat 1 layer 1's picture prompt" in g for g in gaps), gaps
+    studio.settle_gaps(board, brief=_REVIEW_BRIEF, seconds=12, facts=_REVIEW_FACTS, footage=[], voiced=True, pictures=True)
+    prompt = board[0]["layers"][0]["prompt"]
+    assert not studio.screen_shown(prompt) and not studio._asks_text(prompt), prompt
+
+
+@needs_ffmpeg
+def test_a_prompted_layer_on_a_footage_beat_reaches_the_film(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    import sys
+    from types import SimpleNamespace
+
+    facts = {**_REVIEW_FACTS, "commands": [{"id": "version", "argv": [sys.executable, "-c", "print('demo 1.0')"],
+                                            "shows": "the installed version answering"}]}
+    script = {"title": "Demo", "beats": [
+        {"say": "Meet Demo.", "base": {"kind": "living"}, "hold": 3},
+        {"say": "Here it is.", "base": {"kind": "capture", "ref": "version"}, "hold": 3,
+         "layers": [{"kind": "image", "prompt": "a calm workshop", "at": 0}]},
+        {"say": "It makes prompts.", "base": {"kind": "living"}, "hold": 3},
+        {"say": "Try Demo today.", "base": {"kind": "living"}, "hold": 3},
+    ]}
+    rendered: list[list[dict]] = []
+
+    def writer(*args, **kwargs):
+        return SimpleNamespace(status="success", code=None, message=None, cost={"usd": "0"}, cut_off=False,
+                               admission={"worst_case_usd": "0"}, output_text=json.dumps(script))
+
+    def pretend_render(out_dir, script, *, production, **kwargs):
+        rendered.append(script["beats"])
+        (out_dir / "video-1x1.mp4").write_bytes(b"fake film")
+        production.renders["1x1"] = str(out_dir / "video-1x1.mp4")
+        return production
+
+    monkeypatch.setattr(studio.live, "run_prompt", writer)
+    monkeypatch.setattr(studio.media, "generate", _review_fake_media)
+    monkeypatch.setattr(studio.recording, "record_command", lambda argv, cwd: [])
+    monkeypatch.setattr(studio.recording, "terminal_timeline", lambda display, chunks, **kw: {"seconds": 2})
+    monkeypatch.setattr(studio, "assemble_beats", pretend_render)
+
+    made = studio.produce("Show Demo", provider_id="ollama", model="local", voice_provider="local-voice",
+                          visual_provider="local-images", visual_model="floor", seconds=12, formats=("1x1",),
+                          out_dir=tmp_path / "film", facts=facts, allow_commands=True)
+
+    assert made.stopped == "finished", made.stopped
+    footage_beats = [row for row in rendered[0] if row.get("real")]
+    assert footage_beats, (rendered[0], made.checks)
+    images = [lay for lay in footage_beats[0].get("layers") or [] if lay.get("kind") == "image"]
+    assert images and all("file" in lay and "prompt" not in lay for lay in images), (
+        f"the footage beat goes to the film with its picture layer never attached: {images}"
+    )
