@@ -3,6 +3,7 @@ of a key."""
 from __future__ import annotations
 
 import json
+import os
 import sys
 import wave
 from array import array
@@ -110,7 +111,19 @@ def test_the_words_reach_the_engine_on_stdin_never_in_the_command(tmp_path: Path
         assert seen["input"] == words.encode("utf-8")
 
 
+def _hosted_macos_say() -> bool:
+    # Hosted macOS runners have `say`, but there it renders an empty file (~5 ms of audio), so the
+    # really-speaks smoke test cannot assert real speech on them.
+    if sys.platform != "darwin" or os.environ.get("GITHUB_ACTIONS") != "true":
+        return False
+    try:
+        return local_voice.pick() == "say"
+    except local_voice.VoiceError:
+        return False
+
+
 @pytest.mark.skipif(not local_voice.available(), reason="no speech engine on this machine")
+@pytest.mark.skipif(_hosted_macos_say(), reason="hosted macOS runners have `say` but it renders an empty audio file there")
 def test_the_local_voice_really_speaks(tmp_path: Path) -> None:
     done = media.generate("speech", "local-voice", "local", prompt="Proofhouse makes the film you asked for.",
                           out=tmp_path / "line")
