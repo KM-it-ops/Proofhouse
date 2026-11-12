@@ -26,7 +26,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
-from . import __version__, live, media, providers
+from . import __version__, live, media, providers, scrub
 from .make import Budget, _slug
 
 MAX_ACTIONS = 10
@@ -94,41 +94,25 @@ class _Stop(Exception):
     pass
 
 
-_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTH", re.IGNORECASE)
-# The agent's own commands see only these variables, so a secret under any name stays out of them.
-_ENV_ALLOWLIST = ("PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "COMSPEC", "TEMP", "TMP", "TMPDIR",
-                  "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA",
-                  "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "COMMONPROGRAMFILES", "NUMBER_OF_PROCESSORS",
-                  "PROCESSOR_ARCHITECTURE", "OS", "USERNAME", "USER", "LOGNAME", "SHELL", "TERM", "LANG", "LC_ALL",
-                  "LC_CTYPE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME")
-
-
 def _secrets() -> list[str]:
-    """Values of every known key variable and of any secret-named variable, longest first, so command output
-    never carries them anywhere (the agent's own commands never see them in their environment at all)."""
+    """Values of every known key variable and of any secret-named variable, so command output never carries
+    them anywhere (the agent's own commands never see them in their environment at all)."""
     names: set[str] = set()
     try:
         names |= {p.key_env for p in providers.all_providers().values() if p.key_env}
         names |= {p.key_env for p in media.all_media_providers().values() if p.key_env}
     except (providers.ProviderError, media.MediaError):
         pass
-    names |= {name for name in os.environ if _SECRET_NAME.search(name)}
-    values = {os.environ[name] for name in names if len(os.environ.get(name, "")) >= 6}
-    return sorted(values, key=len, reverse=True)
+    return scrub.secret_values(names)
 
 
 def _agent_env() -> dict[str, str]:
-    """The environment a model-driven ``run`` action gets: the allowlist only, minus secret-named variables."""
-    wanted = {name.upper() for name in _ENV_ALLOWLIST}
-    env = {key: value for key, value in os.environ.items() if key.upper() in wanted and not _SECRET_NAME.search(key)}
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
-    return env
+    """The environment a model-driven ``run`` action gets (``scrub.minimal_env``)."""
+    return scrub.minimal_env()
 
 
 def _clean(text: str, secrets: list[str], limit: int = MAX_OUTPUT) -> str:
-    for value in secrets:
-        text = text.replace(value, "[redacted]")
-    return text if len(text) <= limit else "…" + text[-limit:]
+    return scrub.clean(text, secrets, limit)
 
 
 def _shell(command: str, cwd: Path, timeout: int, secrets: list[str], env: dict[str, str] | None = None) -> dict[str, Any]:
