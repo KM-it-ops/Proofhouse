@@ -148,8 +148,9 @@ def test_windows_junctions_are_not_followed(tmp_path: Path) -> None:
     write(outside, "deep/secret.txt", CANARY)
     project = tmp_path / "project"
     write(project, "README.md", "# P\nhello\n")
-    made =subprocess.run(["cmd", "/c", "mklink", "/J", str(project / "linked"), str(outside)], capture_output=True, text=True)
-    assert made.returncode == 0, made.stdout + made.stderr
+    made = subprocess.run(["cmd", "/c", "mklink", "/J", str(project / "linked"), str(outside)], capture_output=True, text=True)
+    if made.returncode != 0:
+        pytest.skip(f"directory junctions not permitted in this environment: {made.stdout}{made.stderr}")
     r = scan(project)
     assert not any(item.startswith("linked") for item in r["layout"]), r["layout"]
     assert "Next.js" not in r["frameworks"] and CANARY not in json.dumps(r)

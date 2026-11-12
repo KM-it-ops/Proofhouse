@@ -80,7 +80,19 @@ def packs_dir() -> Path:
 def _packs() -> tuple[list[Addon], list[str]]:
     found, problems = [], []
     folder = packs_dir()
-    for path in sorted(folder.glob("*/addon.json")) if folder.is_dir() else []:
+    try:
+        is_dir = folder.is_dir()
+    except OSError as exc:
+        problems.append(f"addons folder: {exc}")
+        return found, problems
+    if not is_dir:
+        return found, problems
+    try:
+        paths = sorted(folder.glob("*/addon.json"))
+    except OSError as exc:
+        problems.append(f"addons folder: {exc}")
+        return found, problems
+    for path in paths:
         try:
             found.append(_check(json.loads(path.read_text(encoding="utf-8")), str(path), "pack"))
         except (OSError, ValueError) as exc:

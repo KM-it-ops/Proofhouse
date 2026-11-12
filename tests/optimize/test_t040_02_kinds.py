@@ -217,7 +217,10 @@ def test_directory_junction_is_refused(tmp_path: Path) -> None:
 
     outside = _write_folder(tmp_path / "outside", {"secret.txt": b"secret"})
     root = _write_folder(tmp_path / "skill", {"SKILL.md": b"x"})
-    _winapi.CreateJunction(str(outside), str(root / "junction"))
+    try:
+        _winapi.CreateJunction(str(outside), str(root / "junction"))
+    except (OSError, PermissionError) as exc:
+        pytest.skip(f"directory junctions not permitted in this environment: {exc}")
     with pytest.raises(CodedCaseError) as excinfo:
         kinds.folder_manifest(root)
     assert _code(excinfo) == "PHC-SKILL-0003"

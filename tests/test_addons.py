@@ -123,3 +123,13 @@ def test_a_make_kind_nobody_added_is_researched_first_not_refused(tmp_path: Path
                      "--answers", str(answers)]) != 0
     research = [text for text in sent if text.startswith("Proofhouse makes many kinds")]
     assert len(research) == 1 and "make a poster" in research[0]
+
+
+def test_an_add_ons_folder_that_cannot_be_read_is_reported_not_a_crash(monkeypatch: pytest.MonkeyPatch) -> None:
+    class Locked:
+        def is_dir(self) -> bool:
+            raise PermissionError("access is denied")
+
+    monkeypatch.setattr(addons, "packs_dir", lambda: Locked())
+    found, problems = addons._packs()
+    assert found == [] and problems == ["addons folder: access is denied"]

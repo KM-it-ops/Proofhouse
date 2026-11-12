@@ -124,9 +124,15 @@ def test_a_template_cannot_climb_out_of_the_root(home: Path, template: str) -> N
 def _link_folder(link: Path, target: Path) -> None:
     """A folder link any user can make: a directory junction on Windows, a symlink elsewhere."""
     if sys.platform == "win32":
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+        try:
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+        except (subprocess.CalledProcessError, OSError) as exc:
+            pytest.skip(f"directory junctions not permitted in this environment: {exc}")
     else:
-        link.symlink_to(target, target_is_directory=True)
+        try:
+            link.symlink_to(target, target_is_directory=True)
+        except OSError as exc:
+            pytest.skip(f"symlinks not permitted in this environment: {exc}")
 
 
 def test_a_linked_config_folder_is_not_followed(home: Path, tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
