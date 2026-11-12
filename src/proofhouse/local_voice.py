@@ -54,13 +54,42 @@ def _has_module(name: str) -> bool:
         return False
 
 
+_WINDOWS_VOICE_AVAILABLE: bool | None = None
+
+
+def _windows_voice_available() -> bool:
+    global _WINDOWS_VOICE_AVAILABLE
+    if _WINDOWS_VOICE_AVAILABLE is not None:
+        return _WINDOWS_VOICE_AVAILABLE
+    if os.name != "nt":
+        _WINDOWS_VOICE_AVAILABLE = False
+        return False
+    ps = _program("powershell")
+    if not ps:
+        _WINDOWS_VOICE_AVAILABLE = False
+        return False
+    check_cmd = (
+        "Add-Type -AssemblyName System.Speech; "
+        "try { $s=New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+        "if (($s.GetInstalledVoices() | Where-Object { $_.Enabled }).Count -gt 0) { exit 0 } else { exit 1 } } "
+        "catch { exit 1 }"
+    )
+    try:
+        res = subprocess.run([ps, "-NoProfile", "-NonInteractive", "-Command", check_cmd],
+                             capture_output=True, timeout=5, check=False)
+        _WINDOWS_VOICE_AVAILABLE = (res.returncode == 0)
+    except Exception:
+        _WINDOWS_VOICE_AVAILABLE = False
+    return _WINDOWS_VOICE_AVAILABLE
+
+
 def _ready(engine: str) -> bool:
     if engine == "kokoro":
         return _has_module("kokoro")
     if engine == "piper":
         return _program("piper") is not None and bool(os.environ.get("PIPER_MODEL"))
     if engine == "windows":
-        return os.name == "nt" and _program("powershell") is not None
+        return _windows_voice_available()
     return _program(engine) is not None
 
 

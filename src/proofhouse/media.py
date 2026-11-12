@@ -184,7 +184,7 @@ def _parse(raw: object, origin: str) -> MediaProvider:
 def _load(path: Path) -> list[dict[str, Any]]:
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         return []
     except (OSError, ValueError) as exc:
         raise MediaError(f"{path} is unreadable: {type(exc).__name__}") from None

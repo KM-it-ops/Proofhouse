@@ -170,8 +170,12 @@ def load_user() -> dict[str, Any]:
     """Your providers file as data ({"providers": [...], "prices": [...]}); empty when there is none."""
     try:
         data = _read(user_path())
-    except FileNotFoundError:
+    except (FileNotFoundError, PermissionError):
         return {"schema": PROVIDERS_SCHEMA, "providers": [], "prices": [], "media_prices": [], "training_prices": []}
+    except ProviderError as exc:
+        if "PermissionError" in str(exc):
+            return {"schema": PROVIDERS_SCHEMA, "providers": [], "prices": [], "media_prices": [], "training_prices": []}
+        raise
     for key in ("providers", "prices", "media_prices", "training_prices"):
         if not isinstance(data.setdefault(key, []), list):
             raise ProviderError(f"{user_path()}: {key} must be a list")

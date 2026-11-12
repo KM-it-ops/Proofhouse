@@ -249,4 +249,9 @@ def launch_browser(p):  # noqa: ANN001, ANN201 - Playwright objects
     browser = sitecheck.find_browser()
     if browser is None:
         raise CaptureError("no Chrome or Chromium found; install Google Chrome or Microsoft Edge")
-    return p.chromium.launch(executable_path=browser, headless=True)
+    return p.chromium.launch(
+        executable_path=browser,
+        headless=True,
+        timeout=15000,
+        args=["--no-sandbox", "--disable-gpu", "--hide-scrollbars"],
+    )
