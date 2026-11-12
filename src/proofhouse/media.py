@@ -499,7 +499,10 @@ def _find_program(first: str) -> str | None:
     """A bare name from PATH's full folders only, never the current folder (which Windows searches first, and where
     a downloaded film folder could plant one); anything else must be a full path."""
     if Path(first).is_absolute():
-        return first if Path(first).is_file() else None
+        try:
+            return first if Path(first).is_file() else None
+        except OSError:
+            return None
     if Path(first).name != first:
         return None  # a relative path would depend on where the command was run
     exts = [""]
@@ -512,8 +515,11 @@ def _find_program(first: str) -> str | None:
             continue
         for ext in exts:
             hit = Path(folder) / (first + ext)
-            if hit.is_file() and os.access(hit, os.X_OK):
-                return str(hit)
+            try:
+                if hit.is_file() and os.access(hit, os.X_OK):
+                    return str(hit)
+            except OSError:
+                continue
     return None
 
 

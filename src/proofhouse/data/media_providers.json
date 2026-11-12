@@ -17,6 +17,13 @@
       "run": {"command": ["@python", "-m", "proofhouse.local_voice", "--voice", "{voice}", "--out", "{out}"], "stdin": "{prompt}", "ext": "wav", "timeout": 600}
     },
     {
+      "id": "local-images",
+      "name": "Pictures made on this machine",
+      "kinds": ["image"],
+      "unit": "request",
+      "run": {"command": ["@python", "-m", "proofhouse.local_images", "--model", "{model}", "--size", "{size}", "--out", "{out}"], "stdin": "{prompt}", "ext": "png", "timeout": 3600}
+    },
+    {
       "id": "openai-images",
       "name": "OpenAI images",
       "kinds": ["image"],

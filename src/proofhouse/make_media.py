@@ -377,12 +377,12 @@ def make_media(
 
 # The free makers that fill a part of a film nobody named a service for. They are entries in the media list (data), so
 # an owner can replace or remove them there.
-_STAND_INS = {"voice": "local-voice", "music": "local-music"}
+_STAND_INS = {"visuals": "local-images", "voice": "local-voice", "music": "local-music"}
 
 
 def _fill_gaps(parts: dict[str, dict[str, str]], video: dict[str, Any]) -> dict[str, str]:
-    """Give a film with no voice or music service the free ones on this machine, and say which stood in and why."""
-    from . import local_voice
+    """Give a film with no picture, voice or music service the free ones on this machine, and say which stood in and why."""
+    from . import local_images, local_voice
 
     stood_in: dict[str, str] = {}
     for role, pid in _STAND_INS.items():
@@ -391,7 +391,7 @@ def _fill_gaps(parts: dict[str, dict[str, str]], video: dict[str, Any]) -> dict[
         found = media.find(pid)
         if found is None or role not in ROLES["video"] or not ROLES["video"][role] & set(found.kinds):
             continue
-        if role == "voice" and not local_voice.available():
+        if (role == "voice" and not local_voice.available()) or (role == "visuals" and not local_images.available()):
             continue
         parts[role] = {"provider": pid, "model": "local"}
         stood_in[role] = f"{pid}: no {role} service was named, so {found.name.lower()} made it at no cost"

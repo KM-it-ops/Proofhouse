@@ -621,6 +621,36 @@ def test_a_film_with_no_voice_or_music_service_gets_the_free_ones_and_the_record
     assert set(record["stood_in"]) == {"voice", "music"} and "no voice service" in record["stood_in"]["voice"]
 
 
+def test_a_film_with_no_picture_service_gets_pictures_made_here_and_the_record_says_so(
+        tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import local_images
+
+    monkeypatch.setattr(local_images, "available", lambda: True)
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    made = make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                                 interviewer=Answers("my-voice", {"must": "short"}, [True]), transport=Director())
+    assert made.delivered
+    assert seen[0]["visual_provider"] == "local-images" and seen[0]["visual_model"] == "local"
+    assert seen[0]["visual_kind"] == "image"
+    record = _record(tmp_path / "o")
+    assert record["roles"]["visuals"]["provider"] == "local-images"
+    assert set(record["stood_in"]) == {"visuals", "music"} and seen[0]["voice_provider"] == "my-voice"
+    assert "no visuals service" in record["stood_in"]["visuals"]
+
+
+def test_with_no_way_to_make_pictures_here_the_picture_gap_stays_open(
+        tmp_path: Path, programs: None, monkeypatch: pytest.MonkeyPatch) -> None:
+    from proofhouse import local_images
+
+    monkeypatch.setattr(local_images, "available", lambda: False)
+    seen: list[dict] = []
+    monkeypatch.setattr(studio, "produce", _fake_produce(seen))
+    make_media.make_media("a fox film", kind="video", provider_id="ollama", model="m", out_dir=tmp_path / "o",
+                          interviewer=Answers("my-voice", {"must": "short"}, [True]), transport=Director())
+    assert seen[0]["visual_provider"] == "" and "visuals" not in _record(tmp_path / "o")["stood_in"]
+
+
 def test_a_named_voice_or_a_music_file_is_never_replaced(tmp_path: Path, programs: None,
                                                         monkeypatch: pytest.MonkeyPatch) -> None:
     from proofhouse import local_voice
