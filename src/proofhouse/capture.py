@@ -249,4 +249,5 @@ def launch_browser(p):  # noqa: ANN001, ANN201 - Playwright objects
     browser = sitecheck.find_browser()
     if browser is None:
         raise CaptureError("no Chrome or Chromium found; install Google Chrome or Microsoft Edge")
-    return p.chromium.launch(executable_path=browser, headless=True)
+    # a browser that never starts must not hang the recording; scrollbars would show in every frame
+    return p.chromium.launch(executable_path=browser, headless=True, timeout=15000, args=["--hide-scrollbars"])
