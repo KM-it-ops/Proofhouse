@@ -143,3 +143,30 @@ def test_cli_prints_the_warning_on_stderr_and_exits_0(tmp_path: Path, capsys, mo
         assert captured.err == (
             "PHC-COST-0004: 'model-a' used 9 output tokens, over the bound of 8; the price check did not hold for this call\n"
         )
+
+
+def test_a_paid_model_that_reports_no_tokens_on_a_good_reply_is_not_believed_to_be_free() -> None:
+    """A request that was sent always has input. Zero from a model that costs money is a missing report, not a free call."""
+    cost = _run({"usage": {"prompt_tokens": 0, "completion_tokens": 0, "total_tokens": 0}}).envelope["cost"]
+    assert cost["tokens_in"] == 0 and cost["tokens_out"] == 0
+    assert cost["usd"] == "unknown" and cost["basis"]["usd"] == "unknown" and cost["price_table_version"] == ""
+
+
+def test_a_limit_is_charged_the_reserved_worst_case_when_a_paid_model_reports_no_tokens() -> None:
+    from proofhouse import live
+    from proofhouse.make import Budget
+
+    result = _run({"usage": {"prompt_tokens": 0, "completion_tokens": 0}})
+    admission = result.envelope["admission"]["cost_ceiling"]
+    worst = Decimal(admission["worst_case_usd"])
+    assert worst > 0
+    budget = Budget("1", local=False)
+    budget.charge(live.RunResult("success", None, None, "openai", "model-a", cost=result.envelope["cost"], admission=admission))
+    assert budget.spent == worst and budget.left == Decimal("1") - worst
+
+
+def test_a_free_model_that_reports_no_tokens_still_costs_nothing(monkeypatch: pytest.MonkeyPatch) -> None:
+    free = spend.PriceEntry("openai", "model-a", Decimal("0"), Decimal("0"), None, "default", "https://example.com/p", "2026-10-12")
+    monkeypatch.setattr(spend, "load_price_table", lambda: spend.PriceTable("2026-10-12.9", (free,)))
+    cost = _run({"usage": {"prompt_tokens": 0, "completion_tokens": 0}}).envelope["cost"]
+    assert Decimal(cost["usd"]) == 0 and cost["basis"]["usd"] == "estimated"
