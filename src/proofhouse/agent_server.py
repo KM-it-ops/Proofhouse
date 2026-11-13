@@ -13,6 +13,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -87,9 +88,17 @@ def build_prompt(messages: list[dict]) -> str:
     return "\n\n".join(parts)
 
 
+# A model name goes onto the agent's command line. On Windows many agents are .cmd launchers, which the command
+# shell reads again, so a name like "x&calc" would run calc. A name is a name: these characters and nothing else.
+MODEL_NAME = re.compile(r"[A-Za-z0-9][A-Za-z0-9._:/@+-]*")
+
+
 def build_argv(entry: dict, model: str, agent: str) -> list[str]:
     argv = list(entry["argv"])
     if model and model not in ("default", agent) and entry.get("model_flag"):
+        if not MODEL_NAME.fullmatch(model):
+            raise AgentError(f"{model[:80]!r} is not a model name {agent} can be given: a model name starts with a "
+                             "letter or digit and has only letters, digits and . _ : / @ + -")
         flag = [part.replace("{model}", model) for part in entry["model_flag"]]
         # keep a trailing "-" (read the question from stdin) last
         at = len(argv) - 1 if argv and argv[-1] == "-" else len(argv)
@@ -150,6 +159,22 @@ def complete(agent: str, entry: dict, body: dict, runner: Runner, timeout: float
     }
 
 
+def _private(path: Path) -> None:
+    """Make ``path`` readable by its owner only. On Windows a new file takes its readers from the folder it is
+    in, and the mode given when it is made means nothing, so the inherited entries are removed by name."""
+    if os.name != "nt":
+        os.chmod(path, 0o600)
+        return
+    try:
+        who = subprocess.run(["whoami"], capture_output=True, text=True, timeout=15, check=True).stdout.strip()
+        if not who:
+            raise OSError("could not tell who you are logged in as")
+        subprocess.run(["icacls", str(path), "/inheritance:r", "/grant:r", f"{who}:F"],
+                       capture_output=True, text=True, timeout=15, check=True)
+    except subprocess.SubprocessError as exc:
+        raise OSError(f"could not make it private ({type(exc).__name__})") from exc
+
+
 def bridge_token() -> tuple[str, Path | None]:
     """The token every request must carry, and the file it was saved to when the environment did not name one.
 
@@ -164,15 +189,17 @@ def bridge_token() -> tuple[str, Path | None]:
         saved = path.read_text(encoding="utf-8").strip()
     except OSError:
         saved = ""
-    if not saved:
-        saved = secrets.token_urlsafe(32)
-        try:
+    try:
+        if saved:
+            _private(path)  # a file from before this rule, or one whose readers were widened since
+        else:
+            saved = secrets.token_urlsafe(32)
             path.parent.mkdir(parents=True, exist_ok=True)
-            handle = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            with os.fdopen(handle, "w", encoding="utf-8") as fh:
-                fh.write(saved)
-        except OSError as exc:
-            raise AgentError(f"could not save a bridge token to {path}: {exc}. Set {TOKEN_ENV} yourself and start again.") from exc
+            os.close(os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600))
+            _private(path)  # private first, while it is still empty; the token is written after
+            path.write_text(saved, encoding="utf-8")
+    except OSError as exc:
+        raise AgentError(f"could not save a bridge token to {path}: {exc}. Set {TOKEN_ENV} yourself and start again.") from exc
     return saved, path
 
 

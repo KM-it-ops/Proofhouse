@@ -40,6 +40,9 @@ class Response:
 
 
 Transport = Callable[[Request], Any]
+# What a transport answers for "this address is not mine": the send step then sends it the usual way. It lets a
+# transport serve some addresses itself (the chat tools run a logged-in agent in place) without holding the sender.
+PASS_ON: Any = object()
 
 
 @dataclass(frozen=True, slots=True)
@@ -257,7 +260,8 @@ def run_prompt(
         # The only send step. It runs only when the spend gate calls it, with the bytes the gate counted.
         request = replace(unsent, body_bytes=body_bytes)
         try:
-            return transport(request) if transport is not None else _httpx_post(request)
+            answer = transport(request) if transport is not None else PASS_ON
+            return _httpx_post(request) if answer is PASS_ON else answer
         except ModuleNotFoundError:
             return _SendFailed("httpx is not installed (pip install 'proofhouse[live]')")
         except Exception as exc:  # noqa: BLE001 -- the live boundary must not leak the key

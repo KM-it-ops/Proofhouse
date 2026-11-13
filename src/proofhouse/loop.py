@@ -101,16 +101,35 @@ class _Stop(Exception):
     pass
 
 
-def _secrets() -> list[str]:
-    """Values of every known key variable and of any secret-named variable, so command output never carries
-    them anywhere (the agent's own commands never see them in their environment at all)."""
+def _key_names() -> set[str]:
     names: set[str] = set()
     try:
         names |= {p.key_env for p in providers.all_providers().values() if p.key_env}
         names |= {p.key_env for p in media.all_media_providers().values() if p.key_env}
     except (providers.ProviderError, media.MediaError):
         pass
-    return scrub.secret_values(names)
+    return names
+
+
+def _secrets() -> list[str]:
+    """Values of every known key variable and of any secret-named variable, so command output never carries
+    them anywhere (the agent's own commands never see them in their environment at all)."""
+    return scrub.secret_values(_key_names())
+
+
+def held_back(keep: list[str] | None = None) -> list[str]:
+    """The variables your check and watch commands run without: every key and secret, less the ones named in
+    ``keep``. The agent can write a file the check runs (a conftest.py, say); with the keys in reach that file
+    could save one in another form, which no scrubbing would recognise, for the agent to read in the next round."""
+    kept = {name.upper() for name in keep or []}
+    known = {name.upper() for name in _key_names()}
+    return sorted(name for name, value in os.environ.items()
+                  if name.upper() not in kept and (name.upper() in known or scrub.is_secret(name, value)))
+
+
+def _check_env(keep: list[str] | None = None) -> dict[str, str]:
+    held = set(held_back(keep))
+    return {**{name: value for name, value in os.environ.items() if name not in held}, "PYTHONDONTWRITEBYTECODE": "1"}
 
 
 def _agent_env() -> dict[str, str]:
@@ -305,6 +324,7 @@ def run_loop(
     workdir: Path,
     check: str | None = None,
     protect: list[str] | None = None,
+    keep_env: list[str] | None = None,
     watch: str | None = None,
     every: float | None = None,
     max_rounds: int = 20,
@@ -332,6 +352,7 @@ def run_loop(
     workdir = workdir.resolve()
     if not workdir.is_dir():
         raise LoopError(f"{workdir} is not a folder")
+    check_env = _check_env(keep_env)  # your check and watch run without your keys, unless you keep one by name
     profile = providers.find(provider_id)
     if profile is None:
         raise LoopError(f"no provider named {provider_id!r}; see `proofhouse providers list`")
@@ -370,7 +391,7 @@ def run_loop(
             now = datetime.now(timezone.utc).isoformat(timespec="seconds")
             watch_output = None
             if watch is not None:
-                outcome = _shell(watch, workdir, command_timeout, secrets)
+                outcome = _shell(watch, workdir, command_timeout, secrets, env=check_env)
                 watch_output = f"exit {outcome['exit']}\n{outcome['output']}"
                 if last_watch is not None and watch_output == last_watch:
                     record(Step(number, now, sent=False, summary="nothing changed; nothing sent", watch_changed=False))
@@ -381,7 +402,7 @@ def run_loop(
                 raise _Stop("rounds used up")
             check_now = None
             if check:
-                check_now = last_check if last_check is not None and watch is None else _shell(check, workdir, command_timeout, secrets)
+                check_now = last_check if last_check is not None and watch is None else _shell(check, workdir, command_timeout, secrets, env=check_env)
             if check_now is not None and check_now["exit"] == 0:
                 result.done = True
                 raise _Stop("check passed")
@@ -413,7 +434,7 @@ def run_loop(
                     shown = ", ".join(changes[:5]) + (f" and {len(changes) - 5} more" if len(changes) > 5 else "")
                     raise _Stop(f"a protected file was changed by the agent's command, so the check cannot be trusted: {shown}")
             if check:
-                step.check = last_check = _shell(check, workdir, command_timeout, secrets)
+                step.check = last_check = _shell(check, workdir, command_timeout, secrets, env=check_env)
             record(step)
             if step.check is not None and step.check["exit"] == 0:
                 result.done = True

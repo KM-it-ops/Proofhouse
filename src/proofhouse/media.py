@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlparse
 
-from . import providers, spend
+from . import providers, scrub, spend
 
 MEDIA_SCHEMA = "proofhouse.media-providers/v1"
 SHIPPED_PATH = Path(__file__).resolve().parent / "data" / "media_providers.json"
@@ -493,7 +493,8 @@ def _run_program(profile: MediaProvider, body_bytes: bytes) -> MediaResponse | s
         return f"{first} could not start ({type(exc).__name__})"
     if done.returncode != 0:
         lines = done.stderr.decode("utf-8", "replace").strip().splitlines()
-        return f"it stopped with exit code {done.returncode}" + (f": {lines[-1][:300]}" if lines else "")
+        last = scrub.clean(lines[-1], scrub.secret_values(), 300) if lines else ""  # a tool may print a key it was given
+        return f"it stopped with exit code {done.returncode}" + (f": {last}" if last else "")
     return MediaResponse(200, None, done.stdout if profile.run["output"] == "stdout" else None)
 
 

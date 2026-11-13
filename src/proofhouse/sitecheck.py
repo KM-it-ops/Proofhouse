@@ -27,6 +27,13 @@ MAX_FILES = 60
 MAX_BYTES = 3_000_000
 _SAFE_PATH = re.compile(r"[A-Za-z0-9._/-]+")
 _BROWSERS = ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "chrome", "msedge")
+# The browser keeps its own safety wall (its sandbox) around the page it opens. Some machines cannot start it:
+# a container, or a hosted test runner. Set this to 1 there, and only there.
+NO_SANDBOX_ENV = "PROOFHOUSE_BROWSER_NO_SANDBOX"
+
+
+def sandbox_flags() -> list[str]:
+    return ["--no-sandbox"] if os.environ.get(NO_SANDBOX_ENV, "").strip() == "1" else []
 
 
 class SiteError(ValueError):
@@ -181,7 +188,7 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, brows
     if shots is not None:
         shots.mkdir(parents=True, exist_ok=True)
     for label, size in (("desktop", "1440,900"), ("phone", "390,844")):
-        command = [browser_path, "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", f"--window-size={size}",
+        command = [browser_path, "--headless=new", *sandbox_flags(), "--disable-gpu", "--hide-scrollbars", f"--window-size={size}",
                    "--enable-logging=stderr", "--v=0"]
         # headless Chrome and Edge only exit after a screenshot or a DOM dump; without one they wait forever
         command.append(f"--screenshot={shots / f'{label}.png'}" if shots is not None else "--dump-dom")

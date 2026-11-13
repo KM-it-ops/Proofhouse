@@ -87,7 +87,9 @@ def test_check_output_is_scrubbed_of_secret_named_values_before_it_goes_anywhere
     monkeypatch.setenv("GH_TOKEN", "ghp-check-secret-value")
     check = f'{PY} -c "import os; print(os.environ[\'GH_TOKEN\']); raise SystemExit(1)"'
     agent = Agent({"actions": [], "done": True, "summary": "ok"})
-    loop.run_loop("x", provider_id="ollama", model="m", workdir=project, check=check, max_rounds=2, out_dir=tmp_path / "r", transport=agent)
+    # the check runs without keys unless one is kept by name; a kept one is still scrubbed from what it prints
+    loop.run_loop("x", provider_id="ollama", model="m", workdir=project, check=check, keep_env=["GH_TOKEN"], max_rounds=2,
+                  out_dir=tmp_path / "r", transport=agent)
     assert "[redacted]" in agent.seen[0]  # the check's output reached the model only scrubbed
     assert all("ghp-check-secret-value" not in seen for seen in agent.seen)
     assert "ghp-check-secret-value" not in (tmp_path / "r" / "rounds.jsonl").read_text(encoding="utf-8")

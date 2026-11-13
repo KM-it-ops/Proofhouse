@@ -61,7 +61,7 @@ def agent_transport(runner: agent_server.Runner = agent_server.run_agent,
     def send(request: live.Request) -> Any:
         found = _agent_at(request.url)
         if found is None:
-            return otherwise(request) if otherwise is not None else live._httpx_post(request)
+            return otherwise(request) if otherwise is not None else live.PASS_ON  # the send step sends it
         name, entry = found
         try:
             return live.Response(200, agent_server.complete(name, entry, json.loads(request.body_bytes), runner, timeout))
@@ -89,6 +89,7 @@ class Job:
     thread: threading.Thread | None = None
     made: Any = None
     error: str | None = None
+    shown: str | None = None  # the say-back last handed to the app; only that one can be confirmed
     lock: threading.Lock = field(default_factory=threading.Lock)
 
 
@@ -129,6 +130,13 @@ class Tools:
         if not isinstance(named, str) or not named.strip():
             raise ToolError("say which make: pass `make`, the folder make_start gave you")
         folder = Path(named)
+        try:  # only a folder make_start made here: a folder planted elsewhere could carry its own settings
+            ours = folder.resolve().parent == self.base.resolve()
+        except OSError:
+            ours = False
+        if not ours:
+            raise ToolError(f"{folder} is not a make started from chat here (those are kept in {self.base}); "
+                            "start one with make_start")
         job = self.jobs.get(str(folder))
         if job is not None:
             return job
@@ -201,6 +209,7 @@ class Tools:
                             "it out: Proofhouse decides it and says what it chose. If they want Proofhouse to decide "
                             "all of them, pass decide_for_me true. Then call make_answer with `answers` (question id "
                             "to their words)."}
+        job.shown = iv.understood
         return {**base, "stage": "say_back", "made_for": iv.target.name, "say_back": iv.understood,
                 "corrections_so_far": list(iv.corrections), "notes": notes,
                 "next": _SHOW + " Nothing is made until they say it is right. If they change anything, pass it as "
@@ -297,11 +306,17 @@ class Tools:
         job = self._job(args)
         with job.lock:
             self._idle(job)
-            stage = self._report(job).get("stage")
+            seen = job.shown
+            report = self._report(job)
+            stage = report.get("stage")
             if stage != "say_back":
                 raise ToolError(f"there is no say-back to confirm yet (this make is at: {stage})")
             data = _answers_file(job.folder)
             correction = _text(args.get("correction"))
+            if not correction and args.get("confirmed") is True and seen != report["say_back"]:
+                # it finished while the app was told "working", or the app was restarted: nobody has read this one
+                return {**report, "next": "This say-back has not been shown to the person yet, so it is not confirmed. "
+                                          + _SHOW}
             if correction:
                 data["correction"], data["confirmed"] = correction, False
             elif args.get("confirmed") is True:

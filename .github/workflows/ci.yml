@@ -38,6 +38,9 @@ jobs:
         run: python -m pip install -e ".[test,video,record]"
 
       - name: Run tests
+        env:
+          # the hosted runner's browser cannot start its own sandbox
+          PROOFHOUSE_BROWSER_NO_SANDBOX: "1"
         run: python -m pytest
 
       - name: Validate datasets (eval harness)

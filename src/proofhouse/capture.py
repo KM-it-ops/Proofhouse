@@ -155,7 +155,7 @@ def screenshot_command(browser: str, url: str, size: tuple[int, int], out: Path)
     return [
         browser,
         "--headless=new",
-        "--no-sandbox",
+        *sitecheck.sandbox_flags(),
         "--disable-gpu",
         "--hide-scrollbars",
         f"--window-size={w},{h}",
