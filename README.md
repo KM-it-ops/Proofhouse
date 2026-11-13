@@ -6,36 +6,46 @@
 
 **You say what you want. You pick any model, from any provider. Proofhouse makes it, runs it, improves it, and keeps every version.**
 
-A prompt, a skill, a website, an app, a video, or a whole launch. Proofhouse writes it with the model you name, tries it for real, has a judge score it, revises it, and keeps each version with what it cost. A model on your machine costs nothing. A paid model needs a spending limit.
+A prompt, a skill, a website, an app, a video, or a whole launch. Proofhouse first asks you the few questions that matter, most important first, and reads back what it understood. Once you say yes, it writes it with the model you name, tries it for real, has a judge mark each thing you asked for as met or not met, revises it, and keeps each version with what it cost. A model on your machine costs nothing. A paid model needs a spending limit.
 
-It is a local command-line tool, not a hosted service. The `proofhouse` command is the one front door.
+It runs on your machine. It is not a hosted service. Use it from the chat of the AI app you already have, or from the `proofhouse` command.
 
 **Host mode (no API key):** use `proofhouse check`, `proofhouse record` and `proofhouse render video` when your existing AI app writes and judges; see [docs/usage.md](https://github.com/KM-it-ops/Proofhouse/blob/main/docs/usage.md#host-mode-no-api-key).
 
-## Try it in two minutes
+## Start without opening a terminal
+
+Paste this one sentence into Claude Code, Cursor or Codex:
+
+> Install Proofhouse and connect it, following https://github.com/KM-it-ops/Proofhouse/blob/main/skills/proofhouse/INSTALL.md
+
+The app asks you once, installs the `proofhouse` command and runs `proofhouse connect` for you. Then open a new chat and say "Proofhouse, make me a skill that ...". It asks its questions in the chat, reads back what it understood, and makes it once you say yes. Your app's own logged-in model does the writing, so there is no key to paste. `proofhouse connect --undo` takes it all out again.
+
+This path needs a Proofhouse version that has the `connect` command (any version after 0.10.3). Pictures, video, voice and music are made from the command line for now.
+
+## Or try it from the command line
 
 ```bash
 uv tool install proofhouse
-proofhouse demo
+proofhouse demo make
 ```
 
-`proofhouse demo` runs a full example offline. It needs no key and calls no model. With pip: `python -m pip install proofhouse`. On Windows, set `$env:PYTHONUTF8='1'` first for reliable console output.
+`proofhouse demo make` replays a whole make: the questions, the read-back, the writing, the judging and the revision. It needs no key and calls no model. `proofhouse` on its own shows where to start, and `proofhouse connect` hooks it into your AI apps. With pip: `python -m pip install proofhouse`. On Windows, set `$env:PYTHONUTF8='1'` first for reliable console output.
 
 ## What it makes
 
 | You want | Command |
 |---|---|
 | A prompt, skill, agent or announcement copy | `proofhouse make "a prompt that answers refund emails warmly" --provider llamacpp --model local` |
-| A rule, MCP server (a tool an AI app can call) or hook (a small program a coding tool runs on events) | `proofhouse make "..." --kind mcp` |
-| A website | `proofhouse make "a landing page for my bakery" --kind site` |
-| An app for the web, Windows, macOS, Linux, iOS or Android | `proofhouse make "..." --kind app --platform pwa --platform android` |
+| A rule, MCP server (a tool an AI app can call) or hook (a small program a coding tool runs on events) | `proofhouse make "..." --kind mcp --provider llamacpp --model local` |
+| A website | `proofhouse make "a landing page for my bakery" --kind site --provider llamacpp --model local` |
+| An app for the web, Windows, macOS, Linux, iOS or Android | `proofhouse make "..." --kind app --platform pwa --platform android --provider llamacpp --model local` |
 | Images, voice, music | `proofhouse generate image --provider openai-images --model gpt-image-1 --prompt "a red fox"` |
-| A finished video with voice, music and captions | `proofhouse make "a 30-second hype video for my app" --kind video` |
-| A whole launch: site, video, copy and more from one goal | `proofhouse make "launch my app" --kind launch` |
+| A finished video with voice, music and captions | `proofhouse make "a 30-second hype video for my app" --kind video --provider llamacpp --model local` |
+| A whole launch: site, video, copy and more from one goal | `proofhouse make "launch my app" --kind launch --provider llamacpp --model local` |
 | An agent that keeps working on its own, within limits | `proofhouse loop "make the tests pass" --check "pytest -q" --allow-commands` |
 | A fine-tuned model | `proofhouse train start --service openai --model <base-model> --data my-data` |
 
-Not sure which kind fits? `proofhouse "<what you want>"` picks one. A kind Proofhouse has never made is researched by your chosen model and learned as an add-on, never refused for being new.
+Every `make` names a provider and a model; the examples use a model on your own machine, and any other provider works the same way. Not sure which kind fits? `proofhouse "<what you want>"` picks one (experimental: it may pick differently from what you meant, so name the kind when you know it). A kind Proofhouse has never made is researched by your chosen model and learned as an add-on, never refused for being new.
 
 Run any prompt on any provider, or the same job on many models at once with a score, a cost and a side-by-side page:
 
