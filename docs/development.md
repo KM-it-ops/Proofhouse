@@ -8,11 +8,13 @@ One Python package, version 0.10.3, ships one command, `proofhouse`. Every inter
 
 | Command group | What it is | Commands |
 |---|---|---|
+| Make and run | The product: the interview, then write, try, judge, revise, keep every version; run and compare on any provider; loops; media; sites and apps; training; add-ons | `make` `run` `compare` `loop` `referee` `media` `render` `record` `generate` `deploy` `train` `addons` `providers` `watch` |
+| Where you work | Find what this machine has, hook Proofhouse into AI apps, install what was made | `setup` `connect` `mcp` `agent-server` `hosts` `install` `uninstall` |
 | Cases | The prompt or skill workspace above (`case new --kind prompt` or `--kind skill`), the skill installer, the model-notes cache, the packaged reference demo, and the part registry | `case` `install-skill` `uninstall-skill` `models` `demo` `parts` `scan` |
 | Compiler | Offline compiler: requirements → IR → request builder artifact → evidence | `doctor` `validate` `inspect` `compile` `closed-loop` `adapters` |
 | Eval harness | JSONL datasets, YAML rubrics, report skeletons | `eval validate` `eval report` `eval loadouts` `eval compile-loadout` `eval generate` |
 
-Supported: the `case` workflow, `models`, `install-skill`, `demo`, and `validate` / `compile` / `closed-loop`. The experimental commands are listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
+`make` is the centre; the rows below it are older parts that still ship. Supported: `make` and the commands in the first two rows, the `case` workflow, `models`, `install-skill`, `demo` (and `demo make`), and `validate` / `compile` / `closed-loop`. The experimental commands are listed under [Experimental and prototype parts](#experimental-and-prototype-parts).
 
 ```bash
 uv sync --extra test                                    # package + pytest into .venv
@@ -21,7 +23,8 @@ uv run proofhouse closed-loop tests/compiler/fixtures/closed_loop_requirements_m
                                                         # closed-loop: PASS (structural)
 uv run proofhouse eval validate --dataset evals/datasets/prompt_audit_cases.jsonl
                                                         # Dataset validation passed: ...
-uv run pytest -q                                        # all passed, 1 deselected (live tests are opt-in)
+uv run --extra test --extra live --extra video python -m pytest -q   # the full suite; live tests are opt-in
+uv run proofhouse demo make                             # a whole make replayed, no key and no model
 uv run proofhouse demo --quiet                          # reference workflow: OK
 uv run python scripts/reference_workflow.py --quiet     # same run via the script wrapper
 ```
@@ -61,7 +64,15 @@ It was designed for coding agents, Custom GPTs, Cursor skills, and security-adja
 ```text
 proofhouse-framework.*   Portable meta-optimizer spec (v1.3 model profiles)
 skills/proofhouse/       Cursor / Claude Code skill bundle + artifact JSX
-src/proofhouse/          Eval harness, headless compiler, optimize (cases, constraints, runs, checks, export)
+src/proofhouse/          The package. The make side:
+                           make.py, make_interview.py, make_checks.py, make_media.py   the interview and the make loop
+                           live.py, spend.py, providers.py     sending to any provider, always through the spending limit
+                           mcp_server.py, connect.py, agent_server.py   the chat tools, the one-step hookup, the agent bridge
+                           loop.py, referee.py, scrub.py       loops within limits, the referee, one place for secrets
+                           hosts.py, deploy.py, app_platforms.py, sitecheck.py   where results go and how they are checked
+                           studio.py, storyboard.py, motion.py, sound.py, media.py   the film and media engine
+                           data/                               providers, hosts, guides and prices as data, not code
+                         Older parts: compiler/ (headless compiler), optimize/ (cases), the eval harness
 examples/                Demo inputs, including reference-advisory/ for the reference workflow
 scripts/                 Generators (model surfaces, skill bundle, contracts) and reference_workflow.py
 docs/                    Scope, architecture, surfaces, evidence format, decisions, assurance statements

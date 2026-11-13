@@ -28,7 +28,9 @@ How it behaves everywhere:
   the chosen model and learned as an add-on kind. A model or AI workspace released after this list was
   written is found by `proofhouse models update`, which asks each provider for its models and reads the
   official release pages, then records what it found.
-- **One front door:** the `proofhouse` command.
+- **One front door:** the `proofhouse` command. The terminal is one way through it, not the only one:
+  `proofhouse connect` puts the same door inside the AI app you already use (Claude Code, Cursor, Codex), so
+  "Proofhouse, make me ..." in a chat runs the same interview and the same make (owner's point, 2026-11-12).
 - **Every paid call goes through the spending limit** (`spend.send_within_ceiling`).
 - **Make starts by working out what you mean (owner's correction, 2026-11-01).** The core of Proofhouse
   is writing prompts and other instructions for you, well. So for a prompt, skill, agent, rule or any other
@@ -66,6 +68,33 @@ How it behaves everywhere:
 | Keep the model and AI-workspace list current (`proofhouse models update`) | works; list checked against official pages 2026-10-18 |
 | Project scan | works |
 | Evidence record: sealed benchmarks, type-strict rubric scoring, strict JSON inputs, required requirement coverage | works (four old defects fixed 2026-10-16) |
+| Proofhouse inside the AI app you already use: `proofhouse connect` hooks it into Claude Code, Cursor and Codex, and a chat runs the whole make with no terminal (`proofhouse mcp`) | works offline (tested over the protocol with recorded answers; `connect` has not been run for real on the owner's machine yet; images, video, voice and music are not in the chat tools yet) |
+| First minute: a start screen for a bare `proofhouse`, and `proofhouse demo make` replaying a whole make with no key | works |
+
+### Consolidation 108 (2026-11-13)
+
+Three AI models each drafted a hardening pull request against the same commit of main (#105 Mistral Vibe,
+#106 Codex, #107 Gemini). Branch `consolidate-108` keeps the best of each and adds what all three left out.
+It is local only: not pushed, no pull request, and #105 to #107 are still open, until the owner says so.
+
+- **Kept from the drafts:** one shared module for secrets (`scrub.py`), the loop's cleaned environment for the
+  agent's own commands, the bridge token (the two designs merged: always needed, never printed, never on the
+  command line), no redirects when sending, safe file names in the site check, an unreadable add-ons folder
+  reported and not a crash, a start limit for the capture browser.
+- **Repaired:** a failed built-in check now blocks the early stop but not the delivery (106 delivered nothing
+  after one failed check); the no-redirect sender sits behind one named function (106's version sent two tests
+  to the real network); link tests skip only off CI (107 skipped them everywhere).
+- **Dropped:** 107's `--no-sandbox` for the capture browser, its reading an unreadable settings file as an empty
+  one, and its PowerShell voice probe.
+- **A better core:** ranked questions, blank answers turned into stated choices, a say-back that is never
+  confirmed unseen, a judge that marks each asked-for item met or not met, closing lines that say what was met,
+  `--max-output-tokens`, and writing guides for Cursor (skill, agent), Codex (skill, prompt) and Claude Code
+  (prompt), each from the tool's own documentation. A Codex agent and a Cursor prompt have no official page, so
+  they stay on the research path.
+- **Winning users:** the start screen, `demo make`, a missing-key message for each shell, the chat tools and
+  `connect`, and a README that leads with the interview.
+- **Money and commands:** `loop --protect`, a paid reply with zero tokens charged the worst case, the bridge's
+  limit of 4 at once, and publishing that runs the tests and refuses a commit not on main.
 
 ### Apps in detail
 
@@ -483,6 +512,10 @@ film record pointing at the tracked MP4, zod forced to 4.6.6, and the full 0.10.
 3. U5: a fresh user tries the reference workflow (completion criterion 6). No agent can do this; it waits
    on the owner's tester, with the wheel rebuilt in `dist-tester/`.
 
+4. Next after 108: a local page in the browser (`proofhouse ui`) for people who use no AI app at all, driving
+   the same make through the same pause points as the chat tools. Then images, video, voice and music in the
+   chat tools.
+
 Settled: the owner judged the example videos' sound and motion fine; the train-2 upload gap is accepted
 with no live key; the film MP4 stays out of the repo and the record points at `../video/final-premium.mp4`.
 
@@ -645,6 +678,19 @@ live-proof table rows are merged into this file by Claude, one unit at a time.
 | U11 | Stranger test | `dist-tester/` | U10 | the owner's tester |
 | U12 | Ship 1.0.0 | tag, GitHub release, PyPI | U11 | `resq:ship-release` |
 
+What consolidation 108 (2026-11-13) already did of these, so the units do not repeat it:
+
+- **U3 (in part).** Three outside reviews of v0.10.3 to main exist as #105, #106 and #107; 106's report is kept
+  in `docs/assurance/`. Their findings are fixed on `consolidate-108`, each with a test. The known test defect
+  named in U3 is not touched by 108.
+- **U5 (in part).** The fixes are made; #102 is not part of 108 and still needs its own review and merge.
+- **U10 (in part).** `CHANGELOG.md`, `README.md`, `docs/usage.md` and `docs/development.md` are current for 108.
+  The skill text changed (it uses the chat tools when they are there), so U1 and U2's sync must run again
+  after 108 lands.
+- **U12 (in part).** Publishing now runs the tests and refuses a commit not on main. `main` itself is still
+  unprotected on GitHub; that is an account setting for the owner.
+- U6 to U9 and U11 are untouched: each needs a live model, the owner's tester or the owner's word.
+
 #### U1. Skill text matches main
 
 - Goal: R1.
@@ -792,3 +838,11 @@ live-proof table rows are merged into this file by Claude, one unit at a time.
   time limit.
 - The real tool folders a platform names (such as `CARGO_HOME`, `GRADLE_USER_HOME`, `APPDATA`) are visible
   to its build, so a build script can read whatever those tools keep there.
+- Voice and music are judged on measurements (length, loudness, silence) and on the plan. Nothing listens to
+  them, so a clip can pass and still sound wrong.
+- When Proofhouse learns a platform, host, deploy target or service it did not know, the pages the model cites
+  are not fetched and checked. It is saved unapproved for that reason; read it before approving it.
+- In a loop, files named with `--protect` cannot be changed by the agent. Without `--protect`, the agent can
+  change the files your check reads and pass it that way; the loop says so once.
+- The chat tools (`proofhouse mcp`) make text kinds, sites and apps. Images, video, voice and music are
+  command-line only for now.

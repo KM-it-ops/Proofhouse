@@ -14,6 +14,37 @@ proofhouse setup remove grok-imagine
 
 It only looks: it never starts a program, never shows a key's value, and talks only to ports on your own machine. For each missing piece it says what that piece would unlock and how to get it, and ends with a "You can do now / Not yet" list. A tool it cannot find, such as a website-only app, is saved as data in `PROOFHOUSE_HOME/tools.json`; a website tool is listed as used by hand, with your steps, and the file it makes comes back through `record` or `render video`. For a hosting tool it cannot tell whether you are signed in.
 
+To see the whole thing before setting anything up:
+
+```bash
+proofhouse                       # a short start screen: try the demo, check setup, make your first thing
+proofhouse demo make             # replays a whole make from a recording: questions, say-back, writing, judging, revision
+```
+
+`demo make` needs no key and calls no model. Plain `proofhouse demo` still runs the offline reference workflow.
+
+## Inside the AI app you already use (no terminal)
+
+```bash
+proofhouse connect               # hooks Proofhouse into Claude Code, Cursor and Codex, whichever are installed
+proofhouse connect --undo        # removes exactly what connect added, and nothing else
+```
+
+`connect` does three things for each app it finds: it registers the Proofhouse tools (`proofhouse mcp`, a Model
+Context Protocol server the app starts by itself), it installs the Proofhouse skill where the app has a skills folder,
+and it declares each logged-in command-line agent (`claude`, `codex`, `grok`) as a provider, so the app's own model
+does the writing with no key to paste. With two agents installed, the second one judges. It prints what it did and
+keeps a record of it for `--undo`.
+
+Then open a new chat in the app and say "Proofhouse, make me a skill that ...". The app asks the interview's
+questions in the chat, reads back what Proofhouse understood, and the making starts only when you say it is right.
+It is the same make as on the command line: the same questions, the same record folder, the same spending limit
+(a paid provider needs `max_cost_usd`). The tools are `make_start`, `make_answer`, `make_confirm`, `make_status`
+and `make_list`; none of them can skip the questions or the say-back.
+
+Not in the chat tools yet: images, video, voice and music. Use `proofhouse make --kind video` (and the rest) on the
+command line for those.
+
 ## Host mode (no API key)
 
 If you already work in Cursor, Codex, Gemini CLI, Grok CLI or Claude Code, **host mode** lets that agent write and judge with its own model while Proofhouse only checks, records and assembles—no API key, and Proofhouse itself makes no network calls on these commands. (With `--allow-commands`, Proofhouse runs the code the model wrote, and that code may use the network.)
@@ -47,6 +78,10 @@ The server refuses missing or incorrect bearer tokens and browser-origin request
 JSON bodies up to 1 MB. Binding to localhost alone does not authenticate the caller. The
 bridge consumes the agent account's allowance; a zero dollar estimate does not measure that allowance.
 
+The bridge runs at most 4 requests at once, since each one is a whole coding agent on your plan; one more is
+answered with 429 and "try again when one has finished". A caller that stops sending part way is let go after
+30 seconds (408). An agent that does not answer in time is stopped together with everything it started.
+
 ### Delivery and loop file limits
 
 For generated sites, apps, rules, MCP servers and hooks, a failed deterministic check prevents
@@ -57,8 +92,9 @@ still unmeasured; delivery does not turn it into a pass.
 Loop file actions refuse common credential files (`.env`, `.env.*`, private key formats, `auth.json`,
 `credentials`, `credentials.json`) and repository metadata or credential folders.
 This is a guard against common accidental disclosure and persistent hooks, not filesystem isolation.
-An allowed shell command still runs with your rights. Arbitrarily named secrets and editable check
-scripts need separate protection; do not treat a loop's own editable tests as an independent oracle.
+An allowed shell command still runs with your rights. Arbitrarily named secrets need separate protection.
+The files your check reads can be changed by the agent unless you name them with `--protect` (see
+"Let an agent run on its own"); without it, do not treat a loop's own editable tests as an independent oracle.
 
 Model and media transports refuse automatic redirects. A media service that returns a redirect must
 be configured with its direct endpoint; Proofhouse does not replay a paid request or forward keys
@@ -165,6 +201,25 @@ Every `make` starts with a short interview before anything is written: which too
 ```
 
 `--for` answers the first question ahead of time, and `--answers <file>` answers the rest, so a make can run in one go. `--preset` sets how deep the questions go. For images, video, voice and music the first question is which service makes it (`service` or `service/model`); for a video, the service flags (such as `--voice-provider`) answer it, unless the answers file has its own `"for"`. The interview never asks what the command already set, such as the length or the shapes. The record (`record.json`) keeps the interview, the preset and where each answer came from (`interview_from`, such as `answers file; the tool from --for`).
+
+The questions are ranked. The ones Proofhouse must know come first and are marked, in the terminal and in
+`questions.md`; the rest would help. An answer you leave blank is left to Proofhouse: the brief lists it, and the
+say-back states what it chose so you can correct it. In an answers file, `"decide_for_me": true` leaves every
+question to Proofhouse; a file with nothing filled in and no `decide_for_me` waits and says why. The say-back is
+never confirmed without you seeing it, however many times you correct it.
+
+Once you confirm, the brief becomes a short numbered list of what was asked for. The judge marks each item met or
+not met with a reason, on every version, and the next version is written against every unmet item. The closing
+lines say what was made and for which tool, which version won and why, which items it met and which it did not,
+where the file is, and the next command. They also say that the score is advice, when the tool's writing guide
+could not be found, and when the same model wrote and judged it. `record.json` keeps the list and the exact brief.
+
+`--max-output-tokens N` sets the most each reply may be (in a launch it applies to the text parts). A reply cut
+off at the limit is said once, so raise it when a long skill comes back short.
+
+Writing guides ship for the kinds each tool's own documentation covers: Claude Code (skill, agent, rule, prompt),
+Cursor (rule, skill, agent) and Codex (rule, skill, prompt), each citing the page it was written from. A kind
+with no guide is researched, never refused.
 
 Put it online when you say so, with the hosting service's own tool (signed in your usual way):
 
@@ -278,6 +333,17 @@ proofhouse loop "when the build breaks, find out why and write it up in BUILD-NO
 Each round, the agent sees the goal, the files in its folder, what happened in recent rounds, and the output of your check and watch commands. It reads files, writes files, and (only with `--allow-commands`) runs commands in that folder. It cannot touch anything outside the folder.
 
 The loop stops when your `--check` command passes (with or without `--watch`), or when the agent says it is done (and the check, if any, passes). It also stops when `--rounds` or `--for` runs out, when the next call would cross the one spending limit, or when you press Ctrl-C. With `--watch` and `--every`, a look that finds nothing changed sends nothing and costs nothing. Every round is kept in `rounds.jsonl`, with `loop.json` for the totals. Key values and any secret-named environment value (anything with KEY, TOKEN, SECRET, PASSWORD, CREDENTIAL, AUTH, ... in the name) are blanked out of command output before it goes anywhere, and the agent's own `--allow-commands` runs get a minimal environment with no secret variables in it. Your own `--check` and `--watch` commands keep your full environment.
+
+`--protect PATTERN` (repeat it for more) names files the agent cannot change, such as the tests your check runs:
+
+```bash
+proofhouse loop "make the tests pass" --in ./my-app --check "pytest -q" --allow-commands --protect "tests/*" ...
+```
+
+A write to a protected file is refused. If a command the agent runs changes one anyway, the loop stops at once
+without a pass, because the check can no longer be trusted. A bare folder name covers everything in it, and letter
+case is ignored. With `--check` and no `--protect`, the loop says once that the agent could pass the check by
+changing the files it reads. A command that runs past its time limit is stopped with everything it started.
 
 ### Your agent runs the loop; Proofhouse referees
 
