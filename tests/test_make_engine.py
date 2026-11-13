@@ -114,7 +114,7 @@ def test_a_judge_that_does_not_answer_in_json_does_not_crash_the_run(tmp_path: P
                 reply.payload["choices"][0]["message"]["content"] = "It is pretty good overall."
             return reply
 
-    made = make.make("x", provider_id="ollama", model="m", rounds=2, out_dir=tmp_path / "o", transport=Rambling([1, 1]))
+    made = make.make("x", provider_id="ollama", model="m", rounds=2, out_dir=tmp_path / "o", transport=Rambling([1, 1, 1, 1]))  # each round now asks the judge twice
     assert [r.score for r in made.rounds] == [None, None] and made.best_version == 2
 
 

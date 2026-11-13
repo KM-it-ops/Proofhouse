@@ -103,12 +103,26 @@ _TEST_INPUT = (
 )
 _JUDGE = (
     "You judge AI work strictly against what was asked. Reply with JSON only: "
-    '{{"score": <0-10>, "missing": ["..."], "fix": "<the single most important change>"}}.\n\n'
-    "REQUEST:\n{request}\n\n{subject}"
+    '{{"score": <0-10>, "asked": [{{"item": "<one thing the request asks for, in a few words>", "met": true or false, '
+    '"why": "<one short reason>"}}], "missing": ["..."], "fix": "<the single most important change>"}}.\n'
+    "{checklist}\n\nREQUEST:\n{request}\n\n{subject}"
+)
+MAX_ASKED = 12
+DEFAULT_OUTPUT_TOKENS = 2048  # the most one reply may be, unless --max-output-tokens says otherwise
+_ASKED_FIRST = (
+    f'Under "asked", list every separate thing the request asks for (at most {MAX_ASKED}, the most important first) '
+    "and mark each one met or not met by the work below."
+)
+_ASKED_SAME = (
+    'Under "asked", mark exactly these items, in this order and in these words, as met or not met by the work '
+    "below:\n{items}"
+)
+_JUDGE_AGAIN = (
+    "\n\nYour last reply could not be read. Reply with the JSON object only: no words before or after it, no code fence."
 )
 _REVISE = (
     "Improve the {kind} below so it fully achieves the request. Fix this first: {fix}\n"
-    "Also missing: {missing}\n{trial}Output only the improved {kind}, nothing else.{form}\n\nREQUEST:\n{request}\n\nCURRENT {upper}:\n{current}"
+    "{missing}\n{trial}Output only the improved {kind}, nothing else.{form}\n\nREQUEST:\n{request}\n\nCURRENT {upper}:\n{current}"
 )
 # A tool tried without its shell would otherwise say "I can't run that here", the judge would mark the made
 # thing down for it, and the next version would be tuned to the trial instead of to real use.
@@ -173,6 +187,9 @@ class Round:
     score: int | None
     missing: list[str]
     fix: str
+    # What was asked for, each item marked met or not met by the judge with a reason (empty when the judge gave none).
+    asked: list[dict[str, Any]] = field(default_factory=list)
+    judge_unreadable: bool = False  # the judge's reply could not be read, even when asked once more
 
 
 @dataclass
@@ -191,6 +208,9 @@ class MakeResult:
     waiting: list[Path] | None = None
     waiting_note: str = ""  # why it is waiting, when there is more to say than "answer the questions"
     interview: Any = None
+    # What the request asks for, as the judge listed it on the first round; every version is marked against it.
+    asked_for: list[str] = field(default_factory=list)
+    notes: list[str] = field(default_factory=list)  # anything that went a second-best way, said out loud
     tried_on: str | None = None
     tried_on_note: str | None = None
     # ``provider/model`` that judged each version when it was not the maker's own model (--judge).
@@ -228,14 +248,79 @@ def _strip_fences(text: str) -> str:
     return (match.group(1) if match else text).strip()
 
 
-def _judgement(text: str | None) -> tuple[int | None, list[str], str]:
-    if not text:
-        return None, [], ""
-    match = re.search(r"\{.*\}", text, flags=re.S)
+_CUT_OFF = (
+    "A reply stopped at the output limit ({limit} tokens), so what was made may be unfinished. "
+    "Run it again with a higher --max-output-tokens."
+)
+JUDGE_NOTE = "The judge's score is a model's opinion: advice, not proof."
+_SAME_MODEL = (
+    "The same model wrote it and judged it. For a second opinion, add --judge PROVIDER/MODEL with a different model."
+)
+
+
+def closing(result: "MakeResult") -> dict[str, Any]:
+    """What to tell the person at the end, beyond the score: each asked-for item for the winning version, how the
+    winner was picked, and everything worth doubting. The command line and the chat tools both show this."""
+    best = next((r for r in result.rounds if r.version == result.best_version), None)
+    asked = list(best.asked) if best is not None else []
+    lines: list[str] = []
+    if asked:
+        lines.append(f"asked for: {sum(1 for a in asked if a['met'])} of {len(asked)} met")
+        lines += [f"  not met: {a['item']}" + (f" ({a['why']})" if a["why"] else "") for a in asked if not a["met"]]
+    if best is not None and len(result.rounds) > 1:
+        if best.score is None:
+            how = "no version got a readable judge score, so the latest usable one is kept"
+        elif result.kind in CHECKED_KINDS:
+            how = "versions that pass the built-in checks come first, then the highest judge score"
+        else:
+            how = "it has the highest judge score"
+        lines.append(f"version {best.version} was picked out of {len(result.rounds)}: {how}")
+    notes = list(result.notes)
+    interview = result.interview
+    notes += [n for n in (getattr(interview, "notes", None) or []) if n not in notes]
+    target = getattr(interview, "target", None)
+    if target is not None and "not checked" in (target.guide_source or ""):
+        notes.append(f"The writing guide for {target.name} came from {target.guide_source}.")
+    if result.best_score is not None:
+        notes.append(JUDGE_NOTE)
+        if result.judged_by is None:
+            notes.append(_SAME_MODEL)
+    return {"asked_for": asked, "lines": lines + [f"note: {n}" for n in notes], "notes": notes}
+
+
+def _judge_data(text: str | None) -> dict[str, Any]:
+    match = re.search(r"\{.*\}", text or "", flags=re.S)
     try:
         data = json.loads(match.group(0)) if match else {}
     except ValueError:
         data = {}
+    return data if isinstance(data, dict) else {}
+
+
+def _asked(text: str | None) -> list[dict[str, Any]]:
+    """The judge's item-by-item marks: what was asked, whether this version meets it, and why."""
+    items = _judge_data(text).get("asked")
+    found = []
+    for entry in items if isinstance(items, list) else []:
+        if isinstance(entry, dict) and isinstance(entry.get("item"), str) and entry["item"].strip() \
+                and isinstance(entry.get("met"), bool):
+            found.append({"item": " ".join(entry["item"].split()), "met": entry["met"],
+                          "why": " ".join(str(entry.get("why") or "").split())})
+    return found[:MAX_ASKED]
+
+
+def _unmet(asked: list[dict[str, Any]], missing: list[str]) -> str:
+    """What the reviser is told is still wrong: every item not met with its reason, else the judge's loose list."""
+    unmet = [f"- {a['item']}" + (f": {a['why']}" if a["why"] else "") for a in asked if not a["met"]]
+    if unmet:
+        return "NOT MET (asked for, and this version does not do it):\n" + "\n".join(unmet)
+    return f"Also missing: {'; '.join(missing) or 'nothing listed'}"
+
+
+def _judgement(text: str | None) -> tuple[int | None, list[str], str]:
+    if not text:
+        return None, [], ""
+    data = _judge_data(text)
     score = data.get("score")
     score = int(score) if isinstance(score, (int, float)) and not isinstance(score, bool) and 0 <= score <= 10 else None
     missing = [str(m) for m in data.get("missing", []) if isinstance(m, (str, int, float))][:10]
@@ -289,7 +374,7 @@ def make(
     target: int = DEFAULT_TARGET,
     test_input: str | None = None,
     out_dir: Path | None = None,
-    max_output_tokens: int = 2048,
+    max_output_tokens: int = DEFAULT_OUTPUT_TOKENS,
     transport: live.Transport | None = None,
     allow_commands: bool = False,
     platforms: list[str] | None = None,
@@ -379,6 +464,10 @@ def make(
         cost = reply.cost or {}
         result.calls.append(Call(role, reply.status, reply.code, cost.get("tokens_in"), cost.get("tokens_out"), cost.get("usd")))
         budget.charge(reply)
+        if reply.cut_off and role in ("write", "revise"):
+            note = _CUT_OFF.format(limit=max_output_tokens)
+            if note not in result.notes:
+                result.notes.append(note)
         if reply.code == "PHC-COST-0001":
             raise _Stop("spending limit reached")
         if reply.status != "success":
@@ -495,8 +584,20 @@ def make(
                     subject += f"\n\nTRIED ON {tool.upper()} WITH THIS TASK:\n{task}\n\nWHAT IT DID:\n{did}"
                     subject += _JUDGE_TRIED.format(kind=kind)
                     tried = True
-            score, missing, fix = _judgement(call("judge", _JUDGE.format(request=brief, subject=subject), on=judger))
-            result.rounds.append(Round(version, current, output, score, missing, fix))
+            checklist = _ASKED_SAME.format(items="\n".join(
+                f"{n}. {item}" for n, item in enumerate(result.asked_for, 1))) if result.asked_for else _ASKED_FIRST
+            judging = _JUDGE.format(checklist=checklist, request=brief, subject=subject)
+            verdict = call("judge", judging, on=judger)
+            if _judgement(verdict)[0] is None:  # no score could be read: ask once more, then say so
+                verdict = call("judge", judging + _JUDGE_AGAIN, on=judger)
+            score, missing, fix = _judgement(verdict)
+            asked = _asked(verdict)
+            if not result.asked_for:
+                result.asked_for = [a["item"] for a in asked]
+            result.rounds.append(Round(version, current, output, score, missing, fix, asked, score is None))
+            if score is None:
+                result.notes.append(f"The judge's reply for version {version} could not be read, even when asked "
+                                    f"once more, so version {version} has no score.")
             if kind not in ("site", "app", "rule", "mcp", "hook"):
                 (folder / f"v{version}.md").write_text(current + "\n", encoding="utf-8")
             if score is not None and score >= target and _checks_pass(folder, kind, version):
@@ -507,7 +608,7 @@ def make(
             current = _strip_fences(call("revise", _REVISE.format(
                 kind=kind, upper=kind.upper(), fix=fix or "make it fully meet the request",
                 form=_SITE_FORM if kind in ("site", "app") else _JSON_FORM.get(kind, ""),
-                missing="; ".join(missing) or "nothing listed", request=brief, current=current,
+                missing=_unmet(asked, missing), request=brief, current=current,
                 trial=_REVISE_TRIED.format(kind=kind) if tried else "",
             ) + (f"\nCHECK FAILURES FROM THIS ROUND:\n{subject}" if kind == "app" else "")) or "")
     except _Stop as stop:
@@ -904,6 +1005,8 @@ def _write_record(
         "judge_note": "scores come from a model acting as judge; they are advice, not proof",
         "rounds": [vars(r) for r in result.rounds],
         "calls": [vars(c) for c in result.calls],
+        "asked_for": list(result.asked_for),
+        "notes": list(result.notes),
     }
     if kind_entry is not None:  # an add-on or learned kind: say where its writer instructions came from
         record["kind_from"] = {key: kind_entry[key] for key in (
