@@ -57,6 +57,8 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     **{f"install {kind}": (SPINE, "", f"delivery: writes a {kind} into a tool, with a record and a backup") for kind in ("agent", "rule", "mcp")},
     **{f"uninstall {kind}": (SPINE, "", f"delivery: removes only the {kind} Proofhouse wrote") for kind in ("agent", "rule", "mcp")},
     "agent-server": (SPINE, "", "model layer: serves a coding agent you are logged in to (claude, codex, grok) as a provider on this machine only"),
+    "mcp": (SPINE, "", "front door: the make as tools an AI app calls from its chat, interview intact; the app starts it"),
+    "connect": (SPINE, "", "front door: registers those tools and the skill in the AI apps on this machine; --undo removes them"),
     "generate": (SPINE, "", "media engine: one image, video clip, voice or music track from any service through the spend gate"),
     "media list": (SPINE, "", "media engine: every media service, shipped and yours"),
     "media price": (SPINE, "", "media engine: declares a price per unit"),

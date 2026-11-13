@@ -108,8 +108,11 @@ def run_agent(argv: list[str], prompt: str, timeout: float) -> str:
         argv = [part.replace("{prompt_file}", temp) for part in argv]
         stdin = None
     try:
-        done = subprocess.run(argv, input=stdin, capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=timeout, check=False)
+        # With no prompt to pipe in, give the agent an empty input: it must never read this process's own
+        # (under `proofhouse mcp` that is the app's protocol stream).
+        feed: dict = {"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}
+        done = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
+                              errors="replace", timeout=timeout, check=False, **feed)
     except subprocess.TimeoutExpired as exc:
         raise AgentError(f"{argv[0]} did not answer within {int(timeout)} s") from exc
     except OSError as exc:
