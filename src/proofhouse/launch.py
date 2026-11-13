@@ -65,6 +65,7 @@ class Launch:
     spent_usd: Decimal = Decimal(0)
     stopped: str = "finished"
     waiting: list[Path] = field(default_factory=list)  # the answers files to fill in when the launch paused
+    waiting_note: str = ""  # why it is waiting, when there is more to say than "answer the questions"
 
 
 def _plan(text: str | None, only: tuple[str, ...] | None) -> tuple[str, list[Part]]:
@@ -211,8 +212,8 @@ def run_launch(
             mi.run(interview, interviewer, ask, preset=preset, learned_by=f"{profile.id}/{model}")
         except mi.Paused as paused:
             mi.save(folder, interview, calls, format(budget.spent, "f"))
-            mi.write_pause(folder, interview, paused.stage)
-            result.waiting = [folder / "answers.json"]
+            mi.write_pause(folder, interview, paused.stage, paused.reason)
+            result.waiting, result.waiting_note = [folder / "answers.json"], paused.reason
             result.stopped, result.spent_usd = WAITING, budget.spent
             _write(folder, goal, profile.id, model, max_cost_usd, result, budget)
             return result

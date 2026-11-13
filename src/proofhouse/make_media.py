@@ -295,7 +295,8 @@ def make_media(
             mi.run(interview, interviewer, call, preset=preset, learned_by=f"{profile.id}/{model}")
         except mi.Paused as paused:
             save()
-            result.waiting = mi.write_pause(folder, interview, paused.stage)
+            result.waiting = mi.write_pause(folder, interview, paused.stage, paused.reason)
+            result.waiting_note = paused.reason
             result.stopped, result.interview, result.spent_usd = "waiting for your answers", interview, budget.spent
             return result
         except mi.Refused as exc:  # nothing was asked or made: leave no folder behind

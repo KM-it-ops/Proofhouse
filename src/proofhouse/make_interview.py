@@ -30,8 +30,23 @@ from .optimize.registry import find_model, load_registry
 SCHEMA = "proofhouse.make-interview/v1"
 MAX_QUESTIONS = 30
 INTERVIEW_FILES = ("questions.md", "understood.md")  # what the owner reads; never the made thing itself
-MAX_FIXES = 3
 NOT_ANSWERED = "(not answered)"
+GENERAL_SOURCE = "Proofhouse's general notes (nothing specific was found)"
+_NEED_NOTE = (
+    "\n\nAlso give every question a \"need\" field: \"must\" when the result would likely come out wrong without "
+    "the answer, \"nice\" when a sensible default exists. Mark as few \"must\" as you honestly can: the owner may "
+    "leave any \"nice\" question blank and have it decided for them."
+)
+_CHOSE_NOTE = (
+    "\n\nThe owner left some questions blank (listed under LEFT TO PROOFHOUSE). After the other headings add one "
+    "more, \"What I chose for you\", with one bullet per blank question saying plainly what you chose, so the owner "
+    "can correct it. This heading does not count toward the word limit."
+)
+_NO_ANSWERS = (
+    "answers.json has no answers in it yet. Fill in at least the questions marked must know, or set "
+    "\"decide_for_me\": true to leave every question to Proofhouse (it will still show you what it chose and wait "
+    "for your yes before making anything)."
+)
 TYPES = ("single_select", "multi_select", "text")
 _GUIDE_LIMIT = 4000
 _ACCEPT = ("", "y", "yes", "ok", "okay", "right", "correct")
@@ -106,9 +121,9 @@ class Refused(InterviewError):
 class Paused(Exception):
     """The interview needs answers it does not have yet; the questions are in the make folder."""
 
-    def __init__(self, stage: str) -> None:
+    def __init__(self, stage: str, reason: str = "") -> None:
         super().__init__(stage)
-        self.stage = stage
+        self.stage, self.reason = stage, reason
 
 
 @dataclass(frozen=True)
@@ -119,23 +134,25 @@ class Question:
     options: tuple[str, ...] = ()
     depends_on: tuple[str, tuple[str, ...]] | None = None
     group: str = ""
+    must: bool = False  # the result is likely wrong without this answer; asked first and marked
 
     def to_dict(self) -> dict[str, Any]:
         depends = {"questionId": self.depends_on[0], "values": list(self.depends_on[1])} if self.depends_on else None
         return {"id": self.id, "text": self.text, "type": self.type, "options": list(self.options),
-                "dependsOn": depends, "group": self.group}
+                "dependsOn": depends, "group": self.group, "must": self.must}
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> Question:
         depends = data.get("dependsOn")
         return cls(data["id"], data["text"], data["type"], tuple(data.get("options") or ()),
-                   (depends["questionId"], tuple(depends["values"])) if depends else None, data.get("group", ""))
+                   (depends["questionId"], tuple(depends["values"])) if depends else None, data.get("group", ""),
+                   data.get("must") is True)
 
 
 _FALLBACK = (
-    Question("goal", "What should it achieve, in a sentence or two?", "text", group="Scope & Goal"),
-    Question("users", "Who or what will use it?", "text", group="Scope & Goal"),
-    Question("must", "What must it always do?", "text", group="Constraints & Format"),
+    Question("goal", "What should it achieve, in a sentence or two?", "text", group="Scope & Goal", must=True),
+    Question("users", "Who or what will use it?", "text", group="Scope & Goal", must=True),
+    Question("must", "What must it always do?", "text", group="Constraints & Format", must=True),
     Question("must_not", "What must it never do?", "text", group="Constraints & Format"),
     Question("done", "How will you know it worked?", "text", group="Constraints & Format"),
 )
@@ -175,6 +192,8 @@ class Interview:
     confirmed: bool = False
     shared: str = ""  # what the owner told us for the whole launch this part belongs to
     given: str = ""  # what the owner already set on the command (a length, the shapes), so it is never asked
+    left: list[str] = field(default_factory=list)  # questions the owner left blank: Proofhouse decides and says so
+    notes: list[str] = field(default_factory=list)  # anything done a second-best way, said out loud
 
     def brief(self) -> str:
         """What make writes, judges and revises against: the request plus everything the interview found."""
@@ -190,6 +209,9 @@ class Interview:
             parts.append(f"WHAT THE OWNER ALREADY SET:\n{self.given}")
         if self.entries:
             parts.append("WHAT THE OWNER TOLD US:\n" + packets.format_answered_entries(self.entries))
+        if self.left:
+            parts.append("LEFT TO PROOFHOUSE (the owner left these blank: make a sensible choice for each, in "
+                         "keeping with everything else here):\n" + "\n".join(f"- {q}" for q in self.left))
         if self.confirmed and self.understood:
             parts.append(f"UNDERSTANDING THE OWNER CONFIRMED:\n{self.understood}")
         if self.corrections:
@@ -213,7 +235,7 @@ class Interview:
             "questions": [q.to_dict() for q in self.questions], "questions_from": self.questions_from,
             "entries": [list(e) for e in self.entries], "answered": self.answered, "understood": self.understood,
             "corrections": list(self.corrections), "confirmed": self.confirmed, "shared": self.shared,
-            "given": self.given,
+            "given": self.given, "left": list(self.left), "notes": list(self.notes),
         }
 
     @classmethod
@@ -226,6 +248,7 @@ class Interview:
             [(str(a), str(b)) for a, b in data.get("entries") or []], bool(data.get("answered")),
             data.get("understood"), list(data.get("corrections") or []), bool(data.get("confirmed")),
             str(data.get("shared") or ""), str(data.get("given") or ""),
+            [str(q) for q in data.get("left") or []], [str(n) for n in data.get("notes") or []],
         )
 
 
@@ -364,10 +387,35 @@ def parse_questions(text: str | None) -> list[Question]:
         elif isinstance(depends, str):
             parent = depends
         found.append(Question(qid, text_, kind, options,
-                              (ids[parent], values) if isinstance(parent, str) and parent in ids else None, group))
+                              (ids[parent], values) if isinstance(parent, str) and parent in ids else None, group,
+                              _is_must(q)))
     if not found:
         raise ValueError("the reply holds no questions")
     return found
+
+
+_MUST_WORDS = {"must", "must know", "must-know", "must_know", "required", "high", "critical", "essential"}
+
+
+def _is_must(q: dict[str, Any]) -> bool:
+    """Whether the model marked a question as one the result depends on, read leniently."""
+    return any(q.get(key) is True or (isinstance(q.get(key), str) and q[key].strip().lower() in _MUST_WORDS)
+               for key in ("need", "priority", "required", "must"))
+
+
+def ranked(questions: list[Question]) -> list[Question]:
+    """Must-know questions first, the rest in the order asked. A follow-up stays with its parent's rank, so it is
+    never asked before the question it depends on."""
+    by_id = {q.id: q for q in questions}
+
+    def rank(q: Question) -> int:
+        seen: set[str] = set()
+        while q.depends_on and q.depends_on[0] in by_id and q.id not in seen:
+            seen.add(q.id)
+            q = by_id[q.depends_on[0]]
+        return 0 if q.must else 1
+
+    return sorted(questions, key=rank)
 
 
 _GIVEN_TOPICS = {  # a line of what the command set -> the words of a question that asks it again
@@ -386,7 +434,7 @@ def not_given(questions: list[Question], given: str) -> list[Question]:
     topics = [words for line, words in _GIVEN_TOPICS.items() if line in given]
     dropped = {q.id for q in questions
                if any(words.search(f"{q.id.replace('_', ' ')} {q.text}") for words in topics)}
-    return [Question(q.id, q.text, q.type, q.options, None, q.group)
+    return [Question(q.id, q.text, q.type, q.options, None, q.group, q.must)
             if q.depends_on and q.depends_on[0] in dropped else q
             for q in questions if q.id not in dropped]
 
@@ -475,8 +523,7 @@ def _research_guide(entered: str, key: str, name: str, sort: str, kind: str, ask
 
 def _general(entered: str, key: str, name: str, sort: str) -> ToolTarget:
     other = find_model(FALLBACK_ID, load_registry())
-    return ToolTarget(entered, key, name, sort, other.notes if other else "",
-                      "Proofhouse's general notes (nothing specific was found)", None)
+    return ToolTarget(entered, key, name, sort, other.notes if other else "", GENERAL_SOURCE, None)
 
 
 def _ask_for(kind: str) -> str:
@@ -700,10 +747,11 @@ def _questions(iv: Interview, ask: Ask, preset: str) -> tuple[list[Question], st
         system += _SHARED_NOTE.format(shared=iv.shared)
     if iv.given:
         system += _GIVEN_NOTE.format(given=iv.given)
+    system += _NEED_NOTE
     for user in (packet.user, packet.user + "\n\nReply with the JSON array only, nothing else."):
         try:
             kept = not_given(parse_questions(ask("questions", system, user)), iv.given)
-            return (kept, "model") if kept else (list(_FALLBACK), "fallback")
+            return (ranked(kept), "model") if kept else (list(_FALLBACK), "fallback")
         except ValueError:
             continue
     return list(_FALLBACK), "fallback"
@@ -717,8 +765,18 @@ def _say_back(iv: Interview, ask: Ask) -> str:
         prompt = _SAY_BACK_PLACE.format(kind=iv.kind, where=(" " + _where(iv.target)).rstrip(), brief=iv.brief())
     else:
         prompt = _SAY_BACK.format(kind=iv.kind, name=iv.target.name, brief=iv.brief())
-    reply = (ask("say back", prompt) or "").strip()
+    reply = (ask("say back", prompt + (_CHOSE_NOTE if iv.left else "")) or "").strip()
     return reply or "\n".join(f"- {q}: {a}" for q, a in iv.entries) or f"- {iv.request}"
+
+
+def _note(iv: Interview, source: Any, text: str) -> None:
+    """Record something done a second-best way and tell the owner once, where the source can show it."""
+    if text in iv.notes:
+        return
+    iv.notes.append(text)
+    tell = getattr(source, "tell", None)
+    if callable(tell):
+        tell(text)
 
 
 def run(iv: Interview, source: Interviewer, ask: Ask, *, preset: str, learned_by: str) -> Interview:
@@ -732,14 +790,21 @@ def run(iv: Interview, source: Interviewer, ask: Ask, *, preset: str, learned_by
         if not entered:
             raise Paused("for")
         iv.target = find_target(entered, iv.kind, ask, learned_by=learned_by)
+    if iv.target.guide_source == GENERAL_SOURCE:
+        _note(iv, source, f"No writing guide was found for {iv.target.name}, so Proofhouse's general notes are "
+                          f"used. The {iv.kind} may fit {iv.target.name} less closely than one written from its own guide.")
     if not iv.questions:
         iv.questions, iv.questions_from = _questions(iv, ask, preset)
+        if iv.questions_from == "fallback":
+            _note(iv, source, "The model's own questions could not be read after two tries, so five stock questions "
+                              "are asked. They are less specific to your request.")
     if not iv.answered:
         answers = source.answers(iv.questions)
         if answers is None:
-            raise Paused("answers")
-        iv.entries = [(q.text, answers[q.id]) for q in iv.questions
-                      if applies(q, answers) and answers.get(q.id, "").strip() not in ("", NOT_ANSWERED)]
+            raise Paused("answers", str(getattr(source, "why", "") or ""))
+        blank = lambda q: answers.get(q.id, "").strip() in ("", NOT_ANSWERED)  # noqa: E731
+        iv.entries = [(q.text, answers[q.id]) for q in iv.questions if applies(q, answers) and not blank(q)]
+        iv.left = [q.text for q in iv.questions if applies(q, answers) and blank(q)]
         iv.answered = True
     if iv.understood is None:
         iv.understood = _say_back(iv, ask)
@@ -751,9 +816,7 @@ def run(iv: Interview, source: Interviewer, ask: Ask, *, preset: str, learned_by
             iv.confirmed = True
             break
         iv.corrections.append(str(reply).strip())
-        iv.understood = _say_back(iv, ask)
-        if len(iv.corrections) >= MAX_FIXES:  # the corrections themselves go into the brief and win
-            iv.confirmed = True
+        iv.understood = _say_back(iv, ask)  # shown again: nothing is ever confirmed that the owner has not seen
     return iv
 
 
@@ -796,6 +859,8 @@ class FileInterviewer:
                 raise InterviewError(f"{path} must hold one JSON object")
             self.data = data
         self.for_target = for_target
+        self.why = ""  # why the last question went unanswered, in plain words
+        self._corrected = False
 
     def target(self) -> str | None:
         return self.for_target or (self.data["for"] if isinstance(self.data.get("for"), str) else None)
@@ -806,12 +871,18 @@ class FileInterviewer:
             return None
         by_key = {str(k).strip().lower(): _answer_text(v) for k, v in given.items()}
         found = {q.id: by_key.get(q.id.lower()) or by_key.get(q.text.strip().lower()) or "" for q in questions}
-        return found if any(found.values()) else None
+        if any(found.values()) or self.data.get("decide_for_me") is True:
+            return found
+        self.why = _NO_ANSWERS
+        return None
 
     def confirm(self, understood: str, corrections: list[str]) -> bool | str | None:
         correction = _answer_text(self.data.get("correction"))
         if correction and correction not in corrections:
+            self._corrected = True
             return correction
+        if self._corrected:  # the say-back was just rewritten: the owner has not seen it, so "confirmed" is stale
+            return None
         return True if self.data.get("confirmed") is True else None
 
 
@@ -839,8 +910,12 @@ class TerminalInterviewer:
                 return entered
         raise InterviewError(f"say {_ask_for(self.kind)} (--for)")
 
+    def tell(self, note: str) -> None:
+        self.write(f"\nNote: {note}\n")
+
     def answers(self, questions: list[Question]) -> dict[str, str] | None:
-        self.write("\nA few questions so it comes out right. Press Enter to skip one.\n")
+        self.write("\nA few questions so it comes out right. The ones marked [must know] matter most. Press Enter "
+                   "on any question to let Proofhouse decide it; it will tell you what it chose before making anything.\n")
         found: dict[str, str] = {}
         group = None
         for q in questions:
@@ -849,7 +924,7 @@ class TerminalInterviewer:
             if q.group and q.group != group:
                 group = q.group
                 self.write(f"\n{group}\n")
-            lines = [q.text] + [f"  {n}) {option}" for n, option in enumerate(q.options, 1)]
+            lines = [q.text + (" [must know]" if q.must else "")] + [f"  {n}) {option}" for n, option in enumerate(q.options, 1)]
             hint = {"single_select": "number or your own words", "multi_select": "numbers with commas, or your own words"}
             raw = self._line("\n".join(lines) + (f"\n  ({hint[q.type]}) " if q.type in hint else "\n  ") + "> ")
             found[q.id] = _picked(raw, q) or NOT_ANSWERED
@@ -890,29 +965,33 @@ def load(folder: Path) -> tuple[Interview, list[dict[str, Any]], str] | None:
     return Interview.from_dict(data), list(data.get("calls") or []), str(data.get("spent_usd_estimated") or "0")
 
 
-def questions_markdown(iv: Interview) -> str:
+def questions_markdown(iv: Interview, reason: str = "") -> str:
     lines = [f"# Questions before making: {iv.request}", ""]
+    if reason:
+        lines += [f"**Why this is waiting:** {reason}", ""]
+    lines += [f"Note: {note}" for note in iv.notes] + ([""] if iv.notes else [])
     if iv.target is None:
         lines += [f"{target_question(iv.kind)} Put it in answers.json as \"for\" (or pass --for).", ""]
         return "\n".join(lines)
     lines += [f"{'Made with' if iv.target.sort == 'media' else 'Made for'}: {_made_for(iv.target)}", ""]
     for n, q in enumerate(iv.questions, 1):
-        lines.append(f"{n}. **{q.id}**: {q.text}")
+        lines.append(f"{n}. **{q.id}**{' (must know)' if q.must else ''}: {q.text}")
         if q.options:
             lines.append(f"   options ({'pick any' if q.type == 'multi_select' else 'pick one'}, or your own words): "
                          + "; ".join(q.options))
         if q.depends_on:
             parent, values = q.depends_on
             lines.append(f"   only if {parent} is " + (" or ".join(values) if values else "answered"))
-    lines += ["", "Answer in answers.json (\"answers\": question id to answer; leave one empty to skip it), "
-              "then run the same command again with --answers pointing at that file."]
+    lines += ["", "Answer in answers.json (\"answers\": question id to answer). Leave one empty and Proofhouse "
+              "decides it, and tells you what it chose before making anything. To leave every question to Proofhouse, "
+              "set \"decide_for_me\": true. Then run the same command again with --answers pointing at that file."]
     return "\n".join(lines) + "\n"
 
 
-def write_pause(folder: Path, iv: Interview, stage: str) -> list[Path]:
+def write_pause(folder: Path, iv: Interview, stage: str, reason: str = "") -> list[Path]:
     """Leave what the owner needs to answer: the questions, an answers file to fill and, at the end, the say-back."""
     written = [folder / INTERVIEW_FILES[0]]
-    written[0].write_text(questions_markdown(iv), encoding="utf-8")
+    written[0].write_text(questions_markdown(iv, reason), encoding="utf-8")
     answers = folder / "answers.json"
     filled: dict[str, Any] = {}
     if answers.exists():  # keep what the owner wrote; add the questions asked since
@@ -925,7 +1004,9 @@ def write_pause(folder: Path, iv: Interview, stage: str) -> list[Path]:
     answers.write_text(json.dumps({
         "for": filled.get("for") or (iv.target.entered if iv.target else ""),
         "answers": {**{q.id: "" for q in iv.questions}, **given},
-        "confirmed": filled.get("confirmed") is True,
+        "decide_for_me": filled.get("decide_for_me") is True,
+        # at the say-back the owner has not yet seen what is being confirmed, so an earlier yes does not carry over
+        "confirmed": stage != "confirm" and filled.get("confirmed") is True,
         "correction": filled.get("correction") or "",
     }, indent=2) + "\n", encoding="utf-8")
     written.append(answers)

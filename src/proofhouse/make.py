@@ -189,6 +189,7 @@ class MakeResult:
     learned: dict[str, Any] | None = None
     # The interview's files when it paused for answers; nothing was made yet (make_interview.py).
     waiting: list[Path] | None = None
+    waiting_note: str = ""  # why it is waiting, when there is more to say than "answer the questions"
     interview: Any = None
     tried_on: str | None = None
     tried_on_note: str | None = None
@@ -396,7 +397,8 @@ def make(
                 mi.run(interview, interviewer, call, preset=preset, learned_by=f"{profile.id}/{model}")
             except mi.Paused as paused:
                 mi.save(folder, interview, [vars(c) for c in result.calls], format(budget.spent, "f"))
-                result.waiting = mi.write_pause(folder, interview, paused.stage)
+                result.waiting = mi.write_pause(folder, interview, paused.stage, paused.reason)
+                result.waiting_note = paused.reason
                 result.stopped, result.interview, result.spent_usd = "waiting for your answers", interview, budget.spent
                 return result
             except mi.Refused as exc:  # nothing was asked or made: leave no folder behind

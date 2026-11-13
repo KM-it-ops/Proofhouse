@@ -250,9 +250,12 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
         again += f" --answers {made.folder / 'answers.json'}"
         if args.json:
             print(json.dumps({"folder": str(made.folder), "kind": made.kind, "stopped": made.stopped,
-                              "waiting": [str(p) for p in made.waiting], "next": again}, sort_keys=True))
+                              "waiting": [str(p) for p in made.waiting], "next": again,
+                              "note": getattr(made, "waiting_note", "")}, sort_keys=True))
         else:
             print(f"waiting for your answers: {', '.join(str(p) for p in made.waiting)}")
+            if getattr(made, "waiting_note", ""):
+                print(made.waiting_note)
             print(f"fill in answers.json, then run: {again}")
         return EXIT_WAITING
     delivered ={shape: str(made.folder / path) for shape, path in (made.delivered or {}).items()}
@@ -326,11 +329,13 @@ def _cmd_make_launch(args: argparse.Namespace) -> int:
     if args.json:
         print(json.dumps({"folder": str(made.folder), "name": made.name, "stopped": made.stopped,
                           "spent_usd_estimated": format(made.spent_usd, "f"), "parts": [p.to_dict() for p in made.parts],
-                          "waiting": [str(p) for p in made.waiting]}, sort_keys=True))
+                          "waiting": [str(p) for p in made.waiting], "note": made.waiting_note}, sort_keys=True))
     else:
         print(f"{made.name or 'launch'}: {made.stopped}; spent about ${format(made.spent_usd, 'f')}")
         for part in made.parts:
             print(f"  {part.kind:<7} {part.status:<9} {made.folder / part.folder}  {part.detail}")
+        if made.waiting_note:
+            print(made.waiting_note)
         for path in made.waiting:
             print(f"fill in {path}, then run the same command again with --answers {path}")
         print(f"everything is in {made.folder} (start with README.md)")
@@ -382,9 +387,12 @@ def _cmd_make(args: argparse.Namespace) -> int:
         again += f" --answers {made.folder / 'answers.json'}"
         if args.json:
             print(json.dumps({"folder": str(made.folder), "kind": made.kind, "stopped": made.stopped,
-                              "waiting": [str(p) for p in made.waiting], "next": again}, sort_keys=True))
+                              "waiting": [str(p) for p in made.waiting], "next": again,
+                              "note": getattr(made, "waiting_note", "")}, sort_keys=True))
         else:
             print(f"waiting for your answers: {', '.join(str(p) for p in made.waiting)}")
+            if getattr(made, "waiting_note", ""):
+                print(made.waiting_note)
             print(f"fill in answers.json, then run: {again}")
         return EXIT_WAITING
     summary = {
