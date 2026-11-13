@@ -179,3 +179,79 @@ def test_the_command_runs_the_loop(tmp_path: Path, project: Path, monkeypatch: p
                      "--check", CHECK, "--out", str(tmp_path / "rec"), "--json"])
     assert code == 0
     assert json.loads(capsys.readouterr().out)["stopped"] == "check passed"
+
+
+TESTS_CHECK = f"{PY} tests/check_calc.py"
+
+
+@pytest.fixture
+def guarded(project: Path) -> Path:
+    (project / "tests").mkdir()
+    (project / "tests" / "check_calc.py").write_text("import sys\nsys.path.insert(0, '.')\nimport calc\nassert calc.add(2, 2) == 4\n",
+                                                     encoding="utf-8")
+    return project
+
+
+def test_a_protected_file_cannot_be_written_so_the_check_cannot_be_passed_by_editing_it(tmp_path: Path, guarded: Path) -> None:
+    before = (guarded / "tests" / "check_calc.py").read_bytes()
+    agent = Agent({"actions": [{"write": "tests/check_calc.py", "text": "pass\n"}, {"write": "TESTS\\check_calc.py", "text": "pass\n"}],
+                   "summary": "made the test easy"})
+    made = loop.run_loop("x", provider_id="ollama", model="m", workdir=guarded, check=TESTS_CHECK, protect=["tests/*"],
+                         max_rounds=2, out_dir=tmp_path / "r", transport=agent)
+    assert not made.done and (guarded / "tests" / "check_calc.py").read_bytes() == before
+    actions = made.steps[0].actions
+    assert [a["ok"] for a in actions] == [False, False] and all("protected" in a["result"] for a in actions)
+    assert "PROTECTED" in agent.seen[0] and "tests/*" in agent.seen[0]
+    assert json.loads((tmp_path / "r" / "loop.json").read_text(encoding="utf-8"))["protect"] == ["tests/*"]
+
+
+@pytest.mark.parametrize("code, word", [
+    ("open('tests/check_calc.py', 'w').write('pass')", "changed"),
+    ("open('tests/conftest.py', 'w').write('raise SystemExit(0)')", "new"),
+    ("import os; os.remove('tests/check_calc.py'); open('tests/check_calc.py.bak', 'w').write('')", "removed"),
+])
+def test_a_command_that_changes_a_protected_file_stops_the_loop_and_is_not_a_pass(tmp_path: Path, guarded: Path, code: str, word: str) -> None:
+    agent = Agent({"actions": [{"run": f'{PY} -c "{code}"'},
+                               {"write": "calc.py", "text": "def add(a, b):\n    return a + b\n"}], "summary": "sneaky"})
+    made = loop.run_loop("x", provider_id="ollama", model="m", workdir=guarded, check=TESTS_CHECK, protect=["tests"],
+                         allow_commands=True, out_dir=tmp_path / "r", transport=agent)
+    assert not made.done and made.calls == 1
+    assert "protected file" in made.stopped and "tests/" in made.stopped and word in made.stopped
+    line = json.loads((tmp_path / "r" / "rounds.jsonl").read_text(encoding="utf-8").splitlines()[0])
+    assert line["check"] is None and line["protected_changed"]
+
+
+def test_work_outside_the_protected_files_still_passes_the_check(tmp_path: Path, guarded: Path) -> None:
+    agent = Agent({"actions": [{"write": "calc.py", "text": "def add(a, b):\n    return a + b\n"}], "summary": "fixed"})
+    made = loop.run_loop("x", provider_id="ollama", model="m", workdir=guarded, check=TESTS_CHECK, protect=["tests/*"],
+                         out_dir=tmp_path / "r", transport=agent)
+    assert made.done and made.stopped == "check passed"
+    with pytest.raises(loop.LoopError):
+        loop.run_loop("x", provider_id="ollama", model="m", workdir=guarded, protect=[" "], out_dir=tmp_path / "s", transport=agent)
+
+
+def test_a_check_with_nothing_protected_is_said_once_on_the_command_line(tmp_path: Path, guarded: Path, monkeypatch, capsys) -> None:
+    fixed = {"actions": [{"write": "calc.py", "text": "def add(a, b):\n    return a + b\n"}], "summary": "fixed"}
+    base = ["loop", "x", "--provider", "ollama", "--model", "m", "--in", str(guarded), "--check", TESTS_CHECK]
+    monkeypatch.setattr(live, "_httpx_post", Agent(fixed))
+    assert cli.main([*base, "--out", str(tmp_path / "a")]) == 0
+    err = capsys.readouterr().err
+    assert err.count("--protect") == 1 and "the agent can change the files your check reads" in err
+    (guarded / "calc.py").write_text("def add(a, b):\n    return a - b\n", encoding="utf-8")
+    monkeypatch.setattr(live, "_httpx_post", Agent(fixed))
+    assert cli.main([*base, "--protect", "tests/*", "--protect", "*.cfg", "--out", str(tmp_path / "b")]) == 0
+    assert "--protect" not in capsys.readouterr().err
+    assert json.loads((tmp_path / "b" / "loop.json").read_text(encoding="utf-8"))["protect"] == ["tests/*", "*.cfg"]
+
+
+def test_a_command_that_runs_too_long_is_stopped_with_everything_it_started(tmp_path: Path, project: Path) -> None:
+    import time
+
+    late = project / "late.txt"
+    child = f"import time; time.sleep(3); open(r'{late}', 'w').write('still running')"
+    (project / "slow.py").write_text(
+        f"import subprocess, sys, time\nsubprocess.Popen([sys.executable, '-c', {child!r}])\ntime.sleep(30)\n", encoding="utf-8")
+    outcome = loop._shell(f"{PY} slow.py", project, 1, [])
+    assert outcome["exit"] is None and "stopped after 1 seconds" in outcome["output"]
+    time.sleep(4)
+    assert not late.exists()
