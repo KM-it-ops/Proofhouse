@@ -479,7 +479,9 @@ def _host_target(entered: str, host_id: str, name: str, host: dict[str, Any], ki
     guide = guides.get(kind)
     if not isinstance(guide, str) or not guide.strip():
         return None
-    sources = host.get("guide_sources") or host.get("sources") or []
+    pages = host.get("guide_pages") if isinstance(host.get("guide_pages"), dict) else {}
+    sources = pages.get(kind) or host.get("guide_sources") or host.get("sources") or []  # the page for this kind first
+    sources = [sources] if isinstance(sources, str) else sources
     learned = learn_catalog.is_learned(host)
     source = ", ".join(s for s in sources if isinstance(s, str)) or "the host list"
     return ToolTarget(entered, host_id, name, "tool", guide.strip()[:_GUIDE_LIMIT],

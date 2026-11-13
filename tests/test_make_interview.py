@@ -437,6 +437,25 @@ def test_every_shipped_guide_names_its_sources() -> None:
         assert host["guides"] and all(s.startswith("https://") for s in host["guide_sources"])
 
 
+def test_each_shipped_guide_cites_the_page_it_was_written_from() -> None:
+    shipped = {"claude": {"skill", "agent", "rule", "prompt"}, "cursor": {"skill", "agent", "rule"},
+               "codex": {"skill", "rule", "prompt"}}
+    for host_id, kinds in shipped.items():
+        host = hosts.all_hosts()[host_id]
+        assert set(host["guides"]) == kinds == set(host["guide_pages"])
+        for kind in kinds:
+            assert 300 < len(host["guides"][kind]) <= 1200  # a guide, not a line and not a manual
+            pages = host["guide_pages"][kind]
+            assert pages and all(p.startswith("https://") and p in host["guide_sources"] for p in pages)
+            target = mi._host_target(host["name"], host_id, host["name"], host, kind)
+            assert target is not None and target.guide_source == ", ".join(pages)  # only that kind's page is named
+
+
+def test_a_kind_a_tool_has_no_official_page_for_is_left_to_research() -> None:
+    codex = hosts.all_hosts()["codex"]
+    assert mi._host_target("Codex", "codex", "Codex", codex, "agent") is None
+
+
 def test_the_command_names_the_rule_file_not_the_question_sheet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                                                 capsys: pytest.CaptureFixture[str]) -> None:
     model = Owner([9], kind="rule")
