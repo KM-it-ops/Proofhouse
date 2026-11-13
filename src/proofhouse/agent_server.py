@@ -17,6 +17,7 @@ import secrets
 import shutil
 import subprocess
 import tempfile
+import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -30,6 +31,9 @@ DEFAULT_TIMEOUT_SECONDS = 600.0
 TOKEN_ENV = "PROOFHOUSE_AGENT_TOKEN"
 TOKEN_FILE = "agent-bridge-token"
 MAX_REQUEST_BYTES = 1_000_000
+MAX_RUNNING = 4  # agent runs at once; each one is a whole coding agent on the owner's plan
+READ_TIMEOUT_SECONDS = 30.0  # how long a caller may take to send its request
+DRAIN_SECONDS = 0.3
 
 Runner = Callable[[list[str], str, float], str]
 
@@ -110,20 +114,29 @@ def run_agent(argv: list[str], prompt: str, timeout: float) -> str:
     try:
         # With no prompt to pipe in, give the agent an empty input: it must never read this process's own
         # (under `proofhouse mcp` that is the app's protocol stream).
-        feed: dict = {"input": stdin} if stdin is not None else {"stdin": subprocess.DEVNULL}
-        done = subprocess.run(argv, capture_output=True, text=True, encoding="utf-8",
-                              errors="replace", timeout=timeout, check=False, **feed)
-    except subprocess.TimeoutExpired as exc:
-        raise AgentError(f"{argv[0]} did not answer within {int(timeout)} s") from exc
+        process = subprocess.Popen(argv, stdin=subprocess.PIPE if stdin is not None else subprocess.DEVNULL,
+                                   stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding="utf-8",
+                                   errors="replace", start_new_session=os.name != "nt")
+        try:
+            out, err = process.communicate(stdin, timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
+            from .make_checks import _kill_tree  # the agent and everything it started, not only the first process
+
+            _kill_tree(process, None)
+            try:
+                process.communicate(timeout=5)
+            except (subprocess.TimeoutExpired, OSError, ValueError):
+                pass
+            raise AgentError(f"{argv[0]} did not answer within {int(timeout)} s") from exc
     except OSError as exc:
         raise AgentError(f"could not start {argv[0]}: {exc}") from exc
     finally:
         if temp:
             Path(temp).unlink(missing_ok=True)
-    answer = done.stdout.strip()
-    if done.returncode != 0 or not answer:
-        detail = (done.stderr or done.stdout).strip().splitlines()
-        raise AgentError(f"{Path(argv[0]).stem} failed (exit {done.returncode}): {detail[-1] if detail else 'no output'}")
+    answer = (out or "").strip()
+    if process.returncode != 0 or not answer:
+        detail = (err or out or "").strip().splitlines()
+        raise AgentError(f"{Path(argv[0]).stem} failed (exit {process.returncode}): {detail[-1] if detail else 'no output'}")
     return answer
 
 
@@ -164,7 +177,8 @@ def bridge_token() -> tuple[str, Path | None]:
 
 
 def make_server(agent: str, port: int | None = None, runner: Runner = run_agent,
-                timeout: float = DEFAULT_TIMEOUT_SECONDS) -> ThreadingHTTPServer:
+                timeout: float = DEFAULT_TIMEOUT_SECONDS, max_running: int = MAX_RUNNING,
+                read_timeout: float = READ_TIMEOUT_SECONDS) -> ThreadingHTTPServer:
     known = load_agents()
     if agent not in known:
         raise AgentError(f"unknown agent '{agent}'. Known: {', '.join(sorted(known)) or 'none'}")
@@ -172,8 +186,35 @@ def make_server(agent: str, port: int | None = None, runner: Runner = run_agent,
     # Every caller must present this token: loopback is reachable by every local process and user, and each
     # accepted request runs the agent's own command line on the owner's plan.
     token, token_file = bridge_token()
+    places = threading.BoundedSemaphore(max(1, max_running))
 
     class Handler(BaseHTTPRequestHandler):
+        timeout = read_timeout  # a caller that stops sending is let go; it does not hold a thread for ever
+
+        def _refuse(self, status: int, message: str) -> None:
+            """Answer no to a request whose body was not read. What the caller already sent is taken off the line
+            first, a bounded amount for a short moment: closing on top of unread bytes makes Windows drop the
+            connection, and the caller then sees an aborted connection and never the answer."""
+            try:
+                left = min(int(self.headers.get("Content-Length") or 0), MAX_REQUEST_BYTES)
+            except ValueError:
+                left = 0
+            try:
+                self.connection.settimeout(DRAIN_SECONDS)
+                while left > 0:
+                    chunk = self.rfile.read1(min(left, 65536))
+                    if not chunk:
+                        break
+                    left -= len(chunk)
+            except (OSError, ValueError):
+                pass
+            self.close_connection = True
+            try:
+                self.connection.settimeout(read_timeout)
+                self._send(status, {"error": {"message": message}})
+            except OSError:
+                pass
+
         def _send(self, status: int, payload: dict) -> None:
             data = json.dumps(payload).encode("utf-8")
             self.send_response(status)
@@ -190,27 +231,38 @@ def make_server(agent: str, port: int | None = None, runner: Runner = run_agent,
 
         def do_POST(self) -> None:  # noqa: N802
             if not self.path.rstrip("/").endswith("/chat/completions"):
-                self._send(404, {"error": {"message": "not found"}})
+                self._refuse(404, "not found")
                 return
             if not secrets.compare_digest(self.headers.get("Authorization", "").encode("utf-8"),
                                           f"Bearer {token}".encode("utf-8")):
-                self._send(401, {"error": {"message": "a valid bridge bearer token is required"}})
+                self._refuse(401, "a valid bridge bearer token is required")
                 return
             if self.headers.get("Origin") or self.headers.get_content_type() != "application/json":
-                self._send(403, {"error": {"message": "browser-origin requests are not allowed; send application/json"}})
+                self._refuse(403, "browser-origin requests are not allowed; send application/json")
                 return
             try:
                 size = int(self.headers.get("Content-Length") or 0)
             except ValueError:
-                self._send(400, {"error": {"message": "bad request: Content-Length is not a number"}})
+                self._refuse(400, "bad request: Content-Length is not a number")
                 return
             if size > MAX_REQUEST_BYTES:
-                self._send(413, {"error": {"message": f"body over {MAX_REQUEST_BYTES} bytes is refused"}})
+                self._refuse(413, f"body over {MAX_REQUEST_BYTES} bytes is refused")
+                return
+            try:
+                raw = self.rfile.read(size) if size > 0 else b""
+            except OSError:  # the caller stopped sending part way
+                self.close_connection = True
+                try:
+                    self._send(408, {"error": {"message": "the request body did not arrive in time"}})
+                except OSError:
+                    pass
                 return
             try:
                 if size <= 0:
                     raise ValueError("body must not be empty")
-                body = json.loads(self.rfile.read(size) or b"{}")
+                if len(raw) < size:
+                    raise ValueError("the body was shorter than its Content-Length")
+                body = json.loads(raw or b"{}")
                 if not isinstance(body, dict):
                     raise ValueError("body must be a JSON object")
                 messages = body.get("messages")
@@ -219,10 +271,18 @@ def make_server(agent: str, port: int | None = None, runner: Runner = run_agent,
             except ValueError as exc:
                 self._send(400, {"error": {"message": f"bad request: {exc}"}})
                 return
+            if not places.acquire(blocking=False):
+                self._send(429, {"error": {"message": f"this bridge runs at most {max(1, max_running)} requests at once; "
+                                                      "try again when one has finished"}})
+                return
             try:
-                self._send(200, complete(agent, entry, body, runner, timeout))
+                answer = complete(agent, entry, body, runner, timeout)
             except AgentError as exc:
                 self._send(502, {"error": {"message": str(exc)}})
+                return
+            finally:
+                places.release()
+            self._send(200, answer)
 
         def log_message(self, format: str, *args: object) -> None:  # noqa: A002
             return

@@ -187,3 +187,86 @@ def test_proofhouse_run_prompt_works_through_the_bridge_with_the_token_and_no_ve
     result = live.run_prompt("bridge-test", "codex", prompt="Make a thing.")
     assert result.status == "success", result.message
     assert result.output_text == "a made thing"
+
+
+def test_a_refused_request_with_a_large_body_gets_its_answer_not_a_dropped_connection(served) -> None:
+    """Refusing before the body was read used to close the connection on top of unread bytes, which Windows reports
+    to the caller as an aborted connection in place of the 401."""
+    runner = FakeRunner()
+    _, base = served("codex", runner)
+    body = {"model": "m", "messages": [{"role": "user", "content": "x" * 400_000}]}
+    for _ in range(25):
+        status, payload = _post(base, body, token="wrong")
+        assert status == 401 and "token" in payload["error"]["message"]
+    assert runner.calls == []
+
+
+def test_only_so_many_requests_run_at_once_and_the_rest_are_told_to_come_back(served) -> None:
+    going, release = threading.Event(), threading.Event()
+
+    class Slow(FakeRunner):
+        def __call__(self, argv: list[str], prompt: str, timeout: float) -> str:
+            going.set()
+            assert release.wait(20)
+            return super().__call__(argv, prompt, timeout)
+
+    runner = Slow()
+    started = []
+
+    def start():
+        server = agent_server.make_server("codex", port=0, runner=runner, max_running=1)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        started.append(server)
+        return server, f"http://127.0.0.1:{server.server_address[1]}/v1"
+
+    server, base = start()
+    try:
+        body = {"model": "m", "messages": [{"role": "user", "content": "x"}]}
+        first: list[tuple[int, dict]] = []
+        thread = threading.Thread(target=lambda: first.append(_post(base, body, token=server.token)))
+        thread.start()
+        assert going.wait(10)
+        status, payload = _post(base, body, token=server.token)
+        assert status == 429 and "1" in payload["error"]["message"] and "at once" in payload["error"]["message"]
+        release.set()
+        thread.join(20)
+        assert first and first[0][0] == 200
+        assert _post(base, body, token=server.token)[0] == 200  # the place is free again
+        assert len(runner.calls) == 2
+    finally:
+        release.set()
+        server.shutdown()
+        server.server_close()
+
+
+def test_a_caller_that_stops_sending_is_let_go_and_runs_nothing() -> None:
+    import socket
+
+    runner = FakeRunner()
+    server = agent_server.make_server("codex", port=0, runner=runner, read_timeout=0.5)
+    threading.Thread(target=server.serve_forever, daemon=True).start()
+    try:
+        with socket.create_connection(("127.0.0.1", server.server_address[1]), timeout=10) as sock:
+            sock.sendall((f"POST /v1/chat/completions HTTP/1.1\r\nHost: x\r\nAuthorization: Bearer {server.token}\r\n"
+                          "Content-Type: application/json\r\nContent-Length: 500\r\n\r\n{\"model\"").encode())
+            answer = sock.recv(4096).decode("utf-8", "replace")
+        assert answer.startswith("HTTP/1.0 408") or answer.startswith("HTTP/1.1 408")
+        assert runner.calls == []
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_an_agent_that_does_not_answer_in_time_is_stopped_with_everything_it_started(tmp_path: Path) -> None:
+    import sys
+    import time
+
+    late = tmp_path / "late.txt"
+    child = f"import time; time.sleep(3); open(r'{late}', 'w').write('still running')"
+    script = tmp_path / "slow.py"
+    script.write_text(f"import subprocess, sys, time\nsubprocess.Popen([sys.executable, '-c', {child!r}])\ntime.sleep(30)\n",
+                      encoding="utf-8")
+    with pytest.raises(agent_server.AgentError, match="did not answer within 1 s"):
+        agent_server.run_agent([sys.executable, str(script)], "hello", 1)
+    time.sleep(4)
+    assert not late.exists()
