@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import re
 import shutil
 import signal
 import subprocess
@@ -15,7 +14,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable
 
-from . import __version__
+from . import __version__, scrub
 from .loop import _clean, _secrets
 
 MAX_SUMMARY = 2000
@@ -30,18 +29,9 @@ EXIT_USAGE = 2
 class RefereeError(Exception):
     """A referee command cannot run; the message says why."""
 
-_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTH", re.IGNORECASE)
-# The check sees only these variables, so a secret under any name (GH_PAT, POSTGRES_URL, ...) stays out.
-_CHECK_ENV_KEYS = ("PATH", "PATHEXT", "SYSTEMROOT", "WINDIR", "SYSTEMDRIVE", "COMSPEC", "TEMP", "TMP", "TMPDIR",
-                   "HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "APPDATA", "LOCALAPPDATA", "PROGRAMDATA",
-                   "PROGRAMFILES", "PROGRAMFILES(X86)", "PROGRAMW6432", "COMMONPROGRAMFILES", "NUMBER_OF_PROCESSORS",
-                   "PROCESSOR_ARCHITECTURE", "OS", "USERNAME", "USER", "LOGNAME", "SHELL", "TERM", "LANG", "LC_ALL",
-                   "LC_CTYPE", "XDG_CACHE_HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME")
-
-
 def _secret_values() -> list[str]:
-    named = [value for name, value in os.environ.items() if _SECRET_NAME.search(name) and len(value) >= 6]
-    return sorted({*_secrets(), *named}, key=len, reverse=True)
+    # loop's _secrets already covers secret-named variables, longest first.
+    return _secrets()
 
 
 def _kill_tree(proc: subprocess.Popen[str]) -> None:
@@ -55,9 +45,8 @@ def _kill_tree(proc: subprocess.Popen[str]) -> None:
 
 
 def _run_check(command: str, cwd: Path, timeout: int) -> dict[str, Any]:
-    wanted = {name.upper() for name in _CHECK_ENV_KEYS}
-    env = {k: v for k, v in os.environ.items() if k.upper() in wanted and not _SECRET_NAME.search(k)}
-    env["PYTHONDONTWRITEBYTECODE"] = "1"
+    # The check sees only the allowlist variables, so a secret under any name stays out.
+    env = scrub.minimal_env()
     try:
         proc = subprocess.Popen(command, shell=True, cwd=cwd, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                                 text=True, errors="replace", start_new_session=os.name != "nt")

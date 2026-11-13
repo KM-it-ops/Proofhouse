@@ -26,10 +26,18 @@ def _seconds(text: str | None) -> float | None:
 
 
 def _cmd_loop(args: argparse.Namespace) -> int:
+    if args.check and not args.protect:
+        print("note: the agent can change the files your check reads, and pass it that way. Name them with --protect, "
+              "for example \"tests/*\", and they cannot be changed.", file=sys.stderr)
+    held = loop.held_back(args.keep_env) if args.check or args.watch else []
+    if held:
+        shown = ", ".join(held[:8]) + (f" and {len(held) - 8} more" if len(held) > 8 else "")
+        print(f"note: your check and watch commands run without your keys and secrets ({shown}), so the agent cannot "
+              "read them through a file the check runs. If the check needs one, pass --keep-env NAME.", file=sys.stderr)
     try:
         made = loop.run_loop(
             args.goal, provider_id=args.provider, model=args.model, workdir=Path(args.folder),
-            check=args.check, watch=args.watch, every=_seconds(args.every), max_rounds=args.rounds,
+            check=args.check, protect=args.protect, keep_env=args.keep_env, watch=args.watch, every=_seconds(args.every), max_rounds=args.rounds,
             max_seconds=_seconds(args.duration), max_cost_usd=args.max_cost_usd, allow_commands=args.allow_commands,
             command_timeout=args.command_timeout, out_dir=Path(args.out) if args.out else None,
         )
@@ -56,6 +64,13 @@ def add_loop_commands(subparsers: argparse._SubParsersAction) -> None:
     p_loop.add_argument("--model", required=True, help="Model id as the provider names it.")
     p_loop.add_argument("--in", dest="folder", default=".", help="The folder the agent works in (default: here).")
     p_loop.add_argument("--check", default=None, help="Command that exits 0 when the goal is met, for example \"pytest -q\".")
+    p_loop.add_argument("--protect", action="append", default=[], metavar="PATTERN",
+                        help="Files the agent may not change, add or remove, for example \"tests/*\" (repeatable). "
+                             "Use it for the files your --check reads, so the check cannot be passed by editing them.")
+    p_loop.add_argument("--keep-env", action="append", default=[], metavar="NAME",
+                        help="A key or secret variable your --check or --watch command needs (repeatable). They run "
+                             "without your keys and secrets otherwise. The agent can reach a kept one through a file "
+                             "the check runs, so keep only what the check cannot do without.")
     p_loop.add_argument("--watch", default=None, help="Command whose output is watched; the agent acts when it changes.")
     p_loop.add_argument("--every", default=None, help="Time between rounds, for example 30s, 5m or 1h (needed with --watch).")
     p_loop.add_argument("--rounds", type=int, default=20, help="Most model rounds (default 20).")

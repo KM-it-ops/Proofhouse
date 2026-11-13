@@ -65,6 +65,7 @@ class Launch:
     spent_usd: Decimal = Decimal(0)
     stopped: str = "finished"
     waiting: list[Path] = field(default_factory=list)  # the answers files to fill in when the launch paused
+    waiting_note: str = ""  # why it is waiting, when there is more to say than "answer the questions"
 
 
 def _plan(text: str | None, only: tuple[str, ...] | None) -> tuple[str, list[Part]]:
@@ -152,6 +153,7 @@ def run_launch(
     interviewer: Any = None,
     preset: str = "balanced",
     part_interviewer: Callable[[Part, Path], Any] | None = None,
+    max_output_tokens: int = make.DEFAULT_OUTPUT_TOKENS,
 ) -> Launch:
     if not goal.strip():
         raise LaunchError("say what you are launching")
@@ -211,8 +213,8 @@ def run_launch(
             mi.run(interview, interviewer, ask, preset=preset, learned_by=f"{profile.id}/{model}")
         except mi.Paused as paused:
             mi.save(folder, interview, calls, format(budget.spent, "f"))
-            mi.write_pause(folder, interview, paused.stage)
-            result.waiting = [folder / "answers.json"]
+            mi.write_pause(folder, interview, paused.stage, paused.reason)
+            result.waiting, result.waiting_note = [folder / "answers.json"], paused.reason
             result.stopped, result.spent_usd = WAITING, budget.spent
             _write(folder, goal, profile.id, model, max_cost_usd, result, budget)
             return result
@@ -228,7 +230,8 @@ def run_launch(
         shared = mi.shared_text(interview)
 
     _make_parts(result, goal, profile, model, max_cost_usd, rounds, target, video, transport, media_transport,
-                media_get, budget, interviewer, preset, part_interviewer, shared, resumed is not None)
+                media_get, budget, interviewer, preset, part_interviewer, shared, resumed is not None,
+                max_output_tokens)
     return result
 
 
@@ -259,7 +262,8 @@ def _plan_parts(result: Launch, goal: str, parts: tuple[str, ...] | None, profil
 def _make_parts(result: Launch, goal: str, profile: Any, model: str, max_cost_usd: str | None, rounds: int, target: int,
                 video: dict[str, Any] | None, transport: live.Transport | None, media_transport: Any, media_get: Any,
                 budget: make.Budget, interviewer: Any, preset: str,
-                part_interviewer: Callable[[Part, Path], Any] | None, shared: str, resumed: bool) -> None:
+                part_interviewer: Callable[[Part, Path], Any] | None, shared: str, resumed: bool,
+                max_output_tokens: int = make.DEFAULT_OUTPUT_TOKENS) -> None:
     folder = result.folder
     for number, part in enumerate(result.parts, start=1):
         part.folder = f"{number:02d}-{part.kind}"
@@ -283,7 +287,8 @@ def _make_parts(result: Launch, goal: str, profile: Any, model: str, max_cost_us
                 asking = _asker(interviewer, part_interviewer, part, where, number) if interviewer is not None else None
                 made = make.make(part.brief, provider_id=profile.id, model=model, kind=part.kind, max_cost_usd=left,
                                  rounds=rounds, target=target, out_dir=where, transport=transport,
-                                 interviewer=asking, shared=shared, preset=preset)
+                                 interviewer=asking, shared=shared, preset=preset,
+                                 max_output_tokens=max_output_tokens)
                 part.spent_usd = made.spent_usd
                 if made.waiting is not None:
                     part.status, part.detail = "waiting", "waiting for your answers"

@@ -131,6 +131,28 @@ production systems, add a short section to the compiled prompt covering the rele
 constraints. Omit entirely when not applicable -- don't pad prompts with boilerplate
 security language for tasks that don't need it.
 
+## Proofhouse tools in this chat (use these first when you have them)
+
+If you have tools named `make_start`, `make_answer`, `make_confirm`, `make_status` and
+`make_list` from a server called `proofhouse`, the user ran `proofhouse connect` and never
+needs a terminal. When they ask Proofhouse to make something (a prompt, skill, agent, rule,
+MCP server, hook, site or app), drive the real engine with those tools, not the flow above:
+
+1. `make_start` with their request in their own words. Pass a kind, tool or model only if
+   they said one.
+2. Each reply names a stage. `which_tool` or `questions`: ask the user exactly what it
+   returned, must-know questions first, and pass their words to `make_answer`. Never answer
+   for them. If they say "you decide", pass `decide_for_me`.
+3. `say_back`: show it word for word and ask if it is right. Only after the user says yes,
+   call `make_confirm` with `confirmed: true`; pass any correction as `correction`. Nothing
+   is made before that yes, and the tools refuse a confirm you invent.
+4. `working`: call `make_status` until it changes. `done`: tell the user what was made, what
+   it met and did not meet, where the file is and the next step, as returned. `failed` or
+   `error`: say what it said, plainly.
+
+Pictures, video, voice and music are made on the command line for now. If the tools are not
+there, use the commands below, or offer to run `proofhouse connect` for the user.
+
 ## The `proofhouse` CLI
 
 One command, `proofhouse` (the old `proofhouse-compiler` name still works and prints a notice).

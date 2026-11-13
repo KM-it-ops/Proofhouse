@@ -40,6 +40,9 @@ class Response:
 
 
 Transport = Callable[[Request], Any]
+# What a transport answers for "this address is not mine": the send step then sends it the usual way. It lets a
+# transport serve some addresses itself (the chat tools run a logged-in agent in place) without holding the sender.
+PASS_ON: Any = object()
 
 
 @dataclass(frozen=True, slots=True)
@@ -124,6 +127,18 @@ def _client_headers(headers: dict[str, str]) -> dict[str, str]:
     return {**headers, "User-Agent": f"proofhouse/{__version__}"}
 
 
+def _open_without_redirects(sent: Any, timeout: float) -> Any:
+    """Send with the standard library and never follow a redirect: the key in the headers must not travel to
+    wherever the first address points. A 3xx comes back as an HTTPError for the caller to read."""
+    import urllib.request
+
+    class NoRedirect(urllib.request.HTTPRedirectHandler):
+        def redirect_request(self, req, fp, code, msg, headers, newurl):  # noqa: ANN001
+            return None
+
+    return urllib.request.build_opener(NoRedirect).open(sent, timeout=timeout)
+
+
 def _httpx_post(request: Request) -> Response:
     timeout = _timeout_seconds(request.url)
     headers = _client_headers(request.headers)
@@ -137,7 +152,7 @@ def _httpx_post(request: Request) -> Response:
 
         sent = urllib.request.Request(request.url, data=request.body_bytes, headers=headers, method="POST")
         try:
-            with urllib.request.urlopen(sent, timeout=timeout) as answer:
+            with _open_without_redirects(sent, timeout) as answer:
                 status, raw = answer.status, answer.read()
         except urllib.error.HTTPError as exc:  # a 4xx or 5xx is still an answer to read
             status, raw = exc.code, exc.read()
@@ -215,7 +230,7 @@ def run_prompt(
     if profile.key_env:
         secret = os.environ.get(profile.key_env) or None
         if secret is None and not profile.local:
-            return _refused("PHC-RUN-0003", f"set {profile.key_env} to your {profile.name} key", profile.id, model)
+            return _refused("PHC-RUN-0003", providers.missing_key(profile.key_env, profile.name), profile.id, model)
     if max_cost_usd is None:
         if not profile.local:
             return _refused("PHC-RUN-0002", "name a spending limit for a paid provider (--max-cost-usd)", profile.id, model)
@@ -245,7 +260,8 @@ def run_prompt(
         # The only send step. It runs only when the spend gate calls it, with the bytes the gate counted.
         request = replace(unsent, body_bytes=body_bytes)
         try:
-            return transport(request) if transport is not None else _httpx_post(request)
+            answer = transport(request) if transport is not None else PASS_ON
+            return _httpx_post(request) if answer is PASS_ON else answer
         except ModuleNotFoundError:
             return _SendFailed("httpx is not installed (pip install 'proofhouse[live]')")
         except Exception as exc:  # noqa: BLE001 -- the live boundary must not leak the key

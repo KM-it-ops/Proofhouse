@@ -221,7 +221,7 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
         made = make_media.make_media(
             args.request, kind=args.kind, provider_id=args.provider, model=args.model, max_cost_usd=args.max_cost_usd,
             rounds=args.rounds, target=args.target, out_dir=out, interviewer=interviewer, preset=args.preset,
-            video=video, shapes=shapes, judge=args.judge)
+            video=video, shapes=shapes, judge=args.judge, max_output_tokens=args.max_output_tokens)
     except (make.MakeError, mi.InterviewError, providers.ProviderError, OSError) as exc:
         return _fail(str(exc))
     if made.waiting is not None:
@@ -250,9 +250,12 @@ def _cmd_make_media(args: argparse.Namespace) -> int:
         again += f" --answers {made.folder / 'answers.json'}"
         if args.json:
             print(json.dumps({"folder": str(made.folder), "kind": made.kind, "stopped": made.stopped,
-                              "waiting": [str(p) for p in made.waiting], "next": again}, sort_keys=True))
+                              "waiting": [str(p) for p in made.waiting], "next": again,
+                              "note": getattr(made, "waiting_note", "")}, sort_keys=True))
         else:
             print(f"waiting for your answers: {', '.join(str(p) for p in made.waiting)}")
+            if getattr(made, "waiting_note", ""):
+                print(made.waiting_note)
             print(f"fill in answers.json, then run: {again}")
         return EXIT_WAITING
     delivered ={shape: str(made.folder / path) for shape, path in (made.delivered or {}).items()}
@@ -320,17 +323,20 @@ def _cmd_make_launch(args: argparse.Namespace) -> int:
         interviewer, out = _choose_interviewer(args, launching=True)
         made = launch.run_launch(args.request, provider_id=args.provider, model=args.model, parts=parts,
                                  max_cost_usd=args.max_cost_usd, rounds=args.rounds, target=args.target,
-                                 video=_video_options(args), out_dir=out, interviewer=interviewer, preset=args.preset)
+                                 video=_video_options(args), out_dir=out, interviewer=interviewer, preset=args.preset,
+                                 max_output_tokens=args.max_output_tokens)
     except (launch.LaunchError, mi.InterviewError, providers.ProviderError, OSError) as exc:
         return _fail(str(exc))
     if args.json:
         print(json.dumps({"folder": str(made.folder), "name": made.name, "stopped": made.stopped,
                           "spent_usd_estimated": format(made.spent_usd, "f"), "parts": [p.to_dict() for p in made.parts],
-                          "waiting": [str(p) for p in made.waiting]}, sort_keys=True))
+                          "waiting": [str(p) for p in made.waiting], "note": made.waiting_note}, sort_keys=True))
     else:
         print(f"{made.name or 'launch'}: {made.stopped}; spent about ${format(made.spent_usd, 'f')}")
         for part in made.parts:
             print(f"  {part.kind:<7} {part.status:<9} {made.folder / part.folder}  {part.detail}")
+        if made.waiting_note:
+            print(made.waiting_note)
         for path in made.waiting:
             print(f"fill in {path}, then run the same command again with --answers {path}")
         print(f"everything is in {made.folder} (start with README.md)")
@@ -370,6 +376,7 @@ def _cmd_make(args: argparse.Namespace) -> int:
             preset=args.preset,
             try_on=args.try_on,
             judge=args.judge,
+            max_output_tokens=args.max_output_tokens,
         )
     except (make.MakeError, mi.InterviewError, providers.ProviderError, OSError) as exc:
         return _fail(str(exc))
@@ -379,12 +386,17 @@ def _cmd_make(args: argparse.Namespace) -> int:
             again += f" --max-cost-usd {args.max_cost_usd}"
         if args.judge:
             again += f" --judge {args.judge}"
+        if args.max_output_tokens != make.DEFAULT_OUTPUT_TOKENS:
+            again += f" --max-output-tokens {args.max_output_tokens}"
         again += f" --answers {made.folder / 'answers.json'}"
         if args.json:
             print(json.dumps({"folder": str(made.folder), "kind": made.kind, "stopped": made.stopped,
-                              "waiting": [str(p) for p in made.waiting], "next": again}, sort_keys=True))
+                              "waiting": [str(p) for p in made.waiting], "next": again,
+                              "note": getattr(made, "waiting_note", "")}, sort_keys=True))
         else:
             print(f"waiting for your answers: {', '.join(str(p) for p in made.waiting)}")
+            if getattr(made, "waiting_note", ""):
+                print(made.waiting_note)
             print(f"fill in answers.json, then run: {again}")
         return EXIT_WAITING
     summary = {
@@ -404,6 +416,8 @@ def _cmd_make(args: argparse.Namespace) -> int:
         summary["tried_on_note"] = made.tried_on_note
     if made.learned is not None:
         summary["learned"] = {key: made.learned[key] for key in ("kind", "what_it_is", "sources", "sources_note")}
+    closing = make.closing(made)
+    summary["asked_for"], summary["notes"] = closing["asked_for"], closing["notes"]
     if args.json:
         print(json.dumps(summary, sort_keys=True))
     else:
@@ -420,6 +434,8 @@ def _cmd_make(args: argparse.Namespace) -> int:
         print(f"made: {best}; stopped: {made.stopped}" + (f"; made for {made_for}" if made_for else ""))
         if made.tried_on is not None:
             print(f"tried on {made.tried_on}" + (f" ({made.tried_on_note})" if made.tried_on_note else ""))
+        for line in closing["lines"]:
+            print(line)
         print(f"spent about ${summary['spent_usd_estimated']} over {len(made.calls)} calls; everything is in {made.folder}")
         if made.kind == "skill" and made.best_version:
             print(f"install it: proofhouse install-skill --bundle {made.folder}/<skill-name>")
@@ -504,6 +520,9 @@ def add_live_commands(subparsers: argparse._SubParsersAction) -> None:
     p_make.add_argument("--judge", default=None,
                         help="PROVIDER/MODEL that judges each version (default: --model). For a film or picture, a "
                              "model that sees pictures, such as a second llama-server started with --mmproj.")
+    p_make.add_argument("--max-output-tokens", type=int, default=make.DEFAULT_OUTPUT_TOKENS,
+                        help=f"The most each reply may be, in tokens (default {make.DEFAULT_OUTPUT_TOKENS}). Raise it "
+                             "when a long piece comes back cut off. In a launch it applies to the text parts.")
     p_make.add_argument("--json", action="store_true", help="Emit a JSON summary.")
     p_make.set_defaults(func=_cmd_make)
 

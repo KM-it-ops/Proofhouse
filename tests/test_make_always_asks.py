@@ -168,3 +168,16 @@ def test_a_make_called_from_code_with_no_interviewer_says_so_in_the_record(tmp_p
     make.make("x", provider_id="ollama", model="m", kind="skill", out_dir=tmp_path / "o", transport=model)
     record = json.loads((tmp_path / "o" / "record.json").read_text(encoding="utf-8"))
     assert record["interview_from"] == "none"
+
+
+def test_an_answers_file_left_empty_says_why_it_is_still_waiting(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+                                                                 capsys: pytest.CaptureFixture[str]) -> None:
+    _route(monkeypatch, Owner([9]))
+    folder = tmp_path / "o"
+    answers = folder / "answers.json"
+    assert cli.main([*BASE, "--for", "Claude Code", "--out", str(folder)]) == live_cli.EXIT_WAITING
+    capsys.readouterr()
+    assert cli.main([*BASE, "--answers", str(answers)]) == live_cli.EXIT_WAITING
+    assert "decide_for_me" in capsys.readouterr().out
+    assert cli.main([*BASE, "--answers", str(answers), "--json"]) == live_cli.EXIT_WAITING
+    assert "decide_for_me" in json.loads(capsys.readouterr().out)["note"]

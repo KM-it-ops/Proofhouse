@@ -102,9 +102,15 @@ def link_folder(link: Path, target: Path) -> Path:
     if sys.platform == "win32":
         import subprocess
 
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+        try:
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(target)], check=True, capture_output=True)
+        except (subprocess.CalledProcessError, OSError) as exc:
+            pytest.skip(f"directory junctions not permitted in this environment: {exc}")
     else:
-        os.symlink(target, link, target_is_directory=True)
+        try:
+            os.symlink(target, link, target_is_directory=True)
+        except OSError as exc:
+            pytest.skip(f"symlinks not permitted in this environment: {exc}")
     return link
 
 
@@ -308,7 +314,10 @@ def test_folder_with_a_junction_is_refused(tmp_path: Path, host: Path) -> None:
     outside = tmp_path / "outside"
     outside.mkdir()
     src = skill_folder(tmp_path / "src")
-    subprocess.run(["cmd", "/c", "mklink", "/J", str(src / "junction"), str(outside)], check=True, capture_output=True)
+    try:
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(src / "junction"), str(outside)], check=True, capture_output=True)
+    except (subprocess.CalledProcessError, OSError) as exc:
+        pytest.skip(f"directory junctions not permitted in this environment: {exc}")
     with pytest.raises(InstallSkillError, match="PHC-SKILL-0003"):
         install(host, src)
     assert not host.exists()

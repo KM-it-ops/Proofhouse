@@ -634,9 +634,15 @@ def test_a_skills_folder_junction_cannot_leave_home(tmp_path: Path, monkeypatch:
     monkeypatch.setattr(Path, "home", lambda: home)
     link = home / "linked"
     if os.name == "nt":
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(outside)], check=True, capture_output=True)
+        try:
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(link), str(outside)], check=True, capture_output=True)
+        except (subprocess.CalledProcessError, OSError) as exc:
+            pytest.skip(f"directory junctions not permitted in this environment: {exc}")
     else:
-        link.symlink_to(outside, target_is_directory=True)
+        try:
+            link.symlink_to(outside, target_is_directory=True)
+        except OSError as exc:
+            pytest.skip(f"symlinks not permitted in this environment: {exc}")
     with pytest.raises(learn.LearnError, match="paths"):
         learn_catalog.parse_host("eviltool", json.dumps({**HOST, "skills_folder": "linked"}), learned_by="ollama/m")
     assert learn_catalog.learned_raw("hosts", "eviltool") is None
@@ -645,9 +651,15 @@ def test_a_skills_folder_junction_cannot_leave_home(tmp_path: Path, monkeypatch:
     learn_catalog._save_section("hosts", entry, "id")
     late_link = home / "late"
     if os.name == "nt":
-        subprocess.run(["cmd", "/c", "mklink", "/J", str(late_link), str(outside)], check=True, capture_output=True)
+        try:
+            subprocess.run(["cmd", "/c", "mklink", "/J", str(late_link), str(outside)], check=True, capture_output=True)
+        except (subprocess.CalledProcessError, OSError) as exc:
+            pytest.skip(f"directory junctions not permitted in this environment: {exc}")
     else:
-        late_link.symlink_to(outside, target_is_directory=True)
+        try:
+            late_link.symlink_to(outside, target_is_directory=True)
+        except OSError as exc:
+            pytest.skip(f"symlinks not permitted in this environment: {exc}")
     assert cli.main(["addons", "approve", "learned", "late-tool"]) == 0
     with pytest.raises(install_skill.InstallSkillError, match="outside"):
         install_skill.install(host="late-tool", bundle=_skill(tmp_path), home=tmp_path / "ph")

@@ -23,7 +23,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
 
-from . import make_checks, providers
+from . import make_checks, providers, scrub
 
 SCHEMA = "proofhouse.app-platforms/v1"
 SHIPPED = Path(__file__).resolve().parent / "data" / "app_platforms.json"
@@ -31,7 +31,6 @@ _ID = re.compile(r"[a-z0-9][a-z0-9._-]*")
 _FILE = re.compile(r"[A-Za-z0-9._/-]+")
 _NPM_NAME = re.compile(r"(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*")
 _ENV_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_()]*")
-_SECRET_NAME = re.compile(r"KEY|TOKEN|SECRET|PASSWORD|PASSWD|CREDENTIAL|DATABASE_URL|CONNECTION_STRING|AUTH", re.IGNORECASE)
 # The build's home and temp folders point inside its folder and PATH is the machine's own; platform data may not change them.
 _CONTAINED = {"HOME", "USERPROFILE", "HOMEDRIVE", "HOMEPATH", "TEMP", "TMP", "TMPDIR", "PATH"}
 
@@ -57,7 +56,7 @@ def _check_build(build: Any) -> bool:
     if not isinstance(before, list) or not all(_words(step) and step and step[0] for step in [*before, *([build["command"]] if build["command"] else [])]):
         return False
     names = [*env, *home_env, *set_env] if isinstance(env, list) and isinstance(home_env, dict) and isinstance(set_env, dict) else None
-    if names is None or not all(isinstance(name, str) and _ENV_NAME.fullmatch(name) and not _SECRET_NAME.search(name)
+    if names is None or not all(isinstance(name, str) and _ENV_NAME.fullmatch(name) and not scrub.SECRET_NAME.search(name)
                                 and name.upper() not in _CONTAINED for name in names):
         return False
     if not all(isinstance(value, str) for value in set_env.values()):

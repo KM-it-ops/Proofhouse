@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import Any, Callable
 from urllib.parse import urlparse
 
-from . import providers, spend
+from . import providers, scrub, spend
 
 MEDIA_SCHEMA = "proofhouse.media-providers/v1"
 SHIPPED_PATH = Path(__file__).resolve().parent / "data" / "media_providers.json"
@@ -310,7 +310,7 @@ def _headers(profile: MediaProvider, secret: str | None) -> dict[str, str]:
     return headers
 
 
-def _httpx_post(request: MediaRequest, *, follow_redirects: bool = True) -> MediaResponse:
+def _httpx_post(request: MediaRequest, *, follow_redirects: bool = False) -> MediaResponse:
     try:
         import httpx
     except ImportError:
@@ -320,7 +320,7 @@ def _httpx_post(request: MediaRequest, *, follow_redirects: bool = True) -> Medi
         return _as_response(reply)
 
 
-def _httpx_get(url: str, headers: dict[str, str], *, follow_redirects: bool = True) -> MediaResponse:
+def _httpx_get(url: str, headers: dict[str, str], *, follow_redirects: bool = False) -> MediaResponse:
     """A plain read (job status, finished file). It sends no body and costs nothing."""
     try:
         import httpx
@@ -404,13 +404,15 @@ def generate(
         return _refused("PHC-RUN-0002", "name the model and say what to make", profile.id, model, kind)
     secret = os.environ.get(profile.key_env) if profile.key_env else None
     if profile.key_env and not secret and not profile.local:
-        return _refused("PHC-RUN-0003", f"set {profile.key_env} to your {profile.name} key", profile.id, model, kind)
+        return _refused("PHC-RUN-0003", providers.missing_key(profile.key_env, profile.name), profile.id, model, kind)
     if max_cost_usd is None:
         if not profile.local:
             return _refused("PHC-RUN-0002", "name a spending limit for a paid service (--max-cost-usd)", profile.id, model, kind)
         max_cost_usd = "0.000000000001"
     headers = _headers(profile, secret)
-    follow = profile.origin != "add-on learned"
+    # One admission authorizes one destination. Redirects can replay a paid POST
+    # or forward a custom credential header to a different service.
+    follow = False
     read = get or (lambda url, hdrs: _httpx_get(url, hdrs, follow_redirects=follow))
     asked = {**(params or {}), "prompt": prompt}
     target = None
@@ -491,7 +493,8 @@ def _run_program(profile: MediaProvider, body_bytes: bytes) -> MediaResponse | s
         return f"{first} could not start ({type(exc).__name__})"
     if done.returncode != 0:
         lines = done.stderr.decode("utf-8", "replace").strip().splitlines()
-        return f"it stopped with exit code {done.returncode}" + (f": {lines[-1][:300]}" if lines else "")
+        last = scrub.clean(lines[-1], scrub.secret_values(), 300) if lines else ""  # a tool may print a key it was given
+        return f"it stopped with exit code {done.returncode}" + (f": {last}" if last else "")
     return MediaResponse(200, None, done.stdout if profile.run["output"] == "stdout" else None)
 
 
@@ -547,7 +550,7 @@ def _wait_and_fetch(profile: MediaProvider, response: MediaResponse, headers: di
         if profile.origin == "add-on learned" and not _same_service_url(profile, url):
             raise MediaError(f"{profile.name} gave an address that is not https on its own host: {url}")
         answer = read(url, request_headers)
-        if profile.origin == "add-on learned" and (answer.location or 300 <= answer.status_code < 400):
+        if answer.location or 300 <= answer.status_code < 400:
             raise MediaError(f"{profile.name} redirected to {answer.location or 'another address'}; nothing was sent there")
         return answer
 

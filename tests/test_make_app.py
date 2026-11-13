@@ -718,6 +718,20 @@ def test_an_output_linked_outside_the_folder_fails_the_build_check(tmp_path: Pat
     outside, folder = tmp_path / "outside", tmp_path / "app"
     outside.mkdir()
     folder.mkdir()
+    try:
+        test_link = tmp_path / "test_probe_link"
+        if os.name == "nt":
+            try:
+                import _winapi
+                _winapi.CreateJunction(str(outside), str(test_link))
+                test_link.rmdir()
+            except (OSError, PermissionError):
+                pytest.skip("this machine cannot make symbolic links or directory junctions")
+        else:
+            test_link.symlink_to(outside, target_is_directory=True)
+            test_link.unlink()
+    except OSError:
+        pytest.skip("this machine cannot make symbolic links or directory junctions")
     (folder / "link.py").write_text(_LINK_OUT, encoding="utf-8")
     (folder / "mark.py").write_text(_MARK, encoding="utf-8")
     link_step, mark_step = ["python", "link.py", str(outside)], ["python", "mark.py"]
@@ -751,7 +765,10 @@ def test_the_output_check_does_not_walk_into_a_directory_junction(tmp_path: Path
     (outside / "private.txt").write_text("private", encoding="utf-8")
     (tmp_path / "dist").mkdir()
     junction = tmp_path / "dist" / "junction"
-    subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), str(outside)], check=True, capture_output=True)
+    try:
+        subprocess.run(["cmd", "/c", "mklink", "/J", str(junction), str(outside)], check=True, capture_output=True)
+    except (subprocess.CalledProcessError, OSError) as exc:
+        pytest.skip(f"directory junctions not permitted in this environment: {exc}")
     found = app_platforms._snapshot(tmp_path / "dist")
     assert [entry[0] for entry in found] == [str(junction)] and found[0][3].startswith("link:"), found
 

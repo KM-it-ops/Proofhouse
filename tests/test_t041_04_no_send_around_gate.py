@@ -68,6 +68,7 @@ ALLOWED = {
     ("make_checks.py", "subprocess"),  # starts a made MCP server or hook locally: no shell, a reduced environment, a timeout
     ("deploy.py", "subprocess"),  # runs the hosting service's own tool (netlify, vercel, wrangler, surge) when you deploy
     ("loop.py", "subprocess"),  # runs your check and watch commands, and the agent's only with --allow-commands  # opens a generated site from disk in a local headless browser
+    ("connect.py", "subprocess"),  # `proofhouse connect` runs an AI app's own command to register or remove the Proofhouse tools (claude mcp add / remove); no shell, fixed arguments
     ("referee.py", "subprocess"),  # runs the agent's own check command after each round, only with --allow-commands, with secret-named variables removed
     ("optimize/cli.py", "ctypes"),  # console handling on Windows
     ("make_checks.py", "ctypes"),  # a Windows job object so a made MCP server or hook cannot outlive its check

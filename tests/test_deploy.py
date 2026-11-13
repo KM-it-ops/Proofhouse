@@ -54,6 +54,23 @@ def test_a_failed_deploy_is_reported_and_not_retried(tmp_path: Path, made: Path)
     assert deploy.deploy(made, "myhost").url is None
 
 
+def test_the_target_key_is_never_printed_or_logged_even_when_the_tool_echoes_it(
+    tmp_path: Path, made: Path, monkeypatch: pytest.MonkeyPatch, capsys
+) -> None:
+    monkeypatch.setenv("MYHOST_TOKEN", "tok-live-secret-123")
+    script = tmp_path / "leaky_host.py"
+    script.write_text("import os, sys\nprint('token was', os.environ['MYHOST_TOKEN'])\nsys.exit(3)\n", encoding="utf-8")
+    path = providers.proofhouse_home() / "deploy_targets.json"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"schema": deploy.DEPLOY_SCHEMA, "targets": [
+        {"id": "myhost", "command": [sys.executable, str(script), "{folder}"], "key_env": "MYHOST_TOKEN"}]}), encoding="utf-8")
+    assert cli.main(["deploy", str(made), "--to", "myhost"]) == 7
+    err = capsys.readouterr().err
+    assert "tok-live-secret-123" not in err and "[REDACTED]" in err
+    log = (providers.proofhouse_home() / "deploys.jsonl").read_text(encoding="utf-8")
+    assert "tok-live-secret-123" not in log
+
+
 def test_nothing_runs_without_a_site_a_known_target_or_the_tool(tmp_path: Path, made: Path) -> None:
     (tmp_path / "empty").mkdir()
     with pytest.raises(deploy.DeployError, match="index.html"):

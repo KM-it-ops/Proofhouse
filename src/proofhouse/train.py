@@ -476,7 +476,7 @@ def _run_service(profile: TrainService, model: str, train_file: Path, valid_file
     base = {"service": profile.id, "model": model}
     secret = os.environ.get(profile.key_env) if profile.key_env else None
     if profile.key_env and not secret and not profile.local:
-        return TrainResult("refused", "PHC-RUN-0003", f"PHC-RUN-0003: set {profile.key_env} to your {profile.name} key", **base)
+        return TrainResult("refused", "PHC-RUN-0003", "PHC-RUN-0003: " + providers.missing_key(profile.key_env, profile.name), **base)
     if max_cost_usd is None:
         if not profile.local:
             return TrainResult("refused", "PHC-RUN-0002", "PHC-RUN-0002: name a spending limit for a paid service (--max-cost-usd)", **base)

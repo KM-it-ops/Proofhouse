@@ -921,6 +921,10 @@ def _add_uninstall_skill(subparsers: argparse._SubParsersAction) -> None:
 
 
 def _cmd_demo(args: argparse.Namespace) -> int:
+    if args.what == "make":
+        from .. import demo_make
+
+        return demo_make.run(args.workspace)
     return reference_workflow.run(
         cli=reference_workflow.module_cli(),
         workspace=args.workspace,
@@ -931,8 +935,11 @@ def _cmd_demo(args: argparse.Namespace) -> int:
 def _add_demo(subparsers: argparse._SubParsersAction) -> None:
     p_demo = subparsers.add_parser(
         "demo",
-        help="Run the offline reference workflow shipped in the package (recorded outputs, no model call, no git checkout).",
+        help="Run a recorded example with no key and no model. `demo make` replays a whole make: the questions, "
+             "the say-back, the writing, the judging and the revision. Plain `demo` runs the offline reference workflow.",
     )
+    p_demo.add_argument("what", nargs="?", choices=["make"], default=None,
+                        help="make: replay a whole make from recorded answers and replies.")
     p_demo.add_argument("--workspace", default=None, help="Directory to work in (default: a new temp directory).")
     p_demo.add_argument("--quiet", action="store_true", help="Print only the summary.")
     p_demo.set_defaults(func=_cmd_demo)

@@ -1,6 +1,6 @@
 {
   "schema": "proofhouse.hosts/v1",
-  "note": "Where each tool keeps agents, rules and MCP servers, and how it wants each written (guides, taken from the tool's own docs in guide_sources). ~ is your home folder, {project} the --project folder, {name} the item's name. Add or override any tool in PROOFHOUSE_HOME/hosts.json.",
+  "note": "Where each tool keeps agents, rules and MCP servers, and how it wants each written (guides, taken from the tool's own docs in guide_sources; guide_pages says which page each kind came from). A kind with no guide here is researched when asked for, never invented. ~ is your home folder, {project} the --project folder, {name} the item's name. Add or override any tool in PROOFHOUSE_HOME/hosts.json.",
   "hosts": [
     {
       "id": "claude",
@@ -12,24 +12,44 @@
       "guides": {
         "skill": "A Claude Code skill is a folder holding SKILL.md, in ~/.claude/skills/<name>/ (every project) or .claude/skills/<name>/ (one project). SKILL.md starts on its first line with YAML frontmatter between --- lines. name: lowercase letters, numbers and hyphens. description: what the skill does and when to use it, key use first; Claude reads it to decide when to load the skill, and description plus when_to_use is cut off at 1,536 characters. Optional fields include allowed-tools (tools it may use without asking), disable-model-invocation, user-invocable, paths, model, effort and context: fork (run it in its own subagent). The body is standing instructions Claude follows whenever the skill is in use: concise, concrete steps and checks, not a one-off task. Keep SKILL.md under 500 lines; put long reference material in other files in the same folder and link them from SKILL.md. Test it with realistic prompts.",
         "agent": "A Claude Code subagent is one Markdown file in ~/.claude/agents/ (every project) or .claude/agents/ (one project). It starts with YAML frontmatter between --- lines; name (lowercase letters and hyphens) and description are required. Claude reads the description to decide when to hand work to the subagent, so say exactly when to use it; the words 'use proactively' encourage Claude to use it on its own. Optional fields include tools (an allowlist; leave it out to inherit every tool), disallowedTools, model (sonnet, opus, haiku, a full model id, or inherit), permissionMode, maxTurns, skills, mcpServers, hooks, memory, background, effort, isolation and color. Unknown fields are ignored. The Markdown body is the subagent's whole system prompt: it does not get Claude Code's own system prompt or the project's rules, so state the role, the steps, the limits and what to report back. Give it only the tools the job needs.",
+        "prompt": "A prompt for Claude works best when it is explicit: write it as you would brief a capable colleague who has none of your context, and say plainly what you want done. Give the reason behind an instruction, not only the instruction. A one-sentence role at the start helps. Say what to do, not what to avoid. Wrap separate kinds of content (instructions, documents, examples) in XML tags with consistent, descriptive names. Three to five relevant and varied examples, each in <example> tags, steer format and tone well. Put long documents at the top and the question at the end; for work grounded in documents, ask for the relevant quotes first. Ask for action directly when you want action, not a suggestion. Use calm, normal wording: newer Claude models follow instructions closely, and shouting such as 'CRITICAL: You MUST' makes them overdo it.",
         "rule": "Claude Code reads standing instructions from CLAUDE.md: CLAUDE.md in the project folder for one project, ~/.claude/CLAUDE.md for every project. It is loaded at the start of every session as context; it guides Claude but is not enforced. Write plain Markdown with no frontmatter. Keep the whole file under 200 lines: longer files use more context and are followed less well. Be specific and checkable ('Use 2-space indentation', not 'Format code nicely'). Group related instructions under headings and bullet points. Never contradict another instruction: when two conflict, Claude may follow either one. Rules that apply only to some files can go in .claude/rules/ instead."
       },
       "guide_sources": [
         "https://code.claude.com/docs/en/skills",
         "https://code.claude.com/docs/en/sub-agents",
-        "https://code.claude.com/docs/en/memory"
-      ]
+        "https://code.claude.com/docs/en/memory",
+        "https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices"
+      ],
+      "guide_pages": {
+        "skill": ["https://code.claude.com/docs/en/skills"],
+        "agent": ["https://code.claude.com/docs/en/sub-agents"],
+        "rule": ["https://code.claude.com/docs/en/memory"],
+        "prompt": ["https://platform.claude.com/docs/en/build-with-claude/prompt-engineering/claude-prompting-best-practices"]
+      }
     },
     {
       "id": "cursor",
       "name": "Cursor",
       "aliases": ["cursor agent"],
+      "agent": {"user": "~/.cursor/agents/{name}.md", "project": "{project}/.cursor/agents/{name}.md", "format": "file"},
       "rule": {"project": "{project}/.cursor/rules/{name}.mdc", "format": "file"},
       "mcp": {"user": "~/.cursor/mcp.json", "project": "{project}/.cursor/mcp.json", "format": "json-mcp"},
       "guides": {
+        "skill": "A Cursor skill is a folder holding SKILL.md, in .cursor/skills/<name>/ or .agents/skills/<name>/ (one project) or ~/.cursor/skills/<name>/ or ~/.agents/skills/<name>/ (every project); Cursor also loads skills from .claude/skills/ and .codex/skills/. SKILL.md starts with YAML frontmatter between --- lines, then Markdown. name is required: lowercase letters, numbers and hyphens, and it must match the folder name. description is required: what the skill does and when to use it; the agent reads it to decide whether the skill is relevant. Optional fields: paths (file patterns the skill applies to), disable-model-invocation (true means it runs only when someone calls it by name), metadata. In the body, a 'When to Use' section and an 'Instructions' section work well. Keep SKILL.md focused and move detail into separate files; a skill may also hold scripts/, references/ and assets/ folders.",
+        "agent": "A Cursor subagent is one Markdown file in .cursor/agents/ (one project) or ~/.cursor/agents/ (every project); Cursor also reads .claude/agents/ and .codex/agents/. It starts with YAML frontmatter between --- lines, then the subagent's prompt. Every field is optional: name (lowercase letters and hyphens; the file name is used when it is left out), description, model (inherit by default), readonly (true means it cannot change anything) and is_background. The main agent reads the description to decide when to hand work over, so put the effort there and say exactly when to use it; the words 'use proactively' encourage it to delegate on its own. Give the subagent one focused job and keep its prompt concise.",
         "rule": "A Cursor project rule is one .mdc file in .cursor/rules/ (a plain .md file there is ignored). It starts with frontmatter between --- lines holding three keys: description (what the rule is for; the agent reads it to decide when to apply the rule), globs (comma-separated file patterns such as src/**/*.ts) and alwaysApply (true or false). Pick one way to apply it: alwaysApply: true for every chat; a description with alwaysApply: false so the agent applies it when it is relevant; globs so it applies when matching files are involved; or none of these so it applies only when someone @-mentions it. After the frontmatter, write the rule in Markdown. Keep each rule under 500 lines, and split a big one into several focused rules. Be concrete: give examples, refer to real files in the project instead of pasting them in, and avoid vague guidance. Cursor also reads AGENTS.md."
       },
-      "guide_sources": ["https://cursor.com/docs/context/rules"]
+      "guide_sources": [
+        "https://cursor.com/docs/context/rules",
+        "https://cursor.com/docs/context/skills",
+        "https://cursor.com/docs/context/subagents"
+      ],
+      "guide_pages": {
+        "rule": ["https://cursor.com/docs/context/rules"],
+        "skill": ["https://cursor.com/docs/context/skills"],
+        "agent": ["https://cursor.com/docs/context/subagents"]
+      }
     },
     {
       "id": "codex",
@@ -38,9 +58,20 @@
       "rule": {"user": "~/.codex/AGENTS.md", "project": "{project}/AGENTS.md", "format": "md-block"},
       "mcp": {"user": "~/.codex/config.toml", "format": "toml-block"},
       "guides": {
+        "skill": "A Codex skill is a folder holding SKILL.md, in .agents/skills/<name>/ (Codex looks in every folder from where it was started up to the root of the repository) or $HOME/.agents/skills/<name>/ (every project). SKILL.md starts with YAML frontmatter between --- lines and must include name and description, then the instructions. Codex first sees only each skill's name, description and file path, and loads the full SKILL.md when it decides to use the skill, so the description decides whether it is ever used: keep it concise, with clear scope and boundaries, say when the skill should and should not trigger, and put the key use case and trigger words first because long descriptions may be shortened. Keep each skill focused on one job. Write imperative steps with explicit inputs and outputs. Prefer instructions over scripts unless you need exactly repeatable behaviour or outside tools. Optional: scripts/, references/ and assets/ folders, and agents/openai.yaml for appearance, invocation policy and tool dependencies.",
+        "prompt": "A prompt for Codex needs no special syntax or fixed formula. A short prompt is often enough. For larger or more important tasks include the parts that matter, and only those: Goal (what should it do), Context (what information or sources will help, and what to take from each), Output (the format, length or level of detail) and Boundaries (what must stay unchanged, and what to avoid or check before acting). Start with the result you need, not a detailed list of steps; describe a process only when the process itself matters. Say how the result will be used. Keep to the one or two boundaries that matter most. For important work, ask for a final check before it finishes, such as flagging anything it could not verify.",
         "rule": "Codex reads AGENTS.md: plain Markdown with no required fields, at the root of the project (or ~/.codex/AGENTS.md for every project). AGENTS.md files in sub-folders are allowed, and the one closest to the file being worked on wins. Write it for an agent, not a person. Useful sections: a project overview, build and test commands, code style, testing instructions, security notes and pull request guidelines. Give exact commands the agent can run and checks it can verify. The same file is read by many other agents, among them Cursor, Gemini CLI, GitHub Copilot's coding agent, Jules, Aider, Zed and Windsurf."
       },
-      "guide_sources": ["https://agents.md"]
+      "guide_sources": [
+        "https://agents.md",
+        "https://learn.chatgpt.com/docs/build-skills",
+        "https://learn.chatgpt.com/docs/prompting"
+      ],
+      "guide_pages": {
+        "rule": ["https://agents.md"],
+        "skill": ["https://learn.chatgpt.com/docs/build-skills"],
+        "prompt": ["https://learn.chatgpt.com/docs/prompting"]
+      }
     },
     {
       "id": "grok-bot",

@@ -353,11 +353,13 @@ def test_the_terminal_asks_each_question_and_turns_option_numbers_into_words(tmp
     assert "Here is what I understood:\n- What it is: understood 1" in out
 
 
-def test_after_three_corrections_the_corrections_win_and_the_make_goes_on(tmp_path: Path) -> None:
-    owner = Answers("Claude Code", {}, ["a", "b", "c", "never asked"])
+def test_after_three_corrections_the_last_say_back_is_still_shown_before_anything_is_made(tmp_path: Path) -> None:
+    # 108: this used to confirm on its own after the third correction, without showing the say-back it produced.
+    owner = Answers("Claude Code", {}, ["a", "b", "c", True])
     made = make.make("x", provider_id="ollama", model="m", kind="skill", out_dir=tmp_path / "o",
                      transport=Owner([9]), interviewer=owner)
     assert made.interview.corrections == ["a", "b", "c"] and made.best_version == 1
+    assert len(owner.shown) == 4 and owner.shown[-1].endswith("understood 4")
 
 
 # --- trying it on the tool --------------------------------------------------------------------------
@@ -435,6 +437,25 @@ def test_every_shipped_guide_names_its_sources() -> None:
         assert host["guides"] and all(s.startswith("https://") for s in host["guide_sources"])
 
 
+def test_each_shipped_guide_cites_the_page_it_was_written_from() -> None:
+    shipped = {"claude": {"skill", "agent", "rule", "prompt"}, "cursor": {"skill", "agent", "rule"},
+               "codex": {"skill", "rule", "prompt"}}
+    for host_id, kinds in shipped.items():
+        host = hosts.all_hosts()[host_id]
+        assert set(host["guides"]) == kinds == set(host["guide_pages"])
+        for kind in kinds:
+            assert 300 < len(host["guides"][kind]) <= 1200  # a guide, not a line and not a manual
+            pages = host["guide_pages"][kind]
+            assert pages and all(p.startswith("https://") and p in host["guide_sources"] for p in pages)
+            target = mi._host_target(host["name"], host_id, host["name"], host, kind)
+            assert target is not None and target.guide_source == ", ".join(pages)  # only that kind's page is named
+
+
+def test_a_kind_a_tool_has_no_official_page_for_is_left_to_research() -> None:
+    codex = hosts.all_hosts()["codex"]
+    assert mi._host_target("Codex", "codex", "Codex", codex, "agent") is None
+
+
 def test_the_command_names_the_rule_file_not_the_question_sheet(tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
                                                                 capsys: pytest.CaptureFixture[str]) -> None:
     model = Owner([9], kind="rule")
@@ -495,3 +516,105 @@ def test_a_text_make_can_be_judged_by_another_model(tmp_path: Path) -> None:
     assert json.loads((tmp_path / "o" / "record.json").read_text(encoding="utf-8"))["judge"] == "my-judge/qwen"
     with pytest.raises(make.MakeError, match="spending limit"):
         make.make("x", provider_id="ollama", model="m", out_dir=tmp_path / "p", transport=Owner(), judge="openai/gpt-x")
+
+
+# --- 108: ranked questions, blanks become stated choices, nothing confirmed unseen, no quiet fallbacks ---
+
+def test_must_know_questions_are_marked_and_come_first_with_follow_ups_after_their_parent() -> None:
+    found = mi.parse_questions(json.dumps([
+        {"id": "tone", "text": "What tone?", "need": "nice"},
+        {"id": "audience", "text": "Who is it for?", "need": "must", "type": "single_select", "options": ["Me", "Team"]},
+        {"id": "size", "text": "How big is the team?", "need": "nice", "dependsOn": {"questionId": "audience", "values": ["Team"]}},
+        {"id": "limit", "text": "Any hard limit?", "priority": "required"},
+        {"id": "plain", "text": "Anything else?"},
+    ]))
+    assert [q.must for q in found] == [False, True, False, True, False]
+    assert [q.id for q in mi.ranked(found)] == ["audience", "size", "limit", "tone", "plain"]
+    assert mi.Question.from_dict(found[1].to_dict()).must is True
+
+
+def test_must_know_questions_are_marked_on_the_sheet_and_in_the_terminal() -> None:
+    iv = mi.Interview("x", "skill", mi.find_target("Claude Code", "skill", lambda *a, **k: None, learned_by="x"),
+                      [mi.Question("goal", "What for?", "text", must=True), mi.Question("tone", "What tone?", "text")])
+    sheet = mi.questions_markdown(iv)
+    assert "1. **goal** (must know): What for?" in sheet and "2. **tone**: What tone?" in sheet
+    assert "decide_for_me" in sheet
+    shown = io.StringIO()
+    typed = iter(["a", ""])
+    mi.TerminalInterviewer(lambda: next(typed), shown.write).answers(iv.questions)
+    assert "What for? [must know]" in shown.getvalue() and "What tone? [must know]" not in shown.getvalue()
+
+
+def test_a_blank_answer_is_left_to_proofhouse_and_the_say_back_states_the_choice(tmp_path: Path) -> None:
+    model = Owner([9])
+    made = make.make("x", provider_id="ollama", model="m", kind="skill", out_dir=tmp_path / "o", transport=model,
+                     interviewer=Answers("Claude Code", {"audience": "Just me", "must": ""}, [True]))
+    assert made.interview.left == ["What must it always do?"]  # the follow-up that did not apply is not listed
+    assert "LEFT TO PROOFHOUSE" in model.seen["write"] and "- What must it always do?" in model.seen["write"]
+    assert "What I chose for you" in model.seen["say back"]
+    record = json.loads((tmp_path / "o" / "record.json").read_text(encoding="utf-8"))
+    assert record["interview"]["left"] == ["What must it always do?"]
+
+    full = Owner([9])
+    make.make("x", provider_id="ollama", model="m", kind="skill", out_dir=tmp_path / "p", transport=full,
+              interviewer=Answers("Claude Code", {"audience": "Just me", "must": "check"}, [True]))
+    assert "What I chose for you" not in full.seen["say back"] and "LEFT TO PROOFHOUSE" not in full.seen["write"]
+
+
+def test_an_answers_file_with_nothing_filled_in_pauses_and_says_why_unless_told_to_decide(tmp_path: Path) -> None:
+    folder = tmp_path / "o"
+    args = dict(provider_id="ollama", model="m", kind="skill", out_dir=folder)
+    make.make("a skill", transport=Owner(), interviewer=mi.FileInterviewer(None, "Claude Code"), **args)
+    again = Owner()
+    made = make.make("a skill", transport=again, interviewer=mi.FileInterviewer(folder / "answers.json"), **args)
+    assert made.stopped == "waiting for your answers" and again.calls == []
+    assert "decide_for_me" in made.waiting_note
+    assert "decide_for_me" in (folder / "questions.md").read_text(encoding="utf-8")
+
+    answers = json.loads((folder / "answers.json").read_text(encoding="utf-8"))
+    assert answers["decide_for_me"] is False
+    answers["decide_for_me"] = True
+    (folder / "answers.json").write_text(json.dumps(answers), encoding="utf-8")
+    third = Owner()
+    made = make.make("a skill", transport=third, interviewer=mi.FileInterviewer(folder / "answers.json"), **args)
+    assert third.calls == ["say back"] and "What I chose for you" in third.seen["say back"]
+    assert made.interview.left == ["Who will use it?", "What must it always do?"]
+
+
+def test_a_correction_in_the_answers_file_is_never_confirmed_before_the_owner_sees_the_new_say_back(tmp_path: Path) -> None:
+    folder = tmp_path / "o"
+    args = dict(provider_id="ollama", model="m", kind="skill", out_dir=folder)
+    make.make("a skill", transport=Owner(), interviewer=mi.FileInterviewer(None, "Claude Code"), **args)
+    answers = json.loads((folder / "answers.json").read_text(encoding="utf-8"))
+    answers["answers"]["must"] = "check"
+    answers.update(confirmed=True, correction="refunds only")  # confirmed and corrected in one go
+    (folder / "answers.json").write_text(json.dumps(answers), encoding="utf-8")
+    model = Owner([9])
+    made = make.make("a skill", transport=model, interviewer=mi.FileInterviewer(folder / "answers.json"), **args)
+    assert made.stopped == "waiting for your answers" and model.calls == ["say back", "say back"]
+    assert json.loads((folder / "answers.json").read_text(encoding="utf-8"))["confirmed"] is False
+
+
+def test_general_notes_are_never_used_quietly() -> None:
+    target = mi._general("Zed", "zed", "Zed", "tool")
+    iv = mi.Interview("x", "skill", target, [mi.Question("goal", "What for?", "text")])
+    told: list[str] = []
+
+    class Source(Answers):
+        def tell(self, note: str) -> None:
+            told.append(note)
+
+    mi.run(iv, Source("Zed", {"goal": "g"}, [True]), lambda *a, **k: "- ok", preset="balanced", learned_by="x")
+    assert any("general notes" in note and "Zed" in note for note in iv.notes) and told == iv.notes
+
+
+def test_stock_questions_are_never_used_quietly() -> None:
+    iv = mi.Interview("x", "skill", mi.find_target("Claude Code", "skill", lambda *a, **k: None, learned_by="x"))
+    shown = io.StringIO()
+    typed = iter(["refunds", "", "", "", "", ""])
+    source = mi.TerminalInterviewer(lambda: next(typed), shown.write, "Claude Code")
+    mi.run(iv, source, lambda role, *a, **k: "I would rather not." if role == "questions" else "- ok",
+           preset="balanced", learned_by="x")
+    assert iv.questions_from == "fallback" and [q.must for q in iv.questions[:3]] == [True, True, True]
+    assert any("stock questions" in note for note in iv.notes) and "stock questions" in shown.getvalue()
+    assert mi.Interview.from_dict(iv.to_dict()).notes == iv.notes

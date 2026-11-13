@@ -4,11 +4,29 @@
 
 ### Changed
 
+- The `make` interview ranks its questions: the ones it must know come first and are marked. A blank answer is left to Proofhouse, listed in the brief, and stated in the say-back so you can correct it; `"decide_for_me": true` in an answers file leaves all of them. The say-back is never confirmed without you seeing it (before, the third correction was confirmed unseen). Stock questions and general writing notes are announced when they are used, not used quietly.
+- The judge marks each thing you asked for as met or not met, with a reason, and the next version is written against every unmet item. A judge reply that cannot be read is asked for once more, then reported. The closing lines say what was met, how the winning version was picked, and that the score is advice.
+- A failed built-in check no longer counts as "target reached", and a version whose checks all pass beats one with a higher score whose checks do not. A version with a failed check can still be delivered when it is the best there is.
+- A paid model that reports zero tokens on a good reply is no longer counted as free: the dollars show as `unknown` and a spending limit is charged the reserved worst case. A model priced at zero still costs nothing.
+- `proofhouse agent-server` runs at most 4 requests at once (429 for one more), lets go of a caller that stops sending (408), stops a timed-out agent with everything it started, and answers a refused request instead of dropping the connection on Windows.
+- Publishing to PyPI now runs the tests first and refuses a commit that is not on `main`.
+- `proofhouse` with nothing after it prints a short start screen instead of an argument error. A missing key says what to set, in PowerShell and in bash form, and names the free route on your own machine.
+- `proofhouse agent-server` now requires a private bearer token on every chat request. It reads `PROOFHOUSE_AGENT_TOKEN`; when that is not set it makes a token, saves it to a file only you can read, and prints the file's path and the line that loads it (PowerShell and bash), never the token. Add the provider with `--key-env PROOFHOUSE_AGENT_TOKEN`. Requests from a browser page (an `Origin` header, or a body that is not JSON) are refused, and bodies over 1 MB are refused with 413 before they are read. Loopback is reachable by every local process, and each accepted request runs the agent's own command line on your plan.
+- In `proofhouse loop`, the agent's own `--allow-commands` runs now get a minimal environment (PATH, HOME, locale and system variables only — no secret-named variable), and command output is scrubbed of any secret-named environment value, not just the known provider keys, before it is shown to the model or written to `rounds.jsonl`. Your own `--check` and `--watch` commands run without your keys too; keep one by name with `--keep-env NAME`. An address with a login in it, and names holding DSN or PAT, count as secrets.
+- The browser that checks and captures a site keeps its own sandbox. Set `PROOFHOUSE_BROWSER_NO_SANDBOX=1` only where it cannot start (a container, a hosted test runner).
+- `proofhouse agent-server` refuses a model name with command characters in it, and the saved token file is private on Windows as well.
+- The chat tools (`proofhouse mcp`) refuse a make folder they did not create, and never confirm a say-back nobody was shown.
+- Secret hygiene now lives in one module, `proofhouse/scrub.py` (the secret-name pattern, secret-value collection, text scrubbing, and the minimal process environment); `loop`, `referee` and `app_platforms` all use it, so a new surface inherits the same rules by default.
 - Films no longer play as a slideshow. A captured frame (command output, a page) now moves for its whole length: a slow, eased push-in or pull-out that always keeps the whole capture in view, over a blurred, darkened copy of itself that fills the screen. Before, a capture was held perfectly still, so a film could freeze for 5 to 8 seconds at a time. A generated image's push-in now runs the whole shot instead of stopping after about five seconds, and each shot moves a little differently from the one before.
 - When the captions are not burned in, each shot's caption now appears as an animated title (fades in and slides up, then fades out), so the picture shows what the voice is saying. Pass `titles=False` to `assemble` to turn it off.
 
 ### Added
 
+- `proofhouse mcp` and `proofhouse connect`: Proofhouse inside the AI app you already use. `connect` hooks it into Claude Code, Cursor and Codex in one step (tools, skill, and your logged-in agents as providers); `connect --undo` removes exactly that. In a chat, "Proofhouse, make me ..." runs the same interview and the same make with no terminal. Images, video, voice and music are not in the chat tools yet.
+- `proofhouse demo make`: a whole make replayed from a recording, with no key and no model.
+- `proofhouse loop --protect PATTERN`: files the agent cannot change. A write is refused, and a command that changes one stops the loop without a pass. With `--check` and no `--protect` the loop says so once.
+- `make --max-output-tokens`, and a plain note when a reply was cut off at the limit.
+- Writing guides, each from the tool's own documentation and citing the page: Cursor skill and agent, Codex skill and prompt, Claude Code prompt.
 - A new check on every render, "picture keeps moving": it fails when the picture holds still for 3 seconds or more, and says where.
 - Films can be written beat by beat (`"beats"` in the `script.json` that `proofhouse render video` reads). Each beat has a picture underneath (a generated clip or image, a moving background, a colour, or a real recording in a window or phone frame), the words it says, moving graphics on top (titles, chips, cards, counters, a callout, a terminal that types and more) timed to those words, sound effects made on your machine, and a cut picked to fit. The music dips under the voice.
 - Real recordings for films: `proofhouse.recording.record_app` drives a browser through clicks, typing and scrolling and saves where the pointer went, so the film draws it; `record_command` and `terminal_timeline` turn a command's real output into a terminal that types it. The home folder and user name are hidden in both.
@@ -17,6 +35,10 @@
 
 ### Fixed
 
+- A `proofhouse loop` with `--watch` now stops when the `--check` command passes (and when the agent says it is done and the check, if any, passes), as the usage guide always said; before, those stops only worked without `--watch`, so a watch loop ran to its rounds or time limit even with a green check.
+- A deploy tool's own echo of its key (`NETLIFY_AUTH_TOKEN` and friends) is now redacted from the output shown and from `deploys.jsonl`.
+- `loop.json` is now written atomically (temp file + replace), so an interrupted run cannot leave a half-written record.
+- The real-voice smoke test (`test_the_local_voice_really_speaks`) now skips on hosted macOS runners, where `say` exists but renders an empty audio file (the same failure was already red on `main`, e.g. CI run 43151763514); on a real Mac with a working engine it still runs.
 - A storyboard layer or sound that had to be left out after the writer's fixes is now recorded as a failed check instead of passing.
 - A prompted `"image"` or `"video"` storyboard layer is now made in the kind it asks for instead of being dropped when no file is given, on beats with real footage too.
 - Invented figures written as words (such as "ten" or "twelve") in a film's narration, overlays or picture prompts are now caught alongside digits. Plain speech such as "one command", "a single step" or "zero setup" is not treated as a figure.

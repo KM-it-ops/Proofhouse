@@ -215,6 +215,7 @@ def make_media(
     shapes: list[str] | None = None,
     shared: str = "",
     judge: str | None = None,
+    max_output_tokens: int = make.DEFAULT_OUTPUT_TOKENS,
 ) -> make.MakeResult:
     entry = media_kinds().get(kind)
     if entry is None:
@@ -266,7 +267,7 @@ def make_media(
         # The judge alone may be another model, such as one that sees pictures (--judge); every other role is the maker's.
         where, which = judger if role == "judge" and judger is not None else (profile, model)
         reply = live.run_prompt(where.id, which, prompt=prompt, input_text=input_text, images=images,
-                                max_output_tokens=2048, max_cost_usd=limit, transport=transport,
+                                max_output_tokens=max_output_tokens, max_cost_usd=limit, transport=transport,
                                 json_reply=role in _JSON_ROLES)
         cost = reply.cost or {}
         result.calls.append(make.Call(role, reply.status, reply.code, cost.get("tokens_in"), cost.get("tokens_out"), cost.get("usd")))
@@ -295,7 +296,8 @@ def make_media(
             mi.run(interview, interviewer, call, preset=preset, learned_by=f"{profile.id}/{model}")
         except mi.Paused as paused:
             save()
-            result.waiting = mi.write_pause(folder, interview, paused.stage)
+            result.waiting = mi.write_pause(folder, interview, paused.stage, paused.reason)
+            result.waiting_note = paused.reason
             result.stopped, result.interview, result.spent_usd = "waiting for your answers", interview, budget.spent
             return result
         except mi.Refused as exc:  # nothing was asked or made: leave no folder behind

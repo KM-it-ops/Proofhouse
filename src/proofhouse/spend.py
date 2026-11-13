@@ -593,7 +593,13 @@ def cost_after(gated: Gated, payload: object) -> tuple[dict[str, Any], str | Non
     tokens_in = _reported(usage, "prompt_tokens")
     tokens_out = _reported(usage, "completion_tokens")
     usd: str = UNKNOWN
-    if gated.entry is not None and isinstance(tokens_in, int) and isinstance(tokens_out, int):
+    status = getattr(gated.response, "status_code", None)
+    answered = isinstance(status, int) and 200 <= status < 300
+    priced = gated.entry is not None and (gated.entry.input_usd_per_million_tokens > 0 or gated.entry.output_usd_per_million_tokens > 0)
+    # A request that was sent and answered always has input. Zero from a model that costs money is a missing report,
+    # not a free call: the dollars stay unknown, and a spending limit then counts the reserved worst case.
+    unbelievable = answered and priced and tokens_in == 0 and tokens_out == 0
+    if gated.entry is not None and isinstance(tokens_in, int) and isinstance(tokens_out, int) and not unbelievable:
         try:
             usd = _usd_text(worst_case_usd(gated.entry, tokens_in, tokens_out))
         except SpendRefused:

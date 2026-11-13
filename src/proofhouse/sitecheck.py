@@ -27,6 +27,13 @@ MAX_FILES = 60
 MAX_BYTES = 3_000_000
 _SAFE_PATH = re.compile(r"[A-Za-z0-9._/-]+")
 _BROWSERS = ("chromium", "chromium-browser", "google-chrome", "google-chrome-stable", "chrome", "msedge")
+# The browser keeps its own safety wall (its sandbox) around the page it opens. Some machines cannot start it:
+# a container, or a hosted test runner. Set this to 1 there, and only there.
+NO_SANDBOX_ENV = "PROOFHOUSE_BROWSER_NO_SANDBOX"
+
+
+def sandbox_flags() -> list[str]:
+    return ["--no-sandbox"] if os.environ.get(NO_SANDBOX_ENV, "").strip() == "1" else []
 
 
 class SiteError(ValueError):
@@ -48,6 +55,12 @@ def write_site(files: dict[str, str], folder: Path) -> list[str]:
         names.append(str(path))
     if "index.html" not in names:
         raise SiteError("the site has no index.html")
+    from .make_checks import safe_name
+
+    if not all(safe_name(name) for name in files):
+        raise SiteError("unsafe file name in the site")
+    if len({name.casefold() for name in names}) != len(names):
+        raise SiteError("two site file names differ only in letter case")
     folder.mkdir(parents=True, exist_ok=True)
     for name, text in files.items():
         target = folder / name
@@ -129,6 +142,12 @@ def _open(command: list[str], timeout: int) -> subprocess.CompletedProcess[str] 
     return f"the browser did not finish in {timeout} s, twice"
 
 
+def _only_because_opened_from_a_file(line: str) -> bool:
+    """True for the one script error this check causes itself: no browser registers a service worker for a page
+    opened from disk (origin 'null'). The same app registers it once it is served, so it is not the app's fault."""
+    return "Failed to register a ServiceWorker" in line and "origin ('null')" in line
+
+
 def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, browser: bool = True) -> list[dict[str, Any]]:
     checks: list[dict[str, Any]] = []
     pages = sorted(folder.rglob("*.html"))
@@ -169,7 +188,7 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, brows
     if shots is not None:
         shots.mkdir(parents=True, exist_ok=True)
     for label, size in (("desktop", "1440,900"), ("phone", "390,844")):
-        command = [browser_path, "--headless=new", "--no-sandbox", "--disable-gpu", "--hide-scrollbars", f"--window-size={size}",
+        command = [browser_path, "--headless=new", *sandbox_flags(), "--disable-gpu", "--hide-scrollbars", f"--window-size={size}",
                    "--enable-logging=stderr", "--v=0"]
         # headless Chrome and Edge only exit after a screenshot or a DOM dump; without one they wait forever
         command.append(f"--screenshot={shots / f'{label}.png'}" if shots is not None else "--dump-dom")
@@ -180,7 +199,8 @@ def check_site(folder: Path, shots: Path | None = None, timeout: int = 30, brows
         if run.returncode != 0:  # a browser that exited with an error never showed the page
             stuck.append(f"{label}: the browser exited with code {run.returncode}")
             continue
-        errors += [line for line in run.stderr.splitlines() if "Uncaught" in line or "SyntaxError" in line]
+        errors += [line for line in run.stderr.splitlines()
+                   if ("Uncaught" in line or "SyntaxError" in line) and not _only_because_opened_from_a_file(line)]
     if len(stuck) == 2:
         checks.append({"check": "opened in a browser", "ok": None, "detail": "not measured: " + "; ".join(stuck)})
         return checks

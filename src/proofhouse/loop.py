@@ -15,9 +15,12 @@ and costs nothing.
 
 from __future__ import annotations
 
+import fnmatch
+import hashlib
 import json
 import os
 import re
+import signal
 import subprocess
 import time
 from dataclasses import dataclass, field
@@ -26,7 +29,7 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Any, Callable
 
-from . import __version__, live, media, providers
+from . import __version__, live, media, providers, scrub
 from .make import Budget, _slug
 
 MAX_ACTIONS = 10
@@ -70,10 +73,14 @@ class Step:
     check: dict[str, Any] | None = None
     watch_changed: bool | None = None
     call: dict[str, Any] | None = None
+    protected_changed: list[str] | None = None
 
     def to_dict(self) -> dict[str, Any]:
-        return {"round": self.round, "when": self.when, "sent": self.sent, "thinking": self.thinking, "summary": self.summary,
+        data = {"round": self.round, "when": self.when, "sent": self.sent, "thinking": self.thinking, "summary": self.summary,
                 "actions": self.actions, "check": self.check, "watch_changed": self.watch_changed, "call": self.call}
+        if self.protected_changed is not None:
+            data["protected_changed"] = self.protected_changed
+        return data
 
 
 @dataclass
@@ -94,33 +101,115 @@ class _Stop(Exception):
     pass
 
 
-def _secrets() -> list[str]:
-    """Key values for every known provider and media service, so command output never carries them anywhere."""
+def _key_names() -> set[str]:
     names: set[str] = set()
     try:
         names |= {p.key_env for p in providers.all_providers().values() if p.key_env}
         names |= {p.key_env for p in media.all_media_providers().values() if p.key_env}
     except (providers.ProviderError, media.MediaError):
         pass
-    return [value for name in names if len(value := os.environ.get(name, "")) >= 6]
+    return names
+
+
+def _secrets() -> list[str]:
+    """Values of every known key variable and of any secret-named variable, so command output never carries
+    them anywhere (the agent's own commands never see them in their environment at all)."""
+    return scrub.secret_values(_key_names())
+
+
+def held_back(keep: list[str] | None = None) -> list[str]:
+    """The variables your check and watch commands run without: every key and secret, less the ones named in
+    ``keep``. The agent can write a file the check runs (a conftest.py, say); with the keys in reach that file
+    could save one in another form, which no scrubbing would recognise, for the agent to read in the next round."""
+    kept = {name.upper() for name in keep or []}
+    known = {name.upper() for name in _key_names()}
+    return sorted(name for name, value in os.environ.items()
+                  if name.upper() not in kept and (name.upper() in known or scrub.is_secret(name, value)))
+
+
+def _check_env(keep: list[str] | None = None) -> dict[str, str]:
+    held = set(held_back(keep))
+    return {**{name: value for name, value in os.environ.items() if name not in held}, "PYTHONDONTWRITEBYTECODE": "1"}
+
+
+def _agent_env() -> dict[str, str]:
+    """The environment a model-driven ``run`` action gets (``scrub.minimal_env``)."""
+    return scrub.minimal_env()
 
 
 def _clean(text: str, secrets: list[str], limit: int = MAX_OUTPUT) -> str:
-    for value in secrets:
-        text = text.replace(value, "[redacted]")
-    return text if len(text) <= limit else "…" + text[-limit:]
+    return scrub.clean(text, secrets, limit)
 
 
-def _shell(command: str, cwd: Path, timeout: int, secrets: list[str]) -> dict[str, Any]:
+def _shell(command: str, cwd: Path, timeout: int, secrets: list[str], env: dict[str, str] | None = None) -> dict[str, Any]:
     # No bytecode caches: an edit of the same size in the same second would otherwise run the old Python file.
-    env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+    if env is None:
+        env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
     try:
-        run = subprocess.run(command, shell=True, cwd=cwd, env=env, capture_output=True, text=True, timeout=timeout, check=False)
-    except subprocess.TimeoutExpired:
-        return {"exit": None, "output": f"stopped after {timeout} seconds"}
+        proc = subprocess.Popen(command, shell=True, cwd=cwd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                stderr=subprocess.STDOUT, text=True, errors="replace", start_new_session=os.name != "nt")
     except OSError as exc:
         return {"exit": None, "output": f"could not start: {exc}"}
-    return {"exit": run.returncode, "output": _clean((run.stdout or "") + (run.stderr or ""), secrets)}
+    try:
+        out, _ = proc.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_tree(proc)  # the command and everything it started, not only the shell that launched it
+        try:
+            proc.communicate(timeout=5)
+        except (subprocess.TimeoutExpired, OSError, ValueError):
+            pass
+        return {"exit": None, "output": f"stopped after {timeout} seconds"}
+    return {"exit": proc.returncode, "output": _clean(out or "", secrets)}
+
+
+def _kill_tree(proc: subprocess.Popen[str]) -> None:
+    if os.name == "nt":
+        try:
+            subprocess.run(["taskkill", "/F", "/T", "/PID", str(proc.pid)], capture_output=True, timeout=30, check=False)
+        except (OSError, subprocess.SubprocessError):
+            proc.kill()
+    else:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except OSError:
+            proc.kill()
+
+
+_SKIP_DIRS = {".git", ".hg", ".svn", "node_modules", "__pycache__", ".pytest_cache", "venv", ".venv"}
+
+
+def _is_protected(relative: str, protect: list[str]) -> bool:
+    """Whether a path inside the folder (forward slashes) falls under one of the --protect patterns. Letter case is
+    ignored and a bare folder name covers everything in it: protecting too much is the safe mistake."""
+    name = relative.lower()
+    for raw in protect:
+        pattern = raw.strip().replace("\\", "/").lower().removeprefix("./").rstrip("/")
+        if fnmatch.fnmatchcase(name, pattern) or name.startswith(pattern + "/"):
+            return True
+    return False
+
+
+def _protected(workdir: Path, protect: list[str]) -> dict[str, str]:
+    """A fingerprint of every protected file there is right now."""
+    found: dict[str, str] = {}
+    for root, dirs, files in os.walk(workdir):
+        dirs[:] = [d for d in dirs if d not in _SKIP_DIRS]
+        for file in files:
+            path = Path(root) / file
+            relative = path.relative_to(workdir).as_posix()
+            if _is_protected(relative, protect):
+                try:
+                    found[relative] = hashlib.sha256(path.read_bytes()).hexdigest()
+                except OSError:
+                    found[relative] = "unreadable"
+    return found
+
+
+def _protected_changes(before: dict[str, str], after: dict[str, str]) -> list[str]:
+    changes = [f"{name} (removed)" for name in before if name not in after]
+    changes += [f"{name} (changed)" for name in before if name in after and before[name] != after[name]]
+    changes += [f"{name} (new)" for name in after if name not in before]
+    return sorted(changes)
 
 
 def _inside(workdir: Path, relative: Any) -> Path:
@@ -128,9 +217,21 @@ def _inside(workdir: Path, relative: Any) -> Path:
         raise LoopError("a path is missing")
     if relative.strip().strip("\"'<>").lower() in _PLACEHOLDER_PATHS:
         raise LoopError(f"{relative!r} is a placeholder, not a real file name; use a real name")
+    # Reject Windows aliases before resolve: a missing `.git.` is not yet canonicalized,
+    # but mkdir would create `.git`. Colons can select NTFS alternate data streams.
+    raw_parts = relative.replace("\\", "/").split("/")
+    if any(":" in part or (part not in (".", "..") and part.endswith((".", " "))) for part in raw_parts):
+        raise LoopError("paths with colons or trailing dots or spaces are not available to loop file actions")
     target = (workdir / relative).resolve()
     if not target.is_relative_to(workdir):
         raise LoopError(f"{relative!r} is outside the folder")
+    parts = {part.lower() for part in target.relative_to(workdir).parts}
+    if parts & {".git", ".hg", ".svn", ".ssh", ".aws", ".azure", ".gnupg"}:
+        raise LoopError("repository metadata and credential folders are not available to loop file actions")
+    name = target.name.lower()
+    if name == ".env" or name.startswith(".env.") or name in {"credentials", "credentials.json", "auth.json"} \
+            or target.suffix.lower() in {".pem", ".key", ".p12", ".pfx"}:
+        raise LoopError("credential files are not available to loop file actions")
     return target
 
 
@@ -160,7 +261,8 @@ def _plan(text: str | None) -> dict[str, Any]:
             "done": data.get("done") is True, "summary": str(data.get("summary") or "")}
 
 
-def _act(action: Any, workdir: Path, allow_commands: bool, timeout: int, secrets: list[str]) -> dict[str, Any]:
+def _act(action: Any, workdir: Path, allow_commands: bool, timeout: int, secrets: list[str],
+         protect: list[str] | None = None) -> dict[str, Any]:
     if not isinstance(action, dict):
         return {"action": "unknown", "ok": False, "result": "an action must be a JSON object"}
     try:
@@ -175,6 +277,9 @@ def _act(action: Any, workdir: Path, allow_commands: bool, timeout: int, secrets
             text = action.get("text")
             if not isinstance(text, str):
                 return {"action": f"write {action['write']}", "ok": False, "result": "write needs text"}
+            if protect and _is_protected(target.relative_to(workdir).as_posix(), protect):
+                return {"action": f"write {action['write']}", "ok": False,
+                        "result": "this file is protected and cannot be changed; reach the goal by changing other files"}
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text(text, encoding="utf-8")
             return {"action": f"write {action['write']}", "ok": True, "result": f"{len(text.encode('utf-8'))} bytes written"}
@@ -182,15 +287,19 @@ def _act(action: Any, workdir: Path, allow_commands: bool, timeout: int, secrets
             command = str(action["run"])
             if not allow_commands:
                 return {"action": f"run {command}", "ok": False, "result": "running commands is switched off for this agent"}
-            outcome = _shell(command, workdir, timeout, secrets)
+            outcome = _shell(command, workdir, timeout, secrets, env=_agent_env())
             return {"action": f"run {command}", "ok": outcome["exit"] == 0, "result": f"exit {outcome['exit']}\n{outcome['output']}"}
     except (LoopError, OSError) as exc:
         return {"action": json.dumps(action)[:120], "ok": False, "result": str(exc)}
     return {"action": json.dumps(action)[:120], "ok": False, "result": "unknown action; use read, write or run"}
 
 
-def _state(workdir: Path, steps: list[Step], watch: str | None, check: dict[str, Any] | None) -> str:
+def _state(workdir: Path, steps: list[Step], watch: str | None, check: dict[str, Any] | None,
+           protect: list[str] | None = None) -> str:
     lines = [f"FILES IN THE FOLDER:\n{_listing(workdir)}"]
+    if protect:
+        lines.append("PROTECTED FILES (you cannot change, add or remove these; the loop stops if a command does): "
+                     + ", ".join(protect))
     recent = [s for s in steps if s.sent][-HISTORY:]
     if recent:
         lines.append("RECENT ROUNDS:")
@@ -214,6 +323,8 @@ def run_loop(
     model: str,
     workdir: Path,
     check: str | None = None,
+    protect: list[str] | None = None,
+    keep_env: list[str] | None = None,
     watch: str | None = None,
     every: float | None = None,
     max_rounds: int = 20,
@@ -235,9 +346,13 @@ def run_loop(
         raise LoopError("--every must be zero or more seconds")
     if watch is not None and not every:
         raise LoopError("a watch needs --every (seconds between looks)")
+    protect = list(protect or [])
+    if any(not isinstance(p, str) or not p.strip().strip("./\\") for p in protect):
+        raise LoopError("--protect needs a file name or pattern, for example \"tests/*\"")
     workdir = workdir.resolve()
     if not workdir.is_dir():
         raise LoopError(f"{workdir} is not a folder")
+    check_env = _check_env(keep_env)  # your check and watch run without your keys, unless you keep one by name
     profile = providers.find(provider_id)
     if profile is None:
         raise LoopError(f"no provider named {provider_id!r}; see `proofhouse providers list`")
@@ -266,7 +381,7 @@ def run_loop(
         result.steps.append(step)
         with (folder / "rounds.jsonl").open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(step.to_dict(), sort_keys=True) + "\n")
-        _write_record(folder, goal, profile.id, model, max_cost_usd, check, watch, every, allow_commands, result, budget)
+        _write_record(folder, goal, profile.id, model, max_cost_usd, check, watch, every, allow_commands, result, budget, protect)
 
     try:
         while True:
@@ -276,7 +391,7 @@ def run_loop(
             now = datetime.now(timezone.utc).isoformat(timespec="seconds")
             watch_output = None
             if watch is not None:
-                outcome = _shell(watch, workdir, command_timeout, secrets)
+                outcome = _shell(watch, workdir, command_timeout, secrets, env=check_env)
                 watch_output = f"exit {outcome['exit']}\n{outcome['output']}"
                 if last_watch is not None and watch_output == last_watch:
                     record(Step(number, now, sent=False, summary="nothing changed; nothing sent", watch_changed=False))
@@ -287,14 +402,14 @@ def run_loop(
                 raise _Stop("rounds used up")
             check_now = None
             if check:
-                check_now = last_check if last_check is not None and watch is None else _shell(check, workdir, command_timeout, secrets)
-            if check_now is not None and check_now["exit"] == 0 and watch is None:
+                check_now = last_check if last_check is not None and watch is None else _shell(check, workdir, command_timeout, secrets, env=check_env)
+            if check_now is not None and check_now["exit"] == 0:
                 result.done = True
                 raise _Stop("check passed")
             limit = budget.for_next_call()
             if budget.spent_out():
                 raise _Stop("spending limit reached")
-            reply = live.run_prompt(profile.id, model, prompt=system, input_text=_state(workdir, result.steps, watch_output, check_now),
+            reply = live.run_prompt(profile.id, model, prompt=system, input_text=_state(workdir, result.steps, watch_output, check_now, protect),
                                     max_output_tokens=max_output_tokens, max_cost_usd=limit, transport=transport)
             budget.charge(reply)
             cost = reply.cost or {}
@@ -308,14 +423,23 @@ def run_loop(
             plan = _plan(reply.output_text)
             step = Step(number, now, sent=True, thinking=plan["thinking"], summary=plan["summary"], call=call,
                         watch_changed=True if watch is not None else None)
-            step.actions = [_act(action, workdir, allow_commands, command_timeout, secrets) for action in plan["actions"]]
+            guarded = _protected(workdir, protect) if protect else {}
+            step.actions = [_act(action, workdir, allow_commands, command_timeout, secrets, protect) for action in plan["actions"]]
+            if protect:
+                changes = _protected_changes(guarded, _protected(workdir, protect))
+                if changes:
+                    # The files that decide pass or fail are no longer the ones you protected, so no check is run on them.
+                    step.protected_changed = changes
+                    record(step)
+                    shown = ", ".join(changes[:5]) + (f" and {len(changes) - 5} more" if len(changes) > 5 else "")
+                    raise _Stop(f"a protected file was changed by the agent's command, so the check cannot be trusted: {shown}")
             if check:
-                step.check = last_check = _shell(check, workdir, command_timeout, secrets)
+                step.check = last_check = _shell(check, workdir, command_timeout, secrets, env=check_env)
             record(step)
-            if step.check is not None and step.check["exit"] == 0 and watch is None:
+            if step.check is not None and step.check["exit"] == 0:
                 result.done = True
                 raise _Stop("check passed")
-            if plan["done"] and check is None and watch is None:
+            if plan["done"] and (step.check is None or step.check["exit"] == 0):
                 result.done = True
                 raise _Stop(f"the agent says it is done: {plan['summary']}".rstrip(": "))
             if every:
@@ -325,17 +449,18 @@ def run_loop(
     except KeyboardInterrupt:
         result.stopped = "stopped by you"
     result.spent_usd = budget.spent
-    _write_record(folder, goal, profile.id, model, max_cost_usd, check, watch, every, allow_commands, result, budget)
+    _write_record(folder, goal, profile.id, model, max_cost_usd, check, watch, every, allow_commands, result, budget, protect)
     return result
 
 
 def _write_record(folder: Path, goal: str, provider: str, model: str, limit: str | None, check: str | None, watch: str | None,
-                  every: float | None, allow_commands: bool, result: LoopResult, budget: Budget) -> None:
+                  every: float | None, allow_commands: bool, result: LoopResult, budget: Budget,
+                  protect: list[str] | None = None) -> None:
     record = {
         "proofhouse_version": __version__, "goal": goal, "provider": provider, "model": model, "workdir": str(result.workdir),
-        "max_cost_usd": limit, "check": check, "watch": watch, "every_seconds": every, "commands_allowed": allow_commands,
+        "max_cost_usd": limit, "check": check, "protect": protect or [], "watch": watch, "every_seconds": every, "commands_allowed": allow_commands,
         "stopped": result.stopped, "done": result.done, "rounds": len(result.steps), "calls": result.calls,
         "spent_usd_estimated": format(budget.spent, "f"),
         "note": "Dollar figures are estimates from token counts and prices, not your bill.",
     }
-    (folder / "loop.json").write_text(json.dumps(record, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+    providers.write_atomic(folder / "loop.json", json.dumps(record, indent=2, sort_keys=True) + "\n")

@@ -22,7 +22,11 @@ SITE = {
 PWA = {"manifest.webmanifest": json.dumps({"name": "App", "start_url": ".", "display": "standalone",
                                            "icons": [{"src": "icon.svg", "sizes": "192x192"}]}),
        "service-worker.js": "self.addEventListener('fetch', () => {});",
-       "icon.svg": '<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"></svg>'}
+       "icon.svg": '<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192"></svg>',
+       # the page of an installable web app links its manifest and registers its worker; without these the app's own
+       # checks fail, and since 108 a failed check keeps the rounds going whatever the judge scored
+       "index.html": SITE["index.html"].replace("</head>", '<link rel="manifest" href="manifest.webmanifest"></head>')
+                     .replace("</body>", "<script>navigator.serviceWorker.register('service-worker.js')</script></body>")}
 PLAN = json.dumps({"name": "Refund launch", "parts": [
     {"kind": "site", "brief": "A landing page for the refund helper."},
     {"kind": "skill", "brief": "A skill that handles refunds."},
