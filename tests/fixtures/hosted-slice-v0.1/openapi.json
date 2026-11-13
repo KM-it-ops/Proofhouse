@@ -1111,6 +1111,13 @@
                     "description": "",
                     "type": "boolean"
                   },
+                  "keep-env": {
+                    "description": "A key or secret variable your --check or --watch command needs (repeatable). They run without your keys and secrets otherwise. The agent can reach a kept one through a file the check runs, so keep only what the check cannot do without.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
+                  },
                   "max-cost-usd": {
                     "description": "One spending limit for the whole loop; required for a paid model.",
                     "type": "string"
@@ -1122,6 +1129,13 @@
                   "out": {
                     "description": "Folder for the record (default: loop-<goal>-<time> here).",
                     "type": "string"
+                  },
+                  "protect": {
+                    "description": "Files the agent may not change, add or remove, for example \"tests/*\" (repeatable). Use it for the files your --check reads, so the check cannot be passed by editing them.",
+                    "items": {
+                      "type": "string"
+                    },
+                    "type": "array"
                   },
                   "provider": {
                     "description": "Provider id (see `proofhouse providers list`).",
@@ -1215,6 +1229,10 @@
                   "max-cost-usd": {
                     "description": "Spending limit for the whole make; required for a paid provider.",
                     "type": "string"
+                  },
+                  "max-output-tokens": {
+                    "description": "The most each reply may be, in tokens (default 2048). Raise it when a long piece comes back cut off. In a launch it applies to the text parts.",
+                    "type": "integer"
                   },
                   "model": {
                     "description": "Model id as the provider names it.",
@@ -1742,6 +1760,7 @@
     "compare",
     "compile",
     "compile-requirements",
+    "connect",
     "demo",
     "deploy",
     "doctor",
@@ -1759,6 +1778,7 @@
     "install-skill",
     "loop",
     "make",
+    "mcp",
     "media",
     "missionrig-generate",
     "models",
@@ -1805,12 +1825,14 @@
     "addons",
     "case",
     "check",
+    "connect",
     "demo",
     "deploy",
     "eval",
     "hosts",
     "install",
     "install-skill",
+    "mcp",
     "media",
     "models",
     "optimize",
