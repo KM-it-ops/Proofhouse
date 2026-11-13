@@ -227,7 +227,7 @@ def run_prompt(
     if profile.key_env:
         secret = os.environ.get(profile.key_env) or None
         if secret is None and not profile.local:
-            return _refused("PHC-RUN-0003", f"set {profile.key_env} to your {profile.name} key", profile.id, model)
+            return _refused("PHC-RUN-0003", providers.missing_key(profile.key_env, profile.name), profile.id, model)
     if max_cost_usd is None:
         if not profile.local:
             return _refused("PHC-RUN-0002", "name a spending limit for a paid provider (--max-cost-usd)", profile.id, model)

@@ -404,7 +404,7 @@ def generate(
         return _refused("PHC-RUN-0002", "name the model and say what to make", profile.id, model, kind)
     secret = os.environ.get(profile.key_env) if profile.key_env else None
     if profile.key_env and not secret and not profile.local:
-        return _refused("PHC-RUN-0003", f"set {profile.key_env} to your {profile.name} key", profile.id, model, kind)
+        return _refused("PHC-RUN-0003", providers.missing_key(profile.key_env, profile.name), profile.id, model, kind)
     if max_cost_usd is None:
         if not profile.local:
             return _refused("PHC-RUN-0002", "name a spending limit for a paid service (--max-cost-usd)", profile.id, model, kind)

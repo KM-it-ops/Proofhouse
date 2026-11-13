@@ -268,3 +268,13 @@ def snapshot() -> Snapshot:
     """Read your providers file once and build every provider from that one read. Raises ProviderError if it is broken."""
     user = load_user()
     return Snapshot(MappingProxyType(all_providers(user)), MappingProxyType(user))
+
+
+def missing_key(key_env: str, name: str) -> str:
+    """What to tell someone whose key is not set: the exact line for their shell, and the way that needs no key."""
+    return (
+        f"set {key_env} to your {name} key. "
+        f"PowerShell: $env:{key_env} = \"your-key\"   bash: export {key_env}=\"your-key\". "
+        "No key? A model on this machine needs none and costs nothing (--provider ollama); "
+        "`proofhouse setup` shows what this machine has."
+    )

@@ -1026,9 +1026,26 @@ def _make_console_safe() -> None:
             reconfigure(errors="replace")
 
 
+START_SCREEN = """\
+Proofhouse: say what you want, pick any model, and it asks, makes, tries, judges and improves it.
+
+Start here:
+  proofhouse demo make     See a whole make, start to finish. No key, no model, nothing spent.
+  proofhouse setup         See what this machine already has (keys, local models, AI apps).
+
+Make your first thing (a model on this machine costs nothing):
+  proofhouse make "a skill that writes release notes" --kind skill --provider ollama --model <model>
+
+It makes prompts, skills, agents, rules, MCP servers, hooks, sites, apps, images, video, voice and music.
+Every command: proofhouse --help"""
+
+
 def main(argv: list[str] | None = None) -> int:
     _make_console_safe()
     argv_list = list(sys.argv[1:] if argv is None else argv)
+    if not argv_list:  # a bare `proofhouse` is someone's first look: show where to start, not a usage error
+        print(START_SCREEN)
+        return 0
     if (
         argv_list
         and not argv_list[0].startswith("-")

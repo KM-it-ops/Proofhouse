@@ -88,7 +88,7 @@ COMMAND_MAP: dict[str, tuple[str, str, str]] = {
     "models show": (SPINE, "", "utility: model-notes registry"),
     "models remember": (SPINE, "", "utility: stores the user's own model notes"),
     "models forget": (SPINE, "", "utility: removes cached model notes"),
-    "demo": (SPINE, "", "utility: the packaged reference workflow"),
+    "demo": (SPINE, "", "utility: recorded examples with no key; `demo make` replays a whole make"),
     "scan": (SPINE, "", "utility: read-only project scan for the skill's questions"),
     "doctor": (SPINE, "", "utility: environment and contract check"),
     "validate": (SPINE, "", "compiler: IR validation"),

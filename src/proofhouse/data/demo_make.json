@@ -1,0 +1,55 @@
+{
+  "schema": "proofhouse-demo-make-v1",
+  "note": "The recorded make that `proofhouse demo make` replays. The replies stand in for a model and the typed lines stand in for the person, so the whole path runs with no key, no model and no spending.",
+  "request": "a skill that writes release notes from the commits since the last tag",
+  "kind": "skill",
+  "for": "Claude Code",
+  "typed": [
+    "2",
+    "1",
+    "Breaking changes, at the top, with what to do about each",
+    "",
+    "Internal ticket numbers",
+    "Skip merge commits and version-bump commits.",
+    ""
+  ],
+  "questions": [
+    {"group": "Who it is for", "questions": [
+      {"id": "readers", "text": "Who reads the release notes?", "type": "single_select",
+       "options": ["Developers", "People who use the product", "Both"], "priority": "must know"}
+    ]},
+    {"group": "What it writes", "questions": [
+      {"id": "grouping", "text": "How should the changes be grouped?", "type": "single_select",
+       "options": ["By type (added, fixed, changed)", "By area of the product", "One flat list"], "priority": "must know"},
+      {"id": "always", "text": "What must it always call out?", "type": "text", "priority": "must know"},
+      {"id": "length", "text": "How long should the notes be?", "type": "text", "priority": "would help"},
+      {"id": "never", "text": "Anything it should never include?", "type": "text", "priority": "would help"}
+    ]}
+  ],
+  "say_back": [
+    "- What it is: a Claude Code skill that writes release notes from the commits since the last tag.\n- Who reads it: people who use the product, so plain words and no code talk.\n- Grouping: by type (added, fixed, changed).\n- Always: breaking changes at the top, each with what to do about it.\n- Never: internal ticket numbers.\n- You left the length to me. I chose: one line per change, 20 lines at most. Say so if you want it different.",
+    "- What it is: a Claude Code skill that writes release notes from the commits since the last tag.\n- Who reads it: people who use the product, so plain words and no code talk.\n- Grouping: by type (added, fixed, changed).\n- Always: breaking changes at the top, each with what to do about it.\n- Never: internal ticket numbers.\n- Skips: merge commits and version-bump commits (your correction).\n- You left the length to me. I chose: one line per change, 20 lines at most. Say so if you want it different."
+  ],
+  "versions": [
+    "---\nname: release-notes\ndescription: Writes release notes for people who use the product, from the commits since the last tag. Use when asked for release notes, a changelog entry or \"what changed since the last release\".\n---\n\n# Release notes\n\n## When to Use\nSomeone asks for release notes, a changelog entry, or what changed since the last release.\n\n## Instructions\n1. Find the last tag: `git describe --tags --abbrev=0`.\n2. List the commits since it: `git log <tag>..HEAD --no-merges --pretty=format:%s`.\n3. Drop version-bump commits (subjects such as \"bump version\" or \"release 1.2.3\").\n4. Put breaking changes first under **Breaking changes**, each with one sentence on what the reader has to do.\n5. Group the rest under **Added**, **Fixed** and **Changed**.\n6. Write for people who use the product: say what is different for them, in plain words. No file names, no function names.\n7. Remove internal ticket numbers (such as ABC-123) from every line.\n",
+    "---\nname: release-notes\ndescription: Writes release notes for people who use the product, from the commits since the last tag. Use when asked for release notes, a changelog entry or \"what changed since the last release\".\n---\n\n# Release notes\n\n## When to Use\nSomeone asks for release notes, a changelog entry, or what changed since the last release.\n\n## Instructions\n1. Find the last tag: `git describe --tags --abbrev=0`.\n2. List the commits since it: `git log <tag>..HEAD --no-merges --pretty=format:%s`.\n3. Drop version-bump commits (subjects such as \"bump version\" or \"release 1.2.3\").\n4. Put breaking changes first under **Breaking changes**, each with one sentence on what the reader has to do.\n5. Group the rest under **Added**, **Fixed** and **Changed**.\n6. Write for people who use the product: say what is different for them, in plain words. No file names, no function names.\n7. Remove internal ticket numbers (such as ABC-123) from every line.\n8. Keep to one line per change and 20 lines at most. When there are more changes than that, merge the small related ones into one line and keep every breaking change.\n"
+  ],
+  "judge": [
+    {"score": 7, "fix": "State the length limit: one line per change, 20 lines at most.", "missing": ["a length limit"], "asked": [
+      {"item": "Writes for people who use the product, in plain words", "met": true, "why": "step 6 says so"},
+      {"item": "Groups changes by type", "met": true, "why": "step 5 names Added, Fixed and Changed"},
+      {"item": "Puts breaking changes at the top with what to do", "met": true, "why": "step 4"},
+      {"item": "Leaves out internal ticket numbers", "met": true, "why": "step 7"},
+      {"item": "Skips merge and version-bump commits", "met": true, "why": "--no-merges in step 2, and step 3"},
+      {"item": "One line per change, 20 lines at most", "met": false, "why": "no length limit is stated anywhere"}
+    ]},
+    {"score": 9, "fix": "none", "missing": [], "asked": [
+      {"item": "Writes for people who use the product, in plain words", "met": true, "why": "step 6 says so"},
+      {"item": "Groups changes by type", "met": true, "why": "step 5 names Added, Fixed and Changed"},
+      {"item": "Puts breaking changes at the top with what to do", "met": true, "why": "step 4"},
+      {"item": "Leaves out internal ticket numbers", "met": true, "why": "step 7"},
+      {"item": "Skips merge and version-bump commits", "met": true, "why": "--no-merges in step 2, and step 3"},
+      {"item": "One line per change, 20 lines at most", "met": true, "why": "step 8 states the limit"}
+    ]}
+  ]
+}
