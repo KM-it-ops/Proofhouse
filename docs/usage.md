@@ -72,7 +72,8 @@ When `PROOFHOUSE_AGENT_TOKEN` is not set, the server makes a token, saves it to 
 read in your Proofhouse settings folder, and prints the file's path with the one line that loads it
 into the shell that will call the bridge (PowerShell and bash forms). The token itself is never
 printed. To use your own token, set `PROOFHOUSE_AGENT_TOKEN` in both shells before starting; never
-put its value in a command argument, repository, or provider file.
+put its value in a command argument, repository, or provider file. A model name sent to the bridge may
+hold letters, digits and `. _ : / @ + -` only; anything else is refused before an agent is started.
 
 The server refuses missing or incorrect bearer tokens and browser-origin requests. It accepts
 JSON bodies up to 1 MB. Binding to localhost alone does not authenticate the caller. The
@@ -332,7 +333,7 @@ proofhouse loop "when the build breaks, find out why and write it up in BUILD-NO
 
 Each round, the agent sees the goal, the files in its folder, what happened in recent rounds, and the output of your check and watch commands. It reads files, writes files, and (only with `--allow-commands`) runs commands in that folder. It cannot touch anything outside the folder.
 
-The loop stops when your `--check` command passes (with or without `--watch`), or when the agent says it is done (and the check, if any, passes). It also stops when `--rounds` or `--for` runs out, when the next call would cross the one spending limit, or when you press Ctrl-C. With `--watch` and `--every`, a look that finds nothing changed sends nothing and costs nothing. Every round is kept in `rounds.jsonl`, with `loop.json` for the totals. Key values and any secret-named environment value (anything with KEY, TOKEN, SECRET, PASSWORD, CREDENTIAL, AUTH, ... in the name) are blanked out of command output before it goes anywhere, and the agent's own `--allow-commands` runs get a minimal environment with no secret variables in it. Your own `--check` and `--watch` commands keep your full environment.
+The loop stops when your `--check` command passes (with or without `--watch`), or when the agent says it is done (and the check, if any, passes). It also stops when `--rounds` or `--for` runs out, when the next call would cross the one spending limit, or when you press Ctrl-C. With `--watch` and `--every`, a look that finds nothing changed sends nothing and costs nothing. Every round is kept in `rounds.jsonl`, with `loop.json` for the totals. Key values and any secret-named environment value (anything with KEY, TOKEN, SECRET, PASSWORD, CREDENTIAL, AUTH, ... in the name) are blanked out of command output before it goes anywhere, and the agent's own `--allow-commands` runs get a minimal environment with no secret variables in it. Your own `--check` and `--watch` commands run without your keys too, because the agent can write a file the check runs and read a key back through it. If the check needs one variable, keep it by name with `--keep-env GH_TOKEN` (repeatable); its value is still blanked out of what the agent sees. The loop names the variables it held back. An address with a login in it (such as a database URL) counts as a secret whatever its name. One limit: a command the agent is allowed to run can still read files in your home folder.
 
 `--protect PATTERN` (repeat it for more) names files the agent cannot change, such as the tests your check runs:
 

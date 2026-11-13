@@ -84,8 +84,13 @@ It is local only: not pushed, no pull request, and #105 to #107 are still open, 
 - **Repaired:** a failed built-in check now blocks the early stop but not the delivery (106 delivered nothing
   after one failed check); the no-redirect sender sits behind one named function (106's version sent two tests
   to the real network); link tests skip only off CI (107 skipped them everywhere).
-- **Dropped:** 107's `--no-sandbox` for the capture browser, its reading an unreadable settings file as an empty
-  one, and its PowerShell voice probe.
+- **Dropped:** 107's reading an unreadable settings file as an empty one, and its PowerShell voice probe.
+  The browser's `--no-sandbox` was on main already; 108 turns the sandbox back on unless
+  `PROOFHOUSE_BROWSER_NO_SANDBOX=1`.
+- **Final review:** one independent security pass at the end. Fixed: a loop's check and watch run without your
+  keys unless kept by name (`--keep-env`), addresses with a login count as secrets, model names are checked
+  before the bridge starts an agent, the token file is private on Windows, the chat tools refuse folders they
+  did not make and never confirm an unseen say-back.
 - **A better core:** ranked questions, blank answers turned into stated choices, a say-back that is never
   confirmed unseen, a judge that marks each asked-for item met or not met, closing lines that say what was met,
   `--max-output-tokens`, and writing guides for Cursor (skill, agent), Codex (skill, prompt) and Claude Code
@@ -838,6 +843,11 @@ What consolidation 108 (2026-11-13) already did of these, so the units do not re
   time limit.
 - The real tool folders a platform names (such as `CARGO_HOME`, `GRADLE_USER_HOME`, `APPDATA`) are visible
   to its build, so a build script can read whatever those tools keep there.
+- In a loop with commands allowed, a command can still read files in your home folder (the saved bridge token
+  among them). The keys are kept out of its environment, not off the disk.
+- On Windows, a program an agent starts as fully detached can outlive the stop that ends a timed-out run.
+- Hard case `make-2` expects a film with no picture service to be refused. Main now makes that film on motion
+  layers alone, so the case reads "broke"; the case, not the product, is out of date.
 - Voice and music are judged on measurements (length, loudness, silence) and on the plan. Nothing listens to
   them, so a clip can pass and still sound wrong.
 - When Proofhouse learns a platform, host, deploy target or service it did not know, the pages the model cites
