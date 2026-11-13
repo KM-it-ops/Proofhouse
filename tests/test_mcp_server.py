@@ -214,14 +214,20 @@ def test_a_call_to_an_agent_address_runs_the_agent_here_and_other_addresses_go_o
 def test_an_agent_given_its_prompt_in_a_file_does_not_inherit_this_process_input(monkeypatch):
     seen: dict = {}
 
-    def fake_run(argv, **kwargs):
-        seen.update(kwargs)
-        return subprocess.CompletedProcess(argv, 0, "ok", "")
+    class FakeProcess:  # the agent is started with Popen so a run that times out can be stopped with its children
+        returncode = 0
+
+        def __init__(self, argv, **kwargs):
+            seen.update(kwargs)
+
+        def communicate(self, given=None, timeout=None):
+            seen["given"] = given
+            return "ok", ""
 
     monkeypatch.setattr(agent_server.shutil, "which", lambda name: name)
-    monkeypatch.setattr(agent_server.subprocess, "run", fake_run)
+    monkeypatch.setattr(agent_server.subprocess, "Popen", FakeProcess)
     assert agent_server.run_agent(["tool", "--file", "{prompt_file}"], "hello", 5.0) == "ok"
-    assert seen.get("stdin") == subprocess.DEVNULL and "input" not in seen
+    assert seen.get("stdin") == subprocess.DEVNULL and seen["given"] is None
     seen.clear()
     assert agent_server.run_agent(["tool"], "hello", 5.0) == "ok"
-    assert seen.get("input") == "hello" and "stdin" not in seen
+    assert seen.get("stdin") == subprocess.PIPE and seen["given"] == "hello"
