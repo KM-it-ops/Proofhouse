@@ -49,8 +49,10 @@ def priced(monkeypatch: pytest.MonkeyPatch):
     return table
 
 
+# Skips decided while a test runs, when the machine refuses to make a link. A test marked to skip on Windows by
+# name ("creating symlinks needs privileges on Windows") is not one of these: it runs on Linux and macOS on CI.
 _NO_LINKS = ("not permitted in this environment", "cannot make symbolic links", "cannot create symlinks",
-             "symlinks needs privileges", "cannot create a file symlink")
+             "cannot create a file symlink")
 
 
 @pytest.hookimpl(hookwrapper=True)

@@ -196,7 +196,9 @@ def guarded(project: Path) -> Path:
 
 def test_a_protected_file_cannot_be_written_so_the_check_cannot_be_passed_by_editing_it(tmp_path: Path, guarded: Path) -> None:
     before = (guarded / "tests" / "check_calc.py").read_bytes()
-    agent = Agent({"actions": [{"write": "tests/check_calc.py", "text": "pass\n"}, {"write": "TESTS\\check_calc.py", "text": "pass\n"}],
+    # the same file under another spelling; a backslash separates folders on Windows only
+    other = "TESTS\\check_calc.py" if sys.platform == "win32" else "TESTS/check_calc.py"
+    agent = Agent({"actions": [{"write": "tests/check_calc.py", "text": "pass\n"}, {"write": other, "text": "pass\n"}],
                    "summary": "made the test easy"})
     made = loop.run_loop("x", provider_id="ollama", model="m", workdir=guarded, check=TESTS_CHECK, protect=["tests/*"],
                          max_rounds=2, out_dir=tmp_path / "r", transport=agent)
